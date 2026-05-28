@@ -16,3 +16,6 @@ export { parseActionValue, parseActionValueFromValues } from './utils/parseActio
 export { formatCurrency, formatNumber } from './utils/formatCurrency.js';
 
 export type * from './types.js';
+
+export { RuleEngine } from './rules/engine.js';
+export type * from './rules/types.js';

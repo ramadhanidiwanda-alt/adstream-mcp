@@ -11,6 +11,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "example:daily-report": "tsx examples/daily-report.ts",
+    "example:campaign-audit": "tsx examples/campaign-audit.ts",
+    "example:rule-engine": "tsx examples/rule-engine-demo.ts",
     "lint": "eslint src",
     "format": "prettier --write src"
   },
