@@ -2,15 +2,38 @@
 
 Read-only Meta Ads insights toolkit for AI agents. Built to help AI agents analyze and report on Meta (Facebook) advertising campaigns using the official Meta Marketing API.
 
+[![GitHub](https://img.shields.io/github/license/ramadhanidiwanda-alt/meta-ads-agent-skill)](LICENSE)
+[![Tests](https://img.shields.io/badge/tests-14%2F14%20passing-brightgreen)]()
+[![Build](https://img.shields.io/badge/build-passing-brightgreen)]()
+
 ## What is this?
 
 This is an open-source TypeScript library that provides AI agents with the ability to:
 - Read Meta Ads account data
 - Fetch campaign, adset, and ad-level insights
-- Analyze campaign performance
+- Analyze campaign performance with flexible rule engine
 - Generate automated reports and recommendations
+- Use pre-built rule templates for common scenarios
 
-**Current Status:** MVP - Read-only operations only. No write/action capabilities.
+**Current Status:** v0.2.0 - Advanced rule engine with 26 pre-built templates
+
+## Features
+
+### ✅ v0.1.0 - Core Features
+- **MetaClient** - Clean wrapper for Meta Marketing API
+- **6 Read-only Tools** - getAdAccounts, getCampaigns, insights at all levels
+- **Performance Analysis** - Smart campaign analysis with recommendations
+- **Daily Reports** - Automated report generation
+
+### 🆕 v0.2.0 - Advanced Rule Engine
+- **Flexible Rule System** - Define custom rules with conditions and logic
+- **26 Pre-built Templates** - Ready-to-use rules for common scenarios
+- **4 Rule Categories**:
+  - E-commerce (6 rules) - Purchase optimization
+  - Lead Generation (6 rules) - Lead optimization
+  - Brand Awareness (6 rules) - Reach optimization
+  - General Performance (8 rules) - Universal rules
+- **Smart Evaluation** - AND/OR logic, 6 operators, priority-based recommendations
 
 ## Use Cases
 
@@ -18,14 +41,7 @@ This is an open-source TypeScript library that provides AI agents with the abili
 - **Campaign Audits**: Analyze multiple campaigns and identify optimization opportunities
 - **Performance Monitoring**: Track key metrics like CTR, CPC, CPM, conversions
 - **AI-Powered Analysis**: Let AI agents interpret your ad data and provide recommendations
-
-## Safety & Permissions
-
-This library is designed with safety in mind:
-- **Read-only by default**: Only uses `ads_read` permission
-- **No automatic actions**: Recommendations are suggestions only, never executed automatically
-- **No write operations**: Cannot pause campaigns, update budgets, or create ads
-- **Explicit approval required**: All recommendations include disclaimers
+- **Custom Rule Evaluation**: Define your own rules for specific business needs
 
 ## Installation
 
@@ -33,37 +49,21 @@ This library is designed with safety in mind:
 npm install meta-ads-agent-skill
 ```
 
-## Setup
+## Quick Start
 
-### 1. Create a Meta App
+### 1. Setup Environment
 
-1. Go to [Meta for Developers](https://developers.facebook.com/)
-2. Create a new app or use an existing one
-3. Add the "Marketing API" product
-4. Generate a User Access Token with `ads_read` permission
-
-### 2. Configure Environment Variables
-
-Create a `.env` file in your project root:
+Create a `.env` file:
 
 ```env
 META_ACCESS_TOKEN=your_access_token_here
-META_AD_ACCOUNT_ID=your_ad_account_id
+META_AD_ACCOUNT_ID=act_123456789
 META_API_VERSION=v20.0
 ```
 
-**Important:** Never commit your `.env` file to version control.
-
-### 3. Find Your Ad Account ID
-
-Your ad account ID can be found in Meta Ads Manager. It typically looks like `act_123456789`.
-
-## Usage
-
-### Basic Example: Daily Report
+### 2. Basic Usage
 
 ```typescript
-import 'dotenv/config';
 import { MetaClient, loadConfig, generateDailyReport } from 'meta-ads-agent-skill';
 
 const config = loadConfig();
@@ -75,46 +75,178 @@ const report = await generateDailyReport(client, {
   until: '2026-05-28',
 });
 
-console.log(JSON.stringify(report, null, 2));
+console.log(report);
 ```
 
-### Campaign Insights
+### 3. Using Rule Engine (v0.2.0)
+
+#### Pre-built Templates
 
 ```typescript
-import { getCampaignInsights } from 'meta-ads-agent-skill';
+import { RuleEngine, ecommerceRules, getCampaignInsights } from 'meta-ads-agent-skill';
 
+const client = new MetaClient(loadConfig());
 const insights = await getCampaignInsights(client, {
   adAccountId: 'act_123456789',
   since: '2026-05-21',
   until: '2026-05-28',
-  limit: 50,
+});
+
+const engine = new RuleEngine();
+const results = engine.applyRulesToInsights(insights, ecommerceRules);
+
+results.forEach(result => {
+  console.log(`Campaign: ${result.campaignName}`);
+  console.log(`Status: ${result.overallStatus}`);
+  console.log(`Actions: ${result.recommendedActions.join(', ')}`);
 });
 ```
 
-### Performance Analysis
+#### Custom Rules
 
 ```typescript
-import { analyzeCampaignPerformance } from 'meta-ads-agent-skill';
+import { RuleEngine } from 'meta-ads-agent-skill';
 
-const analyses = analyzeCampaignPerformance(insights);
+const customRules = [
+  {
+    id: 'my-rule',
+    name: 'High Spend Alert',
+    description: 'Alert when spend exceeds threshold',
+    conditions: [
+      { metric: 'spend', operator: '>', value: 100000 },
+      { metric: 'ctr', operator: '<', value: 1.0 }
+    ],
+    logic: 'AND',
+    action: 'Review campaign targeting and creative',
+    priority: 'high',
+    enabled: true,
+  }
+];
 
-// Each analysis includes:
-// - status: 'good' | 'watch' | 'warning'
-// - recommendation: 'scale' | 'hold' | 'review' | 'fix_creative'
-// - reason: explanation of the recommendation
+const engine = new RuleEngine();
+const results = engine.applyRulesToInsights(insights, customRules);
 ```
 
-## Running Examples
+#### All Templates Combined
+
+```typescript
+import { allRuleTemplates, RuleEngine } from 'meta-ads-agent-skill';
+
+const engine = new RuleEngine();
+const results = engine.applyRulesToInsights(insights, allRuleTemplates);
+// Evaluates all 26 rules across all categories
+```
+
+## Rule Templates
+
+### E-commerce Rules (6 rules)
+- High Spend Low ROAS
+- High Spend Low Purchases
+- Expensive Conversions
+- Good CTR Low Conversions
+- Scaling Opportunity
+- Low Spend Testing Phase
+
+### Lead Generation Rules (6 rules)
+- Expensive Leads
+- Low Conversion Rate
+- High Volume Low Quality
+- Good Lead Gen Performance
+- Low Reach
+- Lead Gen Scaling Opportunity
+
+### Brand Awareness Rules (6 rules)
+- High CPM
+- Low Reach Efficiency
+- Efficient CPM
+- High Reach Low Engagement
+- Potential Audience Saturation
+- Brand Awareness Scaling
+
+### General Performance Rules (8 rules)
+- Creative Fatigue
+- High Cost Per Click
+- Low Click-Through Rate
+- Budget Pacing Issue
+- Good Overall Performance
+- Low Impressions
+- Excellent CTR
+- Testing Phase
+
+## API Reference
+
+### Core Functions
+
+```typescript
+// Meta API Client
+const client = new MetaClient(config);
+
+// Fetch data
+getAdAccounts(client)
+getCampaigns(client, { adAccountId, limit })
+getCampaignInsights(client, { adAccountId, since, until })
+getAdsetInsights(client, { adAccountId, since, until })
+getAdsInsights(client, { adAccountId, since, until })
+
+// Generate reports
+generateDailyReport(client, { adAccountId, since, until })
+
+// Rule Engine (v0.2.0)
+const engine = new RuleEngine();
+engine.evaluateRule(insight, rule)
+engine.applyRules(insight, rules)
+engine.applyRulesToInsights(insights, rules)
+
+// Rule Templates
+import { 
+  ecommerceRules, 
+  leadGenRules, 
+  brandAwarenessRules, 
+  generalRules,
+  allRuleTemplates,
+  getRulesByCategory 
+} from 'meta-ads-agent-skill';
+```
+
+### Analysis Functions
+
+```typescript
+analyzeCampaignPerformance(insights)
+recommendActions(analyses)
+```
+
+### Utilities
+
+```typescript
+parseActionValue(actions, actionType)
+formatCurrency(amount, currency)
+formatNumber(num, decimals)
+```
+
+## Setup Meta App
+
+1. Go to [Meta for Developers](https://developers.facebook.com/)
+2. Create a new app or use an existing one
+3. Add the "Marketing API" product
+4. Generate a User Access Token with `ads_read` permission
+5. Find your Ad Account ID in Meta Ads Manager (format: `act_123456789`)
+
+## Examples
+
+Run the included examples:
 
 ```bash
-# Install dependencies
-npm install
-
-# Run daily report example
+# Daily report
 npm run example:daily-report
 
-# Run campaign audit example
+# Campaign audit
 npm run example:campaign-audit
+
+# Rule engine demo
+npm run example:rule-engine
+
+# Rule templates demo
+npm run example:rule-templates
 ```
 
 ## Development
@@ -126,38 +258,33 @@ npm run build
 # Run tests
 npm run test
 
-# Watch mode for development
+# Watch mode
 npm run dev
 ```
 
-## API Reference
+## Safety & Permissions
 
-### Core Functions
-
-- `getAdAccounts(client)` - Fetch all ad accounts
-- `getCampaigns(client, options)` - Fetch campaigns
-- `getCampaignInsights(client, options)` - Fetch campaign-level insights
-- `getAdsetInsights(client, options)` - Fetch adset-level insights
-- `getAdsInsights(client, options)` - Fetch ad-level insights
-- `generateDailyReport(client, options)` - Generate comprehensive daily report
-
-### Analysis Functions
-
-- `analyzeCampaignPerformance(insights)` - Analyze campaign performance
-- `recommendActions(analyses)` - Generate action recommendations
-
-### Utilities
-
-- `parseActionValue(actions, actionType)` - Extract specific action values
-- `formatCurrency(amount, currency)` - Format currency values
-- `formatNumber(num, decimals)` - Format numbers
+This library is designed with safety in mind:
+- **Read-only by default**: Only uses `ads_read` permission
+- **No automatic actions**: Recommendations are suggestions only, never executed automatically
+- **No write operations**: Cannot pause campaigns, update budgets, or create ads
+- **Explicit approval required**: All recommendations include disclaimers
 
 ## Roadmap
 
-- **v0.1** ✅ Read-only insights and basic analysis (current)
-- **v0.2** 🔄 Advanced rules engine and custom analysis
-- **v0.3** 📋 MCP (Model Context Protocol) server wrapper
-- **v0.4** ⚡ Safe write actions with approval layer
+- **v0.1** ✅ Read-only insights and basic analysis
+- **v0.2** ✅ Advanced rule engine with 26 pre-built templates
+- **v0.3** 🔄 MCP (Model Context Protocol) server wrapper
+- **v0.4** 📋 Safe write actions with approval layer
+
+## For AI Agents
+
+If you're an AI agent working on this codebase, please read [`AGENTS.md`](./AGENTS.md) for:
+- Code style and conventions
+- Security guidelines
+- How to add new features
+- Testing patterns
+- Common code patterns
 
 ## Contributing
 
@@ -175,12 +302,6 @@ This is an unofficial tool and is not affiliated with Meta Platforms, Inc. Use a
 
 For issues and questions, please open an issue on GitHub.
 
-## For AI Agents
+---
 
-If you're an AI agent working on this codebase, please read [`AGENTS.md`](./AGENTS.md) for:
-- Code style and conventions
-- Security guidelines
-- How to add new features
-- Testing patterns
-- Common code patterns
-
+**Built with ❤️ using TypeScript, Node.js, and AI assistance**

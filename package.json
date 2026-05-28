@@ -1,7 +1,7 @@
 {
   "name": "meta-ads-agent-skill",
-  "version": "0.1.0",
-  "description": "Read-only Meta Ads insights toolkit for AI agents",
+  "version": "0.2.0",
+  "description": "Read-only Meta Ads insights toolkit for AI agents with advanced rule engine",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "type": "module",
@@ -17,9 +17,22 @@
     "lint": "eslint src",
     "format": "prettier --write src"
   },
-  "keywords": ["meta-ads", "facebook-ads", "marketing-api", "ai-agent", "insights"],
+  "keywords": [
+    "meta-ads",
+    "facebook-ads",
+    "marketing-api",
+    "ai-agent",
+    "insights",
+    "rule-engine",
+    "campaign-analysis",
+    "performance-monitoring"
+  ],
   "author": "",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ramadhanidiwanda-alt/meta-ads-agent-skill.git"
+  },
   "dependencies": {
     "dotenv": "^16.4.5",
     "zod": "^3.23.8"
