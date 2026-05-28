@@ -19,3 +19,12 @@ export type * from './types.js';
 
 export { RuleEngine } from './rules/engine.js';
 export type * from './rules/types.js';
+
+export {
+  ecommerceRules,
+  leadGenRules,
+  brandAwarenessRules,
+  generalRules,
+  allRuleTemplates,
+  getRulesByCategory,
+} from './rules/templates/index.js';
