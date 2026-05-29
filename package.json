@@ -1,7 +1,7 @@
 {
   "name": "meta-ads-agent-skill",
   "version": "0.3.0",
-  "description": "Read-only Meta Ads insights toolkit for AI agents with Codex and MCP support",
+  "description": "TypeScript library + AI skills for Meta Ads analysis. Built for developers and end users.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "type": "module",
@@ -20,15 +20,19 @@
   "keywords": [
     "meta-ads",
     "facebook-ads",
+    "instagram-ads",
     "marketing-api",
     "ai-agent",
+    "ai-skills",
     "insights",
     "rule-engine",
     "campaign-analysis",
     "performance-monitoring",
     "codex",
     "mcp",
-    "claude"
+    "claude",
+    "typescript",
+    "read-only"
   ],
   "author": "",
   "license": "MIT",
@@ -36,6 +40,15 @@
     "type": "git",
     "url": "https://github.com/ramadhanidiwanda-alt/meta-ads-agent-skill.git"
   },
+  "files": [
+    "dist",
+    "mcp-server/dist",
+    "skills",
+    ".mcp.json",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
   "dependencies": {
     "dotenv": "^16.4.5",
     "zod": "^3.23.8"
