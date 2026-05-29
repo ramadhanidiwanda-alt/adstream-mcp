@@ -7,8 +7,8 @@
 ## 🎯 Ringkasan Cepat (30 Detik)
 
 - TypeScript library + AI skills untuk analisis Meta Ads
-- **Read-only operations** (write ops akan datang di v0.4)
-- Tech stack: ESM modules, strict TypeScript, Vitest
+- **Operasi read-only** (write ops akan datang di v0.4)
+- Tech stack: Modul ESM, strict TypeScript, Vitest
 - **Aturan emas:** Jangan log token, jangan push tanpa izin
 - [Mulai Cepat](#-mulai-cepat) | [Task Umum](#-task-umum)
 
@@ -18,11 +18,11 @@
 
 ### Prinsip Desain
 
-1. **Security First** - Token adalah sacred, jangan pernah di-log
+1. **Keamanan Pertama** - Token adalah sacred, jangan pernah di-log
 2. **Read-Only by Design** - Fokus analisis dulu, automasi belakangan
 3. **Type Safety** - Kalau compile sukses, harusnya jalan
-4. **Agent-Friendly** - Dibangun untuk AI agents, bukan cuma manusia
-5. **Incremental Complexity** - Mulai simple, tambah power bertahap
+4. **Ramah untuk Agent** - Dibangun untuk AI agents, bukan cuma manusia
+5. **Kompleksitas Bertahap** - Mulai simple, tambah power bertahap
 
 ### Mengapa Ini Penting?
 
@@ -109,8 +109,8 @@ mcp-server/            # MCP wrapper
 ```bash
 npm install
 npm run dev          # Watch mode untuk development
-npm run test         # Run tests
-npm run build        # Production build
+npm run test         # Jalankan tests
+npm run build        # Build production
 ```
 
 ### Untuk Fitur Baru
@@ -132,7 +132,7 @@ npm run build        # Production build
 
 ## 📋 Task Umum
 
-### Menambah Tool Baru (Read Operation)
+### Menambah Tool Baru (Operasi Read)
 
 ```typescript
 // src/tools/getNewData.ts
@@ -161,7 +161,7 @@ export async function getNewData(
 2. Tambahkan interface ke `src/types.ts`
 3. Tulis test di `tests/getNewData.test.ts`
 
-### Menambah Analysis Logic
+### Menambah Logic Analysis
 
 ```typescript
 // src/analysis/newAnalysis.ts
@@ -211,32 +211,32 @@ const formatted = formatCurrency(1234.56, 'IDR'); // "Rp 1.234,56"
 
 ---
 
-## 🎨 Code Style & Conventions
+## 🎨 Gaya Code & Konvensi
 
-### TypeScript
+### Aturan TypeScript
 
 - **Strict mode enabled** - Semua types harus explicit
-- **ESM modules** - Gunakan `import/export`, bukan `require`
-- **File extensions** - Selalu gunakan `.js` di import statements (bukan `.ts`)
+- **Modul ESM** - Gunakan `import/export`, bukan `require`
+- **Ekstensi file** - Selalu gunakan `.js` di import statements (bukan `.ts`)
 
 ```typescript
-// ✅ Correct
+// ✅ Benar
 import { MetaClient } from './metaClient.js';
 
-// ❌ Wrong
+// ❌ Salah
 import { MetaClient } from './metaClient';
 ```
 
-### Naming Conventions
+### Konvensi Penamaan
 
-- **Files:** camelCase (e.g., `metaClient.ts`, `getCampaigns.ts`)
-- **Functions:** camelCase (e.g., `getCampaignInsights`, `analyzeCampaignPerformance`)
-- **Types/Interfaces:** PascalCase (e.g., `MetaConfig`, `CampaignInsight`)
-- **Constants:** UPPER_SNAKE_CASE untuk env vars (e.g., `META_ACCESS_TOKEN`)
+- **File:** camelCase (contoh: `metaClient.ts`, `getCampaigns.ts`)
+- **Fungsi:** camelCase (contoh: `getCampaignInsights`, `analyzeCampaignPerformance`)
+- **Types/Interfaces:** PascalCase (contoh: `MetaConfig`, `CampaignInsight`)
+- **Konstanta:** UPPER_SNAKE_CASE untuk env vars (contoh: `META_ACCESS_TOKEN`)
 
 ### Organisasi Code
 
-**Rules:**
+**Aturan:**
 - Semua public APIs harus di-export dari `src/index.ts`
 - Types harus didefinisikan di `src/types.ts`
 - Jangan buat file baru di root `src/` tanpa alasan kuat
@@ -246,28 +246,28 @@ import { MetaClient } from './metaClient';
 
 ---
 
-## 🔒 Security Guidelines
+## 🔒 Panduan Keamanan
 
-### ⚠️ CRITICAL: Access Token Safety
+### ⚠️ CRITICAL: Keamanan Access Token
 
-**NEVER log access tokens** - Jangan console.log, jangan error message, jangan dimanapun.
+**JANGAN PERNAH log access tokens** - Jangan console.log, jangan error message, jangan dimanapun.
 
 ```typescript
-// ✅ Correct - Token tidak pernah di-log
+// ✅ Benar - Token tidak pernah di-log
 const url = new URL(`${this.baseUrl}${path}`);
 url.searchParams.append('access_token', this.accessToken);
 
-// ❌ Wrong - JANGAN LOG URL DENGAN TOKEN
+// ❌ Salah - JANGAN LOG URL DENGAN TOKEN
 console.log('Fetching:', url.toString()); // NEVER DO THIS
 ```
 
 **Checklist:**
-- ❌ NEVER commit `.env` file (sudah ada di `.gitignore`)
-- ❌ NEVER hardcode tokens di code
-- ✅ ALWAYS gunakan environment variables
-- ✅ ALWAYS mask tokens di error messages
+- ❌ JANGAN PERNAH commit file `.env` (sudah ada di `.gitignore`)
+- ❌ JANGAN PERNAH hardcode tokens di code
+- ✅ SELALU gunakan environment variables
+- ✅ SELALU mask tokens di error messages
 
-### Read-Only Operations Only
+### Hanya Operasi Read-Only
 
 Project ini **hanya read-only** (ads_read permission) sampai v0.4.
 
@@ -281,15 +281,15 @@ Semua recommendations harus include disclaimer bahwa ini suggestion only.
 
 ---
 
-## 🧪 Testing
+## 🧪 Pengujian
 
-### Test Structure
+### Struktur Test
 
 ```typescript
 import { describe, it, expect } from 'vitest';
 
 describe('featureName', () => {
-  it('should handle edge case', () => {
+  it('harus handle edge case', () => {
     // Arrange
     const input = { /* ... */ };
     
@@ -313,15 +313,15 @@ describe('featureName', () => {
 
 ---
 
-## 🌐 Meta Marketing API Guidelines
+## 🌐 Panduan Meta Marketing API
 
-### API Version
+### Versi API
 
 - Default: `v20.0`
 - Configurable via `META_API_VERSION` env var
 - Update version di `.env.example` jika ada breaking changes
 
-### Common Fields
+### Field Umum
 
 **Campaign Insights:**
 - `campaign_id`, `campaign_name`
@@ -330,18 +330,18 @@ describe('featureName', () => {
 - `actions`, `action_values`, `purchase_roas`
 
 **Actions Array:**
-- `action_type`: `purchase`, `lead`, `add_to_cart`, `link_click`, etc.
+- `action_type`: `purchase`, `lead`, `add_to_cart`, `link_click`, dll
 - `value`: string number (parse dengan `parseFloat`)
 
 ### Time Ranges
 
 - Format: `YYYY-MM-DD`
 - Gunakan `time_range` parameter: `{ since: '2026-05-21', until: '2026-05-28' }`
-- Max range: 93 days (Meta API limit)
+- Max range: 93 hari (limit Meta API)
 
 ---
 
-## ⚠️ Error Handling
+## ⚠️ Penanganan Error
 
 ### MetaApiError
 
@@ -354,55 +354,55 @@ try {
   const data = await client.metaGet('/path');
 } catch (error) {
   if (error instanceof MetaApiError) {
-    // Handle Meta API specific error
+    // Handle error spesifik Meta API
     console.error(`Meta API Error ${error.code}: ${error.message}`);
   } else {
-    // Handle other errors
+    // Handle errors lainnya
     throw error;
   }
 }
 ```
 
-**Error Properties:**
-- `message`: Error message
-- `code`: Meta error code
-- `type`: Error type
-- `subcode`: Optional subcode
-- `fbtraceId`: Optional trace ID untuk debugging
+**Properti Error:**
+- `message`: Pesan error
+- `code`: Kode error Meta
+- `type`: Tipe error
+- `subcode`: Subcode opsional
+- `fbtraceId`: Trace ID opsional untuk debugging
 
 ---
 
-## 🛠️ Build & Development
+## 🛠️ Build & Pengembangan
 
-### Commands
+### Perintah
 
 ```bash
 npm run dev          # Watch mode untuk development
 npm run build        # Build production bundle
-npm run test         # Run tests
+npm run test         # Jalankan tests
 npm run test:watch   # Watch mode untuk tests
 npm run format       # Format code dengan Prettier
 npm run lint         # Lint code dengan ESLint
 ```
 
-### Build Output
+### Output Build
 
 - Output: `dist/`
 - Format: ESM only
 - Includes: `.js`, `.d.ts`, `.js.map`, `.d.ts.map`
 - Entry: `dist/index.js`
 
-### Pre-commit Checklist
+### Checklist Pre-commit
 
 1. `npm run format` - Format code
-2. `npm run build` - Ensure build works
-3. `npm run test` - All tests passing
-4. No console.logs in production code
-5. No access tokens in code or logs
+2. `npm run build` - Pastikan build works
+3. `npm run test` - Semua tests passing
+4. Tidak ada console.logs di production code
+5. Tidak ada access tokens di code atau logs
 
 ---
 
-## 🗺️ Roadmap Context
+## 🗺️ Konteks Roadmap
 
 - ✅ v0.1.0 - Foundation (read-only)
 - ✅ v0.2.0 - Rule engine (26 templates)
@@ -412,7 +412,7 @@ npm run lint         # Lint code dengan ESLint
 - 🔜 v0.6.0 - Multi-account management
 - 🎯 v1.0.0 - Production ready (target: Desember 2026)
 
-### Saat Implement Features Baru
+### Saat Mengimplementasi Fitur Baru
 
 - **v0.3:** Focus pada read operations dan analysis
 - **v0.4:** Design dengan approval workflow in mind
@@ -422,31 +422,31 @@ npm run lint         # Lint code dengan ESLint
 
 ## 🐛 Troubleshooting
 
-### Build fails dengan "Cannot find module"
+### Build gagal dengan "Cannot find module"
 
-→ Check `.js` extensions di imports (ESM requirement)
+→ Check ekstensi `.js` di imports (requirement ESM)
 
 ```typescript
-// ✅ Correct
+// ✅ Benar
 import { MetaClient } from './metaClient.js';
 
-// ❌ Wrong
+// ❌ Salah
 import { MetaClient } from './metaClient';
 ```
 
-### Tests fail dengan "MetaApiError"
+### Test gagal dengan "MetaApiError"
 
 → Mock `MetaClient` di tests, jangan call real API
 
-### Type errors setelah tambah field baru
+### Error type setelah tambah field baru
 
 → Tambahkan ke `src/types.ts` dan export
 
 ### "Access token invalid"
 
-→ Check `.env` file, ensure token punya `ads_read` permission
+→ Check file `.env`, pastikan token punya permission `ads_read`
 
-### Import error di runtime
+### Error import di runtime
 
 → Pastikan `"type": "module"` ada di `package.json`
 
@@ -454,27 +454,27 @@ import { MetaClient } from './metaClient';
 
 ## 📚 Referensi External
 
-- [Meta Marketing API Docs](https://developers.facebook.com/docs/marketing-api)
-- [Insights API Reference](https://developers.facebook.com/docs/marketing-api/insights)
+- [Dokumentasi Meta Marketing API](https://developers.facebook.com/docs/marketing-api)
+- [Referensi Insights API](https://developers.facebook.com/docs/marketing-api/insights)
 - [Ad Account Insights](https://developers.facebook.com/docs/marketing-api/reference/ad-account/insights)
 - [TypeScript ESM](https://www.typescriptlang.org/docs/handbook/esm-node.html)
-- [Vitest Documentation](https://vitest.dev)
+- [Dokumentasi Vitest](https://vitest.dev)
 
 ---
 
-## 🤝 Contributing
+## 🤝 Kontribusi
 
 Project ini open source (MIT license). Kontribusi welcome!
 
 **Sebelum submit PR:**
-1. Run `npm run format && npm run build && npm run test`
+1. Jalankan `npm run format && npm run build && npm run test`
 2. Pastikan tidak ada tokens di code atau logs
 3. Update dokumentasi yang relevan
 4. Keep changes focused dan minimal
 
 ---
 
-## ❓ Questions?
+## ❓ Ada Pertanyaan?
 
 Jika ada ambiguity:
 1. Check existing code patterns di `src/tools/` atau `src/analysis/`
