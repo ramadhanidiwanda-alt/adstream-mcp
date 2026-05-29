@@ -7,145 +7,210 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.3.0] - 2026-05-29
 
-### Added
+### Added - AI Skills Layer
 
-#### Codex Native Skill Support
-- **SKILL.md** - Complete Codex skill definition with 656 lines of documentation
-- Trigger keywords for automatic skill detection
-- AI agent workflows for common scenarios (daily reports, campaign audits, custom analysis)
-- Authentication setup guide
-- Error handling documentation
-- Quick reference for metrics and commands
+**Major architectural addition:** Skills-based interface for AI agents alongside existing TypeScript library.
 
-#### MCP Server
-- **mcp-server/** - Full MCP (Model Context Protocol) server implementation
-- 7 MCP tools exposed:
-  - `meta_get_ad_accounts` - Fetch ad accounts
-  - `meta_get_campaigns` - Fetch campaigns with filters
-  - `meta_get_campaign_insights` - Campaign performance data
-  - `meta_get_adset_insights` - Adset performance data
-  - `meta_get_ads_insights` - Ad performance data
-  - `meta_generate_daily_report` - Comprehensive daily report
-  - `meta_analyze_with_rules` - Apply 26 rule templates
-- Compatible with Claude Desktop, Codex MCP, and other MCP clients
-- Complete setup documentation and usage examples
+#### New Skills
+- `/meta-ads-audit` — Comprehensive account audit with business context setup
+- `/meta-ads-manage` — Ongoing performance analysis and recommendations
+- Shared preamble for MCP detection and config resolution
+- Meta math formulas and benchmarks reference
+- Analysis heuristics and decision trees
+- Creative fatigue diagnosis guide
 
-#### Enhanced Authentication
-- `validateTokenFormat()` - Validate Meta access token format
-- `validateAdAccountId()` - Validate ad account ID format
-- `maskToken()` - Safely mask tokens for logging
-- Improved error messages with setup instructions
-- Comprehensive authentication documentation in README
-- Support for 3 token types: Graph API Explorer, System User, OAuth
+#### Skills Features
+- Natural language interface for end users
+- Business context persistence (AOV, profit margin, brand voice)
+- Persona discovery from campaign data
+- Account baseline for anomaly detection
+- Profitability analysis (Headroom $, Break-Even ROAS)
+- Industry benchmarks (CTR, CPM, ROAS by vertical)
+- Creative fatigue detection (frequency + CPM + CTR analysis)
+- Dollar-denominated recommendations
 
 #### Documentation
-- **INTEGRATION_COMPLETE.md** - Complete integration guide
-- Enhanced README with authentication section
-- MCP server setup guide
-- Example workflows for AI agents
-- Security best practices
+- `skills/README.md` — Skills overview and usage guide
+- `SKILL_MIGRATION.md` — Migration guide and architecture explanation
+- Updated main `README.md` to explain both library and skills
+- `.mcp.json` configuration for MCP server
 
 ### Changed
-- Updated package description to include Codex and MCP support
-- Added keywords: codex, mcp, claude
-- Enhanced config.ts with better validation and error messages
-- Improved error messages to include helpful setup instructions
+- README now explains two ways to use the project (library vs skills)
+- Cleaned up development artifact files (`*_COMPLETE.md`, `*_SUMMARY.md`)
 
-### Fixed
-- Token validation now checks for EAA/EAAG prefix
-- Account ID validation ensures act_ prefix
-- Better error handling with actionable messages
+### Philosophy
+- Skills are **instructions** for AI agents, not hard-coded logic
+- AI interprets markdown heuristics and adapts to context
+- Library remains unchanged — skills are an additional interface
+- Serves both developers (library) and end users (skills)
 
 ## [0.2.0] - 2026-05-28
 
-### Added
-- **Advanced Rule Engine** with 26 pre-built templates
-- 4 rule categories: E-commerce, Lead Generation, Brand Awareness, General Performance
-- Flexible rule system with AND/OR logic and 6 operators
-- `RuleEngine` class for custom rule evaluation
-- Rule templates: `ecommerceRules`, `leadGenRules`, `brandAwarenessRules`, `generalRules`
-- `allRuleTemplates` - Combined set of all 26 rules
-- `getRulesByCategory()` - Filter rules by category
+### Added - Advanced Rule Engine
+
+#### Rule Engine Core
+- Flexible rule system with conditions and logic operators
+- Support for AND/OR logic combinations
+- 6 comparison operators: `>`, `<`, `>=`, `<=`, `==`, `!=`
+- Priority-based recommendation sorting
+- Rule evaluation with detailed results
+
+#### Pre-built Rule Templates (26 rules)
+- **E-commerce Rules** (6 rules)
+  - High ROAS campaigns
+  - Low ROAS campaigns
+  - High CPA detection
+  - Low conversion rate
+  - Cart abandonment optimization
+  - Purchase funnel optimization
+
+- **Lead Generation Rules** (6 rules)
+  - Cost per lead optimization
+  - Lead quality scoring
+  - Form completion rate
+  - Lead nurturing opportunities
+  - High-intent lead identification
+  - Lead volume scaling
+
+- **Brand Awareness Rules** (6 rules)
+  - Reach optimization
+  - Frequency capping
+  - CPM efficiency
+  - Video view optimization
+  - Engagement rate tracking
+  - Brand lift opportunities
+
+- **General Performance Rules** (8 rules)
+  - Low CTR detection
+  - High CPC alerts
+  - Budget utilization
+  - Ad fatigue detection
+  - Audience saturation
+  - Dayparting opportunities
+  - Device performance
+  - Placement optimization
+
+#### Examples
+- `examples/rule-engine-demo.ts` — Basic rule engine usage
+- `examples/rule-templates-demo.ts` — Pre-built templates usage
 
 ### Changed
-- Enhanced `analyzeCampaignPerformance` to work with rule engine
-- Updated examples to demonstrate rule engine usage
+- Updated package.json to v0.2.0
+- Enhanced documentation with rule engine examples
 
-## [0.1.0] - 2026-05-28
+## [0.1.0] - 2026-05-27
 
-### Added
-- **MetaClient** - Clean wrapper for Meta Marketing API
-- **6 Read-only Tools**:
-  - `getAdAccounts` - Fetch ad accounts
-  - `getCampaigns` - Fetch campaigns with filters
-  - `getCampaignInsights` - Campaign-level insights
-  - `getAdsetInsights` - Adset-level insights
-  - `getAdsInsights` - Ad-level insights
-  - `generateDailyReport` - Comprehensive daily report
-- **Performance Analysis**:
-  - `analyzeCampaignPerformance` - Smart campaign analysis
-  - `recommendActions` - Action recommendations with disclaimers
-- **Utilities**:
-  - `parseActions` - Extract action values (purchases, leads, etc.)
-  - `formatCurrency` - Currency formatting
-  - `metaError` - Custom error handling
-- **Configuration**:
-  - `loadConfig` - Environment variable loader with Zod validation
-  - Support for `.env` files
-- **Examples**:
-  - `daily-report.ts` - Daily performance report
-  - `campaign-audit.ts` - Campaign audit with 7-day insights
-- **Tests**:
-  - `analyzeCampaignPerformance.test.ts` - 4 test cases
-  - All tests passing with Vitest
-- **Documentation**:
-  - Comprehensive README with setup instructions
-  - API reference
-  - Safety notes and disclaimers
-  - MIT License
+### Added - Initial Release
 
-### Security
-- Read-only permissions only (ads_read)
-- No write operations implemented
-- Access tokens not logged
-- .env in .gitignore
+#### Core Features
+- **MetaClient** — Clean wrapper for Meta Marketing API
+- **Configuration** — Environment-based config with Zod validation
+- **Type Safety** — Full TypeScript types for all API responses
 
----
+#### Tools (6 read-only functions)
+- `getAdAccounts` — List all ad accounts
+- `getCampaigns` — Get campaigns for an ad account
+- `getCampaignInsights` — Campaign-level performance data
+- `getAdsetInsights` — Ad set-level performance data
+- `getAdsInsights` — Ad-level performance data
+- `generateDailyReport` — Automated daily performance report
 
-## Release Notes
+#### Analysis
+- `analyzeCampaignPerformance` — Smart campaign analysis
+- `recommendActions` — Actionable recommendations based on performance
 
-### v0.3.0 - Multi-Platform AI Agent Support
+#### Utilities
+- `parseActionValue` — Parse Meta actions array
+- `formatCurrency` — Format numbers as currency
+- `MetaApiError` — Custom error class for API errors
 
-This release transforms the library into a **multi-platform AI agent skill** that can be used by:
-- ✅ Codex CLI (native skill via SKILL.md)
-- ✅ Claude Desktop (MCP server)
-- ✅ Any MCP-compatible client
-- ✅ Direct TypeScript/JavaScript usage
+#### MCP Server
+- Basic MCP server implementation in `mcp-server/`
+- Exposes all tools via Model Context Protocol
+- Compatible with Claude Code and other MCP clients
 
-**Key Features:**
-- 3 integration methods (Codex, MCP, Direct)
-- 7 MCP tools exposed
-- Enhanced authentication with validation
-- Comprehensive documentation
-- 100% backward compatible
+#### Examples
+- `examples/daily-report.ts` — Daily report generation
+- `examples/campaign-audit.ts` — Campaign audit example
 
-**Migration Guide:**
-No breaking changes. Existing code continues to work. New features are opt-in.
+#### Tests
+- Unit tests for core functionality
+- Test coverage for analysis and utilities
 
-**Getting Started:**
-```bash
-# For Codex
-export META_ACCESS_TOKEN="EAAxxxxxxxxxx"
-export META_AD_ACCOUNT_ID="act_123456789"
+#### Documentation
+- Comprehensive README with setup instructions
+- API documentation
+- Authentication guide (Graph API Explorer + System User)
+- AGENTS.md for AI agent guidelines
 
-# For MCP Server
-cd mcp-server
-npm install && npm run build
-# Configure Claude Desktop with mcp-server/dist/index.js
-```
+### Technical Details
+- TypeScript 5.4+
+- ESM modules only
+- Zod for runtime validation
+- Vitest for testing
+- tsup for building
 
 ---
 
-[0.3.0]: https://github.com/ramadhanidiwanda-alt/meta-ads-agent-skill/compare/v0.2.0...v0.3.0
-[0.2.0]: https://github.com/ramadhanidiwanda-alt/meta-ads-agent-skill/compare/v0.1.0...v0.2.0
-[0.1.0]: https://github.com/ramadhanidiwanda-alt/meta-ads-agent-skill/releases/tag/v0.1.0
+## Version History Summary
+
+- **v0.3.0** (2026-05-29) — AI Skills Layer
+- **v0.2.0** (2026-05-28) — Advanced Rule Engine
+- **v0.1.0** (2026-05-27) — Initial Release
+
+---
+
+## Upcoming
+
+### v0.4.0 (Planned)
+- Write operations (pause campaigns, update budgets)
+- Approval workflow for mutations
+- Audit log for all changes
+
+### v0.5.0 (Planned)
+- OAuth flow for skills (browser-based auth)
+- Token management and refresh
+- Multi-user support
+
+### v0.6.0 (Planned)
+- Multi-account support
+- Account switching
+- Cross-account reporting
+
+---
+
+## Migration Notes
+
+### From v0.2.0 to v0.3.0
+
+**No breaking changes.** The TypeScript library API remains unchanged.
+
+**New features:**
+- Skills layer added in `skills/` directory
+- `.mcp.json` configuration for MCP server
+- New documentation files
+
+**Action required:**
+- None if using library only
+- Configure `.mcp.json` if using skills with AI agents
+
+### From v0.1.0 to v0.2.0
+
+**No breaking changes.** All v0.1.0 APIs remain unchanged.
+
+**New features:**
+- Rule engine in `src/rules/`
+- 26 pre-built rule templates
+- New examples for rule engine
+
+**Action required:**
+- None, rule engine is opt-in
+
+---
+
+## Links
+
+- [GitHub Repository](https://github.com/ramadhanidiwanda-alt/meta-ads-agent-skill)
+- [npm Package](https://www.npmjs.com/package/meta-ads-agent-skill)
+- [Issues](https://github.com/ramadhanidiwanda-alt/meta-ads-agent-skill/issues)
