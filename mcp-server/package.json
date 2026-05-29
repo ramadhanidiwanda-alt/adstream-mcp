@@ -1,0 +1,33 @@
+{
+  "name": "meta-ads-mcp-server",
+  "version": "0.1.0",
+  "description": "MCP server wrapper for Meta Ads Agent Skill",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "meta-ads-mcp": "dist/index.js"
+  },
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsup",
+    "start": "node dist/index.js"
+  },
+  "keywords": [
+    "mcp",
+    "meta-ads",
+    "facebook-ads",
+    "claude",
+    "ai-agent"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "meta-ads-agent-skill": "file:..",
+    "@modelcontextprotocol/sdk": "^0.5.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.9.0",
+    "tsup": "^8.0.2",
+    "typescript": "^5.4.5"
+  }
+}
