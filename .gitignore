@@ -1,8 +1,58 @@
+# Dependencies
 node_modules/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Build output
 dist/
+*.tsbuildinfo
+
+# Environment
 .env
-*.log
-.DS_Store
-coverage/
+.env.local
+.env.*.local
+
+# IDE
 .vscode/
 .idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Testing
+coverage/
+.nyc_output/
+
+# Skills data (contains sensitive business info)
+.meta-ads/
+.meta-ads.json
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Development artifacts (cleaned up)
+*_COMPLETE.md
+*_SUMMARY.md
+PROJECT_SUMMARY.md
+FINAL_STATUS.md
+INTEGRATION_COMPLETE.md
+PHASE*.md
+PUSH_TO_GITHUB.md
+RELEASE_COMPLETE.md
+SETUP_COMPLETE.md
+TODAY_SUMMARY.md
+GITHUB_PUBLISHED.md
