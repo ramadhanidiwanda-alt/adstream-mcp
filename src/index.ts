@@ -1,5 +1,5 @@
 export { MetaClient } from './metaClient.js';
-export { loadConfig } from './config.js';
+export { loadConfig, validateTokenFormat, validateAdAccountId, maskToken } from './config.js';
 export { MetaApiError } from './utils/metaError.js';
 
 export { getAdAccounts } from './tools/getAdAccounts.js';

@@ -55,6 +55,144 @@ npm install meta-ads-agent-skill
 
 Create a `.env` file:
 
+## Authentication
+
+### Getting Your Access Token
+
+You need a Meta Access Token with `ads_read` permission to use this library.
+
+#### Option 1: Graph API Explorer (Quick Testing)
+
+1. Go to [Meta Graph API Explorer](https://developers.facebook.com/tools/explorer)
+2. Select your Meta App (or create one)
+3. Click "Permissions" and add `ads_read`
+4. Click "Generate Access Token"
+5. Copy the token (valid for 60 days)
+
+#### Option 2: System User Token (Production/Autonomous Agents)
+
+For production use or autonomous AI agents, use a System User token that never expires:
+
+1. Go to [Meta Business Settings](https://business.facebook.com/settings)
+2. Navigate to **Users** > **System Users**
+3. Click **Add** to create a new System User
+4. Assign the System User to your Ad Account with **Analyst** role
+5. Click **Generate New Token**
+6. Select your app and add `ads_read` permission
+7. Copy and securely store the token
+
+**Recommended for:**
+- Production environments
+- Autonomous AI agents
+- Scheduled/cron jobs
+- Long-running applications
+
+#### Option 3: OAuth Flow (Multi-User Applications)
+
+For web applications with multiple users:
+
+```typescript
+// 1. Redirect user to OAuth dialog
+const authUrl = `https://www.facebook.com/v20.0/dialog/oauth?
+  client_id=${APP_ID}&
+  redirect_uri=${REDIRECT_URI}&
+  scope=ads_read&
+  state=${STATE}`;
+
+// 2. Handle callback and exchange code for token
+const response = await fetch(
+  `https://graph.facebook.com/v20.0/oauth/access_token?` +
+  `client_id=${APP_ID}&` +
+  `client_secret=${APP_SECRET}&` +
+  `redirect_uri=${REDIRECT_URI}&` +
+  `code=${CODE}`
+);
+
+const { access_token } = await response.json();
+```
+
+### Environment Setup
+
+Create a `.env` file in your project root:
+
+```env
+META_ACCESS_TOKEN=EAAxxxxxxxxxx
+META_AD_ACCOUNT_ID=act_123456789
+META_API_VERSION=v20.0
+```
+
+Or set environment variables in your shell:
+
+```bash
+# Add to ~/.zshrc or ~/.bashrc
+export META_ACCESS_TOKEN="EAAxxxxxxxxxx"
+export META_AD_ACCOUNT_ID="act_123456789"
+export META_API_VERSION="v20.0"
+```
+
+### Finding Your Ad Account ID
+
+1. Go to [Meta Ads Manager](https://business.facebook.com/adsmanager)
+2. Look at the URL: `https://business.facebook.com/adsmanager/manage/campaigns?act=123456789`
+3. Your Ad Account ID is `act_123456789`
+
+### Security Best Practices
+
+✅ **DO:**
+- Store tokens in environment variables or secure vault (AWS Secrets Manager, 1Password, etc.)
+- Use System User tokens for production/autonomous agents
+- Validate token format before making API calls
+- Use the `maskToken()` utility when logging
+
+❌ **DON'T:**
+- Commit tokens to git repositories
+- Share tokens in plain text (Slack, email, etc.)
+- Use short-lived User tokens for production
+- Log full access tokens in console or files
+
+### Token Validation
+
+The library automatically validates token format:
+
+```typescript
+import { loadConfig, validateTokenFormat, maskToken } from 'meta-ads-agent-skill';
+
+// Automatic validation on load
+try {
+  const config = loadConfig();
+  console.log('Token valid:', maskToken(config.accessToken));
+} catch (error) {
+  console.error('Configuration error:', error.message);
+  // Output: Helpful error with setup instructions
+}
+
+// Manual validation
+if (!validateTokenFormat('EAAxxxxxxxxxx')) {
+  throw new Error('Invalid token format');
+}
+```
+
+### Token Expiry
+
+- **User Access Token**: Expires in 60 days
+- **System User Token**: Never expires (recommended)
+- **App Access Token**: Never expires but limited permissions
+
+**Check token expiry:**
+
+```typescript
+const response = await fetch(
+  `https://graph.facebook.com/debug_token?` +
+  `input_token=${ACCESS_TOKEN}&` +
+  `access_token=${ACCESS_TOKEN}`
+);
+
+const { data } = await response.json();
+console.log('Expires at:', new Date(data.expires_at * 1000));
+console.log('Is valid:', data.is_valid);
+```
+
+
 ```env
 META_ACCESS_TOKEN=your_access_token_here
 META_AD_ACCOUNT_ID=act_123456789
