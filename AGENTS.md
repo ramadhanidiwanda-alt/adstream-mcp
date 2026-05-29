@@ -1,97 +1,240 @@
 # AGENTS.md
 
-## ⛔ STRICT RULES — WAJIB DIPATUHI
+> Panduan untuk AI agents yang bekerja dengan meta-ads-agent-skill
 
-### 🔴 Rule 1: JANGAN BUAT FILE .md TANPA IZIN
+**Versi:** 1.0 | **Terakhir Diupdate:** 2026-05-29 | **Status Project:** v0.3.0
 
-**DILARANG** membuat file markdown (.md) baru kecuali:
-1. User secara eksplisit meminta file tersebut, ATAU
-2. User sudah memberikan izin setelah agent menanyakan
+## 🎯 Ringkasan Cepat (30 Detik)
 
-Termasuk tapi tidak terbatas pada:
-- File ringkasan (SESSION_COMPLETE.md, TRANSFORMATION_SUMMARY.md, dll)
-- File dokumentasi baru (GUIDES, TUTORIALS, HOWTO, dll)
-- File perbandingan (COMPARISON, ANALYSIS, dll)
-- File log atau catatan meeting/progress
-- File README di subfolder baru
-
-**Jika agent merasa perlu membuat file .md:** Tanya user dulu.
-Contoh: "Saya ingin membuat file COMPARISON.md untuk dokumentasi perbandingan ini. Boleh?"
-
-**Pengecualian:** File .md yang sudah ada boleh diedit tanpa izin tambahan.
-
-### 🔴 Rule 2: JANGAN GIT PUSH TANPA IZIN
-
-**DILARANG** menjalankan `git push` ke remote/origin kecuali:
-1. User secara eksplisit meminta push, ATAU
-2. User sudah memberikan izin setelah agent menanyakan
-
-Termasuk:
-- `git push origin main`
-- `git push origin <branch>`
-- `git push` (apapun argumennya)
-- `git push --force`
-- `git push --all`
-
-**`git commit` diperbolehkan** tanpa izin khusus, tapi **push tetap harus minta izin.**
-
-**Jika agent ingin push:** Tanya user dulu.
-Contoh: "Changes sudah di-commit. Saya push ke origin?"
-
-### 🔴 Rule 3: JANGAN OVER-GENERATE ARTIFACTS
-
-Agent harus meminimalkan pembuatan file baru. Prinsipnya:
-- Jawab pertanyaan dengan text langsung, bukan bikin file
-- Satu file sudah cukup untuk satu jenis informasi
-- Jangan duplikasi informasi yang sudah ada di file lain
-- Jika informasi bersifat sementara, cukup tampilkan di output — jangan disimpan ke file
-
-**Alasan:** Repo ini punya terlalu banyak file .md noise dari sesi sebelumnya.
-Jangan tambah sampah lagi.
+- TypeScript library + AI skills untuk analisis Meta Ads
+- **Read-only operations** (write ops akan datang di v0.4)
+- Tech stack: ESM modules, strict TypeScript, Vitest
+- **Aturan emas:** Jangan log token, jangan push tanpa izin
+- [Mulai Cepat](#-mulai-cepat) | [Task Umum](#-task-umum)
 
 ---
 
-Panduan untuk AI agents yang bekerja dengan codebase `meta-ads-agent-skill`.
+## 🧭 Filosofi Project
 
-## Project Overview
+### Prinsip Desain
 
-**meta-ads-agent-skill** adalah TypeScript library read-only untuk mengakses Meta Marketing API. Project ini didesain untuk AI agents yang perlu membaca dan menganalisis performa Meta Ads campaigns.
+1. **Security First** - Token adalah sacred, jangan pernah di-log
+2. **Read-Only by Design** - Fokus analisis dulu, automasi belakangan
+3. **Type Safety** - Kalau compile sukses, harusnya jalan
+4. **Agent-Friendly** - Dibangun untuk AI agents, bukan cuma manusia
+5. **Incremental Complexity** - Mulai simple, tambah power bertahap
 
-**Status:** MVP v0.1.0 - Read-only operations only
-**Tech Stack:** TypeScript, Node.js, ESM modules, Zod, Vitest
+### Mengapa Ini Penting?
 
-## Code Style & Conventions
+Project ini menjembatani akses programmatic (TypeScript library) dengan natural language (AI skills). Agents butuh code patterns DAN business context sekaligus.
+
+**Target User:** "End user goblok" (non-technical marketers) yang butuh insight tanpa ribet.
+
+---
+
+## ⛔ Aturan Ketat — WAJIB DIPATUHI
+
+### 🔴 Jangan Pernah Lakukan Ini
+
+- ❌ Log access tokens (console, errors, dimanapun)
+- ❌ Buat file .md baru tanpa tanya user dulu
+- ❌ `git push` tanpa izin eksplisit dari user
+- ❌ Implement write operations (pause, budget, create)
+- ❌ Over-generate artifacts (jawab di text, jangan bikin file)
+
+### ✅ Selalu Lakukan Ini
+
+- ✅ Gunakan extension `.js` di imports (requirement ESM)
+- ✅ Export semua public APIs dari `src/index.ts`
+- ✅ Tambahkan types ke `src/types.ts`
+- ✅ Tulis tests untuk fitur baru
+- ✅ Tanya sebelum buat file baru
+
+**Alasan:** Repo ini punya terlalu banyak file .md noise dari sesi sebelumnya. Jangan tambah sampah lagi.
+
+---
+
+## 🏗️ Arsitektur
+
+```
+src/
+├── index.ts           # Public API surface
+├── metaClient.ts      # HTTP client (read-only)
+├── types.ts           # Semua TypeScript types
+├── tools/             # 6 fungsi read
+│   ├── getAdAccounts.ts
+│   ├── getCampaigns.ts
+│   ├── getCampaignInsights.ts
+│   ├── getAdsetInsights.ts
+│   ├── getAdsInsights.ts
+│   └── generateDailyReport.ts
+├── analysis/          # Business logic
+│   ├── analyzeCampaignPerformance.ts
+│   └── recommendActions.ts
+├── rules/             # Rule engine (26 templates)
+│   ├── engine.ts
+│   ├── types.ts
+│   └── templates/
+│       ├── ecommerce.ts
+│       ├── leadgen.ts
+│       ├── brand.ts
+│       └── general.ts
+└── utils/             # Helper functions
+
+skills/meta-ads/       # AI skills (markdown)
+├── audit/SKILL.md     # Performance auditing
+├── manage/SKILL.md    # Campaign management
+└── shared/            # Shared context
+    ├── preamble.md
+    ├── meta-math.md
+    └── references.md
+
+mcp-server/            # MCP wrapper
+└── src/index.ts
+```
+
+### Konsep Kunci
+
+- **Tools** = API wrappers (getCampaigns, getInsights)
+- **Analysis** = Business logic (recommendations, anomaly detection)
+- **Rules** = Configurable thresholds (ROAS, CTR, spend)
+- **Skills** = Natural language interface untuk agents
+
+---
+
+## 🚀 Mulai Cepat
+
+### Untuk Perubahan Code
+
+```bash
+npm install
+npm run dev          # Watch mode untuk development
+npm run test         # Run tests
+npm run build        # Production build
+```
+
+### Untuk Fitur Baru
+
+1. Baca existing code di `src/tools/` atau `src/analysis/`
+2. Tambahkan types ke `src/types.ts`
+3. Implement di folder yang sesuai
+4. Export dari `src/index.ts`
+5. Tambahkan tests di `tests/`
+
+### Untuk AI Skills
+
+1. Baca `skills/meta-ads/shared/preamble.md` dulu
+2. Gunakan existing skills sebagai template
+3. Follow struktur markdown yang ada
+4. Test dengan real Meta Ads data
+
+---
+
+## 📋 Task Umum
+
+### Menambah Tool Baru (Read Operation)
+
+```typescript
+// src/tools/getNewData.ts
+export interface GetNewDataOptions {
+  adAccountId: string;
+  // ... params lain
+}
+
+export async function getNewData(
+  client: MetaClient,
+  options: GetNewDataOptions
+): Promise<NewData[]> {
+  const response = await client.metaGet<{ data: NewData[] }>(
+    `/act_${options.adAccountId}/endpoint`,
+    {
+      fields: 'id,name,status',
+      limit: 100,
+    }
+  );
+  return response.data;
+}
+```
+
+**Langkah selanjutnya:**
+1. Export dari `src/index.ts`
+2. Tambahkan interface ke `src/types.ts`
+3. Tulis test di `tests/getNewData.test.ts`
+
+### Menambah Analysis Logic
+
+```typescript
+// src/analysis/newAnalysis.ts
+import type { CampaignInsight } from '../types.js';
+
+export interface AnalysisResult {
+  findings: string[];
+  recommendations: string[];
+  disclaimer: string;
+}
+
+export function analyzeNewMetric(insights: CampaignInsight[]): AnalysisResult {
+  // Business logic di sini
+  return {
+    findings: ['Finding 1', 'Finding 2'],
+    recommendations: ['Recommendation 1'],
+    disclaimer: 'Ini hanya saran - review sebelum bertindak'
+  };
+}
+```
+
+**Jangan lupa:**
+- Input harus dari existing insight types
+- Output harus include clear recommendations
+- Tambahkan disclaimer jika generate action recommendations
+
+### Bekerja dengan Meta API
+
+```typescript
+// ✅ Pattern yang benar
+const campaigns = await client.metaGet<{ data: Campaign[] }>(
+  `/act_${adAccountId}/campaigns`,
+  {
+    fields: 'id,name,status,daily_budget',
+    limit: 100,
+  }
+);
+
+// Parse actions
+import { parseActionValue } from './utils/parseActions.js';
+const purchases = parseActionValue(insight.actions, 'purchase');
+
+// Format currency
+import { formatCurrency } from './utils/formatCurrency.js';
+const formatted = formatCurrency(1234.56, 'IDR'); // "Rp 1.234,56"
+```
+
+---
+
+## 🎨 Code Style & Conventions
 
 ### TypeScript
+
 - **Strict mode enabled** - Semua types harus explicit
 - **ESM modules** - Gunakan `import/export`, bukan `require`
 - **File extensions** - Selalu gunakan `.js` di import statements (bukan `.ts`)
-  ```typescript
-  // ✅ Correct
-  import { MetaClient } from './metaClient.js';
-  
-  // ❌ Wrong
-  import { MetaClient } from './metaClient';
-  ```
+
+```typescript
+// ✅ Correct
+import { MetaClient } from './metaClient.js';
+
+// ❌ Wrong
+import { MetaClient } from './metaClient';
+```
 
 ### Naming Conventions
-- **Files:** camelCase untuk files (e.g., `metaClient.ts`, `getCampaigns.ts`)
+
+- **Files:** camelCase (e.g., `metaClient.ts`, `getCampaigns.ts`)
 - **Functions:** camelCase (e.g., `getCampaignInsights`, `analyzeCampaignPerformance`)
 - **Types/Interfaces:** PascalCase (e.g., `MetaConfig`, `CampaignInsight`)
 - **Constants:** UPPER_SNAKE_CASE untuk env vars (e.g., `META_ACCESS_TOKEN`)
 
-### Code Organization
-
-```
-src/
-├── index.ts              # Main export - export semua public APIs
-├── metaClient.ts         # Core API client
-├── config.ts             # Environment config loader
-├── types.ts              # Semua TypeScript types & interfaces
-├── tools/                # API wrapper functions (read-only)
-├── analysis/             # Analysis & recommendation logic
-└── utils/                # Helper functions
-```
+### Organisasi Code
 
 **Rules:**
 - Semua public APIs harus di-export dari `src/index.ts`
@@ -101,99 +244,52 @@ src/
 - Analysis logic masuk ke `src/analysis/`
 - Utilities masuk ke `src/utils/`
 
-## Security Guidelines
+---
+
+## 🔒 Security Guidelines
 
 ### ⚠️ CRITICAL: Access Token Safety
-- **NEVER log access tokens** - Jangan console.log, jangan error message
-- **NEVER commit .env** - Sudah ada di .gitignore
-- **NEVER hardcode tokens** - Selalu gunakan environment variables
+
+**NEVER log access tokens** - Jangan console.log, jangan error message, jangan dimanapun.
 
 ```typescript
 // ✅ Correct - Token tidak pernah di-log
 const url = new URL(`${this.baseUrl}${path}`);
 url.searchParams.append('access_token', this.accessToken);
 
-// ❌ Wrong - Jangan log URL dengan token
+// ❌ Wrong - JANGAN LOG URL DENGAN TOKEN
 console.log('Fetching:', url.toString()); // NEVER DO THIS
 ```
 
+**Checklist:**
+- ❌ NEVER commit `.env` file (sudah ada di `.gitignore`)
+- ❌ NEVER hardcode tokens di code
+- ✅ ALWAYS gunakan environment variables
+- ✅ ALWAYS mask tokens di error messages
+
 ### Read-Only Operations Only
-- Project ini **hanya read-only** (ads_read permission)
-- **JANGAN implement write operations** seperti:
-  - Pause/resume campaigns
-  - Update budgets
-  - Create ads/campaigns
-  - Upload creatives
-- Semua recommendations harus include disclaimer bahwa ini suggestion only
 
-## API Client Pattern
+Project ini **hanya read-only** (ads_read permission) sampai v0.4.
 
-### MetaClient Usage
-Semua API calls harus melalui `MetaClient.metaGet()`:
+**JANGAN implement write operations** seperti:
+- Pause/resume campaigns
+- Update budgets
+- Create ads/campaigns
+- Upload creatives
 
-```typescript
-const response = await client.metaGet<{ data: Campaign[] }>(
-  `/act_${adAccountId}/campaigns`,
-  {
-    fields: 'id,name,status',
-    limit: 100,
-  }
-);
-```
+Semua recommendations harus include disclaimer bahwa ini suggestion only.
 
-**Rules:**
-- Gunakan TypeScript generics untuk response type
-- Handle errors dengan try-catch
-- Throw `MetaApiError` untuk Meta API errors
-- Jangan retry otomatis - biarkan caller yang handle
+---
 
-## Adding New Features
-
-### Adding New Tool
-1. Buat file di `src/tools/newTool.ts`
-2. Export function dengan clear interface:
-   ```typescript
-   export interface GetNewDataOptions {
-     adAccountId: string;
-     // ... other params
-   }
-   
-   export async function getNewData(
-     client: MetaClient,
-     options: GetNewDataOptions
-   ): Promise<NewData[]> {
-     // implementation
-   }
-   ```
-3. Export dari `src/index.ts`
-4. Tambahkan test di `tests/`
-
-### Adding New Analysis
-1. Buat file di `src/analysis/newAnalysis.ts`
-2. Input harus dari existing insight types
-3. Output harus include clear recommendations
-4. Tambahkan disclaimer jika generate action recommendations
-5. Export dari `src/index.ts`
-
-### Adding New Types
-1. Tambahkan di `src/types.ts`
-2. Follow Meta API response structure
-3. Gunakan optional fields (`?`) untuk fields yang tidak selalu ada
-4. Export dengan `export interface` atau `export type`
-
-## Testing Guidelines
+## 🧪 Testing
 
 ### Test Structure
-- Test files di folder `tests/`
-- Naming: `[feature].test.ts`
-- Gunakan Vitest
-- Mock external API calls
 
 ```typescript
 import { describe, it, expect } from 'vitest';
 
 describe('featureName', () => {
-  it('should do something specific', () => {
+  it('should handle edge case', () => {
     // Arrange
     const input = { /* ... */ };
     
@@ -201,25 +297,32 @@ describe('featureName', () => {
     const result = functionToTest(input);
     
     // Assert
-    expect(result).toBe(expected);
+    expect(result).toMatchObject(expected);
   });
 });
 ```
 
-**Rules:**
-- Test business logic, bukan API calls
-- Mock `MetaClient` untuk integration tests
-- Focus on edge cases (empty data, missing fields, etc.)
-- Jangan test external APIs (Meta API) - itu integration test
+**Focus pada:**
+- Business logic, bukan API calls
+- Edge cases (empty data, missing fields, null values)
+- Type safety (TypeScript should catch most bugs)
 
-## Meta Marketing API Guidelines
+**Jangan test:**
+- External APIs (Meta API) - itu integration test
+- Third-party libraries - assume they work
+
+---
+
+## 🌐 Meta Marketing API Guidelines
 
 ### API Version
+
 - Default: `v20.0`
 - Configurable via `META_API_VERSION` env var
 - Update version di `.env.example` jika ada breaking changes
 
 ### Common Fields
+
 **Campaign Insights:**
 - `campaign_id`, `campaign_name`
 - `spend`, `impressions`, `reach`, `clicks`
@@ -231,16 +334,22 @@ describe('featureName', () => {
 - `value`: string number (parse dengan `parseFloat`)
 
 ### Time Ranges
+
 - Format: `YYYY-MM-DD`
 - Gunakan `time_range` parameter: `{ since: '2026-05-21', until: '2026-05-28' }`
 - Max range: 93 days (Meta API limit)
 
-## Error Handling
+---
+
+## ⚠️ Error Handling
 
 ### MetaApiError
+
 Gunakan custom error class untuk Meta API errors:
 
 ```typescript
+import { MetaApiError } from './utils/metaError.js';
+
 try {
   const data = await client.metaGet('/path');
 } catch (error) {
@@ -259,11 +368,14 @@ try {
 - `code`: Meta error code
 - `type`: Error type
 - `subcode`: Optional subcode
-- `fbtraceId`: Optional trace ID for debugging
+- `fbtraceId`: Optional trace ID untuk debugging
 
-## Build & Development
+---
+
+## 🛠️ Build & Development
 
 ### Commands
+
 ```bash
 npm run dev          # Watch mode untuk development
 npm run build        # Build production bundle
@@ -274,57 +386,95 @@ npm run lint         # Lint code dengan ESLint
 ```
 
 ### Build Output
+
 - Output: `dist/`
 - Format: ESM only
 - Includes: `.js`, `.d.ts`, `.js.map`, `.d.ts.map`
 - Entry: `dist/index.js`
 
 ### Pre-commit Checklist
+
 1. `npm run format` - Format code
 2. `npm run build` - Ensure build works
 3. `npm run test` - All tests passing
 4. No console.logs in production code
 5. No access tokens in code or logs
 
-## Common Patterns
+---
 
-### Parsing Actions
+## 🗺️ Roadmap Context
+
+- ✅ v0.1.0 - Foundation (read-only)
+- ✅ v0.2.0 - Rule engine (26 templates)
+- ✅ v0.3.0 - AI skills layer ← **ANDA DI SINI**
+- 🔜 v0.4.0 - Write operations (pause, budget, approval workflow)
+- 🔜 v0.5.0 - OAuth flow
+- 🔜 v0.6.0 - Multi-account management
+- 🎯 v1.0.0 - Production ready (target: Desember 2026)
+
+### Saat Implement Features Baru
+
+- **v0.3:** Focus pada read operations dan analysis
+- **v0.4:** Design dengan approval workflow in mind
+- **v1.0:** Production-grade error handling dan monitoring
+
+---
+
+## 🐛 Troubleshooting
+
+### Build fails dengan "Cannot find module"
+
+→ Check `.js` extensions di imports (ESM requirement)
+
 ```typescript
-import { parseActionValue } from './utils/parseActions.js';
+// ✅ Correct
+import { MetaClient } from './metaClient.js';
 
-const purchases = parseActionValue(insight.actions, 'purchase');
-const leads = parseActionValue(insight.actions, 'lead');
+// ❌ Wrong
+import { MetaClient } from './metaClient';
 ```
 
-### Formatting Currency
-```typescript
-import { formatCurrency } from './utils/formatCurrency.js';
+### Tests fail dengan "MetaApiError"
 
-const formatted = formatCurrency(1234.56, 'USD'); // "$1,234.56"
-```
+→ Mock `MetaClient` di tests, jangan call real API
 
-### Config Loading
-```typescript
-import { loadConfig } from './config.js';
+### Type errors setelah tambah field baru
 
-const config = loadConfig(); // Throws if env vars missing
-const client = new MetaClient(config);
-```
+→ Tambahkan ke `src/types.ts` dan export
 
-## Roadmap Context
+### "Access token invalid"
 
-**Current (v0.1):** Read-only insights
-**Next (v0.2):** Advanced rules engine
-**Future (v0.3):** MCP server wrapper
-**Future (v0.4):** Safe write actions with approval
+→ Check `.env` file, ensure token punya `ads_read` permission
 
-Saat implement features baru:
-- v0.1: Focus on read operations dan analysis
-- v0.2: Bisa tambahkan custom rules dan advanced analysis
-- v0.3: Prepare untuk MCP integration (jangan couple terlalu tight)
-- v0.4: Design dengan approval layer in mind
+### Import error di runtime
 
-## Questions?
+→ Pastikan `"type": "module"` ada di `package.json`
+
+---
+
+## 📚 Referensi External
+
+- [Meta Marketing API Docs](https://developers.facebook.com/docs/marketing-api)
+- [Insights API Reference](https://developers.facebook.com/docs/marketing-api/insights)
+- [Ad Account Insights](https://developers.facebook.com/docs/marketing-api/reference/ad-account/insights)
+- [TypeScript ESM](https://www.typescriptlang.org/docs/handbook/esm-node.html)
+- [Vitest Documentation](https://vitest.dev)
+
+---
+
+## 🤝 Contributing
+
+Project ini open source (MIT license). Kontribusi welcome!
+
+**Sebelum submit PR:**
+1. Run `npm run format && npm run build && npm run test`
+2. Pastikan tidak ada tokens di code atau logs
+3. Update dokumentasi yang relevan
+4. Keep changes focused dan minimal
+
+---
+
+## ❓ Questions?
 
 Jika ada ambiguity:
 1. Check existing code patterns di `src/tools/` atau `src/analysis/`
@@ -332,14 +482,8 @@ Jika ada ambiguity:
 3. Prioritize security - when in doubt, don't log it
 4. Keep it simple - ini MVP, jangan over-engineer
 
-## External References
-
-- [Meta Marketing API Docs](https://developers.facebook.com/docs/marketing-api)
-- [Insights API Reference](https://developers.facebook.com/docs/marketing-api/insights)
-- [Ad Account Insights](https://developers.facebook.com/docs/marketing-api/reference/ad-account/insights)
-
 ---
 
-**Last Updated:** 2026-05-28
-**Scope:** Entire repository
-**Maintainer:** Project owner
+**Maintained by:** Project owner  
+**Scope:** Entire repository  
+**Last Updated:** 2026-05-29
