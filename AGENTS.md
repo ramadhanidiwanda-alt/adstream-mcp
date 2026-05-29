@@ -1,5 +1,56 @@
 # AGENTS.md
 
+## ⛔ STRICT RULES — WAJIB DIPATUHI
+
+### 🔴 Rule 1: JANGAN BUAT FILE .md TANPA IZIN
+
+**DILARANG** membuat file markdown (.md) baru kecuali:
+1. User secara eksplisit meminta file tersebut, ATAU
+2. User sudah memberikan izin setelah agent menanyakan
+
+Termasuk tapi tidak terbatas pada:
+- File ringkasan (SESSION_COMPLETE.md, TRANSFORMATION_SUMMARY.md, dll)
+- File dokumentasi baru (GUIDES, TUTORIALS, HOWTO, dll)
+- File perbandingan (COMPARISON, ANALYSIS, dll)
+- File log atau catatan meeting/progress
+- File README di subfolder baru
+
+**Jika agent merasa perlu membuat file .md:** Tanya user dulu.
+Contoh: "Saya ingin membuat file COMPARISON.md untuk dokumentasi perbandingan ini. Boleh?"
+
+**Pengecualian:** File .md yang sudah ada boleh diedit tanpa izin tambahan.
+
+### 🔴 Rule 2: JANGAN GIT PUSH TANPA IZIN
+
+**DILARANG** menjalankan `git push` ke remote/origin kecuali:
+1. User secara eksplisit meminta push, ATAU
+2. User sudah memberikan izin setelah agent menanyakan
+
+Termasuk:
+- `git push origin main`
+- `git push origin <branch>`
+- `git push` (apapun argumennya)
+- `git push --force`
+- `git push --all`
+
+**`git commit` diperbolehkan** tanpa izin khusus, tapi **push tetap harus minta izin.**
+
+**Jika agent ingin push:** Tanya user dulu.
+Contoh: "Changes sudah di-commit. Saya push ke origin?"
+
+### 🔴 Rule 3: JANGAN OVER-GENERATE ARTIFACTS
+
+Agent harus meminimalkan pembuatan file baru. Prinsipnya:
+- Jawab pertanyaan dengan text langsung, bukan bikin file
+- Satu file sudah cukup untuk satu jenis informasi
+- Jangan duplikasi informasi yang sudah ada di file lain
+- Jika informasi bersifat sementara, cukup tampilkan di output — jangan disimpan ke file
+
+**Alasan:** Repo ini punya terlalu banyak file .md noise dari sesi sebelumnya.
+Jangan tambah sampah lagi.
+
+---
+
 Panduan untuk AI agents yang bekerja dengan codebase `meta-ads-agent-skill`.
 
 ## Project Overview
