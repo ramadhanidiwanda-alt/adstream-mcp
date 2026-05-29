@@ -454,6 +454,15 @@ import { MetaClient } from './metaClient';
 
 ## 📚 Referensi External
 
+### Dokumentasi Project
+
+- [Arsitektur](docs/ARSITEKTUR.md) - Deep dive tentang desain dan struktur
+- [Keamanan](docs/KEAMANAN.md) - Security best practices dan token management
+- [Testing](docs/TESTING.md) - Panduan testing dan coverage
+- [Kontribusi](docs/KONTRIBUSI.md) - Cara berkontribusi ke project
+
+### Dokumentasi External
+
 - [Dokumentasi Meta Marketing API](https://developers.facebook.com/docs/marketing-api)
 - [Referensi Insights API](https://developers.facebook.com/docs/marketing-api/insights)
 - [Ad Account Insights](https://developers.facebook.com/docs/marketing-api/reference/ad-account/insights)
