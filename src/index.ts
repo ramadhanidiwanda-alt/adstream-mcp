@@ -26,6 +26,14 @@ export {
   isReadOperation,
   defaultDenyWritePermissionPolicy,
 } from './broker/types.js';
+export type * from './broker/credentials.js';
+export {
+  EnvCredentialProvider,
+  CuanInsightCredentialProvider,
+  CredentialResolver,
+  redactTokenLikeValues,
+  redactErrorMessage,
+} from './broker/credentials.js';
 
 export { RuleEngine } from './rules/engine.js';
 export type * from './rules/types.js';
