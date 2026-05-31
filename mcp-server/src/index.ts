@@ -16,6 +16,11 @@ import {
   generateDailyReport,
   RuleEngine,
   allRuleTemplates,
+  ADS_MCP_TOOL_DEFINITIONS,
+  createDefaultAdsBroker,
+  handleAdsMcpToolCall,
+  isAdsMcpToolName,
+  safeAdsMcpError,
 } from 'meta-ads-agent-skill';
 
 const server = new Server(
@@ -33,6 +38,7 @@ const server = new Server(
 // Initialize Meta client
 let client: MetaClient;
 let config: any;
+const adsBroker = createDefaultAdsBroker();
 
 try {
   config = loadConfig();
@@ -46,6 +52,7 @@ try {
 server.setRequestHandler(ListToolsRequestSchema, async () => {
   return {
     tools: [
+      ...ADS_MCP_TOOL_DEFINITIONS,
       {
         name: 'meta_get_ad_accounts',
         description: 'Fetch all Meta ad accounts accessible by the access token',
@@ -198,9 +205,21 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
 
 // Handle tool calls
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
-  const { name, arguments: args } = request.params;
+  const { name, arguments: rawArgs } = request.params;
+  const args = (rawArgs ?? {}) as {
+    adAccountId?: string;
+    since?: string;
+    until?: string;
+    status?: string;
+    limit?: number;
+    category?: string;
+  };
 
   try {
+    if (isAdsMcpToolName(name)) {
+      return await handleAdsMcpToolCall(adsBroker, name, args ?? {});
+    }
+
     switch (name) {
       case 'meta_get_ad_accounts': {
         const accounts = await getAdAccounts(client);
@@ -216,9 +235,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case 'meta_get_campaigns': {
         const campaigns = await getCampaigns(client, {
-          adAccountId: args.adAccountId || config.adAccountId,
+          adAccountId: (args.adAccountId || config.adAccountId) as string,
           limit: args.limit,
-          status: args.status,
         });
         return {
           content: [
@@ -232,9 +250,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case 'meta_get_campaign_insights': {
         const insights = await getCampaignInsights(client, {
-          adAccountId: args.adAccountId || config.adAccountId,
-          since: args.since,
-          until: args.until,
+          adAccountId: (args.adAccountId || config.adAccountId) as string,
+          since: args.since as string,
+          until: args.until as string,
         });
         return {
           content: [
@@ -248,9 +266,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case 'meta_get_adset_insights': {
         const insights = await getAdsetInsights(client, {
-          adAccountId: args.adAccountId || config.adAccountId,
-          since: args.since,
-          until: args.until,
+          adAccountId: (args.adAccountId || config.adAccountId) as string,
+          since: args.since as string,
+          until: args.until as string,
         });
         return {
           content: [
@@ -264,9 +282,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case 'meta_get_ads_insights': {
         const insights = await getAdsInsights(client, {
-          adAccountId: args.adAccountId || config.adAccountId,
-          since: args.since,
-          until: args.until,
+          adAccountId: (args.adAccountId || config.adAccountId) as string,
+          since: args.since as string,
+          until: args.until as string,
         });
         return {
           content: [
@@ -280,9 +298,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case 'meta_generate_daily_report': {
         const report = await generateDailyReport(client, {
-          adAccountId: args.adAccountId || config.adAccountId,
-          since: args.since,
-          until: args.until,
+          adAccountId: (args.adAccountId || config.adAccountId) as string,
+          since: args.since as string,
+          until: args.until as string,
         });
         return {
           content: [
@@ -296,9 +314,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case 'meta_analyze_with_rules': {
         const insights = await getCampaignInsights(client, {
-          adAccountId: args.adAccountId || config.adAccountId,
-          since: args.since,
-          until: args.until,
+          adAccountId: (args.adAccountId || config.adAccountId) as string,
+          since: args.since as string,
+          until: args.until as string,
         });
 
         const engine = new RuleEngine();
@@ -318,15 +336,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         throw new Error(`Unknown tool: ${name}`);
     }
   } catch (error) {
-    return {
-      content: [
-        {
-          type: 'text',
-          text: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        },
-      ],
-      isError: true,
-    };
+    return safeAdsMcpError(error);
   }
 });
 
