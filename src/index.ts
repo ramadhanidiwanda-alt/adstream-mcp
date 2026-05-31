@@ -36,6 +36,22 @@ export {
 } from './broker/credentials.js';
 export { AdsBroker } from './broker/AdsBroker.js';
 export type * from './broker/AdsBroker.js';
+export {
+  createDefaultAdsBroker,
+  createDefaultCredentialResolver,
+  createDefaultProviderRegistry,
+  NotImplementedTikTokAdsAdapter,
+} from './broker/factory.js';
+export type * from './broker/factory.js';
+export {
+  ADS_MCP_TOOL_DEFINITIONS,
+  ADS_MCP_TOOL_NAMES,
+  handleAdsMcpToolCall,
+  isAdsMcpToolName,
+  safeAdsMcpError,
+  toAdsBrokerRequest,
+} from './broker/mcpTools.js';
+export type * from './broker/mcpTools.js';
 export { ProviderRegistry } from './broker/providerRegistry.js';
 export { MetaAdsAdapter } from './providers/meta/MetaAdsAdapter.js';
 export { normalizeMetaInsight, normalizeMetaInsights } from './providers/meta/normalizer.js';
