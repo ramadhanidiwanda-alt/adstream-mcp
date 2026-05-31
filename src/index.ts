@@ -34,6 +34,8 @@ export {
   redactTokenLikeValues,
   redactErrorMessage,
 } from './broker/credentials.js';
+export { AdsBroker } from './broker/AdsBroker.js';
+export type * from './broker/AdsBroker.js';
 export { ProviderRegistry } from './broker/providerRegistry.js';
 export { MetaAdsAdapter } from './providers/meta/MetaAdsAdapter.js';
 export { normalizeMetaInsight, normalizeMetaInsights } from './providers/meta/normalizer.js';
