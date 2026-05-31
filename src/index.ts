@@ -40,7 +40,6 @@ export {
   createDefaultAdsBroker,
   createDefaultCredentialResolver,
   createDefaultProviderRegistry,
-  NotImplementedTikTokAdsAdapter,
 } from './broker/factory.js';
 export type * from './broker/factory.js';
 export {
@@ -57,6 +56,10 @@ export { MetaAdsAdapter } from './providers/meta/MetaAdsAdapter.js';
 export { normalizeMetaInsight, normalizeMetaInsights } from './providers/meta/normalizer.js';
 export type * from './providers/meta/normalizer.js';
 export type * from './providers/meta/MetaAdsAdapter.js';
+export { TikTokAdsAdapter } from './providers/tiktok/TikTokAdsAdapter.js';
+export { normalizeTikTokInsight, normalizeTikTokInsights } from './providers/tiktok/normalizer.js';
+export type * from './providers/tiktok/TikTokAdsAdapter.js';
+export type * from './providers/tiktok/normalizer.js';
 
 export { RuleEngine } from './rules/engine.js';
 export type * from './rules/types.js';
