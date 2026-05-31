@@ -205,7 +205,15 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
 
 // Handle tool calls
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
-  const { name, arguments: args } = request.params;
+  const { name, arguments: rawArgs } = request.params;
+  const args = (rawArgs ?? {}) as {
+    adAccountId?: string;
+    since?: string;
+    until?: string;
+    status?: string;
+    limit?: number;
+    category?: string;
+  };
 
   try {
     if (isAdsMcpToolName(name)) {
@@ -227,9 +235,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case 'meta_get_campaigns': {
         const campaigns = await getCampaigns(client, {
-          adAccountId: args.adAccountId || config.adAccountId,
+          adAccountId: (args.adAccountId || config.adAccountId) as string,
           limit: args.limit,
-          status: args.status,
         });
         return {
           content: [
@@ -243,9 +250,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case 'meta_get_campaign_insights': {
         const insights = await getCampaignInsights(client, {
-          adAccountId: args.adAccountId || config.adAccountId,
-          since: args.since,
-          until: args.until,
+          adAccountId: (args.adAccountId || config.adAccountId) as string,
+          since: args.since as string,
+          until: args.until as string,
         });
         return {
           content: [
@@ -259,9 +266,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case 'meta_get_adset_insights': {
         const insights = await getAdsetInsights(client, {
-          adAccountId: args.adAccountId || config.adAccountId,
-          since: args.since,
-          until: args.until,
+          adAccountId: (args.adAccountId || config.adAccountId) as string,
+          since: args.since as string,
+          until: args.until as string,
         });
         return {
           content: [
@@ -275,9 +282,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case 'meta_get_ads_insights': {
         const insights = await getAdsInsights(client, {
-          adAccountId: args.adAccountId || config.adAccountId,
-          since: args.since,
-          until: args.until,
+          adAccountId: (args.adAccountId || config.adAccountId) as string,
+          since: args.since as string,
+          until: args.until as string,
         });
         return {
           content: [
@@ -291,9 +298,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case 'meta_generate_daily_report': {
         const report = await generateDailyReport(client, {
-          adAccountId: args.adAccountId || config.adAccountId,
-          since: args.since,
-          until: args.until,
+          adAccountId: (args.adAccountId || config.adAccountId) as string,
+          since: args.since as string,
+          until: args.until as string,
         });
         return {
           content: [
@@ -307,9 +314,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case 'meta_analyze_with_rules': {
         const insights = await getCampaignInsights(client, {
-          adAccountId: args.adAccountId || config.adAccountId,
-          since: args.since,
-          until: args.until,
+          adAccountId: (args.adAccountId || config.adAccountId) as string,
+          since: args.since as string,
+          until: args.until as string,
         });
 
         const engine = new RuleEngine();
