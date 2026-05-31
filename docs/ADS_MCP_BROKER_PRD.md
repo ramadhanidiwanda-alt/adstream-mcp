@@ -256,7 +256,7 @@ Recommended rich normalized schema:
 ```ts
 type AdsProviderId = 'meta' | 'tiktok';
 
-type AdsEntityLevel = 'account' | 'campaign' | 'ad_group' | 'ad' | 'creative';
+type AdsEntityLevel = 'account' | 'campaign' | 'adset' | 'adgroup' | 'ad' | 'creative';
 
 interface AdsIdentity {
   provider: AdsProviderId;
@@ -264,8 +264,8 @@ interface AdsIdentity {
   account_name?: string;
   campaign_id?: string;
   campaign_name?: string;
-  ad_group_id?: string;
-  ad_group_name?: string;
+  adset_or_adgroup_id?: string;
+  adset_or_adgroup_name?: string;
   ad_id?: string;
   ad_name?: string;
   creative_id?: string;
@@ -399,14 +399,18 @@ Mapping guidance:
 - `raw` is optional and must not appear by default in public MCP responses.
 - Schema may be rich from the start while implementation remains incremental.
 - Meta and TikTok fields that are unavailable in early adapters may stay optional.
-- Meta `adset_id` maps to `identity.ad_group_id`.
-- Meta `adset_name` maps to `identity.ad_group_name`.
-- TikTok `adgroup_id` maps to `identity.ad_group_id`.
-- TikTok `adgroup_name` maps to `identity.ad_group_name`.
+- Meta `adset_id` maps to `identity.adset_or_adgroup_id`.
+- Meta `adset_name` maps to `identity.adset_or_adgroup_name`.
+- TikTok `adgroup_id` maps to `identity.adset_or_adgroup_id`.
+- TikTok `adgroup_name` maps to `identity.adset_or_adgroup_name`.
 - ROAS should be normalized into `commerce.roas` or `calculated.roas` when available or computable.
 - Conversion value should be normalized into `conversions.conversion_value` when available.
 
 ## 12. Implementation Plan
+
+Current implementation status: Phases 1-5 have an implemented foundation in this repository.
+This includes rich types and contracts, `CredentialResolver`, `ProviderRegistry`, `MetaAdsAdapter` wrapper, `AdsBroker`, MVP `ads_*` MCP tools, and `TikTokAdsAdapter` skeleton/mock.
+TikTok support is currently skeleton/mock only: there is no real TikTok Business API call and no TikTok OAuth implementation in this MCP repository yet.
 
 ### Phase 0 — Audit
 
@@ -460,6 +464,7 @@ Mapping guidance:
 - Add mock response mapping for contract tests.
 - Do not hardcode TikTok logic directly into the MCP server.
 - Defer real TikTok Business API integration until contracts and tests are stable.
+- Current status: implemented as skeleton/mock only; no real TikTok API calls are made.
 
 ### Phase 6 — Tests
 
@@ -515,6 +520,7 @@ Mapping guidance:
 - What is the minimum useful creative performance schema for TikTok Ads?
 - When should legacy Meta-only MCP tools be deprecated?
 - Which transport should be prioritized first for remote mode?
+- Known issue: `mcp-server` DTS build still needs dependency/workspace setup. Root `npm run test` and root `npm run build` pass, but this should be resolved before final packaging or release.
 
 ## 15. Recommendation
 
