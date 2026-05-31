@@ -63,7 +63,7 @@ export function redactErrorMessage(message: string): string {
 
 export function redactTokenLikeValues<T>(value: T): T | string {
   if (typeof value === 'string') {
-    return redactErrorMessage(value);
+    return redactStructuredString(value);
   }
 
   if (Array.isArray(value)) {
@@ -83,6 +83,16 @@ export function redactTokenLikeValues<T>(value: T): T | string {
   }
 
   return value;
+}
+
+function redactStructuredString(message: string): string {
+  return message
+    .replace(/(Authorization\s*:\s*Bearer\s+)[^\s,;]+/gi, `$1${REDACTED}`)
+    .replace(/([?&]?access_token=)[^\s&]+/gi, `$1${REDACTED}`)
+    .replace(/([?&]?appsecret_proof=)[^\s&]+/gi, `$1${REDACTED}`)
+    .replace(/(accessToken\s*[:=]\s*)[^\s,;&]+/gi, `$1${REDACTED}`)
+    .replace(/(access_token\s*[:=]\s*)[^\s,;&]+/gi, `$1${REDACTED}`)
+    .replace(/(token\s*[:=]\s*)[^\s,;&]+/gi, `$1${REDACTED}`);
 }
 
 export class EnvCredentialProvider implements CredentialProvider {
