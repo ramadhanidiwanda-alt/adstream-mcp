@@ -16,6 +16,11 @@ import {
   generateDailyReport,
   RuleEngine,
   allRuleTemplates,
+  ADS_MCP_TOOL_DEFINITIONS,
+  createDefaultAdsBroker,
+  handleAdsMcpToolCall,
+  isAdsMcpToolName,
+  safeAdsMcpError,
 } from 'meta-ads-agent-skill';
 
 const server = new Server(
@@ -33,6 +38,7 @@ const server = new Server(
 // Initialize Meta client
 let client: MetaClient;
 let config: any;
+const adsBroker = createDefaultAdsBroker();
 
 try {
   config = loadConfig();
@@ -46,6 +52,7 @@ try {
 server.setRequestHandler(ListToolsRequestSchema, async () => {
   return {
     tools: [
+      ...ADS_MCP_TOOL_DEFINITIONS,
       {
         name: 'meta_get_ad_accounts',
         description: 'Fetch all Meta ad accounts accessible by the access token',
@@ -201,6 +208,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
 
   try {
+    if (isAdsMcpToolName(name)) {
+      return await handleAdsMcpToolCall(adsBroker, name, args ?? {});
+    }
+
     switch (name) {
       case 'meta_get_ad_accounts': {
         const accounts = await getAdAccounts(client);
@@ -318,15 +329,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         throw new Error(`Unknown tool: ${name}`);
     }
   } catch (error) {
-    return {
-      content: [
-        {
-          type: 'text',
-          text: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        },
-      ],
-      isError: true,
-    };
+    return safeAdsMcpError(error);
   }
 });
 
