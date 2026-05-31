@@ -56,3 +56,11 @@ RELEASE_COMPLETE.md
 SETUP_COMPLETE.md
 TODAY_SUMMARY.md
 GITHUB_PUBLISHED.md
+
+.local/
+
+.private/
+
+.ai-private/
+
+*.local.md
