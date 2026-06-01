@@ -27,6 +27,12 @@ export {
   defaultDenyWritePermissionPolicy,
 } from './broker/types.js';
 export type * from './broker/credentials.js';
+export type * from './broker/cuanInsight.js';
+export {
+  CUAN_INSIGHT_CREDENTIAL_ERROR_CODES,
+  isCuanInsightCredentialErrorCode,
+  isSupportedCuanInsightProvider,
+} from './broker/cuanInsight.js';
 export {
   EnvCredentialProvider,
   CuanInsightCredentialProvider,
