@@ -21,3 +21,92 @@ export function createDefaultAdsBroker(): AdsBroker {
     credentialResolver: createDefaultCredentialResolver(),
   });
 }
+
+import type { RemoteBrokerConfig, BrokerConfig } from './config.js';
+import { createCuanInsightCredentialClient } from './cuanInsightClient.js';
+import { CuanInsightCredentialProvider } from './credentials.js';
+
+/**
+ * Create a credential resolver configured for remote mode.
+ *
+ * This resolver uses the Cuan Insight credential client to resolve credentials
+ * from a remote Cuan Insight API endpoint. It never falls back to environment
+ * variables.
+ *
+ * Security rules:
+ * - baseUrl must be provided via config, never hardcoded
+ * - Remote mode never falls back to ENV credentials
+ * - All errors are safe to surface (no token leaks)
+ *
+ * @param config - Remote broker configuration
+ * @returns CredentialResolver configured for remote mode
+ */
+export function createRemoteCredentialResolver(
+  config: RemoteBrokerConfig
+): CredentialResolver {
+  // Create Cuan Insight HTTP client
+  const client = createCuanInsightCredentialClient({
+    config: {
+      baseUrl: config.cuanInsightBaseUrl,
+      endpointPath: config.cuanInsightEndpointPath,
+      timeoutMs: config.cuanInsightTimeoutMs,
+    },
+  });
+
+  // Create Cuan Insight credential provider
+  const cuanInsightProvider = new CuanInsightCredentialProvider(client);
+
+  // Create resolver in remote mode
+  return new CredentialResolver({
+    mode: 'remote',
+    cuanInsightProvider,
+  });
+}
+
+/**
+ * Create an AdsBroker configured for remote mode.
+ *
+ * This broker uses the Cuan Insight credential client to resolve credentials
+ * from a remote Cuan Insight API endpoint. It never falls back to environment
+ * variables.
+ *
+ * Security rules:
+ * - baseUrl must be provided via config, never hardcoded
+ * - Remote mode never falls back to ENV credentials
+ * - All errors are safe to surface (no token leaks)
+ *
+ * @param config - Remote broker configuration
+ * @returns AdsBroker configured for remote mode
+ */
+export function createRemoteAdsBroker(config: RemoteBrokerConfig): AdsBroker {
+  return new AdsBroker({
+    providerRegistry: createDefaultProviderRegistry(),
+    credentialResolver: createRemoteCredentialResolver(config),
+  });
+}
+
+/**
+ * Create an AdsBroker from parsed broker configuration.
+ *
+ * This factory function selects the appropriate broker based on the runtime mode:
+ * - 'local': Uses environment variables for credentials (default)
+ * - 'remote': Uses Cuan Insight API for credentials
+ * - 'test': Uses test provider (for testing only)
+ *
+ * @param config - Parsed broker configuration
+ * @returns AdsBroker configured for the specified mode
+ * @throws Error if remote mode is missing required configuration
+ */
+export function createAdsBrokerFromConfig(config: BrokerConfig): AdsBroker {
+  if (config.mode === 'remote') {
+    if (!config.cuanInsight) {
+      throw new Error(
+        'Remote mode requires cuanInsight configuration'
+      );
+    }
+    return createRemoteAdsBroker(config.cuanInsight);
+  }
+
+  // Local or test mode uses default broker
+  return createDefaultAdsBroker();
+}
