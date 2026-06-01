@@ -86,3 +86,13 @@ export {
   buildCuanInsightCredentialRequestFromRemoteContext,
   isRemoteMcpAuthErrorCode,
 } from './broker/remoteAuth.js';
+
+export type * from './broker/config.js';
+export {
+  parseBrokerConfigFromEnv,
+} from './broker/config.js';
+export {
+  createRemoteCredentialResolver,
+  createRemoteAdsBroker,
+  createAdsBrokerFromConfig,
+} from './broker/factory.js';
