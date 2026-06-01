@@ -413,3 +413,55 @@ Phase 5 (Non-production Streamable HTTP skeleton) has been partially completed:
 - HTTP skeleton is for design validation only
 - Do not expose HTTP endpoint publicly
 - Do not use for real user traffic
+
+## 9. Credential Client Skeleton
+
+**Status:** Skeleton implementation exists but is not wired to production transport
+
+**Location:** `src/broker/cuanInsightClient.ts`
+
+**Purpose:**
+- Provides HTTP client skeleton for resolving credentials from Cuan Insight
+- Dependency-safe and config-based design
+- Does not hardcode Cuan Insight domain or endpoint
+- Supports injectable fetch for testing
+- Never logs or exposes tokens
+
+**Configuration:**
+```typescript
+interface CuanInsightCredentialClientConfig {
+  baseUrl: string;              // From env/config, not hardcoded
+  endpointPath?: string;        // Default: '/mcp/credentials/resolve'
+  timeoutMs?: number;           // Default: 10000ms
+  fetch?: typeof fetch;         // Injectable for tests
+}
+```
+
+**Security Rules:**
+- `baseUrl` must be provided via config/env
+- `callerToken` sent via Authorization Bearer header
+- `callerToken` never logged or exposed in errors
+- All errors are redacted
+- Response body validated before returning
+
+**Error Codes:**
+- `MISSING_BASE_URL` - baseUrl not configured
+- `MISSING_CALLER_TOKEN` - caller token required
+- `NETWORK_ERROR` - network request failed
+- `UPSTREAM_ERROR` - non-2xx response from upstream
+- `INVALID_RESPONSE` - response doesn't match contract
+- `TIMEOUT_ERROR` - request timeout
+
+**Current State:**
+- Client skeleton exists with full test coverage
+- Not wired to HTTP transport yet
+- Not wired to CuanInsightCredentialProvider yet
+- No production Cuan Insight endpoint implementation
+- No hardcoded domain or URL
+
+**Next Steps:**
+1. Wire client to CuanInsightCredentialProvider when Cuan Insight API is ready
+2. Configure baseUrl from environment variable
+3. Add operational logging with token redaction
+4. Add retry logic for transient failures
+5. Add circuit breaker for upstream failures
