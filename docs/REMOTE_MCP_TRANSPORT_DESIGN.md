@@ -1,5 +1,26 @@
 # Remote MCP Transport Design
 
+## Status Update (2026-06-01)
+
+**Remote credential client wiring is now available behind explicit config.**
+
+The Cuan Insight credential client skeleton can now be wired to the broker through factory functions and environment-based configuration. This enables:
+
+- Remote mode credential resolution through `createRemoteAdsBroker(config)`
+- Explicit config via `BROKER_RUNTIME_MODE=remote` and `CUAN_INSIGHT_API_BASE_URL`
+- Full isolation from local/stdio mode (no behavior changes to existing workflows)
+- Testable with mock Cuan Insight clients (no production endpoint required)
+
+**What this does NOT include:**
+- No production Cuan Insight API endpoint implementation (out of scope for this repo)
+- No OAuth implementation (handled by Cuan Insight SaaS)
+- No billing/rate limiting (handled by Cuan Insight SaaS)
+- No automatic activation in stdio mode (local remains default)
+
+See `src/broker/config.ts` and `src/broker/factory.ts` for implementation details.
+
+---
+
 ## 1. Summary
 
 This document defines the proposed remote MCP transport design for the Ads MCP Broker.
