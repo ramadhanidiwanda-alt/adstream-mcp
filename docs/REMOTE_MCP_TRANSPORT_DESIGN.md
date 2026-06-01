@@ -309,3 +309,35 @@ Proposed purpose:
 - No providers beyond `meta` and `tiktok`.
 - No tag or release.
 
+
+## 12. Phase 3 Implementation Status
+
+Phase 3 (Remote auth contracts) has been completed:
+
+- Added `src/broker/remoteAuth.ts` with remote MCP auth helper contracts
+- Implemented `parseRemoteMcpAuthHeaders()` for parsing Authorization Bearer tokens
+- Implemented `buildCuanInsightCredentialRequestFromRemoteContext()` for building credential requests
+- Added comprehensive tests in `tests/broker/remoteAuth.test.ts`
+- Exported remote auth helpers from `src/index.ts`
+
+### Remote Auth Contract
+
+The remote auth helper provides:
+
+- `RemoteMcpAuthHeaders` - HTTP header interface for remote MCP requests
+- `RemoteMcpRequestContext` - Parsed request context with caller token, workspace ID, and request ID
+- `RemoteMcpAuthErrorCode` - Safe error codes for auth failures
+- `parseRemoteMcpAuthHeaders()` - Parse and validate Authorization Bearer token and optional headers
+- `buildCuanInsightCredentialRequestFromRemoteContext()` - Build Cuan Insight credential resolve request
+
+### Security Rules
+
+- Authorization header is required and must use Bearer scheme
+- Caller token is extracted but never logged or included in error messages
+- Workspace ID and Request ID are optional
+- Provider must be 'meta' or 'tiktok'
+- Requested scopes are always ['read'] in this phase
+
+### Next Steps
+
+Phase 4 will add remote credential resolver wiring with injected fake Cuan Insight credential client in tests.
