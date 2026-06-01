@@ -341,3 +341,75 @@ The remote auth helper provides:
 ### Next Steps
 
 Phase 4 will add remote credential resolver wiring with injected fake Cuan Insight credential client in tests.
+
+## 13. Phase 5 Implementation Status (Non-Production Skeleton)
+
+Phase 5 (Non-production Streamable HTTP skeleton) has been partially completed:
+
+- Added `mcp-server/src/http.ts` as experimental HTTP/SSE entrypoint
+- Added `tests/httpSkeleton.test.ts` with 9 tests for config and security
+- HTTP skeleton is disabled by default and requires explicit `ENABLE_EXPERIMENTAL_HTTP_MCP=true`
+
+### SDK Transport Audit Result
+
+**MCP SDK Version:** 0.5.0
+
+**Available Transports:**
+- ✅ stdio (production-ready, default)
+- ✅ SSE (Server-Sent Events, available but not Streamable HTTP)
+- ❌ Streamable HTTP (NOT available in this SDK version)
+
+**Decision:** Use SSE transport as a non-production placeholder until SDK supports Streamable HTTP.
+
+### HTTP Skeleton Characteristics
+
+**Status:** Experimental, non-production, fail-fast by default
+
+**Transport:** SSE (Server-Sent Events) - NOT Streamable HTTP
+
+**Activation:**
+- Requires `ENABLE_EXPERIMENTAL_HTTP_MCP=true`
+- Without flag, fails fast with clear error message
+- Stdio remains the default and recommended transport
+
+**Configuration:**
+- `MCP_HTTP_HOST` - Default: `127.0.0.1` (localhost only)
+- `MCP_HTTP_PORT` - Default: `3000`
+- `MCP_HTTP_ENDPOINT` - Default: `/message`
+
+**Endpoints:**
+- `GET /sse` - SSE connection endpoint
+- `POST /message?sessionId=<id>` - Message endpoint
+- `GET /health` - Health check (returns experimental status)
+
+**Security:**
+- Binds to localhost by default (not 0.0.0.0)
+- Does not log Authorization headers
+- Does not expose tokens in responses
+- Read-only operations only
+- No production auth/rate limiting/monitoring
+
+**Limitations:**
+- Not production-ready
+- No real Cuan Insight API integration
+- No remote auth header parsing (contract exists but not wired)
+- No workspace resolution
+- No plan limits enforcement
+- Session management is basic (in-memory Map)
+
+### Next Steps
+
+**Before Production:**
+1. Upgrade MCP SDK when Streamable HTTP transport is available
+2. Wire remote auth helpers (`parseRemoteMcpAuthHeaders`) into HTTP transport
+3. Inject Cuan Insight credential client for remote mode
+4. Add rate limiting and request tracing
+5. Add operational logging with token redaction
+6. Add deployment documentation
+7. Run compatibility checks with target MCP clients
+
+**Current Recommendation:**
+- Use stdio for all production deployments
+- HTTP skeleton is for design validation only
+- Do not expose HTTP endpoint publicly
+- Do not use for real user traffic
