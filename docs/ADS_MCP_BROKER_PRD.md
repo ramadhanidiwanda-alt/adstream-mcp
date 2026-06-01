@@ -505,16 +505,69 @@ TikTok support is currently skeleton/mock only: there is no real TikTok Business
 - Do not build generic non-ads integrations.
 - Do not hardcode TikTok directly into the MCP server.
 
-## 14. Open Questions
+## 14. Cuan Insight Remote Credential Contract
 
-- What public-safe endpoint contract should the MCP broker use to resolve credentials from Cuan Insight?
+Remote mode uses a dependency-injected `CuanInsightCredentialClient` owned by the host application. This repository defines the TypeScript contract only. It does not hardcode a Cuan Insight URL, OAuth flow, billing logic, TikTok API call, or write operation.
+
+### Resolve Request
+
+`CuanInsightCredentialResolveRequest` is sent from the broker to the injected Cuan Insight client:
+
+- `provider`: required provider ID, restricted to `meta` or `tiktok`.
+- `accountId`: optional requested provider account ID.
+- `workspaceId`: optional Cuan Insight workspace context supplied by the host.
+- `callerToken`: optional opaque remote caller credential supplied by the host. This must never be logged or echoed.
+- `requestedScopes`: read-only scope list. Current contract supports only `read`.
+- `params`: optional tool-specific context for Cuan Insight policy checks.
+
+### Resolve Response
+
+`CuanInsightCredentialResolveResponse` is returned by the injected Cuan Insight client:
+
+- `ok`: resolution success flag.
+- `identity`: public-safe `CuanInsightMcpIdentity` with `userId`, `workspaceId`, and `plan`.
+- `providerAccess`: `CuanInsightProviderAccess` containing provider, account allowlist entry, read-only scopes, and `allowed`.
+- `providerToken`: short-lived provider token for broker-to-provider API calls. This must never appear in logs, public errors, or MCP responses.
+- `providerApiVersion`: optional provider API version override.
+- `tokenExpiresAt`: optional ISO timestamp for provider token expiry.
+- `planLimits`: public-safe `CuanInsightPlanLimits` with plan and quota metadata.
+- `error`: safe error object with a `CuanInsightCredentialErrorCode` and redacted message.
+
+### Safe Error Codes
+
+Remote credential errors must use these safe codes:
+
+- `UNSUPPORTED_PROVIDER`
+- `AUTHENTICATION_REQUIRED`
+- `IDENTITY_NOT_FOUND`
+- `WORKSPACE_NOT_FOUND`
+- `ACCOUNT_NOT_ALLOWED`
+- `PROVIDER_TOKEN_EXPIRED`
+- `PROVIDER_TOKEN_REVOKED`
+- `PROVIDER_TOKEN_MISSING`
+- `PLAN_LIMIT_EXCEEDED`
+- `READ_ONLY_VIOLATION`
+- `INTERNAL_ERROR`
+
+Unknown upstream error codes are mapped to `INTERNAL_ERROR` before they reach broker callers.
+
+### Broker Guarantees
+
+- Remote mode resolves credentials only through `CuanInsightCredentialProvider`; it does not fall back to environment variables.
+- Providers outside `meta` and `tiktok` are rejected before the injected client is called.
+- Requested account ID must match the Cuan Insight allowlist response when both are present.
+- Expired `tokenExpiresAt` values return `PROVIDER_TOKEN_EXPIRED` without exposing token material.
+- Public metadata may include identity, provider access, plan limits, and expiry timestamp, but never `providerToken` or `callerToken`.
+- All permission scopes are read-only in this phase.
+
+## 15. Open Questions
+
 - What auth format should remote MCP clients use: API key, bearer token, JWT, or another opaque token?
 - Should the broker receive workspace context explicitly, or should Cuan Insight infer it from the caller token?
 - Should plan limits be enforced only by Cuan Insight or also mirrored in the MCP broker?
 - Should ad account mapping be returned by Cuan Insight or fetched live from provider APIs?
 - What should the remote MCP path be?
-- What is the expected expiration and refresh behavior for credentials returned by Cuan Insight?
-- How should the broker handle expired provider credentials?
+- What is the expected refresh behavior after Cuan Insight returns an expired provider credential?
 - Should cross-provider reports allow partial success when one provider fails?
 - What conversion event should be the default for ROAS and conversions across providers?
 - What is the minimum useful creative performance schema for TikTok Ads?
@@ -522,7 +575,7 @@ TikTok support is currently skeleton/mock only: there is no real TikTok Business
 - Which transport should be prioritized first for remote mode?
 - Known issue: `mcp-server` DTS build still needs dependency/workspace setup. Root `npm run test` and root `npm run build` pass, but this should be resolved before final packaging or release.
 
-## 15. Recommendation
+## 16. Recommendation
 
 The first implementation step should be defining `AdsProviderAdapter`, `CredentialResolver`, and `AdsMetricRecord` before adding TikTok or remote-mode code.
 
