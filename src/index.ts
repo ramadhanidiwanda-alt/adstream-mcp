@@ -78,3 +78,11 @@ export {
   allRuleTemplates,
   getRulesByCategory,
 } from './rules/templates/index.js';
+
+export type * from './broker/remoteAuth.js';
+export {
+  REMOTE_MCP_AUTH_ERROR_CODES,
+  parseRemoteMcpAuthHeaders,
+  buildCuanInsightCredentialRequestFromRemoteContext,
+  isRemoteMcpAuthErrorCode,
+} from './broker/remoteAuth.js';
