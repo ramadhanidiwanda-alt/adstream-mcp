@@ -181,6 +181,8 @@ Core components:
 - PermissionPolicy: enforces read-only behavior and blocks unsupported providers or write operations.
 - Token Redaction: shared safety utility for logs, errors, and responses.
 
+Remote transport design is documented separately in [Remote MCP Transport Design](REMOTE_MCP_TRANSPORT_DESIGN.md). This PRD defines product scope and responsibilities; the transport design defines the recommended Streamable HTTP remote mode, stdio local mode, auth contract, validation rules, risks, and phased implementation plan.
+
 Target flow:
 
 ```text
