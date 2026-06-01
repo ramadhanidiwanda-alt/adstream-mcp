@@ -30,7 +30,7 @@ export type CuanInsightCredentialErrorCode =
  * Insight is the source of truth for membership and plan.
  */
 export interface CuanInsightMcpIdentity {
-  userId: string;
+  userId?: string;
   workspaceId: string;
   plan: string;
   email?: string;
