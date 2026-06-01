@@ -36,6 +36,29 @@ export interface CuanInsightCredentialClientConfig {
    */
   timeoutMs?: number;
 
+
+  /**
+   * Supabase anonymous key for hosted Supabase auth pattern.
+   * When provided, the client will send:
+   * - Authorization: Bearer <supabaseAnonKey>
+   * - X-Cuan-MCP-Token: <callerToken>
+   *
+   * When NOT provided, the client will send:
+   * - Authorization: Bearer <callerToken>
+   *
+   * MUST be provided via environment variable or config.
+   * MUST NOT be hardcoded in production.
+   * MUST NOT be logged or exposed in errors.
+   */
+  supabaseAnonKey?: string;
+
+  /**
+   * Header name for MCP token when using hosted Supabase auth.
+   * Default: 'X-Cuan-MCP-Token'
+   *
+   * Only used when supabaseAnonKey is provided.
+   */
+  mcpTokenHeaderName?: string;
   /**
    * Injectable fetch implementation for testing.
    * Default: global fetch
@@ -58,6 +81,7 @@ export interface CuanInsightCredentialClientOptions {
 export const CUAN_INSIGHT_CLIENT_ERROR_CODES = [
   'MISSING_BASE_URL',
   'MISSING_CALLER_TOKEN',
+  'MISSING_SUPABASE_ANON_KEY',
   'NETWORK_ERROR',
   'UPSTREAM_ERROR',
   'INVALID_RESPONSE',
@@ -125,6 +149,8 @@ export function createCuanInsightCredentialClient(
   const endpointPath = config.endpointPath ?? DEFAULT_ENDPOINT_PATH;
   const timeoutMs = config.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const fetchImpl = config.fetch ?? fetch;
+  const mcpTokenHeaderName = config.mcpTokenHeaderName ?? 'X-Cuan-MCP-Token';
+  const useHostedAuth = !!config.supabaseAnonKey;
 
   return {
     async resolve(
@@ -166,10 +192,16 @@ export function createCuanInsightCredentialClient(
         // Make HTTP request
         const response = await fetchImpl(url, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${request.callerToken}`,
-          },
+          headers: useHostedAuth
+            ? {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${config.supabaseAnonKey}`,
+                [mcpTokenHeaderName]: request.callerToken,
+              }
+            : {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${request.callerToken}`,
+              },
           body: JSON.stringify(body),
           signal: controller.signal,
         });
@@ -196,15 +228,17 @@ export function createCuanInsightCredentialClient(
           );
         }
 
+        const normalizedResponse = normalizeCuanInsightResponse(responseBody);
+
         // Validate response contract
-        if (!isValidCuanInsightResponse(responseBody)) {
+        if (!isValidCuanInsightResponse(normalizedResponse)) {
           throw new CuanInsightCredentialClientError(
             'INVALID_RESPONSE',
             'Cuan Insight response does not match expected contract'
           );
         }
 
-        return responseBody;
+        return normalizedResponse;
       } catch (error) {
         clearTimeout(timeoutId);
 
@@ -228,6 +262,30 @@ export function createCuanInsightCredentialClient(
         );
       }
     },
+  };
+}
+
+function normalizeCuanInsightResponse(
+  value: unknown
+): unknown {
+  if (!value || typeof value !== 'object') {
+    return value;
+  }
+
+  const response = value as Record<string, unknown>;
+  const credential =
+    response.credential && typeof response.credential === 'object'
+      ? (response.credential as Record<string, unknown>)
+      : undefined;
+
+  if (!credential) {
+    return value;
+  }
+
+  return {
+    ...response,
+    providerToken: response.providerToken ?? credential.providerToken,
+    tokenExpiresAt: response.tokenExpiresAt ?? credential.expiresAt,
   };
 }
 
@@ -271,9 +329,14 @@ function isValidCuanInsightResponse(
       }
       const identity = response.identity as Record<string, unknown>;
       if (
-        typeof identity.userId !== 'string' ||
         typeof identity.workspaceId !== 'string' ||
         typeof identity.plan !== 'string'
+      ) {
+        return false;
+      }
+      if (
+        identity.userId !== undefined &&
+        typeof identity.userId !== 'string'
       ) {
         return false;
       }

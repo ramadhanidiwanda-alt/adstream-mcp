@@ -50,11 +50,15 @@ export function createRemoteCredentialResolver(
       baseUrl: config.cuanInsightBaseUrl,
       endpointPath: config.cuanInsightEndpointPath,
       timeoutMs: config.cuanInsightTimeoutMs,
+      supabaseAnonKey: config.cuanInsightSupabaseAnonKey,
+      mcpTokenHeaderName: config.cuanInsightMcpTokenHeaderName,
     },
   });
 
   // Create Cuan Insight credential provider
-  const cuanInsightProvider = new CuanInsightCredentialProvider(client);
+  const cuanInsightProvider = new CuanInsightCredentialProvider(client, {
+    callerToken: config.cuanInsightMcpToken,
+  });
 
   // Create resolver in remote mode
   return new CredentialResolver({
