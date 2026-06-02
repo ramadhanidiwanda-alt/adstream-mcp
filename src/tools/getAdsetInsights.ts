@@ -1,4 +1,5 @@
 import type { MetaClient } from '../metaClient.js';
+import { normalizeAccountId } from '../utils/normalizeAccountId.js';
 import type { AdsetInsight } from '../types.js';
 
 export interface GetAdsetInsightsOptions {
@@ -12,7 +13,8 @@ export async function getAdsetInsights(
   client: MetaClient,
   options: GetAdsetInsightsOptions
 ): Promise<AdsetInsight[]> {
-  const { adAccountId, since, until, limit = 100 } = options;
+  const { since, until, limit = 100 } = options;
+  const adAccountId = normalizeAccountId(options.adAccountId);
 
   const fields = [
     'adset_id',

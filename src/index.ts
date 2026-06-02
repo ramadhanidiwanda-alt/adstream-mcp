@@ -14,6 +14,7 @@ export { recommendActions } from './analysis/recommendActions.js';
 
 export { parseActionValue, parseActionValueFromValues } from './utils/parseActions.js';
 export { formatCurrency, formatNumber } from './utils/formatCurrency.js';
+export { normalizeAccountId } from './utils/normalizeAccountId.js';
 
 export type * from './types.js';
 export type * from './broker/types.js';
