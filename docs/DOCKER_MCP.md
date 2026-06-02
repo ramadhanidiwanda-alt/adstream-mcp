@@ -93,5 +93,5 @@ META_API_VERSION=v20.0
 - HTTP mode must be started explicitly.
 - `POST /mcp` currently fails fast because `@modelcontextprotocol/sdk@0.5.0`
   does not expose official Streamable HTTP server transport.
-- Claude Remote URL / production HTTP MCP requires a future SDK transport upgrade.
+- Remote URL / production HTTP MCP for compatible clients requires a future SDK transport upgrade.
 - Current project scope remains read-only; no production write operations are added here.

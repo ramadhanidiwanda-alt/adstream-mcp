@@ -1,6 +1,6 @@
 # Meta Ads MCP Server
 
-MCP (Model Context Protocol) server wrapper for Meta Ads Agent Skill. Enables Claude Desktop and other MCP-compatible AI agents to analyze Meta (Facebook) advertising campaigns.
+MCP (Model Context Protocol) server wrapper for Meta Ads Agent Skill. Enables MCP-compatible AI agents and clients to analyze Meta (Facebook) advertising campaigns. Claude Desktop is one supported client example.
 
 ## What is MCP?
 
@@ -9,7 +9,7 @@ MCP (Model Context Protocol) server wrapper for Meta Ads Agent Skill. Enables Cl
 ## Features
 
 - **7 MCP Tools** - All Meta Ads tools exposed via MCP protocol
-- **Claude Desktop Compatible** - Works with Claude Desktop app
+- **Generic MCP Client Compatible** - Works with stdio-capable MCP clients; Claude Desktop is one example
 - **Codex Compatible** - Works with Codex CLI
 - **Auto-configured** - Uses environment variables for auth
 - **Read-only** - Safe for autonomous agents
@@ -46,7 +46,11 @@ export META_AD_ACCOUNT_ID="act_123456789"
 export META_API_VERSION="v20.0"
 ```
 
-### Claude Desktop Setup
+### Generic MCP Client Setup
+
+For generic stdio and Docker setup, see [`../docs/MCP_CLIENT_SETUP.md`](../docs/MCP_CLIENT_SETUP.md).
+
+### Claude Desktop Example
 
 Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 
@@ -97,7 +101,7 @@ Fetch all ad accounts accessible by the access token.
 **Example:**
 ```
 User: "Show me my Meta ad accounts"
-Claude: [calls meta_get_ad_accounts]
+AI client: [calls meta_get_ad_accounts]
 ```
 
 ---
@@ -114,7 +118,7 @@ Fetch campaigns with optional filters.
 **Example:**
 ```
 User: "Show me all active campaigns"
-Claude: [calls meta_get_campaigns with status: ["ACTIVE"]]
+AI client: [calls meta_get_campaigns with status: ["ACTIVE"]]
 ```
 
 ---
@@ -131,7 +135,7 @@ Fetch campaign-level performance insights.
 **Example:**
 ```
 User: "Show campaign performance from last week"
-Claude: [calls meta_get_campaign_insights with date range]
+AI client: [calls meta_get_campaign_insights with date range]
 ```
 
 ---
@@ -164,7 +168,7 @@ Generate comprehensive daily performance report with analysis.
 **Example:**
 ```
 User: "Generate a daily report for yesterday"
-Claude: [calls meta_generate_daily_report with yesterday's date]
+AI client: [calls meta_generate_daily_report with yesterday's date]
 ```
 
 ---
@@ -182,12 +186,12 @@ Analyze campaigns using 26 pre-built rule templates.
 **Example:**
 ```
 User: "Analyze my campaigns with e-commerce rules"
-Claude: [calls meta_analyze_with_rules with category: "ecommerce"]
+AI client: [calls meta_analyze_with_rules with category: "ecommerce"]
 ```
 
 ## Usage Examples
 
-### With Claude Desktop
+### With an MCP Client
 
 Once configured, you can chat naturally:
 
@@ -195,7 +199,7 @@ Once configured, you can chat naturally:
 ```
 You: Check my Meta Ads performance from yesterday
 
-Claude: I'll generate a daily report for your Meta Ads campaigns.
+AI client: I'll generate a daily report for your Meta Ads campaigns.
 [calls meta_generate_daily_report]
 
 Here's your performance summary for May 28, 2026:
@@ -215,7 +219,7 @@ Want me to analyze any specific campaign?
 ```
 You: Audit all my campaigns from last week
 
-Claude: I'll fetch insights and analyze your campaigns.
+AI client: I'll fetch insights and analyze your campaigns.
 [calls meta_get_campaign_insights]
 [calls meta_analyze_with_rules]
 
@@ -233,7 +237,7 @@ High Priority Issues (3):
 ```
 You: Show me campaigns with CTR below 0.5%
 
-Claude: I'll fetch campaign insights and filter by CTR.
+AI client: I'll fetch campaign insights and filter by CTR.
 [calls meta_get_campaign_insights]
 
 Found 3 campaigns with CTR below 0.5%:
@@ -294,12 +298,12 @@ echo $META_ACCESS_TOKEN
 echo $META_AD_ACCOUNT_ID
 ```
 
-### Tools Not Appearing in Claude
+### Tools Not Appearing in Your MCP Client
 
 **Solution:**
-1. Check `claude_desktop_config.json` syntax
-2. Restart Claude Desktop completely
-3. Check Claude logs: `~/Library/Logs/Claude/mcp*.log`
+1. Check your MCP client server config syntax
+2. Restart the MCP client completely
+3. Check your MCP client logs; for Claude Desktop, check `~/Library/Logs/Claude/mcp*.log`
 
 ### Invalid Token Error
 
@@ -311,8 +315,8 @@ echo $META_AD_ACCOUNT_ID
 
 ```
 ┌─────────────────┐
-│  Claude Desktop │
-│   or Codex CLI  │
+│  MCP Client     │
+│  or AI Agent    │
 └────────┬────────┘
          │ MCP Protocol
          │ (stdio)
