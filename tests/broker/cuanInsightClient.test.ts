@@ -152,6 +152,51 @@ describe('createCuanInsightCredentialClient — success path', () => {
     expect(result.providerToken).toBe(PROVIDER_TOKEN);
   });
 
+  it('maps hosted credential payload to credential contract', async () => {
+    const mockFetch = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        ok: true,
+        identity: {
+          workspaceId: 'ws_1',
+          plan: 'pro',
+          accessLevel: 'organization',
+        },
+        credential: {
+          providerToken: PROVIDER_TOKEN,
+          expiresAt: '2099-06-01T00:00:00Z',
+          tokenType: 'bearer',
+        },
+        providerAccess: {
+          provider: 'meta',
+          accountId: 'act_123',
+          scopes: ['read'],
+          allowed: true,
+        },
+      }),
+    })) as unknown as typeof fetch;
+
+    const config: CuanInsightCredentialClientConfig = {
+      baseUrl: 'https://api.example.com',
+      fetch: mockFetch,
+    };
+
+    const client = createCuanInsightCredentialClient({ config });
+
+    const result = await client.resolve({
+      provider: 'meta',
+      accountId: 'act_123',
+      callerToken: CALLER_TOKEN,
+      requestedScopes: ['read'],
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.providerToken).toBe(PROVIDER_TOKEN);
+    expect(result.tokenExpiresAt).toBe('2099-06-01T00:00:00Z');
+    expect(result.identity?.workspaceId).toBe('ws_1');
+  });
+
   it('uses custom endpoint path when provided', async () => {
     const mockFetch = vi.fn(async () => ({
       ok: true,
@@ -746,5 +791,256 @@ describe('createCuanInsightCredentialClient — response validation', () => {
 
     // Verify mock was called, not real fetch
     expect(mockFetch).toHaveBeenCalled();
+  });
+});
+
+describe('createCuanInsightCredentialClient — hosted Supabase auth', () => {
+  it('sends Authorization Bearer with supabaseAnonKey when configured', async () => {
+    const SUPABASE_ANON_KEY = 'supabase-anon-key-value';
+    const mockFetch = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        ok: true,
+        providerAccess: {
+          provider: 'meta',
+          accountId: 'act_123',
+          scopes: ['read'],
+          allowed: true,
+        },
+        providerToken: PROVIDER_TOKEN,
+      }),
+    })) as unknown as typeof fetch;
+
+    const config: CuanInsightCredentialClientConfig = {
+      baseUrl: 'https://api.example.com',
+      supabaseAnonKey: SUPABASE_ANON_KEY,
+      fetch: mockFetch,
+    };
+
+    const client = createCuanInsightCredentialClient({ config });
+
+    await client.resolve({
+      provider: 'meta',
+      accountId: 'act_123',
+      callerToken: CALLER_TOKEN,
+      requestedScopes: ['read'],
+    });
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      'https://api.example.com/mcp/credentials/resolve',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+          'X-Cuan-MCP-Token': CALLER_TOKEN,
+        }),
+      })
+    );
+  });
+
+  it('sends callerToken in X-Cuan-MCP-Token header when using hosted auth', async () => {
+    const SUPABASE_ANON_KEY = 'supabase-anon-key-value';
+    const mockFetch = vi.fn(async (url, options) => {
+      const headers = (options as RequestInit).headers as Record<string, string>;
+      expect(headers['X-Cuan-MCP-Token']).toBe(CALLER_TOKEN);
+      expect(headers.Authorization).toBe(`Bearer ${SUPABASE_ANON_KEY}`);
+
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          ok: true,
+          providerAccess: {
+            provider: 'meta',
+            accountId: 'act_123',
+            scopes: ['read'],
+            allowed: true,
+          },
+          providerToken: PROVIDER_TOKEN,
+        }),
+      };
+    }) as unknown as typeof fetch;
+
+    const config: CuanInsightCredentialClientConfig = {
+      baseUrl: 'https://api.example.com',
+      supabaseAnonKey: SUPABASE_ANON_KEY,
+      fetch: mockFetch,
+    };
+
+    const client = createCuanInsightCredentialClient({ config });
+
+    await client.resolve({
+      provider: 'meta',
+      accountId: 'act_123',
+      callerToken: CALLER_TOKEN,
+      requestedScopes: ['read'],
+    });
+
+    expect(mockFetch).toHaveBeenCalled();
+  });
+
+  it('uses custom mcpTokenHeaderName when provided', async () => {
+    const SUPABASE_ANON_KEY = 'supabase-anon-key-value';
+    const CUSTOM_HEADER = 'X-Custom-MCP-Token';
+    const mockFetch = vi.fn(async (url, options) => {
+      const headers = (options as RequestInit).headers as Record<string, string>;
+      expect(headers[CUSTOM_HEADER]).toBe(CALLER_TOKEN);
+      expect(headers['X-Cuan-MCP-Token']).toBeUndefined();
+
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          ok: true,
+          providerAccess: {
+            provider: 'meta',
+            accountId: 'act_123',
+            scopes: ['read'],
+            allowed: true,
+          },
+          providerToken: PROVIDER_TOKEN,
+        }),
+      };
+    }) as unknown as typeof fetch;
+
+    const config: CuanInsightCredentialClientConfig = {
+      baseUrl: 'https://api.example.com',
+      supabaseAnonKey: SUPABASE_ANON_KEY,
+      mcpTokenHeaderName: CUSTOM_HEADER,
+      fetch: mockFetch,
+    };
+
+    const client = createCuanInsightCredentialClient({ config });
+
+    await client.resolve({
+      provider: 'meta',
+      accountId: 'act_123',
+      callerToken: CALLER_TOKEN,
+      requestedScopes: ['read'],
+    });
+
+    expect(mockFetch).toHaveBeenCalled();
+  });
+
+  it('uses standard auth when supabaseAnonKey is not provided', async () => {
+    const mockFetch = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        ok: true,
+        providerAccess: {
+          provider: 'meta',
+          accountId: 'act_123',
+          scopes: ['read'],
+          allowed: true,
+        },
+        providerToken: PROVIDER_TOKEN,
+      }),
+    })) as unknown as typeof fetch;
+
+    const config: CuanInsightCredentialClientConfig = {
+      baseUrl: 'https://api.example.com',
+      fetch: mockFetch,
+    };
+
+    const client = createCuanInsightCredentialClient({ config });
+
+    await client.resolve({
+      provider: 'meta',
+      accountId: 'act_123',
+      callerToken: CALLER_TOKEN,
+      requestedScopes: ['read'],
+    });
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      'https://api.example.com/mcp/credentials/resolve',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${CALLER_TOKEN}`,
+        }),
+      })
+    );
+
+    const callArgs = mockFetch.mock.calls[0];
+    const headers = (callArgs[1] as RequestInit).headers as Record<string, string>;
+    expect(headers['X-Cuan-MCP-Token']).toBeUndefined();
+  });
+
+  it('does not expose supabaseAnonKey in errors', async () => {
+    const SUPABASE_ANON_KEY = 'supabase-anon-key-secret-value';
+    const mockFetch = vi.fn(async () => ({
+      ok: false,
+      status: 401,
+      json: async () => ({}),
+    })) as unknown as typeof fetch;
+
+    const config: CuanInsightCredentialClientConfig = {
+      baseUrl: 'https://api.example.com',
+      supabaseAnonKey: SUPABASE_ANON_KEY,
+      fetch: mockFetch,
+    };
+
+    const client = createCuanInsightCredentialClient({ config });
+
+    await expect(
+      client.resolve({
+        provider: 'meta',
+        accountId: 'act_123',
+        callerToken: CALLER_TOKEN,
+        requestedScopes: ['read'],
+      })
+    ).rejects.toThrow();
+
+    try {
+      await client.resolve({
+        provider: 'meta',
+        accountId: 'act_123',
+        callerToken: CALLER_TOKEN,
+        requestedScopes: ['read'],
+      });
+    } catch (error) {
+      expect((error as Error).message).not.toContain(SUPABASE_ANON_KEY);
+    }
+  });
+
+  it('does not expose callerToken in errors when using hosted auth', async () => {
+    const SUPABASE_ANON_KEY = 'supabase-anon-key-value';
+    const mockFetch = vi.fn(async () => ({
+      ok: false,
+      status: 403,
+      json: async () => ({}),
+    })) as unknown as typeof fetch;
+
+    const config: CuanInsightCredentialClientConfig = {
+      baseUrl: 'https://api.example.com',
+      supabaseAnonKey: SUPABASE_ANON_KEY,
+      fetch: mockFetch,
+    };
+
+    const client = createCuanInsightCredentialClient({ config });
+
+    await expect(
+      client.resolve({
+        provider: 'meta',
+        accountId: 'act_123',
+        callerToken: CALLER_TOKEN,
+        requestedScopes: ['read'],
+      })
+    ).rejects.toThrow();
+
+    try {
+      await client.resolve({
+        provider: 'meta',
+        accountId: 'act_123',
+        callerToken: CALLER_TOKEN,
+        requestedScopes: ['read'],
+      });
+    } catch (error) {
+      expect((error as Error).message).not.toContain(CALLER_TOKEN);
+    }
   });
 });

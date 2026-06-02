@@ -119,6 +119,16 @@ describe('parseBrokerConfigFromEnv', () => {
       expect(config.cuanInsight?.cuanInsightEndpointPath).toBeUndefined();
     });
 
+    it('parses optional MCP token without exposing it', () => {
+      process.env.BROKER_RUNTIME_MODE = 'remote';
+      process.env.CUAN_INSIGHT_API_BASE_URL = 'https://api.example.com';
+      process.env.CUAN_INSIGHT_MCP_TOKEN = '  caller-token-secret  ';
+
+      const config = parseBrokerConfigFromEnv();
+
+      expect(config.cuanInsight?.cuanInsightMcpToken).toBe('caller-token-secret');
+    });
+
     it('parses optional timeout as positive integer', () => {
       process.env.BROKER_RUNTIME_MODE = 'remote';
       process.env.CUAN_INSIGHT_API_BASE_URL = 'https://api.example.com';
