@@ -2,7 +2,7 @@
 
 > **Updated:** 2026-06-02  
 > **Version:** v0.3.0  
-> **Last Phase:** Phase 15.5 — Documentation
+> **Last Phase:** Phase 16a — SSE Remote Transport
 
 ---
 
@@ -26,21 +26,24 @@
 ```
 MCP Client (Claude Desktop, Cline, etc.)
   │
-  ▼
-meta-ads-agent-skill (MCP Server via stdio)
+  ├─ [Stdio] ──► meta-ads-agent-skill (MCP Server via stdio)
   │
-  ├─ [Remote Mode] ──► Cuan Insight mcp-resolve-credential
-  │                       │
-  │                       ▼
-  │                   Meta / TikTok Provider Token
+  ├─ [SSE] ───► meta-ads-agent-skill (MCP Server via SSE, Phase 16a)
+  │                 │
+  │                 ├─ [Remote Mode] ──► Cuan Insight mcp-resolve-credential
+  │                 │                       │
+  │                 │                       ▼
+  │                 │                   Meta / TikTok Provider Token
+  │                 │
+  │                 └─ [Local Mode] ──► Direct META_ACCESS_TOKEN env var
+  │                                       │
+  │                                       ▼
+  │                                   Meta Marketing API
+  │                                       │
+  │                                       ▼
+  │                                   Normalized MCP Tool Response
   │
-  └─ [Local Mode] ──► Direct META_ACCESS_TOKEN env var
-                        │
-                        ▼
-                    Meta Marketing API
-                        │
-                        ▼
-                    Normalized MCP Tool Response
+  └─ [Future: Streamable HTTP] ──► Requires SDK upgrade (Phase 16b)
 ```
 
 ### Discovery Flow (`ads_list_accounts`)
@@ -96,7 +99,9 @@ Return normalized performance data
 | Phase 15.2 | Provider-level credential resolution (cuan-insight RPC + edge function) |
 | Phase 15.3 | `ads_list_accounts` uses provider-level credential resolution |
 | Phase 15.4 | Controlled deploy + live MCP client test |
-| Phase 15.5 | Final project documentation (this file) |
+| Phase 15.5 | Final project documentation |
+| **Phase 16** | **Remote MCP HTTP evaluation** — SDK supports Streamable HTTP in v1.29+, but upgrade has medium risk |
+| **Phase 16a** | **SSE remote transport implemented** — using existing SDK v0.5.0, no upgrade needed |
 
 ---
 
@@ -106,12 +111,13 @@ Return normalized performance data
 |---|---|---|---|---|
 | cuan-insight | [#52](https://github.com/ramadhanidiwanda-alt/cuan-insight/pull/52) | feat(mcp): support provider-level credential resolution | `33c1c89` | Adds provider-level discovery mode to `mcp-resolve-credential` edge function and `resolve_mcp_credential` RPC |
 | meta-ads-agent-skill | [#16](https://github.com/ramadhanidiwanda-alt/meta-ads-agent-skill/pull/16) | fix(meta): use provider-level credential resolution for account discovery | `064a487` | Updates `ads_list_accounts` to resolve credentials without accountId; accepts discovery response; maps `null` accountId correctly |
+| meta-ads-agent-skill | TBD | feat(mcp): add SSE remote transport | TBD | Adds `MCP_TRANSPORT=sse` support, auth gate, docs update |
 
 ---
 
 ## E. Final Validation
 
-All validations were performed after Phase 15.4 deploy on a live staging environment.
+All validations were performed after Phase 15.4 deploy on a live staging environment, plus Phase 16a local validation.
 
 | Check | Result |
 |---|---|
@@ -120,9 +126,11 @@ All validations were performed after Phase 15.4 deploy on a live staging environ
 | `ads_get_campaign_performance` | ✅ OK — 2 campaigns (account-scoped) |
 | `ads_get_adset_or_adgroup_performance` | ✅ OK — 6 adsets |
 | `ads_get_ad_performance` | ✅ OK — 9 ads |
-| Unit tests | ✅ 202/202 passed |
+| Unit tests | ✅ 211/211 passed (Phase 16a) |
 | TypeScript typecheck | ✅ Passed |
 | Build | ✅ Passed |
+| SSE auth gate | ✅ 401 for missing/invalid token, 200 with valid token |
+| SSE POST /mcp (no sessionId) | ✅ 501 (Streamable HTTP not implemented) |
 
 ---
 
@@ -134,17 +142,19 @@ All validations were performed after Phase 15.4 deploy on a live staging environ
 - **No secrets** should appear in test output, stderr, logs, or MCP responses.
 - Use environment variables or placeholders (`<CUAN_INSIGHT_SUPABASE_URL>`, `<CUAN_INSIGHT_MCP_TOKEN>`) for all setup instructions.
 - All credential errors are redacted through `redactErrorMessage` and `redactTokenLikeValues` utilities before surfacing.
+- **SSE auth**: `MCP_HTTP_BEARER_TOKEN` gates all SSE endpoints. Missing/invalid tokens return 401.
+- **Authorization header** must never be logged by the SSE transport.
 
 ---
 
 ## G. Known Limitations
 
-### Remote MCP HTTP Transport Not Complete
+### Remote MCP HTTP Transport (Streamable HTTP) Not Complete
 
-The current MCP SDK version (`^0.5.0`) does not support the official **Streamable HTTP** server transport. An HTTP entrypoint (`POST /mcp`) exists as a skeleton but returns **501 Not Implemented** for MCP messages.
-
-- Stdio transport is fully supported and recommended.
-- Remote HTTP should be revisited after MCP SDK upgrade supports Streamable HTTP.
+The current MCP SDK version (`^0.5.0`) does not support the official **Streamable HTTP** server transport.
+- An HTTP entrypoint (`POST /mcp`) exists and returns **501 Not Implemented** for MCP messages without a `sessionId` query parameter.
+- **SSE transport** (`MCP_TRANSPORT=sse`) is now available as a remote alternative using the current SDK.
+- Streamable HTTP should be revisited after MCP SDK upgrade (Phase 16b).
 
 ### TikTok Provider Support
 
@@ -160,8 +170,9 @@ All tools are read-only. Write operations (pause/resume campaigns, update budget
 
 ## H. Next Steps (Optional)
 
-1. **Evaluate latest MCP SDK** for Streamable HTTP transport support.
-2. **Add official Remote MCP HTTP** if SDK supports it.
-3. **Prepare open-source release** notes and contribution guidelines.
-4. **Add CI live test** only if safe backend test environment is available.
-5. **Add example MCP client config** with placeholders for `claude_desktop_config.json`.
+1. ✅ **Phase 16a: Implement SSE remote transport** — Done.
+2. 🔜 **Phase 16b: Upgrade MCP SDK** to v1.29+ for Streamable HTTP support.
+3. 🔜 **Phase 16c: Migrate** from deprecated `Server` to `McpServer` API.
+4. ⏳ **Prepare open-source release** notes and contribution guidelines.
+5. ⏳ **Add CI live test** only if safe backend test environment is available.
+6. ⏳ **Add example MCP client config** with placeholders for `claude_desktop_config.json`.

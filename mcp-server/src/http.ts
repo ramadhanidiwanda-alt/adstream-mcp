@@ -2,6 +2,8 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { pathToFileURL } from 'node:url';
 import type { AddressInfo } from 'node:net';
+import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
+import { createMetaAdsMcpServer } from './createServer.js';
 
 const HTTP_TRANSPORT_UNAVAILABLE_MESSAGE =
   'HTTP transport is not available with current MCP SDK version.';
@@ -11,6 +13,7 @@ export interface HttpMcpConfig {
   host: string;
   port: number;
   path: string;
+  transport: 'sse' | 'http';
   bearerToken?: string;
 }
 
@@ -19,6 +22,11 @@ export interface StartedHttpMcpServer {
   url: string;
   config: HttpMcpConfig;
 }
+
+/**
+ * Active SSE transport sessions, keyed by session ID.
+ */
+const activeSseSessions = new Map<string, SSEServerTransport>();
 
 export function parseHttpMcpConfig(env: NodeJS.ProcessEnv = process.env): HttpMcpConfig {
   const portValue = env.MCP_HTTP_PORT ?? '8787';
@@ -34,11 +42,15 @@ export function parseHttpMcpConfig(env: NodeJS.ProcessEnv = process.env): HttpMc
     throw new Error('Invalid MCP_HTTP_PATH. Must start with /.');
   }
 
+  const transportRaw = env.MCP_TRANSPORT ?? 'http';
+  const transport = transportRaw === 'sse' ? 'sse' : 'http';
+
   return {
     enabled: env.MCP_HTTP_ENABLED === 'true',
     host: env.MCP_HTTP_HOST ?? '127.0.0.1',
     port,
     path,
+    transport,
     bearerToken: env.MCP_HTTP_BEARER_TOKEN,
   };
 }
@@ -61,34 +73,118 @@ function hasValidBearerToken(req: IncomingMessage, expectedToken?: string): bool
   return authorization === `Bearer ${expectedToken}`;
 }
 
+function sendUnauthorized(res: ServerResponse): void {
+  writeJson(res, 401, { error: 'Unauthorized' });
+}
+
+function sendNotFound(res: ServerResponse): void {
+  writeJson(res, 404, { error: 'Not found' });
+}
+
+function sendNotImplemented(res: ServerResponse): void {
+  writeJson(res, 501, { error: HTTP_TRANSPORT_UNAVAILABLE_MESSAGE });
+}
+
 export function createHttpMcpRequestHandler(
   config: HttpMcpConfig,
   env: NodeJS.ProcessEnv = process.env
 ): (req: IncomingMessage, res: ServerResponse) => void {
-  return (req: IncomingMessage, res: ServerResponse) => {
+  return (req: IncomingMessage, res: ServerResponse): void => {
     const url = new URL(req.url ?? '/', `http://${req.headers.host ?? '127.0.0.1'}`);
 
+    // Health endpoint — always available
     if (req.method === 'GET' && url.pathname === '/health') {
       writeJson(res, 200, {
         ok: true,
-        transport: 'http',
+        transport: config.transport,
         mode: getHttpMcpMode(env),
       });
       return;
     }
 
-    if (req.method === 'POST' && url.pathname === config.path) {
-      if (!hasValidBearerToken(req, config.bearerToken)) {
-        writeJson(res, 401, { error: 'Unauthorized' });
-        return;
-      }
-
-      writeJson(res, 501, { error: HTTP_TRANSPORT_UNAVAILABLE_MESSAGE });
+    // SSE endpoint
+    if (config.transport === 'sse') {
+      handleSseRequest(config, req, res, url).catch(() => {
+        // Errors already handled inside handleSseRequest
+      });
       return;
     }
 
-    writeJson(res, 404, { error: 'Not found' });
+    // HTTP mode (default, skeleton)
+    if (req.method === 'POST' && url.pathname === config.path) {
+      if (!hasValidBearerToken(req, config.bearerToken)) {
+        sendUnauthorized(res);
+        return;
+      }
+
+      sendNotImplemented(res);
+      return;
+    }
+
+    sendNotFound(res);
   };
+}
+
+async function handleSseRequest(
+  config: HttpMcpConfig,
+  req: IncomingMessage,
+  res: ServerResponse,
+  url: URL
+): Promise<void> {
+  // Auth check
+  if (!hasValidBearerToken(req, config.bearerToken)) {
+    sendUnauthorized(res);
+    return;
+  }
+
+  // GET /mcp -> establish SSE connection
+  if (req.method === 'GET' && url.pathname === config.path) {
+    await handleSseConnect(config, res);
+    return;
+  }
+
+  // POST /mcp with sessionId -> route message to existing SSE transport
+  if (req.method === 'POST' && url.pathname === config.path) {
+    const sessionId = url.searchParams.get('sessionId');
+
+    if (sessionId) {
+      const transport = activeSseSessions.get(sessionId);
+      if (!transport) {
+        sendNotFound(res);
+        return;
+      }
+
+      await transport.handlePostMessage(req, res);
+      return;
+    }
+
+    // POST without sessionId -> Streamable HTTP not implemented
+    sendNotImplemented(res);
+    return;
+  }
+
+  sendNotFound(res);
+}
+
+async function handleSseConnect(config: HttpMcpConfig, res: ServerResponse): Promise<void> {
+  const transport = new SSEServerTransport(config.path, res);
+  const mcpServer = createMetaAdsMcpServer();
+
+  transport.onclose = () => {
+    activeSseSessions.delete(transport.sessionId);
+  };
+
+  try {
+    await mcpServer.connect(transport);
+    activeSseSessions.set(transport.sessionId, transport);
+
+    console.error(`SSE session established: ${transport.sessionId}`);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'SSE connection failed';
+    console.error(`SSE connection error: ${message}`);
+    // Response is already sent or failed; cleanup
+    activeSseSessions.delete(transport.sessionId);
+  }
 }
 
 export async function startHttpMcpServer(
@@ -117,10 +213,17 @@ export async function startHttpMcpServer(
     );
   }
 
-  console.error(`HTTP MCP skeleton listening on ${config.host}:${address.port}`);
-  console.error(`MCP endpoint: POST ${config.path}`);
-  console.error('Health endpoint: GET /health');
-  console.error(HTTP_TRANSPORT_UNAVAILABLE_MESSAGE);
+  console.error(`MCP HTTP server listening on ${config.host}:${address.port}`);
+
+  if (config.transport === 'sse') {
+    console.error(`SSE endpoint: GET ${config.path}`);
+    console.error(`Message endpoint: POST ${config.path}?sessionId=<id>`);
+    console.error('Streamable HTTP (POST /mcp without sessionId) still returns 501.');
+  } else {
+    console.error(`MCP endpoint: POST ${config.path}`);
+    console.error('Health endpoint: GET /health');
+    console.error(HTTP_TRANSPORT_UNAVAILABLE_MESSAGE);
+  }
 
   return {
     server,
@@ -131,7 +234,8 @@ export async function startHttpMcpServer(
 
 function failFastDisabled(): never {
   console.error('ERROR: HTTP MCP transport is disabled.');
-  console.error('Set MCP_HTTP_ENABLED=true to start the HTTP skeleton explicitly.');
+  console.error('Set MCP_HTTP_ENABLED=true to start the HTTP server.');
+  console.error('Set MCP_TRANSPORT=sse to enable SSE remote transport.');
   console.error('Stdio remains the default entrypoint: mcp-server/src/index.ts');
   process.exit(1);
 }
