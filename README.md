@@ -368,6 +368,7 @@ MIT License - see [LICENSE](LICENSE) file for details.
 - **npm:** https://www.npmjs.com/package/meta-ads-agent-skill
 - **Issues:** https://github.com/ramadhanidiwanda-alt/meta-ads-agent-skill/issues
 - **Meta Marketing API:** https://developers.facebook.com/docs/marketing-api
+- **Docker MCP server setup:** [docs/DOCKER_MCP.md](docs/DOCKER_MCP.md)
 
 ---
 
