@@ -32,6 +32,8 @@ AI: [finds inefficient spend, calculates savings]
 
 **Setup:** Configure MCP server (see [Skills Setup](#skills-setup))
 
+**MCP client setup:** See [`docs/MCP_CLIENT_SETUP.md`](docs/MCP_CLIENT_SETUP.md) for generic stdio client and Docker setup.
+
 **Learn more:** See [`skills/README.md`](skills/README.md)
 
 ---
@@ -85,7 +87,7 @@ console.log(analysis.recommendations);
 
 ### Prerequisites
 
-1. **AI Agent** — Claude Code, Claude Desktop, or any MCP-compatible agent
+1. **AI Agent** — Any MCP-compatible agent or client; Claude Desktop is one example
 2. **Meta Access Token** — See [Authentication](#authentication)
 3. **Ad Account ID** — Your Meta ad account ID (format: `act_123456789`)
 
