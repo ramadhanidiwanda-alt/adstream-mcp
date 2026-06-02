@@ -43,7 +43,7 @@ export interface CuanInsightMcpIdentity {
  */
 export interface CuanInsightProviderAccess {
   provider: AdsProviderId;
-  accountId: string;
+  accountId: string | null;
   accountName?: string;
   scopes: ReadonlyArray<'read'>;
   allowed: boolean;
@@ -84,6 +84,7 @@ export interface CuanInsightCredentialResolveRequest {
  */
 export interface CuanInsightCredentialResolveResponse {
   ok: boolean;
+  discovery?: boolean;
   identity?: CuanInsightMcpIdentity;
   providerAccess?: CuanInsightProviderAccess;
   providerToken?: string;
