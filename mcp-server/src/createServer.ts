@@ -16,8 +16,10 @@ import {
   allRuleTemplates,
   ADS_MCP_TOOL_DEFINITIONS,
   createDefaultAdsBroker,
+  createAdsBrokerFromConfig,
   handleAdsMcpToolCall,
   isAdsMcpToolName,
+  parseBrokerConfigFromEnv,
   safeAdsMcpError,
 } from 'meta-ads-agent-skill';
 
@@ -42,9 +44,13 @@ export function createMetaAdsMcpServer(
     }
   );
 
-  const config = options.config ?? loadConfig();
-  const client = options.client ?? new MetaClient(config);
-  const adsBroker = options.adsBroker ?? createDefaultAdsBroker();
+  const brokerConfig = parseBrokerConfigFromEnv();
+  const isRemoteBrokerMode = brokerConfig.mode === 'remote';
+  const config = isRemoteBrokerMode ? options.config : options.config ?? loadConfig();
+  const client = isRemoteBrokerMode
+    ? options.client
+    : options.client ?? new MetaClient(config);
+  const adsBroker = options.adsBroker ?? createAdsBrokerFromConfig(brokerConfig);
 
   server.setRequestHandler(ListToolsRequestSchema, async () => {
     return {
@@ -216,6 +222,14 @@ export function createMetaAdsMcpServer(
         return await handleAdsMcpToolCall(adsBroker, name, args ?? {});
       }
 
+      if (isRemoteBrokerMode) {
+        return legacyMetaToolUnavailableInRemoteMode();
+      }
+
+      if (!client || !config) {
+        throw new Error('Legacy meta_* tools require local META_* env');
+      }
+
       switch (name) {
         case 'meta_get_ad_accounts': {
           const accounts = await getAdAccounts(client);
@@ -337,4 +351,25 @@ export function createMetaAdsMcpServer(
   });
 
   return server;
+}
+
+function legacyMetaToolUnavailableInRemoteMode() {
+  return {
+    content: [
+      {
+        type: 'text' as const,
+        text: JSON.stringify(
+          {
+            ok: false,
+            error: {
+              code: 'LEGACY_META_TOOLS_UNAVAILABLE_IN_REMOTE_MODE',
+              message: 'Legacy meta_* tools require local META_* env',
+            },
+          },
+          null,
+          2
+        ),
+      },
+    ],
+  };
 }
