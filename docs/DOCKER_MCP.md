@@ -6,7 +6,10 @@ This Docker setup runs the Meta Ads MCP stdio server:
 node mcp-server/dist/index.js
 ```
 
-It is not a Remote MCP HTTP URL. Claude Remote URL / HTTP MCP needs a separate HTTP transport phase.
+Stdio remains the default transport. An optional HTTP skeleton exists in
+`mcp-server/dist/http.js`, but it fails fast for MCP messages until the current
+MCP SDK supports official Streamable HTTP server transport. See
+`docs/REMOTE_MCP_HTTP.md`.
 
 ## Build
 
@@ -38,6 +41,17 @@ docker compose -f docker-compose.mcp.example.yml up --build
 ```
 
 The compose example uses service name `meta-ads-mcp`, builds from `Dockerfile.mcp`, reads `.env`, and restarts unless stopped.
+
+Optional HTTP skeleton service:
+
+```bash
+docker compose -f docker-compose.mcp.example.yml --profile http up --build meta-ads-mcp-http
+```
+
+The HTTP example maps host loopback `127.0.0.1:8787:8787`, runs
+`node mcp-server/dist/http.js`, and sets `MCP_HTTP_HOST=0.0.0.0` explicitly inside
+the container so Docker port publishing works. Set `MCP_HTTP_BEARER_TOKEN` before
+exposing anything beyond localhost.
 
 ## Remote Credential Mode
 
@@ -75,7 +89,9 @@ META_API_VERSION=v20.0
 
 ## Limitations
 
-- This image runs stdio MCP only.
-- It does not expose an HTTP endpoint.
-- Claude Remote URL / HTTP MCP requires a separate HTTP transport implementation.
+- This image runs stdio MCP by default.
+- HTTP mode must be started explicitly.
+- `POST /mcp` currently fails fast because `@modelcontextprotocol/sdk@0.5.0`
+  does not expose official Streamable HTTP server transport.
+- Claude Remote URL / production HTTP MCP requires a future SDK transport upgrade.
 - Current project scope remains read-only; no production write operations are added here.
