@@ -1,172 +1,166 @@
 #!/usr/bin/env node
-import { createServer, IncomingMessage, ServerResponse } from 'node:http';
-import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
-import { createMetaAdsMcpServer } from './createServer.js';
+import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
+import { pathToFileURL } from 'node:url';
+import type { AddressInfo } from 'node:net';
 
-/**
- * EXPERIMENTAL HTTP/SSE MCP SERVER
- * 
- * This is a non-production skeleton for remote MCP transport.
- * 
- * LIMITATIONS:
- * - Uses SSE transport (not Streamable HTTP - SDK support pending)
- * - Requires explicit ENABLE_EXPERIMENTAL_HTTP_MCP=true
- * - No production auth/rate limiting/monitoring
- * - No real Cuan Insight API integration
- * - Stdio remains the default and recommended transport
- * 
- * SECURITY:
- * - Binds to 127.0.0.1 by default (localhost only)
- * - Does not log Authorization headers
- * - Does not expose tokens in responses
- * - Read-only operations only
- */
+const HTTP_TRANSPORT_UNAVAILABLE_MESSAGE =
+  'HTTP transport is not available with current MCP SDK version.';
 
-interface HttpMcpConfig {
+export interface HttpMcpConfig {
   enabled: boolean;
   host: string;
   port: number;
-  endpoint: string;
+  path: string;
+  bearerToken?: string;
 }
 
-function parseHttpMcpConfig(): HttpMcpConfig {
-  const enabled = process.env.ENABLE_EXPERIMENTAL_HTTP_MCP === 'true';
-  const host = process.env.MCP_HTTP_HOST || '127.0.0.1';
-  const portStr = process.env.MCP_HTTP_PORT || '3000';
-  const port = parseInt(portStr, 10);
-  const endpoint = process.env.MCP_HTTP_ENDPOINT || '/message';
+export interface StartedHttpMcpServer {
+  server: ReturnType<typeof createServer>;
+  url: string;
+  config: HttpMcpConfig;
+}
 
-  if (isNaN(port) || port < 1 || port > 65535) {
-    throw new Error(`Invalid MCP_HTTP_PORT: ${portStr}. Must be 1-65535.`);
+export function parseHttpMcpConfig(env: NodeJS.ProcessEnv = process.env): HttpMcpConfig {
+  const portValue = env.MCP_HTTP_PORT ?? '8787';
+  const port = Number.parseInt(portValue, 10);
+
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    throw new Error(`Invalid MCP_HTTP_PORT: ${portValue}. Must be 1-65535.`);
   }
 
-  return { enabled, host, port, endpoint };
+  const path = env.MCP_HTTP_PATH ?? '/mcp';
+
+  if (!path.startsWith('/')) {
+    throw new Error('Invalid MCP_HTTP_PATH. Must start with /.');
+  }
+
+  return {
+    enabled: env.MCP_HTTP_ENABLED === 'true',
+    host: env.MCP_HTTP_HOST ?? '127.0.0.1',
+    port,
+    path,
+    bearerToken: env.MCP_HTTP_BEARER_TOKEN,
+  };
+}
+
+export function getHttpMcpMode(env: NodeJS.ProcessEnv = process.env): 'remote' | 'local' {
+  return env.BROKER_RUNTIME_MODE === 'remote' ? 'remote' : 'local';
+}
+
+function writeJson(res: ServerResponse, statusCode: number, payload: unknown): void {
+  res.writeHead(statusCode, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify(payload));
+}
+
+function hasValidBearerToken(req: IncomingMessage, expectedToken?: string): boolean {
+  if (!expectedToken) {
+    return true;
+  }
+
+  const authorization = req.headers.authorization;
+  return authorization === `Bearer ${expectedToken}`;
+}
+
+export function createHttpMcpRequestHandler(
+  config: HttpMcpConfig,
+  env: NodeJS.ProcessEnv = process.env
+): (req: IncomingMessage, res: ServerResponse) => void {
+  return (req: IncomingMessage, res: ServerResponse) => {
+    const url = new URL(req.url ?? '/', `http://${req.headers.host ?? '127.0.0.1'}`);
+
+    if (req.method === 'GET' && url.pathname === '/health') {
+      writeJson(res, 200, {
+        ok: true,
+        transport: 'http',
+        mode: getHttpMcpMode(env),
+      });
+      return;
+    }
+
+    if (req.method === 'POST' && url.pathname === config.path) {
+      if (!hasValidBearerToken(req, config.bearerToken)) {
+        writeJson(res, 401, { error: 'Unauthorized' });
+        return;
+      }
+
+      writeJson(res, 501, { error: HTTP_TRANSPORT_UNAVAILABLE_MESSAGE });
+      return;
+    }
+
+    writeJson(res, 404, { error: 'Not found' });
+  };
+}
+
+export async function startHttpMcpServer(
+  config: HttpMcpConfig = parseHttpMcpConfig(),
+  env: NodeJS.ProcessEnv = process.env
+): Promise<StartedHttpMcpServer> {
+  if (!config.enabled) {
+    throw new Error('HTTP MCP transport is disabled. Set MCP_HTTP_ENABLED=true to enable it.');
+  }
+
+  const server = createServer(createHttpMcpRequestHandler(config, env));
+
+  await new Promise<void>((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(config.port, config.host, () => {
+      server.off('error', reject);
+      resolve();
+    });
+  });
+
+  const address = server.address() as AddressInfo;
+
+  if (!config.bearerToken) {
+    console.error(
+      'WARNING: MCP_HTTP_BEARER_TOKEN is not set. Keep HTTP MCP bound to localhost or protect it behind a reverse proxy.'
+    );
+  }
+
+  console.error(`HTTP MCP skeleton listening on ${config.host}:${address.port}`);
+  console.error(`MCP endpoint: POST ${config.path}`);
+  console.error('Health endpoint: GET /health');
+  console.error(HTTP_TRANSPORT_UNAVAILABLE_MESSAGE);
+
+  return {
+    server,
+    url: `http://${config.host}:${address.port}`,
+    config: { ...config, port: address.port },
+  };
 }
 
 function failFastDisabled(): never {
-  console.error('ERROR: Experimental HTTP MCP transport is not enabled.');
-  console.error('');
-  console.error('This is a non-production skeleton. To enable:');
-  console.error('  export ENABLE_EXPERIMENTAL_HTTP_MCP=true');
-  console.error('');
-  console.error('IMPORTANT:');
-  console.error('- This uses SSE transport (not Streamable HTTP)');
-  console.error('- No production auth/rate limiting');
-  console.error('- Stdio remains the default transport');
-  console.error('- See docs/REMOTE_MCP_TRANSPORT_DESIGN.md');
+  console.error('ERROR: HTTP MCP transport is disabled.');
+  console.error('Set MCP_HTTP_ENABLED=true to start the HTTP skeleton explicitly.');
+  console.error('Stdio remains the default entrypoint: mcp-server/src/index.ts');
   process.exit(1);
 }
 
-async function main() {
+async function main(): Promise<void> {
   const config = parseHttpMcpConfig();
 
   if (!config.enabled) {
     failFastDisabled();
   }
 
-  console.error('WARNING: Starting EXPERIMENTAL HTTP MCP server');
-  console.error('This is NOT production-ready. Use stdio for production.');
-  console.error('');
-  console.error(`Host: ${config.host}`);
-  console.error(`Port: ${config.port}`);
-  console.error(`Endpoint: ${config.endpoint}`);
-  console.error('');
+  const started = await startHttpMcpServer(config);
 
-  const mcpServer = createMetaAdsMcpServer();
-  const sessions = new Map<string, SSEServerTransport>();
-
-  const httpServer = createServer(async (req: IncomingMessage, res: ServerResponse) => {
-    const url = new URL(req.url || '/', `http://${req.headers.host}`);
-
-    // SSE connection endpoint (GET)
-    if (req.method === 'GET' && url.pathname === '/sse') {
-      try {
-        const transport = new SSEServerTransport(config.endpoint, res);
-        const sessionId = transport.sessionId;
-        sessions.set(sessionId, transport);
-
-        transport.onclose = () => {
-          sessions.delete(sessionId);
-          console.error(`Session closed: ${sessionId}`);
-        };
-
-        transport.onerror = (error) => {
-          console.error(`Session error: ${sessionId}`, error);
-          sessions.delete(sessionId);
-        };
-
-        await transport.start();
-        await mcpServer.connect(transport);
-        console.error(`Session started: ${sessionId}`);
-      } catch (error) {
-        console.error('SSE connection error:', error);
-        res.writeHead(500, { 'Content-Type': 'text/plain' });
-        res.end('Internal server error');
-      }
-      return;
-    }
-
-    // Message endpoint (POST)
-    if (req.method === 'POST' && url.pathname === config.endpoint) {
-      const sessionId = url.searchParams.get('sessionId');
-      if (!sessionId) {
-        res.writeHead(400, { 'Content-Type': 'text/plain' });
-        res.end('Missing sessionId parameter');
-        return;
-      }
-
-      const transport = sessions.get(sessionId);
-      if (!transport) {
-        res.writeHead(404, { 'Content-Type': 'text/plain' });
-        res.end('Session not found');
-        return;
-      }
-
-      try {
-        await transport.handlePostMessage(req, res);
-      } catch (error) {
-        console.error('Message handling error:', error);
-        res.writeHead(500, { 'Content-Type': 'text/plain' });
-        res.end('Internal server error');
-      }
-      return;
-    }
-
-    // Health check
-    if (req.method === 'GET' && url.pathname === '/health') {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
-        status: 'ok',
-        transport: 'sse',
-        experimental: true,
-        production: false,
-      }));
-      return;
-    }
-
-    // 404 for all other routes
-    res.writeHead(404, { 'Content-Type': 'text/plain' });
-    res.end('Not found');
-  });
-
-  httpServer.listen(config.port, config.host, () => {
-    console.error(`Experimental HTTP MCP server listening on ${config.host}:${config.port}`);
-    console.error('SSE endpoint: GET /sse');
-    console.error(`Message endpoint: POST ${config.endpoint}?sessionId=<id>`);
-    console.error('Health check: GET /health');
-  });
-
-  // Graceful shutdown
   process.on('SIGINT', () => {
-    console.error('Shutting down...');
-    httpServer.close(() => {
-      console.error('Server closed');
+    started.server.close(() => {
+      process.exit(0);
+    });
+  });
+
+  process.on('SIGTERM', () => {
+    started.server.close(() => {
       process.exit(0);
     });
   });
 }
 
-main().catch((error) => {
-  console.error('Server error:', error);
-  process.exit(1);
-});
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((error) => {
+    console.error(error instanceof Error ? error.message : 'HTTP MCP server failed.');
+    process.exit(1);
+  });
+}
