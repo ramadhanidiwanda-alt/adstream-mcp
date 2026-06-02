@@ -324,7 +324,7 @@ function mapCuanInsightResponse(
     credential: {
       provider,
       accessToken: response.providerToken,
-      accountId: response.providerAccess?.accountId,
+      accountId: response.providerAccess?.accountId ?? undefined,
       apiVersion: response.providerApiVersion,
       source: 'cuan_insight',
     },
