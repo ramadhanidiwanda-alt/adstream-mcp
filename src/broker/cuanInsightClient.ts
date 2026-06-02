@@ -353,7 +353,7 @@ function isValidCuanInsightResponse(
       const access = response.providerAccess as Record<string, unknown>;
       if (
         typeof access.provider !== 'string' ||
-        typeof access.accountId !== 'string' ||
+        typeof access.accountId !== 'string' && access.accountId !== null ||
         !Array.isArray(access.scopes) ||
         typeof access.allowed !== 'boolean'
       ) {
