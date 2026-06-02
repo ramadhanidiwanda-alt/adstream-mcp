@@ -31,6 +31,28 @@ export interface RemoteBrokerConfig {
    * Default: 10000 (10 seconds)
    */
   cuanInsightTimeoutMs?: number;
+
+  /**
+   * Supabase anonymous key for hosted Supabase auth pattern.
+   * When provided, enables hosted auth mode.
+   *
+   * MUST be provided via CUAN_INSIGHT_SUPABASE_ANON_KEY environment variable.
+   * MUST NOT be hardcoded in production.
+   */
+  cuanInsightSupabaseAnonKey?: string;
+
+  /**
+   * Header name for MCP token when using hosted Supabase auth.
+   * Default: 'X-Cuan-MCP-Token'
+   */
+  cuanInsightMcpTokenHeaderName?: string;
+
+  /**
+   * Caller MCP token for remote credential resolution.
+   * MUST be provided via CUAN_INSIGHT_MCP_TOKEN environment variable.
+   * MUST NOT be logged or exposed in errors.
+   */
+  cuanInsightMcpToken?: string;
 }
 
 /**
@@ -92,6 +114,9 @@ export function parseBrokerConfigFromEnv(): BrokerConfig {
 
     const endpointPath = process.env.CUAN_INSIGHT_CREDENTIAL_RESOLVE_PATH;
     const timeoutStr = process.env.CUAN_INSIGHT_REQUEST_TIMEOUT_MS;
+    const supabaseAnonKey = process.env.CUAN_INSIGHT_SUPABASE_ANON_KEY;
+    const mcpTokenHeaderName = process.env.CUAN_INSIGHT_MCP_TOKEN_HEADER_NAME;
+    const mcpToken = process.env.CUAN_INSIGHT_MCP_TOKEN;
 
     let timeoutMs: number | undefined;
     if (timeoutStr) {
@@ -107,6 +132,9 @@ export function parseBrokerConfigFromEnv(): BrokerConfig {
         cuanInsightBaseUrl: baseUrl.trim(),
         cuanInsightEndpointPath: endpointPath?.trim() || undefined,
         cuanInsightTimeoutMs: timeoutMs,
+        cuanInsightSupabaseAnonKey: supabaseAnonKey?.trim() || undefined,
+        cuanInsightMcpTokenHeaderName: mcpTokenHeaderName?.trim() || undefined,
+        cuanInsightMcpToken: mcpToken?.trim() || undefined,
       },
     };
   }

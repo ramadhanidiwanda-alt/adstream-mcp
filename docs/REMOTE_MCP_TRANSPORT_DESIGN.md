@@ -486,3 +486,128 @@ interface CuanInsightCredentialClientConfig {
 3. Add operational logging with token redaction
 4. Add retry logic for transient failures
 5. Add circuit breaker for upstream failures
+
+## 14. Phase 7 Implementation Status (Hosted Supabase Auth)
+
+Phase 7 (Connect to Cuan Insight staging with hosted Supabase auth) has been completed:
+
+- Added `supabaseAnonKey` and `mcpTokenHeaderName` to `CuanInsightCredentialClientConfig`
+- Added `MISSING_SUPABASE_ANON_KEY` error code
+- Updated client to support dual auth modes:
+  - **Hosted mode**: `Authorization: Bearer <supabaseAnonKey>` + `X-Cuan-MCP-Token: <callerToken>`
+  - **Standard mode**: `Authorization: Bearer <callerToken>` (when `supabaseAnonKey` not provided)
+- Added environment variables:
+  - `CUAN_INSIGHT_SUPABASE_ANON_KEY` - Supabase anonymous key for hosted auth
+  - `CUAN_INSIGHT_MCP_TOKEN` - caller MCP token for credential resolution
+  - `CUAN_INSIGHT_MCP_TOKEN_HEADER_NAME` - Custom header name (default: `X-Cuan-MCP-Token`)
+- Updated `RemoteBrokerConfig` to include new fields
+- Updated `parseBrokerConfigFromEnv()` to parse new env vars
+- Updated `createRemoteCredentialResolver()` to pass hosted auth config and caller token
+- Added unit tests for hosted auth pattern, config parsing, and hosted response normalization
+
+### Hosted Supabase Auth Pattern
+
+**When to use:**
+- Cuan Insight is hosted on Supabase Functions
+- Service-level auth uses Supabase anonymous key
+- User-level auth uses MCP token
+
+**Configuration:**
+```bash
+BROKER_RUNTIME_MODE=remote
+CUAN_INSIGHT_API_BASE_URL=https://<project>.supabase.co/functions/v1
+CUAN_INSIGHT_CREDENTIAL_RESOLVE_PATH=/mcp-resolve-credential
+CUAN_INSIGHT_SUPABASE_ANON_KEY=<supabase-anon-key>
+CUAN_INSIGHT_MCP_TOKEN=<mcp-token>
+CUAN_INSIGHT_MCP_TOKEN_HEADER_NAME=X-Cuan-MCP-Token  # optional, default
+```
+
+**Request headers sent:**
+```
+Authorization: Bearer <SUPABASE_ANON_KEY>
+X-Cuan-MCP-Token: <caller-mcp-token>
+Content-Type: application/json
+```
+
+**Security rules:**
+- `supabaseAnonKey` MUST NOT be logged or exposed in errors
+- `callerToken` MUST NOT be logged or exposed in errors
+- Both tokens are redacted in error messages
+- Validation fails fast with safe error codes
+
+### Standard Auth Pattern (Backward Compatible)
+
+**When to use:**
+- Cuan Insight is NOT hosted on Supabase
+- Direct API endpoint with bearer token auth
+
+**Configuration:**
+```bash
+BROKER_RUNTIME_MODE=remote
+CUAN_INSIGHT_API_BASE_URL=https://api.cuaninsight.com
+CUAN_INSIGHT_CREDENTIAL_RESOLVE_PATH=/mcp/credentials/resolve
+# No CUAN_INSIGHT_SUPABASE_ANON_KEY
+```
+
+**Request headers sent:**
+```
+Authorization: Bearer <caller-mcp-token>
+Content-Type: application/json
+```
+
+### Implementation Details
+
+**Client logic:**
+```typescript
+const useHostedAuth = !!config.supabaseAnonKey;
+
+headers: useHostedAuth
+  ? {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${config.supabaseAnonKey}`,
+      [mcpTokenHeaderName]: request.callerToken,
+    }
+  : {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${request.callerToken}`,
+    }
+```
+
+**Validation:**
+- `callerToken` is always required and must come from `CUAN_INSIGHT_MCP_TOKEN` in remote broker mode
+- Hosted response payloads with nested `credential.providerToken` and `credential.expiresAt` are normalized before broker use
+
+**Tests:**
+- ✅ Sends `Authorization: Bearer <supabaseAnonKey>` when configured
+- ✅ Sends `X-Cuan-MCP-Token: <callerToken>` when using hosted auth
+- ✅ Uses custom `mcpTokenHeaderName` when provided
+- ✅ Uses standard auth when `supabaseAnonKey` not provided
+- ✅ Does not expose `supabaseAnonKey` in errors
+- ✅ Does not expose `callerToken` in errors when using hosted auth
+- ✅ Parses `CUAN_INSIGHT_MCP_TOKEN` into remote broker config without logging it
+- ✅ Normalizes hosted credential payloads into the broker credential contract
+
+### Next Steps
+
+**For staging integration:**
+1. Keep local env vars in `.env` only (DO NOT COMMIT)
+2. Run `tests/staging-integration.ts` against Cuan Insight staging
+3. Confirm credential resolution returns `ok: true`, token present, and expiry present
+4. Confirm AdsBroker remote mode resolves credentials and surfaces Meta API errors safely
+5. Confirm no tokens are logged or exposed
+
+**For production:**
+1. Wait for Cuan Insight production approval
+2. Configure production Supabase project
+3. Generate production anon key and MCP tokens
+4. Update production env vars
+5. Monitor logs for token leaks
+6. Add rate limiting and request tracing
+
+**Current Status:**
+- ✅ Hosted auth pattern implemented
+- ✅ Unit tests passing
+- ✅ Backward compatible with standard auth
+- ✅ Staging integration test passing against Cuan Insight staging
+- ✅ AdsBroker remote mode resolves credential and reaches Meta API
+- ⏳ Production deployment pending
