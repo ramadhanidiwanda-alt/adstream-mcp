@@ -11,3 +11,25 @@ services:
       - .env
     restart: unless-stopped
     command: node mcp-server/dist/index.js
+
+  # Optional self-hosted HTTP skeleton. Keep disabled unless you need URL access.
+  # This uses POST /mcp and GET /health, but fails fast for MCP messages until
+  # the current MCP SDK version supports official Streamable HTTP transport.
+  # Protect public deployments with HTTPS + reverse proxy + MCP_HTTP_BEARER_TOKEN.
+  meta-ads-mcp-http:
+    build:
+      context: .
+      dockerfile: Dockerfile.mcp
+    env_file:
+      - .env
+    environment:
+      MCP_HTTP_ENABLED: "true"
+      MCP_HTTP_HOST: "0.0.0.0"
+      MCP_HTTP_PORT: "8787"
+      MCP_HTTP_PATH: "/mcp"
+    ports:
+      - "127.0.0.1:8787:8787"
+    restart: unless-stopped
+    command: node mcp-server/dist/http.js
+    profiles:
+      - http
