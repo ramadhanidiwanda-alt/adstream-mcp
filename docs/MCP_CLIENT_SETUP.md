@@ -4,13 +4,13 @@
 
 `meta-ads-agent-skill` is a generic MCP server for Meta Ads analysis. It exposes read-only ads tools through the Model Context Protocol so MCP-compatible AI clients and agents can call the same tool surface.
 
-Current recommended transport is stdio. Any MCP client that can launch a local stdio server can use this project with the Node or Docker commands below.
+Current default transport is **stdio**. Remote transport can use **SSE** via `MCP_TRANSPORT=sse`. Streamable HTTP is not yet implemented.
 
-Remote HTTP is not production-ready yet. The HTTP entrypoint is a skeleton for future transport work, and `POST /mcp` currently returns a fast-fail 501 response.
+---
 
 ## Supported Modes
 
-### Stdio via Node
+### Stdio via Node (Default)
 
 Use this mode when your MCP client can run a local command and pass environment variables to it.
 
@@ -39,16 +39,35 @@ docker build -f Dockerfile.mcp -t meta-ads-agent-skill:mcp-local .
 
 Then point your MCP client at `docker run` with `-i` so stdio stays attached.
 
-### HTTP Skeleton Status
+### SSE Remote Transport (New in Phase 16a)
 
-The HTTP entrypoint is intentionally not production-ready.
+Remote SSE transport is available using the current SDK. Start the server:
 
-- `GET /health` exists for local checks.
-- `POST /mcp` currently returns 501 because current SDK wiring does not provide production Streamable HTTP transport in this project.
-- Do not expose `/mcp` publicly for production use.
-- Keep using stdio until the HTTP transport is upgraded and validated.
+```bash
+MCP_HTTP_ENABLED=true \
+MCP_TRANSPORT=sse \
+MCP_HTTP_BEARER_TOKEN=<MCP_REMOTE_AUTH_TOKEN> \
+node mcp-server/dist/http.js
+```
 
-See `docs/REMOTE_MCP_HTTP.md` for current HTTP skeleton details.
+SSE is compatible with MCP clients that support remote SSE connections. The server exposes two endpoints:
+
+- `GET /mcp` — Establishes SSE connection stream
+- `POST /mcp?sessionId=<id>` — Sends JSON-RPC messages (sessionId from SSE endpoint event)
+
+See [SSE Client Config](#sse-remote-client-config) for client setup.
+
+Note: Streamable HTTP is not implemented. `POST /mcp` without a `sessionId` query parameter returns 501.
+
+### Transport Comparison
+
+| Transport | Mode | Default | Remote | Status |
+|-----------|------|---------|--------|--------|
+| Stdio | Local | ✅ Yes | ❌ No | ✅ Production ready |
+| SSE | Remote | ❌ Opt-in | ✅ Yes | ✅ Implemented (Phase 16a) |
+| Streamable HTTP | Remote | ❌ Opt-in | ✅ Yes | ❌ SDK upgrade needed |
+
+---
 
 ## Required Env for Remote Cuan Insight Mode
 
@@ -69,6 +88,8 @@ Security notes:
 - Do not hardcode private endpoints or tokens in client config files that may be shared.
 - Do not print or log `CUAN_INSIGHT_SUPABASE_ANON_KEY`, `CUAN_INSIGHT_MCP_TOKEN`, `providerToken`, or Meta access tokens.
 - `BROKER_RUNTIME_MODE=remote` should not require `META_ACCESS_TOKEN` in the local MCP container.
+
+---
 
 ## Generic Stdio Client Config
 
@@ -96,6 +117,8 @@ Use this shape for any MCP-compatible client that supports stdio servers. Replac
 ```
 
 If your client supports inheriting environment variables from the shell, you can omit the `env` block and set variables outside the client process instead.
+
+---
 
 ## Generic Docker Stdio Client Config
 
@@ -127,9 +150,60 @@ Use this shape for MCP-compatible clients that can launch Docker:
 
 Keep `-i` in the Docker args. MCP stdio clients need stdin attached to exchange protocol messages.
 
+---
+
+## SSE Remote Client Config
+
+For MCP clients that support remote SSE servers (connecting via URL rather than launching a local command), use this config shape.
+
+Start the SSE server:
+
+```bash
+MCP_HTTP_ENABLED=true \
+MCP_TRANSPORT=sse \
+MCP_HTTP_HOST=127.0.0.1 \
+MCP_HTTP_PORT=8787 \
+MCP_HTTP_BEARER_TOKEN=<MCP_REMOTE_AUTH_TOKEN> \
+node /absolute/path/to/meta-ads-agent-skill/mcp-server/dist/http.js
+```
+
+Client config (if your client supports SSE URL-based MCP):
+
+```json
+{
+  "mcpServers": {
+    "meta-ads-agent-skill": {
+      "url": "http://localhost:8787/mcp",
+      "headers": {
+        "Authorization": "Bearer <MCP_REMOTE_AUTH_TOKEN>"
+      }
+    }
+  }
+}
+```
+
+### SSE Security Notes
+
+- Keep `MCP_HTTP_HOST=127.0.0.1` for local-only access.
+- For public exposure, use a reverse proxy (nginx, Caddy) or Cloudflare Tunnel with HTTPS.
+- Always set `MCP_HTTP_BEARER_TOKEN` when exposing beyond localhost.
+- Do not reuse Meta access tokens, `CUAN_INSIGHT_MCP_TOKEN`, or `CUAN_INSIGHT_SUPABASE_ANON_KEY` as the SSE bearer token.
+- The `Authorization` header is used for MCP transport auth, not provider credential resolution.
+
+### SSE vs Streamable HTTP
+
+SSE is a valid MCP transport protocol. However, the newer **Streamable HTTP** specification offers:
+- Simpler GET/POST endpoint separation without SSE streams for simple responses
+- Official SDK support starting from `@modelcontextprotocol/sdk@1.x`
+- Better support for stateless request/response patterns
+
+Streamable HTTP requires an SDK upgrade and is not yet implemented. SSE works with the current SDK v0.5.0.
+
+---
+
 ## Client Examples
 
-### Claude Desktop Example
+### Claude Desktop Example (Stdio)
 
 Claude Desktop is one MCP client example. Add a server entry with the same command and env shape your local setup uses.
 
@@ -156,6 +230,8 @@ Claude Desktop is one MCP client example. Add a server entry with the same comma
 
 Other MCP-compatible agents can adapt the same command, args, and env shape. The project does not require Claude-specific behavior.
 
+---
+
 ## Available Tools
 
 Current broker MCP tools:
@@ -176,6 +252,8 @@ Common inputs:
 - `since`: required by performance and report tools; format `YYYY-MM-DD`.
 - `until`: required by performance and report tools; format `YYYY-MM-DD`.
 - `params`: optional provider-safe parameters such as `limit`.
+
+---
 
 ## Troubleshooting
 
@@ -243,4 +321,18 @@ Checks:
 
 ### HTTP `/mcp` Returns 501
 
-This is expected in the current HTTP skeleton. Use stdio via Node or Docker for MCP clients until HTTP transport is production-ready.
+This is expected if you are calling `POST /mcp` without a `sessionId` query parameter. Streamable HTTP is not yet implemented. Use `MCP_TRANSPORT=sse` for SSE-based remote transport, or stdio for local transport.
+
+### SSE Connection Fails
+
+Symptoms:
+
+- Client cannot connect to SSE endpoint.
+- `GET /mcp` returns non-200 status.
+
+Checks:
+
+- Confirm `MCP_HTTP_ENABLED=true` and `MCP_TRANSPORT=sse`.
+- Confirm `MCP_HTTP_BEARER_TOKEN` matches the token in your client config.
+- Confirm the host and port are reachable from your client.
+- Check server logs for connection errors.
