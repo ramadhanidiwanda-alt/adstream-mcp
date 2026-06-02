@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { AdsBroker } from '../../src/broker/AdsBroker.js';
 import { CredentialResolver, CuanInsightCredentialProvider } from '../../src/broker/credentials.js';
 import { createDefaultProviderRegistry } from '../../src/broker/factory.js';
@@ -183,5 +183,106 @@ describe('Remote broker integration', () => {
     if (!result.ok) {
       expect(result.errors?.[0]?.code).not.toBe('MISSING_ENV_CREDENTIALS');
     }
+  });
+});
+
+describe('Remote broker — discovery flow for ads_list_accounts', () => {
+  it('resolves credentials without accountId for listAccounts', async () => {
+    const mockClient = buildMockClient({
+      ok: true,
+      discovery: true,
+      providerAccess: {
+        provider: 'meta',
+        accountId: null,
+        scopes: ['read'],
+        allowed: true,
+      },
+      providerToken: PROVIDER_TOKEN,
+      providerApiVersion: 'v20.0',
+    });
+
+    const broker = new AdsBroker({
+      providerRegistry: createDefaultProviderRegistry(),
+      credentialResolver: new CredentialResolver({
+        mode: 'remote',
+        cuanInsightProvider: new CuanInsightCredentialProvider(mockClient, {
+          callerToken: CALLER_TOKEN,
+        }),
+      }),
+    });
+
+    const result = await broker.listAccounts({ provider: 'meta' });
+
+    // Will fail at Meta API (no real network), but credential resolution should succeed
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.errors?.[0]?.code).not.toBe('MISSING_ENV_CREDENTIALS');
+      expect(result.errors?.[0]?.code).not.toBe('PROVIDER_TOKEN_MISSING');
+      expect(result.errors?.[0]?.code).not.toBe('PROVIDER_TOKEN_EXPIRED');
+      expect(result.errors?.[0]?.code).not.toBe('ACCOUNT_NOT_ALLOWED');
+    }
+  });
+
+  it('account-scoped tools still pass accountId normally', async () => {
+    const resolve = vi.fn(async () => ({
+      ok: true,
+      providerAccess: {
+        provider: 'meta',
+        accountId: 'act_123',
+        scopes: ['read'],
+        allowed: true,
+      },
+      providerToken: PROVIDER_TOKEN,
+      providerApiVersion: 'v20.0',
+    }));
+
+    const broker = new AdsBroker({
+      providerRegistry: createDefaultProviderRegistry(),
+      credentialResolver: new CredentialResolver({
+        mode: 'remote',
+        cuanInsightProvider: new CuanInsightCredentialProvider(
+          { resolve },
+          { callerToken: CALLER_TOKEN }
+        ),
+      }),
+    });
+
+    await broker.getCampaignPerformance({
+      provider: 'meta',
+      accountId: 'act_123',
+      since: '2026-05-01',
+      until: '2026-05-07',
+      params: {},
+    });
+
+    // Resolver should receive accountId
+    expect(resolve).toHaveBeenCalledWith(
+      expect.objectContaining({ accountId: 'act_123' })
+    );
+  });
+
+  it('does not leak provider token in discovery error responses', async () => {
+    const mockClient = buildMockClient({
+      ok: false,
+      error: {
+        code: 'PROVIDER_TOKEN_EXPIRED',
+        message: `Token ${PROVIDER_TOKEN} expired during discovery`,
+      },
+    });
+
+    const broker = new AdsBroker({
+      providerRegistry: createDefaultProviderRegistry(),
+      credentialResolver: new CredentialResolver({
+        mode: 'remote',
+        cuanInsightProvider: new CuanInsightCredentialProvider(mockClient, {
+          callerToken: CALLER_TOKEN,
+        }),
+      }),
+    });
+
+    const result = await broker.listAccounts({ provider: 'meta' });
+
+    expect(result.ok).toBe(false);
+    expect(JSON.stringify(result)).not.toContain(PROVIDER_TOKEN);
   });
 });

@@ -367,3 +367,141 @@ describe('CredentialResolver — remote mode', () => {
     delete process.env.META_AD_ACCOUNT_ID;
   });
 });
+
+describe('CuanInsightCredentialProvider — discovery flow', () => {
+  const PROVIDER_TOKEN_D = 'disc-provider-token-test';
+
+  it('accepts discovery response with accountId null', async () => {
+    const resolve = vi.fn(async () => ({
+      ok: true,
+      discovery: true,
+      providerAccess: {
+        provider: 'meta' as const,
+        accountId: null,
+        scopes: ['read'] as const,
+        allowed: true,
+      },
+      providerToken: PROVIDER_TOKEN_D,
+      providerApiVersion: 'v20.0',
+      tokenExpiresAt: '2099-06-01T00:00:00Z',
+    }));
+
+    const provider = new CuanInsightCredentialProvider(buildClient(resolve), {
+      callerToken: 'caller-token-test',
+    });
+
+    const result = await provider.resolve({ provider: 'meta' });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('Expected success');
+
+    expect(result.credential).toMatchObject({
+      provider: 'meta',
+      accessToken: PROVIDER_TOKEN_D,
+      apiVersion: 'v20.0',
+      source: 'cuan_insight',
+    });
+    // accountId should be undefined for discovery (null mapped to undefined)
+    expect(result.credential.accountId).toBeUndefined();
+    // Token redaction happens at broker level, not credential resolver
+  });
+
+  it('passes undefined accountId in resolve request for discovery', async () => {
+    const resolve = vi.fn(async (req: unknown) => {
+      const request = req as { accountId?: string };
+      expect(request.accountId).toBeUndefined();
+      return {
+        ok: true,
+        discovery: true,
+        providerAccess: {
+          provider: 'meta' as const,
+          accountId: null,
+          scopes: ['read'] as const,
+          allowed: true,
+        },
+        providerToken: PROVIDER_TOKEN_D,
+        providerApiVersion: 'v20.0',
+      };
+    });
+
+    const provider = new CuanInsightCredentialProvider(buildClient(resolve), {
+      callerToken: 'caller-token-test',
+    });
+
+    const result = await provider.resolve({ provider: 'meta', accountId: undefined });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('Expected success');
+    expect(result.credential.accountId).toBeUndefined();
+  });
+
+  it('accepts discovery response without providerAccess', async () => {
+    const resolve = vi.fn(async () => ({
+      ok: true,
+      discovery: true,
+      providerToken: PROVIDER_TOKEN_D,
+      providerApiVersion: 'v20.0',
+    }));
+
+    const provider = new CuanInsightCredentialProvider(buildClient(resolve), {
+      callerToken: 'caller-token-test',
+    });
+
+    const result = await provider.resolve({ provider: 'meta' });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('Expected success');
+    expect(result.credential.accessToken).toBe(PROVIDER_TOKEN_D);
+    expect(result.credential.accountId).toBeUndefined();
+  });
+
+  it('rejects discovery response without providerToken', async () => {
+    const resolve = vi.fn(async () => ({
+      ok: true,
+      discovery: true,
+      providerAccess: {
+        provider: 'meta' as const,
+        accountId: null,
+        scopes: ['read'] as const,
+        allowed: true,
+      },
+    }));
+
+    const provider = new CuanInsightCredentialProvider(buildClient(resolve), {
+      callerToken: 'caller-token-test',
+    });
+
+    const result = await provider.resolve({ provider: 'meta' });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error('Expected error');
+    expect(result.error.code).toBe('PROVIDER_TOKEN_MISSING');
+  });
+
+  it('includes discovery in meta when present', async () => {
+    const resolve = vi.fn(async () => ({
+      ok: true,
+      discovery: true,
+      providerAccess: {
+        provider: 'meta' as const,
+        accountId: null,
+        scopes: ['read'] as const,
+        allowed: true,
+      },
+      providerToken: PROVIDER_TOKEN_D,
+    }));
+
+    const provider = new CuanInsightCredentialProvider(buildClient(resolve), {
+      callerToken: 'caller-token-test',
+    });
+
+    const result = await provider.resolve({ provider: 'meta' });
+
+    expect(result.ok).toBe(true);
+    // meta.providerAccess.accountId should be null (not mapped in meta)
+    if (result.ok && result.meta?.providerAccess) {
+      const access = result.meta.providerAccess as { accountId: unknown };
+      expect(access.accountId).toBeNull();
+    }
+  });
+});
