@@ -1,0 +1,10 @@
+node_modules
+dist
+mcp-server/dist
+.env
+.env.*
+logs
+.git
+coverage
+backups
+docs/PRODUCTION_MIGRATION_RESULT.md

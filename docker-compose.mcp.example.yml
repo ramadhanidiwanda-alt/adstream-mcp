@@ -1,0 +1,13 @@
+# Copy .env.example to .env, then edit values before starting.
+# Never commit .env.
+# Remote mode requires CUAN_INSIGHT_* environment variables.
+# Local legacy mode requires META_* environment variables if still used.
+services:
+  meta-ads-mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile.mcp
+    env_file:
+      - .env
+    restart: unless-stopped
+    command: node mcp-server/dist/index.js
