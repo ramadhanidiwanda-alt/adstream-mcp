@@ -54,9 +54,10 @@ export function isAdsMcpToolName(name: string): name is AdsMcpToolName {
 export async function handleAdsMcpToolCall(
   broker: AdsBroker,
   name: AdsMcpToolName,
-  args: Record<string, unknown> = {}
+  args: Record<string, unknown> = {},
+  connectionKey?: string
 ): Promise<{ content: Array<{ type: 'text'; text: string }>; isError?: boolean }> {
-  const request = toAdsBrokerRequest(args);
+  const request = toAdsBrokerRequest(args, connectionKey);
   const response = await callBrokerMethod(broker, name, request);
   const safeResponse = stripRawFromResponse(redactTokenLikeValues(response)) as AdsBrokerResponse;
 
@@ -87,7 +88,7 @@ function stripRawFromResponse<T>(value: T): T {
   return value;
 }
 
-export function toAdsBrokerRequest(args: Record<string, unknown>): AdsBrokerRequest {
+export function toAdsBrokerRequest(args: Record<string, unknown>, connectionKey?: string): AdsBrokerRequest {
   return {
     provider: parseProvider(args.provider),
     providers: parseProviders(args.providers),
@@ -95,6 +96,7 @@ export function toAdsBrokerRequest(args: Record<string, unknown>): AdsBrokerRequ
     since: typeof args.since === 'string' ? args.since : undefined,
     until: typeof args.until === 'string' ? args.until : undefined,
     params: isPlainObject(args.params) ? args.params : {},
+    connectionKey,
   };
 }
 

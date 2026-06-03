@@ -86,6 +86,7 @@ export class AdsBroker {
     const credential = await this.credentialResolver.resolve({
       provider: provider.provider,
       accountId: request.accountId,
+      connectionKey: request.connectionKey,
       params: request.params,
     });
 

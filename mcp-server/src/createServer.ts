@@ -1,4 +1,6 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import type { RequestHandlerExtra } from '@modelcontextprotocol/sdk/shared/protocol.js';
+import type { ServerRequest, ServerNotification } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
 import {
   MetaClient,
@@ -112,7 +114,10 @@ export function createMetaAdsMcpServer(
           ? sinceUntilInputSchema
           : adsBaseInputSchema,
       },
-      async (args: Record<string, unknown>) => handleAdsMcpToolCall(adsBroker, toolDefinition.name, args ?? {})
+      async (args: Record<string, unknown>, extra: RequestHandlerExtra<ServerRequest, ServerNotification>) => {
+        const connectionKey = extra.authInfo?.extra?.connectionKey as string | undefined;
+        return handleAdsMcpToolCall(adsBroker, toolDefinition.name, args ?? {}, connectionKey);
+      }
     );
   }
 
