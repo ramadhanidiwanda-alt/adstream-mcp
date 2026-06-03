@@ -1,8 +1,8 @@
 # Cuan Insight Connection Key Compatibility
 
-> **Status**: Implemented — Phase 17.5C merged (PR #21)  
+> **Status**: Live production verified — v0.4.0  
 > **Date**: 2026-06-03  
-> **Updated**: 2026-06-03 (Phase 17.5E docs)  
+> **Updated**: 2026-06-03 (Phase 17.5G release)  
 > **Related**: `docs/roadmap/mcp-connector-platform.md` (cuan-insight)
 
 ---
@@ -106,11 +106,12 @@ META_AD_ACCOUNT_ID=act_123456789
 - Cold smoke test (stdio): tools/list (13 tools), ads_list_accounts — PASS
 - Security: zero secret leak in output/log/stderr
 
-### Pending
+### Verified (Phase 17.5F)
 
-- Full live smoke test with real Connection Key from Cuan Insight UI
-- Requires `CUAN_INSIGHT_CONNECTION_KEY` env var + deployed `mcp-resolve-credential` endpoint
-- Live revoke test: create key → resolve → revoke via UI → verify call fails
+- ✅ Live production smoke test: Connection Key → `ads_list_accounts` → 25 Meta accounts returned
+- ✅ Revoke test: key revoked via Cuan Insight UI → `ads_list_accounts` rejected with 401
+- ✅ URL construction fixed (PR #23): preserve `/functions/v1` base path
+- ✅ No secret leak in any output, log, or error message
 
 ---
 
