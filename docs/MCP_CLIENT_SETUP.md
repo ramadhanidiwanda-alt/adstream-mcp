@@ -4,7 +4,7 @@
 
 `meta-ads-agent-skill` is a generic MCP server for Meta Ads analysis. It exposes read-only ads tools through the Model Context Protocol so MCP-compatible AI clients and agents can call the same tool surface.
 
-Current default transport is **stdio**. Remote transport can use **SSE** via `MCP_TRANSPORT=sse`. Streamable HTTP is not yet implemented.
+Current default transport is **stdio**. Remote transport can use **SSE** via `MCP_TRANSPORT=sse` or **Streamable HTTP** via `MCP_TRANSPORT=streamable-http`.
 
 ---
 
@@ -57,7 +57,48 @@ SSE is compatible with MCP clients that support remote SSE connections. The serv
 
 See [SSE Client Config](#sse-remote-client-config) for client setup.
 
-Note: Streamable HTTP is not implemented. `POST /mcp` without a `sessionId` query parameter returns 501.
+Note: Streamable HTTP is implemented behind explicit opt-in. Use `MCP_TRANSPORT=streamable-http` to enable it.
+
+
+### Streamable HTTP Remote Transport (New in Phase 16b)
+
+Start the Streamable HTTP server:
+
+```bash
+MCP_HTTP_ENABLED=true \
+MCP_TRANSPORT=streamable-http \
+MCP_HTTP_HOST=127.0.0.1 \
+MCP_HTTP_PORT=8787 \
+MCP_HTTP_BEARER_TOKEN=<MCP_REMOTE_AUTH_TOKEN> \
+node /absolute/path/to/meta-ads-agent-skill/mcp-server/dist/http.js
+```
+
+The server exposes:
+
+- `GET /health` — Health check
+- `POST /mcp` — Initializes Streamable HTTP session
+- Subsequent requests use the `Mcp-Session-Id` response header value
+
+Client config shape for clients that support remote Streamable HTTP:
+
+```json
+{
+  "mcpServers": {
+    "meta-ads-agent-skill": {
+      "url": "http://localhost:8787/mcp",
+      "headers": {
+        "Authorization": "Bearer <MCP_REMOTE_AUTH_TOKEN>"
+      }
+    }
+  }
+}
+```
+
+Security notes:
+
+- Always set `MCP_HTTP_BEARER_TOKEN` when exposing the HTTP server.
+- Do not reuse Meta access tokens, `providerToken`, `CUAN_INSIGHT_MCP_TOKEN`, or `CUAN_INSIGHT_SUPABASE_ANON_KEY` as the bearer token.
+- Keep production deployments behind HTTPS and a trusted reverse proxy.
 
 ### Transport Comparison
 
@@ -65,7 +106,7 @@ Note: Streamable HTTP is not implemented. `POST /mcp` without a `sessionId` quer
 |-----------|------|---------|--------|--------|
 | Stdio | Local | ✅ Yes | ❌ No | ✅ Production ready |
 | SSE | Remote | ❌ Opt-in | ✅ Yes | ✅ Implemented (Phase 16a) |
-| Streamable HTTP | Remote | ❌ Opt-in | ✅ Yes | ❌ SDK upgrade needed |
+| Streamable HTTP | Remote | ❌ Opt-in | ✅ Yes | ✅ Implemented (Phase 16b) |
 
 ---
 
@@ -197,7 +238,7 @@ SSE is a valid MCP transport protocol. However, the newer **Streamable HTTP** sp
 - Official SDK support starting from `@modelcontextprotocol/sdk@1.x`
 - Better support for stateless request/response patterns
 
-Streamable HTTP requires an SDK upgrade and is not yet implemented. SSE works with the current SDK v0.5.0.
+Streamable HTTP is available through SDK v1.29.0. SSE remains available for clients that still use remote SSE.
 
 ---
 
@@ -321,7 +362,7 @@ Checks:
 
 ### HTTP `/mcp` Returns 501
 
-This is expected if you are calling `POST /mcp` without a `sessionId` query parameter. Streamable HTTP is not yet implemented. Use `MCP_TRANSPORT=sse` for SSE-based remote transport, or stdio for local transport.
+This is expected in default HTTP skeleton mode. Set `MCP_TRANSPORT=streamable-http` to enable Streamable HTTP. In SSE mode, use `POST /mcp?sessionId=<id>` after establishing `GET /mcp`.
 
 ### SSE Connection Fails
 
