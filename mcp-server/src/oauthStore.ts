@@ -158,16 +158,46 @@ export class OAuthStore {
     if (record.used) return undefined;
 
     // Validate client_id
-    if (record.clientId !== params.clientId) return undefined;
+    if (record.clientId !== params.clientId) {
+      if (process.env.MCP_OAUTH_DEBUG === 'true') {
+        console.error('[OAUTH_DEBUG] token.post.pkce_match', JSON.stringify({
+          check: 'client_id_mismatch',
+          expected_prefix: record.clientId.slice(0, 8),
+          got_prefix: params.clientId.slice(0, 8),
+        }));
+      }
+      return undefined;
+    }
 
     // Validate redirect_uri
-    if (record.redirectUri !== params.redirectUri) return undefined;
+    if (record.redirectUri !== params.redirectUri) {
+      if (process.env.MCP_OAUTH_DEBUG === 'true') {
+        console.error('[OAUTH_DEBUG] token.post.redirect_match', JSON.stringify({
+          match: false,
+          expected_host: (() => { try { return new URL(record.redirectUri).host; } catch { return 'invalid'; } })(),
+          got_host: (() => { try { return new URL(params.redirectUri).host; } catch { return 'invalid'; } })(),
+        }));
+      }
+      return undefined;
+    }
 
     // Validate PKCE: base64url(sha256(code_verifier)) === code_challenge
-    const verifierHash = base64UrlEncode(
-      createHash('sha256').update(params.codeVerifier).digest('base64url')
-    );
-    if (verifierHash !== record.codeChallenge) return undefined;
+    // Use digest('base64url') directly — it already produces RFC 7636 compliant base64url.
+    // Do NOT wrap with base64UrlEncode (that would double-encode and mismatch Claude's correct PKCE).
+    const verifierHash = createHash('sha256')
+      .update(params.codeVerifier)
+      .digest('base64url');
+    const pkceMatch = verifierHash === record.codeChallenge;
+
+    if (process.env.MCP_OAUTH_DEBUG === 'true') {
+      console.error('[OAUTH_DEBUG] token.post.pkce_match', JSON.stringify({
+        match: pkceMatch,
+        challenge_len: record.codeChallenge.length,
+        verifier_hash_len: verifierHash.length,
+      }));
+    }
+
+    if (!pkceMatch) return undefined;
 
     // Mark as used
     record.used = true;
