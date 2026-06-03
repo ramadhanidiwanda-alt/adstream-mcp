@@ -28,6 +28,8 @@ export interface HttpMcpConfig {
   authCodeTtlSeconds: number;
   /** OAuth access token TTL in seconds */
   accessTokenTtlSeconds: number;
+  /** Allowed OAuth client IDs (comma-separated from env). Empty = all clients allowed. */
+  allowedClientIds?: string[];
 }
 
 export interface StartedHttpMcpServer {
@@ -93,7 +95,27 @@ export function parseHttpMcpConfig(env: NodeJS.ProcessEnv = process.env): HttpMc
     publicBaseUrl: env.MCP_PUBLIC_BASE_URL,
     authCodeTtlSeconds: Number(env.MCP_OAUTH_AUTH_CODE_TTL_SECONDS) || 300,
     accessTokenTtlSeconds: Number(env.MCP_OAUTH_ACCESS_TOKEN_TTL_SECONDS) || 86400,
+    allowedClientIds: parseAllowedClientIds(env.MCP_OAUTH_ALLOWED_CLIENT_IDS),
   };
+}
+
+/**
+ * Parse comma-separated allowed OAuth client IDs from env var.
+ * Returns undefined when not configured (all clients allowed in dev).
+ */
+function parseAllowedClientIds(raw?: string): string[] | undefined {
+  if (!raw || typeof raw !== 'string') return undefined;
+  const ids = raw.split(',').map((s) => s.trim()).filter(Boolean);
+  return ids.length > 0 ? ids : undefined;
+}
+
+/**
+ * Check if a client_id is allowed based on allowlist config.
+ * If allowlist is not configured, all clients are accepted.
+ */
+function isClientIdAllowed(clientId: string, allowedIds?: string[]): boolean {
+  if (!allowedIds || allowedIds.length === 0) return true;
+  return allowedIds.includes(clientId);
 }
 
 export function getHttpMcpMode(env: NodeJS.ProcessEnv = process.env): 'remote' | 'local' {
@@ -294,7 +316,7 @@ async function handleGetAuthorize(
   req: IncomingMessage,
   res: ServerResponse,
   url: URL,
-  env: NodeJS.ProcessEnv
+  allowedClientIds: string[] | undefined,
 ): Promise<void> {
   const responseType = url.searchParams.get('response_type');
   const clientId = url.searchParams.get('client_id');
@@ -320,6 +342,12 @@ async function handleGetAuthorize(
     return;
   }
 
+  // Validate client_id against allowlist (if configured)
+  if (!isClientIdAllowed(clientId!, allowedClientIds)) {
+    writeJson(res, 400, { error: 'invalid_client', error_description: 'Client ID tidak dikenal.' });
+    return;
+  }
+
   // Render form
   const html = renderAuthorizeForm({
     responseType: responseType!,
@@ -337,7 +365,8 @@ async function handleGetAuthorize(
 async function handlePostAuthorize(
   req: IncomingMessage,
   res: ServerResponse,
-  env: NodeJS.ProcessEnv
+  env: NodeJS.ProcessEnv,
+  allowedClientIds: string[] | undefined,
 ): Promise<void> {
   // Read form body
   const body = await readBody(req);
@@ -366,6 +395,12 @@ async function handlePostAuthorize(
 
   if (errors.length > 0) {
     writeJson(res, 400, { error: 'invalid_request', error_description: errors.join('; ') });
+    return;
+  }
+
+  // Validate client_id against allowlist (if configured)
+  if (!isClientIdAllowed(clientId!, allowedClientIds)) {
+    writeJson(res, 400, { error: 'invalid_client', error_description: 'Client ID tidak dikenal.' });
     return;
   }
 
@@ -421,7 +456,8 @@ async function handlePostAuthorize(
 async function handlePostToken(
   req: IncomingMessage,
   res: ServerResponse,
-  env: NodeJS.ProcessEnv
+  env: NodeJS.ProcessEnv,
+  allowedClientIds: string[] | undefined,
 ): Promise<void> {
   const body = await readBody(req);
   const params = new URLSearchParams(body);
@@ -443,6 +479,12 @@ async function handlePostToken(
       error: 'invalid_request',
       error_description: 'Missing required parameters: code, redirect_uri, client_id, code_verifier',
     });
+    return;
+  }
+
+  // Validate client_id against allowlist (if configured)
+  if (!isClientIdAllowed(clientId, allowedClientIds)) {
+    writeJson(res, 400, { error: 'invalid_client', error_description: 'Client ID tidak dikenal.' });
     return;
   }
 
@@ -609,19 +651,22 @@ export function createHttpMcpRequestHandler(
 
     // ── OAuth authorize (GET: form) ──
     if (req.method === 'GET' && url.pathname === '/authorize') {
-      handleGetAuthorize(req, res, url, env).catch(() => sendNotFound(res));
+      handleGetAuthorize(req, res, url, config.allowedClientIds).catch(() => sendNotFound(res));
+
       return;
     }
 
     // ── OAuth authorize (POST: submit connection key) ──
     if (req.method === 'POST' && url.pathname === '/authorize') {
-      handlePostAuthorize(req, res, env).catch(() => sendNotFound(res));
+      handlePostAuthorize(req, res, env, config.allowedClientIds).catch(() => sendNotFound(res));
+
       return;
     }
 
     // ── OAuth token ──
     if (req.method === 'POST' && url.pathname === '/token') {
-      handlePostToken(req, res, env).catch(() => sendNotFound(res));
+      handlePostToken(req, res, env, config.allowedClientIds).catch(() => sendNotFound(res));
+
       return;
     }
 
