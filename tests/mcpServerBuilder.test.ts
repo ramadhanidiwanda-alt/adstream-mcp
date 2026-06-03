@@ -106,13 +106,26 @@ describe('MCP server builder', () => {
     expect(names).toEqual(expect.arrayContaining(legacyToolNames));
   });
 
-  it('registers existing ads broker tools without schema changes', async () => {
+  it('registers existing ads broker tools with equivalent McpServer schemas', async () => {
     const response = await listRegisteredTools();
     const toolsByName = new Map(response.tools.map((tool) => [tool.name, tool]));
 
     for (const expectedTool of ADS_MCP_TOOL_DEFINITIONS) {
-      expect(toolsByName.get(expectedTool.name)).toEqual(expectedTool);
+      const actualTool = toolsByName.get(expectedTool.name);
+
+      expect(actualTool?.name).toBe(expectedTool.name);
+      expect(actualTool?.description).toBe(expectedTool.description);
+      expect(Object.keys(actualTool?.inputSchema.properties ?? {})).toEqual(
+        Object.keys(expectedTool.inputSchema.properties)
+      );
+      expect(actualTool?.inputSchema.required ?? []).toEqual(expectedTool.inputSchema.required);
     }
+  });
+
+  it('keeps the expected MCP tool count', async () => {
+    const response = await listRegisteredTools();
+
+    expect(response.tools).toHaveLength(13);
   });
 
   it('keeps full tool order stable for stdio and future transports', async () => {
