@@ -12,6 +12,7 @@ import { redactErrorMessage } from './credentials.js';
  * - baseUrl must be provided via config/env, never hardcoded
  * - endpoint path is configurable with a safe default
  * - callerToken is passed per-request, never stored in config
+ * - connectionKey is passed per-request, never stored in config
  * - timeout is configurable for network resilience
  */
 export interface CuanInsightCredentialClientConfig {
@@ -36,15 +37,10 @@ export interface CuanInsightCredentialClientConfig {
    */
   timeoutMs?: number;
 
-
   /**
    * Supabase anonymous key for hosted Supabase auth pattern.
    * When provided, the client will send:
    * - Authorization: Bearer <supabaseAnonKey>
-   * - X-Cuan-MCP-Token: <callerToken>
-   *
-   * When NOT provided, the client will send:
-   * - Authorization: Bearer <callerToken>
    *
    * MUST be provided via environment variable or config.
    * MUST NOT be hardcoded in production.
@@ -56,9 +52,28 @@ export interface CuanInsightCredentialClientConfig {
    * Header name for MCP token when using hosted Supabase auth.
    * Default: 'X-Cuan-MCP-Token'
    *
-   * Only used when supabaseAnonKey is provided.
+   * Only used when authMode is 'mcp_token' (default).
    */
   mcpTokenHeaderName?: string;
+
+  /**
+   * Authentication mode for credential resolution.
+   * - 'mcp_token': legacy MCP token flow (default)
+   * - 'connection_key': Connection Key from Cuan Insight UI
+   *
+   * Default: 'mcp_token'
+   */
+  authMode?: 'mcp_token' | 'connection_key';
+
+  /**
+   * Connection Key from Cuan Insight UI connector.
+   * Required when authMode is 'connection_key'.
+   * Sent as x-cuan-mcp-connection-key header.
+   *
+   * MUST NOT be logged or exposed in errors.
+   */
+  connectionKey?: string;
+
   /**
    * Injectable fetch implementation for testing.
    * Default: global fetch
@@ -122,20 +137,20 @@ const DEFAULT_ENDPOINT_PATH = '/mcp/credentials/resolve';
 const DEFAULT_TIMEOUT_MS = 10000;
 
 /**
+ * Header name for Connection Key when using connection_key auth mode.
+ */
+const CONNECTION_KEY_HEADER = 'x-cuan-mcp-connection-key';
+
+/**
  * HTTP client for resolving credentials from Cuan Insight.
  *
- * This client is a skeleton implementation that:
- * - Does not hardcode the Cuan Insight domain
- * - Does not implement the actual Cuan Insight endpoint
- * - Provides a dependency-safe contract for credential resolution
- * - Supports injectable fetch for testing
- * - Never logs or exposes tokens
- * - Returns safe errors
+ * This client supports two auth modes:
+ * - mcp_token (default): legacy MCP token flow via X-Cuan-MCP-Token or Authorization
+ * - connection_key: Connection Key from Cuan Insight UI via x-cuan-mcp-connection-key
  *
  * Security rules:
  * - baseUrl must be provided via config
- * - callerToken is sent via Authorization Bearer header
- * - callerToken is never logged or exposed in errors
+ * - callerToken/connectionKey are never logged or exposed in errors
  * - All errors are redacted
  * - Response body is validated before returning
  *
@@ -151,6 +166,7 @@ export function createCuanInsightCredentialClient(
   const fetchImpl = config.fetch ?? fetch;
   const mcpTokenHeaderName = config.mcpTokenHeaderName ?? 'X-Cuan-MCP-Token';
   const useHostedAuth = !!config.supabaseAnonKey;
+  const authMode = config.authMode ?? 'mcp_token';
 
   return {
     async resolve(
@@ -164,44 +180,72 @@ export function createCuanInsightCredentialClient(
         );
       }
 
-      // Validate callerToken
-      if (!request.callerToken || request.callerToken.trim() === '') {
+      // Validate auth requirements
+      if (authMode === 'mcp_token') {
+        // MCP token mode: callerToken is required
+        if (!request.callerToken || request.callerToken.trim() === '') {
+          throw new CuanInsightCredentialClientError(
+            'MISSING_CALLER_TOKEN',
+            'Caller token is required'
+          );
+        }
+      }
+
+      // connection_key mode: connectionKey must be in config, not in request
+      if (authMode === 'connection_key' && (!config.connectionKey || config.connectionKey.trim() === '')) {
         throw new CuanInsightCredentialClientError(
           'MISSING_CALLER_TOKEN',
-          'Caller token is required for credential resolution'
+          'Connection key is not configured'
         );
       }
 
-      // Build request URL
-      const url = `${config.baseUrl.replace(/\/$/, '')}${endpointPath}`;
-
-      // Build request body (exclude callerToken from body)
-      const body = {
-        provider: request.provider,
-        accountId: request.accountId,
-        workspaceId: request.workspaceId,
-        requestedScopes: request.requestedScopes,
-        params: request.params,
-      };
-
-      // Create abort controller for timeout
+      const url = new URL(endpointPath, config.baseUrl);
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
+      // Build request body (never includes callerToken or connectionKey)
+      const body: Record<string, unknown> = {
+        provider: request.provider,
+      };
+      if (request.accountId !== undefined) {
+        body.accountId = request.accountId;
+      }
+      if (request.workspaceId !== undefined) {
+        body.workspaceId = request.workspaceId;
+      }
+      if (request.requestedScopes !== undefined) {
+        body.requestedScopes = request.requestedScopes;
+      }
+      if (request.params !== undefined) {
+        body.params = request.params;
+      }
+
+      // Build headers based on auth mode
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+
+      if (authMode === 'connection_key') {
+        // Connection Key mode: send connection key header
+        // If hosted auth is also configured, send supabase anon key too
+        if (useHostedAuth) {
+          headers['Authorization'] = `Bearer ${config.supabaseAnonKey}`;
+        }
+        headers[CONNECTION_KEY_HEADER] = config.connectionKey!;
+      } else {
+        // MCP token mode (legacy, default)
+        if (useHostedAuth) {
+          headers['Authorization'] = `Bearer ${config.supabaseAnonKey}`;
+          headers[mcpTokenHeaderName] = request.callerToken!;
+        } else {
+          headers['Authorization'] = `Bearer ${request.callerToken!}`;
+        }
+      }
+
       try {
-        // Make HTTP request
-        const response = await fetchImpl(url, {
+        const response = await fetchImpl(url.toString(), {
           method: 'POST',
-          headers: useHostedAuth
-            ? {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${config.supabaseAnonKey}`,
-                [mcpTokenHeaderName]: request.callerToken,
-              }
-            : {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${request.callerToken}`,
-              },
+          headers,
           body: JSON.stringify(body),
           signal: controller.signal,
         });
