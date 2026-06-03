@@ -45,6 +45,9 @@ describe('HTTP MCP skeleton config', () => {
       path: '/custom-mcp',
       transport: 'http',
       bearerToken: 'secret-test-token',
+      publicBaseUrl: undefined,
+      authCodeTtlSeconds: 300,
+      accessTokenTtlSeconds: 86400,
     });
   });
 
@@ -108,7 +111,7 @@ describe('HTTP MCP skeleton endpoints', () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body).toEqual({ ok: true, transport: 'http', mode: 'remote' });
+    expect(body).toEqual({ ok: true, transport: 'http', mode: 'remote', oauth: false });
   });
 
   it('returns health status in SSE mode', async () => {
@@ -127,7 +130,7 @@ describe('HTTP MCP skeleton endpoints', () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body).toEqual({ ok: true, transport: 'sse', mode: 'local' });
+    expect(body).toEqual({ ok: true, transport: 'sse', mode: 'local', oauth: false });
   });
 
   it('returns health status in Streamable HTTP mode', async () => {
@@ -146,7 +149,7 @@ describe('HTTP MCP skeleton endpoints', () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body).toEqual({ ok: true, transport: 'streamable-http', mode: 'remote' });
+    expect(body).toEqual({ ok: true, transport: 'streamable-http', mode: 'remote', oauth: false });
   });
 
   it('returns 401 when bearer token is missing (HTTP mode)', async () => {

@@ -131,6 +131,7 @@ Return normalized performance data
 | **Phase 17.5F** | URL fix + live smoke test | Fixed `new URL()` stripping `/functions/v1`, live smoke 25 Meta accounts, revoke 401 verified | ✅ Done (PR #23) |
 | **Phase 17.5G** | Release notes & tag v0.4.0 | RELEASE_NOTES.md, version bump, tag | ✅ Done |
 | **Phase 17.5E** | **Docs & release readiness** — README, CUAN_INSIGHT_CONNECTION_KEY_COMPATIBILITY, PROJECT_STATUS, REMOTE_MCP_HTTP updated |
+| **Phase 19** | **MCP OAuth Connection Key Authorization Flow** — `/authorize`, `/token`, PKCE, Bearer token support, `.well-known/` metadata, 30+ tests, docs | ✅ Done |
 
 ---
 
@@ -148,7 +149,7 @@ Return normalized performance data
 |---|---|---|---|
 | stdio | default | (none) | Safest local/client mode; legacy `meta_*` tools available |
 | SSE | supported | `MCP_TRANSPORT=sse` | Remote option; Bearer auth required via `MCP_HTTP_BEARER_TOKEN` |
-| Streamable HTTP | supported | `MCP_TRANSPORT=streamable-http` | Official remote HTTP transport via SDK v1.29; Bearer auth required |
+| Streamable HTTP | supported | `MCP_TRANSPORT=streamable-http` | Official remote HTTP transport via SDK v1.29; Bearer auth required; OAuth (Phase 19) via `/authorize` + `/token` |
 
 Test results:
 | Test | Result |
@@ -174,6 +175,9 @@ Test results:
 - **Streamable HTTP auth**: `MCP_HTTP_BEARER_TOKEN` gates Streamable HTTP endpoints. Missing/invalid tokens return 401.
 - **Authorization header** must never be logged by the SSE or Streamable HTTP transport.
 - **Connection key redaction** covers: `x-cuan-mcp-connection-key`, `connectionKey`, `connection_key`, `connection-key` (Phase 17.5C).
+- **OAuth flow (Phase 19)**: Connection Key entered via `/authorize` form is validated against Cuan Insight but never stored in HTML, logs, or redirect URLs.
+- **Access tokens** from `/token` are stored as SHA-256 hashes; raw tokens returned only once at creation.
+- **Authorization codes** are single-use, short-lived (5 min TTL), and PKCE-protected.
 - **Dependency audit**: 0 vulnerabilities.
 
 ---
@@ -197,6 +201,15 @@ The MCP SDK is upgraded to `^1.29.0`, Streamable HTTP is implemented, and Phase 
 
 - **Hosted multi-user limitation:** Current v0.4.0 supports env-based `CUAN_INSIGHT_CONNECTION_KEY` for local/single-tenant use only. Per-request `x-cuan-mcp-connection-key` header passthrough for hosted multi-user remote MCP is not yet implemented and is planned for a future release. Do not configure a shared global connection key for multi-user deployments.
 
+### OAuth Connector Flow (Phase 19)
+
+- OAuth implementation is **MVP quality** with **in-memory store** only.
+- Auth codes and access tokens are lost on server restart.
+- Not suitable for multi-replica deployments without Redis/DB-backed store.
+- No refresh token support — re-authorize when access token expires.
+- Connection Key validation probes Cuan Insight; if resolver is unavailable, key is accepted as valid and errors surface at tool call time.
+- Bearer token resolution order: OAuth access token store → `MCP_HTTP_BEARER_TOKEN` (static) → `x-cuan-mcp-connection-key`.
+
 ### TikTok Provider Support
 
 - TikTok adapter is registered but returns `NOT_IMPLEMENTED` for all performance tools.
@@ -212,6 +225,8 @@ All tools are read-only. Write operations (pause/resume campaigns, update budget
 
 1. ✅ **Full live smoke test** with real Cuan Insight Connection Key — done (Phase 17.5F, PR #23).
 2. ✅ **Release notes** created (`RELEASE_NOTES.md`, v0.4.0).
-3. ⏳ **Add CI live test** only if safe backend test environment is available.
-4. ⏳ **Add example MCP client config** with placeholders for `claude_desktop_config.json`.
-5. ⏳ **Continue periodic `npm audit` monitoring** (currently 0).
+3. ✅ **Phase 19 — OAuth Connection Key flow** — `/authorize`, `/token`, PKCE, Bearer support (this PR).
+4. ⏳ **Add CI live test** only if safe backend test environment is available.
+5. ⏳ **Add example MCP client config** with placeholders for `claude_desktop_config.json`.
+6. ⏳ **Continue periodic `npm audit` monitoring** (currently 0).
+7. ⏳ **Post-MVP OAuth improvements**: persistent token store (Redis/DB), refresh tokens, multi-replica support.
