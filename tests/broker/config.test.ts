@@ -253,26 +253,29 @@ describe('auth mode configuration (Phase 17.5C)', () => {
     );
   });
 
-  it('throws when authMode is connection_key but CUAN_INSIGHT_CONNECTION_KEY is missing', () => {
+  it('allows connection_key mode without global CUAN_INSIGHT_CONNECTION_KEY for hosted multi-user', () => {
     process.env.BROKER_RUNTIME_MODE = 'remote';
     process.env.CUAN_INSIGHT_API_BASE_URL = 'https://api.example.com';
     process.env.CUAN_INSIGHT_AUTH_MODE = 'connection_key';
     delete process.env.CUAN_INSIGHT_CONNECTION_KEY;
 
-    expect(() => parseBrokerConfigFromEnv()).toThrow(
-      'CUAN_INSIGHT_CONNECTION_KEY is required when CUAN_INSIGHT_AUTH_MODE=connection_key'
-    );
+    const config = parseBrokerConfigFromEnv();
+
+    expect(config.mode).toBe('remote');
+    expect(config.cuanInsight?.cuanInsightAuthMode).toBe('connection_key');
+    expect(config.cuanInsight?.cuanInsightConnectionKey).toBeUndefined();
   });
 
-  it('throws when authMode is connection_key but CUAN_INSIGHT_CONNECTION_KEY is whitespace only', () => {
+  it('treats whitespace-only CUAN_INSIGHT_CONNECTION_KEY as undefined in hosted mode', () => {
     process.env.BROKER_RUNTIME_MODE = 'remote';
     process.env.CUAN_INSIGHT_API_BASE_URL = 'https://api.example.com';
     process.env.CUAN_INSIGHT_AUTH_MODE = 'connection_key';
     process.env.CUAN_INSIGHT_CONNECTION_KEY = '   ';
 
-    expect(() => parseBrokerConfigFromEnv()).toThrow(
-      'CUAN_INSIGHT_CONNECTION_KEY is required when CUAN_INSIGHT_AUTH_MODE=connection_key'
-    );
+    const config = parseBrokerConfigFromEnv();
+
+    expect(config.cuanInsight?.cuanInsightAuthMode).toBe('connection_key');
+    expect(config.cuanInsight?.cuanInsightConnectionKey).toBeUndefined();
   });
 
   it('does not require connection key when authMode is mcp_token', () => {
@@ -316,5 +319,18 @@ describe('auth mode configuration (Phase 17.5C)', () => {
       expect((error as Error).message).not.toContain(connectionKey);
       expect((error as Error).message).not.toContain('cuk_');
     }
+  });
+
+  it('connection_key mode with env key still works as fallback for local/single-tenant', () => {
+    const testKey = 'cuk_fallback-key-test';
+    process.env.BROKER_RUNTIME_MODE = 'remote';
+    process.env.CUAN_INSIGHT_API_BASE_URL = 'https://api.example.com';
+    process.env.CUAN_INSIGHT_AUTH_MODE = 'connection_key';
+    process.env.CUAN_INSIGHT_CONNECTION_KEY = testKey;
+
+    const config = parseBrokerConfigFromEnv();
+
+    expect(config.cuanInsight?.cuanInsightAuthMode).toBe('connection_key');
+    expect(config.cuanInsight?.cuanInsightConnectionKey).toBe(testKey);
   });
 });

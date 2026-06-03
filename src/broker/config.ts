@@ -15,7 +15,7 @@ export type CuanInsightAuthMode = 'mcp_token' | 'connection_key';
  * - endpoint path is configurable with a safe default
  * - timeout is configurable for network resilience
  * - connectionKey/authMode are optional; when authMode is 'connection_key',
- *   connectionKey is required
+ *   connectionKey is optional (hosted multi-user uses per-request header)
  */
 export interface RemoteBrokerConfig {
   /**
@@ -72,8 +72,8 @@ export interface RemoteBrokerConfig {
   cuanInsightAuthMode?: CuanInsightAuthMode;
 
   /**
-   * Connection Key from Cuan Insight UI connector.
-   * Required when authMode is 'connection_key'.
+   * Optional global fallback connection key for single-tenant / backward compat.
+   * Hosted multi-user: clients send x-cuan-mcp-connection-key per request.
    *
    * MUST be provided via CUAN_INSIGHT_CONNECTION_KEY environment variable.
    * MUST NOT be logged or exposed in errors.
@@ -109,7 +109,7 @@ export interface BrokerConfig {
  * - CUAN_INSIGHT_CREDENTIAL_RESOLVE_PATH: Optional endpoint path
  * - CUAN_INSIGHT_REQUEST_TIMEOUT_MS: Optional timeout in milliseconds
  * - CUAN_INSIGHT_AUTH_MODE: 'mcp_token' | 'connection_key' (default: 'mcp_token')
- * - CUAN_INSIGHT_CONNECTION_KEY: Required when authMode is 'connection_key'
+ * - CUAN_INSIGHT_CONNECTION_KEY: Optional global fallback (per-request header for hosted multi-user)
  *
  * Security rules:
  * - Fails fast with clear error if remote mode is missing required config
@@ -160,13 +160,11 @@ export function parseBrokerConfigFromEnv(): BrokerConfig {
       );
     }
 
-    // Validate connection key requirement
+    // Optional global connection key for single-tenant / backward compat.
+    // Hosted multi-user: clients send x-cuan-mcp-connection-key per request.
+    // Both modes use the same connection_key auth mode — the per-request key
+    // takes priority over the global env key in the credential client.
     const connectionKey = process.env.CUAN_INSIGHT_CONNECTION_KEY?.trim() || undefined;
-    if (authMode === 'connection_key' && !connectionKey) {
-      throw new Error(
-        'CUAN_INSIGHT_CONNECTION_KEY is required when CUAN_INSIGHT_AUTH_MODE=connection_key'
-      );
-    }
 
     let timeoutMs: number | undefined;
     if (timeoutStr) {
