@@ -2,7 +2,7 @@
 
 > **Updated:** 2026-06-03  
 > **Version:** v0.3.0  
-> **Last Phase:** Phase 16b — MCP SDK Upgrade + Streamable HTTP
+> **Last Phase:** Phase 16c — MCP Server API Migration
 
 ---
 
@@ -45,6 +45,8 @@ MCP Client (Claude Desktop, Cline, etc.)
   │
   └─ [Streamable HTTP] ──► meta-ads-agent-skill (MCP Server via Streamable HTTP, Phase 16b)
 ```
+
+MCP tools are registered through the high-level `McpServer.registerTool(...)` API as of Phase 16c. Transports still connect through the same stdio, SSE, and Streamable HTTP entrypoints.
 
 ### Discovery Flow (`ads_list_accounts`)
 
@@ -103,6 +105,7 @@ Return normalized performance data
 | **Phase 16** | **Remote MCP HTTP evaluation** — SDK supports Streamable HTTP in v1.29+, but upgrade has medium risk |
 | **Phase 16a** | **SSE remote transport implemented** — using existing SDK v0.5.0, no upgrade needed |
 | **Phase 16b** | **MCP SDK upgraded to v1.29.0 + Streamable HTTP implemented** — stdio default and SSE preserved |
+| **Phase 16c** | **MCP server migrated to `McpServer` API** — deprecated direct `Server` request handlers removed, 13-tool surface preserved |
 
 ---
 
@@ -114,12 +117,13 @@ Return normalized performance data
 | meta-ads-agent-skill | [#16](https://github.com/ramadhanidiwanda-alt/meta-ads-agent-skill/pull/16) | fix(meta): use provider-level credential resolution for account discovery | `064a487` | Updates `ads_list_accounts` to resolve credentials without accountId; accepts discovery response; maps `null` accountId correctly |
 | meta-ads-agent-skill | [#17](https://github.com/ramadhanidiwanda-alt/meta-ads-agent-skill/pull/17) | feat(mcp): add SSE remote transport | `52b4b58` | Adds `MCP_TRANSPORT=sse` support, auth gate, docs update |
 | meta-ads-agent-skill | TBD | chore(mcp): upgrade SDK for Streamable HTTP support | TBD | Upgrades MCP SDK to v1.29.0, adds `MCP_TRANSPORT=streamable-http`, preserves stdio and SSE |
+| meta-ads-agent-skill | TBD | refactor(mcp): migrate server implementation to McpServer | TBD | Replaces deprecated direct `Server` request-handler registration with `McpServer.registerTool(...)`; preserves stdio, SSE, Streamable HTTP, credential resolver behavior, and tool business logic |
 
 ---
 
 ## E. Final Validation
 
-All validations were performed after Phase 15.4 deploy on a live staging environment, plus Phase 16a local validation.
+All validations were performed after Phase 15.4 deploy on a live staging environment, plus Phase 16a/16b/16c local validation.
 
 | Check | Result |
 |---|---|
@@ -128,9 +132,12 @@ All validations were performed after Phase 15.4 deploy on a live staging environ
 | `ads_get_campaign_performance` | ✅ OK — 2 campaigns (account-scoped) |
 | `ads_get_adset_or_adgroup_performance` | ✅ OK — 6 adsets |
 | `ads_get_ad_performance` | ✅ OK — 9 ads |
-| Unit tests | ✅ 217/217 passed (Phase 16b) |
+| Unit tests | ✅ 218/218 passed (Phase 16c) |
 | TypeScript typecheck | ✅ Passed |
 | Build | ✅ Passed |
+| MCP server package typecheck | ✅ Passed |
+| MCP server package build | ✅ Passed |
+| Stdio smoke test | ✅ `tools/list` returned 13 tools with expected names |
 | SSE auth gate | ✅ 401 for missing/invalid token, 200 with valid token |
 | SSE POST /mcp (no sessionId) | ✅ 501 (SSE still requires `sessionId`) |
 | Streamable HTTP `/health` | ✅ 200 with `MCP_TRANSPORT=streamable-http` |
@@ -154,13 +161,14 @@ All validations were performed after Phase 15.4 deploy on a live staging environ
 
 ## G. Known Limitations
 
-### Deprecated MCP Server API
+### MCP Server API
 
-The MCP SDK is now upgraded to `^1.29.0` and Streamable HTTP is implemented. The low-level `Server` API still works but is deprecated in favor of `McpServer`.
+The MCP SDK is upgraded to `^1.29.0`, Streamable HTTP is implemented, and Phase 16c migrated tool registration to the high-level `McpServer` API.
 - Stdio remains the default entrypoint.
 - **SSE transport** (`MCP_TRANSPORT=sse`) remains available.
 - **Streamable HTTP transport** (`MCP_TRANSPORT=streamable-http`) is available behind explicit env opt-in.
-- Phase 16c should migrate from deprecated `Server` to `McpServer`.
+- Direct project usage of deprecated `Server.setRequestHandler(ListToolsRequestSchema/CallToolRequestSchema)` has been removed.
+- `McpServer` internally wraps SDK server primitives; this is expected and not project-level deprecated API usage.
 
 ### TikTok Provider Support
 
@@ -178,7 +186,7 @@ All tools are read-only. Write operations (pause/resume campaigns, update budget
 
 1. ✅ **Phase 16a: Implement SSE remote transport** — Done.
 2. ✅ **Phase 16b: Upgrade MCP SDK + implement Streamable HTTP** — Done.
-3. 🔜 **Phase 16c: Migrate** from deprecated `Server` to `McpServer` API.
+3. ✅ **Phase 16c: Migrate** from deprecated direct `Server` handlers to `McpServer` API — Done.
 4. ⏳ **Prepare open-source release** notes and contribution guidelines.
 5. ⏳ **Add CI live test** only if safe backend test environment is available.
 6. ⏳ **Add example MCP client config** with placeholders for `claude_desktop_config.json`.
