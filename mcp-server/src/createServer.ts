@@ -6,6 +6,7 @@ import {
 import {
   MetaClient,
   loadConfig,
+  type MetaConfig,
   getAdAccounts,
   getCampaigns,
   getCampaignInsights,
@@ -25,7 +26,7 @@ import {
 
 export interface CreateMetaAdsMcpServerOptions {
   client?: MetaClient;
-  config?: { adAccountId?: string };
+  config?: MetaConfig;
   adsBroker?: ReturnType<typeof createDefaultAdsBroker>;
 }
 
@@ -47,9 +48,12 @@ export function createMetaAdsMcpServer(
   const brokerConfig = parseBrokerConfigFromEnv();
   const isRemoteBrokerMode = brokerConfig.mode === 'remote';
   const config = isRemoteBrokerMode ? options.config : options.config ?? loadConfig();
-  const client = isRemoteBrokerMode
-    ? options.client
-    : options.client ?? new MetaClient(config);
+  let client = options.client;
+
+  if (!isRemoteBrokerMode && !client) {
+    client = new MetaClient(options.config ?? loadConfig());
+  }
+
   const adsBroker = options.adsBroker ?? createAdsBrokerFromConfig(brokerConfig);
 
   server.setRequestHandler(ListToolsRequestSchema, async () => {
