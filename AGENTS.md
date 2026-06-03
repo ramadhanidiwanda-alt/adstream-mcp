@@ -14,6 +14,9 @@
 
 ---
 
+> **Strategic Context:**
+> meta-ads-agent-skill is the open-source MCP execution layer for Cuan Insight, which is becoming an AI Connector Hub and organization-level credential control plane. Cuan Insight stores provider tokens; this MCP server resolves them at runtime and calls provider APIs directly. Connection Keys are organization-rooted but scoped by workspace/provider/account/scope. Do not design this as Claude-only; it must remain client-agnostic. See [docs/CUAN_INSIGHT_CONNECTION_KEY_COMPATIBILITY.md](./docs/CUAN_INSIGHT_CONNECTION_KEY_COMPATIBILITY.md) for details.
+
 ## 🧭 Filosofi Project
 
 ### Prinsip Desain
