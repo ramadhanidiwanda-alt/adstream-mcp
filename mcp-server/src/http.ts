@@ -111,11 +111,11 @@ function writeJson(res: ServerResponse, statusCode: number, payload: unknown): v
   res.end(body);
 }
 
-function writeJsonWithWwwAuth(res: ServerResponse, statusCode: number, payload: unknown): void {
+function writeJsonWithWwwAuth(res: ServerResponse, statusCode: number, payload: unknown, wwwAuth?: string): void {
   const body = JSON.stringify(payload);
   res.writeHead(statusCode, {
     'Content-Type': 'application/json',
-    'WWW-Authenticate': 'Bearer realm="Cuan Insight MCP"',
+    'WWW-Authenticate': wwwAuth ?? 'Bearer realm="Cuan Insight MCP"',
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-cuan-mcp-connection-key, mcp-session-id',
@@ -140,8 +140,8 @@ function hasValidBearerToken(req: IncomingMessage, expectedToken?: string): bool
   return authorization === `Bearer ${expectedToken}`;
 }
 
-function sendUnauthorized(res: ServerResponse): void {
-  writeJsonWithWwwAuth(res, 401, { error: 'Unauthorized' });
+function sendUnauthorized(res: ServerResponse, wwwAuth?: string): void {
+  writeJsonWithWwwAuth(res, 401, { error: 'Unauthorized' }, wwwAuth);
 }
 
 function sendNotFound(res: ServerResponse): void {
@@ -217,6 +217,45 @@ function buildRequestAuth(
   const connectionKey = extractConnectionKey(req, store);
   if (!connectionKey) return undefined;
   return { token: '', clientId: '', scopes: [], extra: { connectionKey } };
+}
+
+/**
+ * Check if request has valid MCP authentication for protected /mcp.
+ * Returns true if any auth method succeeds.
+ * Never leaks the credential value or type in logs or responses.
+ */
+function hasValidMcpAuth(
+  req: IncomingMessage,
+  config: HttpMcpConfig,
+  store?: OAuthStore
+): boolean {
+  // Check 1: MCP_HTTP_BEARER_TOKEN (legacy static token)
+  if (config.bearerToken) {
+    const authorization = req.headers.authorization;
+    if (authorization && authorization === `Bearer ${config.bearerToken}`) {
+      return true;
+    }
+  }
+
+  // Check 2: OAuth Bearer token via OAuthStore
+  const authorization = req.headers.authorization;
+  if (authorization && typeof authorization === 'string' && authorization.startsWith('Bearer ')) {
+    const bearerValue = authorization.slice(7).trim();
+    if (bearerValue && store) {
+      const resolved = store.resolveAccessToken(bearerValue);
+      if (resolved) {
+        return true;
+      }
+    }
+  }
+
+  // Check 3: x-cuan-mcp-connection-key header (manual client)
+  const headerValue = req.headers['x-cuan-mcp-connection-key'];
+  if (headerValue) {
+    return true;
+  }
+
+  return false;
 }
 
 // ── OAuth Route Handlers ─────────────────────────────────────────────────
@@ -638,13 +677,22 @@ async function handleSseRequest(
   res: ServerResponse,
   url: URL
 ): Promise<void> {
-  if (!hasValidBearerToken(req, config.bearerToken)) {
+  const store = getOAuthStore();
+
+  // OAuth mode: gate /mcp behind valid auth
+  if (config.publicBaseUrl) {
+    if (!hasValidMcpAuth(req, config, store)) {
+      const wwwAuth = `Bearer realm="Cuan Insight MCP", authorization_uri="${config.publicBaseUrl}/authorize"`;
+      sendUnauthorized(res, wwwAuth);
+      return;
+    }
+  } else if (!hasValidBearerToken(req, config.bearerToken)) {
+    // Legacy mode: check MCP_HTTP_BEARER_TOKEN only
     sendUnauthorized(res);
     return;
   }
 
   if (req.method === 'GET' && url.pathname === config.path) {
-    const store = getOAuthStore();
     (req as IncomingMessage & { auth?: AuthInfo }).auth = buildRequestAuth(req, store);
     await handleSseConnect(config, res);
     return;
@@ -698,7 +746,17 @@ async function handleStreamableHttpRequest(
   res: ServerResponse,
   url: URL
 ): Promise<void> {
-  if (!hasValidBearerToken(req, config.bearerToken)) {
+  const store = getOAuthStore();
+
+  // OAuth mode: gate /mcp behind valid auth
+  if (config.publicBaseUrl) {
+    if (!hasValidMcpAuth(req, config, store)) {
+      const wwwAuth = `Bearer realm="Cuan Insight MCP", authorization_uri="${config.publicBaseUrl}/authorize"`;
+      sendUnauthorized(res, wwwAuth);
+      return;
+    }
+  } else if (!hasValidBearerToken(req, config.bearerToken)) {
+    // Legacy mode: check MCP_HTTP_BEARER_TOKEN only
     sendUnauthorized(res);
     return;
   }
@@ -709,7 +767,6 @@ async function handleStreamableHttpRequest(
   }
 
   const sessionId = req.headers['mcp-session-id'] as string | undefined;
-  const store = getOAuthStore();
 
   // Existing session
   if (sessionId) {
