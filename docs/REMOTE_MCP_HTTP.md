@@ -1,20 +1,16 @@
-# Remote MCP HTTP Skeleton
+# Remote MCP HTTP
 
 Phase 12A adds an explicit HTTP entrypoint for self-hosted MCP URL experiments.
 Stdio remains default and unchanged.
 
+Phase 17.5C adds Connection Key auth mode for Cuan Insight credential resolution.
+
 ## Transport Status
 
-Current MCP SDK version is `@modelcontextprotocol/sdk@0.5.0`.
-This version includes stdio and SSE transports, but no official Streamable HTTP server transport.
-Because Streamable HTTP is not available, `POST /mcp` fails fast with:
-
-```text
-HTTP transport is not available with current MCP SDK version.
-```
-
-This is not production-ready remote MCP. It is a safe skeleton for future SDK upgrade work.
-SSE exists in this SDK, but it is not wired as default production transport in this phase.
+Current MCP SDK version is `@modelcontextprotocol/sdk@1.29.0`.
+Streamable HTTP is supported via `MCP_TRANSPORT=streamable-http`.
+SSE is supported via `MCP_TRANSPORT=sse`.
+Stdio remains the default entrypoint.
 
 ## Stdio vs HTTP
 
@@ -35,7 +31,7 @@ POST /mcp
 ```json
 {
   "ok": true,
-  "transport": "http",
+  "transport": "sse",
   "mode": "remote"
 }
 ```
@@ -50,6 +46,7 @@ MCP_HTTP_HOST=127.0.0.1
 MCP_HTTP_PORT=8787
 MCP_HTTP_PATH=/mcp
 MCP_HTTP_BEARER_TOKEN=change_me_for_self_hosted_http
+MCP_TRANSPORT=sse
 ```
 
 Defaults:
@@ -60,7 +57,7 @@ Defaults:
 - `MCP_HTTP_PATH=/mcp`
 
 Binding to `0.0.0.0` requires setting `MCP_HTTP_HOST=0.0.0.0` explicitly.
-If `MCP_HTTP_BEARER_TOKEN` is set, `POST /mcp` requires:
+If `MCP_HTTP_BEARER_TOKEN` is set, endpoints require:
 
 ```text
 Authorization: Bearer <token>
@@ -70,18 +67,59 @@ Do not use `CUAN_INSIGHT_MCP_TOKEN` as this bearer token. That token belongs to 
 
 ## Cuan Insight Credential Env
 
-Remote broker mode still uses Cuan Insight credential resolver env:
+Remote broker mode uses Cuan Insight credential resolver env:
+
+### Recommended: Connection Key Mode (Phase 17.5C)
 
 ```env
 BROKER_RUNTIME_MODE=remote
 CUAN_INSIGHT_API_BASE_URL=https://your-cuan-insight-domain/functions/v1
 CUAN_INSIGHT_CREDENTIAL_RESOLVE_PATH=/mcp-resolve-credential
 CUAN_INSIGHT_SUPABASE_ANON_KEY=your_supabase_anon_key
+CUAN_INSIGHT_AUTH_MODE=connection_key
+CUAN_INSIGHT_CONNECTION_KEY=<key-from-cuan-insight-ui>
+```
+
+- Key dibuat dari Cuan Insight UI > AI/MCP Connectors
+- MCP server mengirim header `x-cuan-mcp-connection-key`
+- Raw key hanya muncul sekali saat pembuatan
+
+### Legacy: MCP Token Mode (default, backward compatible)
+
+```env
+BROKER_RUNTIME_MODE=remote
+CUAN_INSIGHT_API_BASE_URL=https://your-cuan-insight-domain/functions/v1
+CUAN_INSIGHT_CREDENTIAL_RESOLVE_PATH=/mcp-resolve-credential
+CUAN_INSIGHT_SUPABASE_ANON_KEY=your_supabase_anon_key
+CUAN_INSIGHT_AUTH_MODE=mcp_token
 CUAN_INSIGHT_MCP_TOKEN=your_cuan_insight_mcp_token
 CUAN_INSIGHT_MCP_TOKEN_HEADER_NAME=X-Cuan-MCP-Token
 ```
 
 Use your own hosted endpoint. Do not hardcode private endpoint, token, anon key, project ref, or domain in this repo.
+
+## Troubleshooting
+
+### CUAN_INSIGHT_CONNECTION_KEY is required
+
+```
+Error: CUAN_INSIGHT_CONNECTION_KEY is required when CUAN_INSIGHT_AUTH_MODE=connection_key
+```
+
+Pastikan `CUAN_INSIGHT_CONNECTION_KEY` di-set jika menggunakan connection_key mode.
+
+### Cuan Insight returned status 404
+
+```
+"code": "INTERNAL_ERROR",
+"message": "Cuan Insight returned status 404"
+```
+
+Endpoint `mcp-resolve-credential` mungkin belum di-deploy atau route salah.
+
+### Revoked Connection Key
+
+Jika key di-revoke dari UI Cuan Insight, MCP call berikutnya akan gagal dengan error revoked/unauthorized. Tidak akan fallback ke credential lain.
 
 ## Run Locally
 
@@ -92,7 +130,7 @@ npm run build
 cd mcp-server && npm run build
 ```
 
-Start HTTP skeleton explicitly:
+Start HTTP server:
 
 ```bash
 MCP_HTTP_ENABLED=true \
@@ -100,6 +138,7 @@ MCP_HTTP_HOST=127.0.0.1 \
 MCP_HTTP_PORT=8787 \
 MCP_HTTP_PATH=/mcp \
 MCP_HTTP_BEARER_TOKEN=local_test_token \
+MCP_TRANSPORT=sse \
 node mcp-server/dist/http.js
 ```
 
@@ -138,9 +177,9 @@ works, but it does not expose the host port publicly.
 ## Security
 
 - Do not commit `.env`.
-- Do not print tokens.
+- Do not print tokens, connection keys, or provider tokens.
 - Do not expose HTTP mode publicly without HTTPS, reverse proxy, and bearer/OAuth.
-- Do not deploy this skeleton as production remote MCP.
-- OAuth Cuan Insight login is not implemented in Phase 12A.
-- Claude user login is not implemented in Phase 12A.
+- Do not deploy this skeleton as production remote MCP without auth.
+- OAuth Cuan Insight login is not implemented.
+- Connection key redaction covers `x-cuan-mcp-connection-key`, `connectionKey`, `connection_key`, `connection-key`.
 - Project scope stays read-only; no write operations are added.
