@@ -84,6 +84,9 @@ CUAN_INSIGHT_CONNECTION_KEY=<key-from-cuan-insight-ui>
 - MCP server mengirim header `x-cuan-mcp-connection-key`
 - Raw key hanya muncul sekali saat pembuatan
 
+> Current v0.4.0 supports env-based Connection Key for local/single-tenant use. Per-request `x-cuan-mcp-connection-key` passthrough for hosted multi-user remote MCP is planned for a future release. Do not set a global `CUAN_INSIGHT_CONNECTION_KEY` for multi-user deployments.
+
+
 ### Legacy: MCP Token Mode (default, backward compatible)
 
 ```env

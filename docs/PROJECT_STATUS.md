@@ -195,6 +195,8 @@ The MCP SDK is upgraded to `^1.29.0`, Streamable HTTP is implemented, and Phase 
 - **Live production verified:** 25 Meta ad accounts returned via Connection Key, revoked key rejected 401 (Phase 17.5F, PR #23).
 - Account-scoped tools require account connection in Cuan Insight UI (`ACCOUNT_NOT_CONNECTED`).
 
+- **Hosted multi-user limitation:** Current v0.4.0 supports env-based `CUAN_INSIGHT_CONNECTION_KEY` for local/single-tenant use only. Per-request `x-cuan-mcp-connection-key` header passthrough for hosted multi-user remote MCP is not yet implemented and is planned for a future release. Do not configure a shared global connection key for multi-user deployments.
+
 ### TikTok Provider Support
 
 - TikTok adapter is registered but returns `NOT_IMPLEMENTED` for all performance tools.
