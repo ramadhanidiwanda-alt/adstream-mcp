@@ -33,10 +33,15 @@ import { CuanInsightCredentialProvider } from './credentials.js';
  * from a remote Cuan Insight API endpoint. It never falls back to environment
  * variables.
  *
+ * Supports two auth modes:
+ * - mcp_token (default): legacy MCP token flow
+ * - connection_key: Connection Key from Cuan Insight UI
+ *
  * Security rules:
  * - baseUrl must be provided via config, never hardcoded
  * - Remote mode never falls back to ENV credentials
  * - All errors are safe to surface (no token leaks)
+ * - Connection keys and MCP tokens are never logged
  *
  * @param config - Remote broker configuration
  * @returns CredentialResolver configured for remote mode
@@ -44,20 +49,27 @@ import { CuanInsightCredentialProvider } from './credentials.js';
 export function createRemoteCredentialResolver(
   config: RemoteBrokerConfig
 ): CredentialResolver {
+  // Build client config with auth mode support
+  const clientConfig = {
+    baseUrl: config.cuanInsightBaseUrl,
+    endpointPath: config.cuanInsightEndpointPath,
+    timeoutMs: config.cuanInsightTimeoutMs,
+    supabaseAnonKey: config.cuanInsightSupabaseAnonKey,
+    mcpTokenHeaderName: config.cuanInsightMcpTokenHeaderName,
+    authMode: config.cuanInsightAuthMode,
+    connectionKey: config.cuanInsightConnectionKey,
+  };
+
   // Create Cuan Insight HTTP client
   const client = createCuanInsightCredentialClient({
-    config: {
-      baseUrl: config.cuanInsightBaseUrl,
-      endpointPath: config.cuanInsightEndpointPath,
-      timeoutMs: config.cuanInsightTimeoutMs,
-      supabaseAnonKey: config.cuanInsightSupabaseAnonKey,
-      mcpTokenHeaderName: config.cuanInsightMcpTokenHeaderName,
-    },
+    config: clientConfig,
   });
 
-  // Create Cuan Insight credential provider
+  // Create Cuan Insight credential provider with both auth modes
   const cuanInsightProvider = new CuanInsightCredentialProvider(client, {
     callerToken: config.cuanInsightMcpToken,
+    connectionKey: config.cuanInsightConnectionKey,
+    authMode: config.cuanInsightAuthMode,
   });
 
   // Create resolver in remote mode
