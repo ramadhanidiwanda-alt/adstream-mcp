@@ -599,6 +599,102 @@ describe('Full authorize + token flow', () => {
   });
 });
 
+
+// ── OAuth client_id allowlist ──────────────────────────────────────────────
+
+describe('OAuth client_id allowlist', () => {
+  let ctx: TestContext;
+
+  it('allows configured client_id at GET /authorize', async () => {
+    ctx = await createTestServer({ allowedClientIds: ['cuan-insight-claude'] });
+    const res = await fetch(`http://127.0.0.1:${ctx.port}/authorize` +
+      '?response_type=code&client_id=cuan-insight-claude' +
+      '&redirect_uri=https://example.com/callback&code_challenge=abc' +
+      '&code_challenge_method=S256&state=xyz&scope=mcp');
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toContain('text/html');
+    await closeTestServer(ctx);
+  });
+
+  it('rejects disallowed client_id at GET /authorize', async () => {
+    ctx = await createTestServer({ allowedClientIds: ['cuan-insight-claude'] });
+    const res = await fetch(`http://127.0.0.1:${ctx.port}/authorize` +
+      '?response_type=code&client_id=bad-client' +
+      '&redirect_uri=https://example.com/callback&code_challenge=abc' +
+      '&code_challenge_method=S256&state=xyz&scope=mcp');
+    expect(res.status).toBe(400);
+    const data = await res.json();
+    expect(data.error).toBe('invalid_client');
+    await closeTestServer(ctx);
+  });
+
+  it('allows configured client_id at POST /authorize', async () => {
+    ctx = await createTestServer({ allowedClientIds: ['cuan-insight-claude'] });
+    const formBody = new URLSearchParams({
+      response_type: 'code', client_id: 'cuan-insight-claude',
+      redirect_uri: 'https://claude.ai/api/mcp/auth_callback',
+      code_challenge: randomString(), code_challenge_method: 'S256',
+      state: 'state', scope: 'mcp',
+      connection_key: 'ck_key',
+    });
+    const res = await fetch(`http://127.0.0.1:${ctx.port}/authorize`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: formBody.toString(),
+    });
+    expect(res.status).not.toBe(400);
+    await closeTestServer(ctx);
+  });
+
+  it('rejects disallowed client_id at POST /authorize', async () => {
+    ctx = await createTestServer({ allowedClientIds: ['cuan-insight-claude'] });
+    const formBody = new URLSearchParams({
+      response_type: 'code', client_id: 'bad-client',
+      redirect_uri: 'https://claude.ai/api/mcp/auth_callback',
+      code_challenge: randomString(), code_challenge_method: 'S256',
+      state: 'state', scope: 'mcp',
+      connection_key: 'ck_key',
+    });
+    const res = await fetch(`http://127.0.0.1:${ctx.port}/authorize`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: formBody.toString(),
+    });
+    expect(res.status).toBe(400);
+    const data = await res.json();
+    expect(data.error).toBe('invalid_client');
+    await closeTestServer(ctx);
+  });
+
+  it('rejects disallowed client_id at POST /token', async () => {
+    ctx = await createTestServer({ allowedClientIds: ['cuan-insight-claude'] });
+    const res = await fetch(`http://127.0.0.1:${ctx.port}/token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        grant_type: 'authorization_code',
+        code: 'some-code', redirect_uri: 'https://example.com/callback',
+        client_id: 'bad-client', code_verifier: 'verifier',
+      }).toString(),
+    });
+    expect(res.status).toBe(400);
+    const data = await res.json();
+    expect(data.error).toBe('invalid_client');
+    await closeTestServer(ctx);
+  });
+
+  it('no allowlist preserves all clients (backward compat)', async () => {
+    ctx = await createTestServer({ allowedClientIds: undefined });
+    const res = await fetch(`http://127.0.0.1:${ctx.port}/authorize` +
+      '?response_type=code&client_id=any-client' +
+      '&redirect_uri=https://example.com/callback&code_challenge=abc' +
+      '&code_challenge_method=S256&state=xyz&scope=mcp');
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toContain('text/html');
+    await closeTestServer(ctx);
+  });
+});
+
 // ── POST /revoke ─────────────────────────────────────────────────────────
 
 describe('POST /revoke endpoint', () => {
@@ -696,8 +792,8 @@ describe('HTTP config with OAuth fields', () => {
 
   it('parses OAuth config from environment', () => {
     process.env.MCP_PUBLIC_BASE_URL = 'https://mcp.cuaninsight.com';
-    process.env.MCP_OAUTH_AUTH_CODE_TTL_SECONDS = '600';
-    process.env.MCP_OAUTH_ACCESS_TOKEN_TTL_SECONDS = '43200';
+    process.env.MCP_OAUTH_AUTH_CODE_TTL_SECONDS= '600';
+    process.env.MCP_OAUTH_ACCESS_TOKEN_TTL_SECONDS= '43200';
 
     const config = parseHttpMcpConfig();
     expect(config.publicBaseUrl).toBe('https://mcp.cuaninsight.com');
@@ -714,6 +810,34 @@ describe('HTTP config with OAuth fields', () => {
     expect(config.authCodeTtlSeconds).toBe(300);
     expect(config.accessTokenTtlSeconds).toBe(86400);
     expect(config.publicBaseUrl).toBeUndefined();
+  });
+
+  it('parses MCP_OAUTH_ALLOWED_CLIENT_IDS as array when set', () => {
+    process.env.MCP_OAUTH_ALLOWED_CLIENT_IDS='cuan-insight-claude,cuan-insight-local';
+    const config = parseHttpMcpConfig();
+    expect(config.allowedClientIds).toEqual(['cuan-insight-claude', 'cuan-insight-local']);
+  });
+
+  it('parses single allowed client ID', () => {
+    process.env.MCP_OAUTH_ALLOWED_CLIENT_IDS='cuan-insight-claude';
+    const config = parseHttpMcpConfig();
+    expect(config.allowedClientIds).toEqual(['cuan-insight-claude']);
+  });
+
+  it('sets allowedClientIds to undefined when env not set', () => {
+    delete process.env.MCP_OAUTH_ALLOWED_CLIENT_IDS;
+    const config = parseHttpMcpConfig();
+    expect(config.allowedClientIds).toBeUndefined();
+  });
+
+  it('handles empty or whitespace-only MCP_OAUTH_ALLOWED_CLIENT_IDS', () => {
+    process.env.MCP_OAUTH_ALLOWED_CLIENT_IDS = '';
+    const config1 = parseHttpMcpConfig();
+    expect(config1.allowedClientIds).toBeUndefined();
+
+    process.env.MCP_OAUTH_ALLOWED_CLIENT_IDS = '  ';
+    const config2 = parseHttpMcpConfig();
+    expect(config2.allowedClientIds).toBeUndefined();
   });
 });
 
