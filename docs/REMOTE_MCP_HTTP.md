@@ -45,6 +45,16 @@ POST /mcp
 
 `oauth` is `true` when `MCP_PUBLIC_BASE_URL` is configured.
 
+### Debug Mode
+
+Set `MCP_OAUTH_DEBUG=true` to enable safe debug logging for the OAuth flow:
+
+- Output via `console.error` with `[OAUTH_DEBUG]` prefix
+- All sensitive fields (connection_key, code, code_verifier, access_token, bearer, key_hash, Authorization header) are **automatically redacted** to `[REDACTED]`
+- Only safe metadata is logged: client ID prefix (first 8 chars), redirect URI host, scope, step names
+- **Never expose sensitive data even in debug mode**
+- Default: `false` (disabled in production)
+
 ### OAuth Endpoints (Phase 19)
 
 For native MCP connector compatibility (Claude Desktop, Claude Code, etc.):
@@ -90,6 +100,7 @@ Claude klik Connect
 - Not suitable for multi-replica deployments without Redis/DB-backed store
 - No refresh token support yet
 - Connection Key validation makes a lightweight probe to Cuan Insight; if resolver is unavailable, key is accepted and validated at tool call time
+- PKCE challenge is computed using Node.js `digest('base64url')` directly (RFC 7636 compliant); do **not** wrap with additional `base64UrlEncode()` — that would double-encode and break Claude's native connector
 
 ## HTTP Env
 
