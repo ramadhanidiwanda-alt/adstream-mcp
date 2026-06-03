@@ -504,4 +504,149 @@ describe('CuanInsightCredentialProvider — discovery flow', () => {
       expect(access.accountId).toBeNull();
     }
   });
+
+describe('CuanInsightCredentialProvider — per-request connection key (hosted multi-user)', () => {
+  const PER_REQUEST_KEY = 'cuk_request-key-123456';
+  const CONFIG_KEY = 'cuk_config-key-789012';
+
+  it('passes per-request connectionKey through to client resolve request', async () => {
+    const resolve = vi.fn(async () => ({
+      ok: true,
+      identity: { userId: 'user_1', workspaceId: 'ws_1', plan: 'pro' },
+      providerAccess: {
+        provider: 'meta' as const,
+        accountId: 'act_999',
+        accountName: 'Demo Account',
+        scopes: ['read'] as const,
+        allowed: true,
+      },
+      providerToken: PROVIDER_TOKEN,
+      tokenExpiresAt: '2099-06-01T00:00:00Z',
+    }));
+
+    const provider = new CuanInsightCredentialProvider(buildClient(resolve), {
+      connectionKey: CONFIG_KEY,
+      authMode: 'connection_key',
+    });
+
+    await provider.resolve({
+      provider: 'meta',
+      accountId: 'act_999',
+      connectionKey: PER_REQUEST_KEY,
+    });
+
+    // Verify the client received the per-request key
+    expect(resolve).toHaveBeenCalledTimes(1);
+    const resolveArg = resolve.mock.calls[0][0];
+    expect(resolveArg.connectionKey).toBe(PER_REQUEST_KEY);
+  });
+
+  it('falls back to config connectionKey when no per-request key provided', async () => {
+    const resolve = vi.fn(async () => ({
+      ok: true,
+      identity: { userId: 'user_1', workspaceId: 'ws_1', plan: 'pro' },
+      providerAccess: {
+        provider: 'meta' as const,
+        accountId: 'act_999',
+        accountName: 'Demo Account',
+        scopes: ['read'] as const,
+        allowed: true,
+      },
+      providerToken: PROVIDER_TOKEN,
+      tokenExpiresAt: '2099-06-01T00:00:00Z',
+    }));
+
+    const provider = new CuanInsightCredentialProvider(buildClient(resolve), {
+      connectionKey: CONFIG_KEY,
+      authMode: 'connection_key',
+    });
+
+    await provider.resolve({
+      provider: 'meta',
+      accountId: 'act_999',
+      // No per-request connectionKey
+    });
+
+    expect(resolve).toHaveBeenCalledTimes(1);
+    const resolveArg = resolve.mock.calls[0][0];
+    // connectionKey should be undefined (client will fall back to config key)
+    // provider passes it through, and the client resolves priority
+    expect(resolveArg.connectionKey).toBeUndefined();
+  });
+
+  it('two sequential resolves with different keys do not mix', async () => {
+    const KEY_A = 'cuk_aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+    const KEY_B = 'cuk_bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
+
+    const resolve = vi.fn(async () => ({
+      ok: true,
+      identity: { userId: 'user_1', workspaceId: 'ws_1', plan: 'pro' },
+      providerAccess: {
+        provider: 'meta' as const,
+        accountId: 'act_999',
+        accountName: 'Demo Account',
+        scopes: ['read'] as const,
+        allowed: true,
+      },
+      providerToken: PROVIDER_TOKEN,
+      tokenExpiresAt: '2099-06-01T00:00:00Z',
+    }));
+
+    const provider = new CuanInsightCredentialProvider(buildClient(resolve), {
+      authMode: 'connection_key',
+    });
+
+    await provider.resolve({
+      provider: 'meta',
+      accountId: 'act_999',
+      connectionKey: KEY_A,
+    });
+
+    await provider.resolve({
+      provider: 'meta',
+      accountId: 'act_888',
+      connectionKey: KEY_B,
+    });
+
+    expect(resolve).toHaveBeenCalledTimes(2);
+    expect(resolve.mock.calls[0][0].connectionKey).toBe(KEY_A);
+    expect(resolve.mock.calls[1][0].connectionKey).toBe(KEY_B);
+    expect(resolve.mock.calls[0][0].connectionKey).not.toBe(KEY_B);
+  });
+
+  it('mcp_token mode is unaffected — no connectionKey interference', async () => {
+    const resolve = vi.fn(async () => ({
+      ok: true,
+      identity: { userId: 'user_1', workspaceId: 'ws_1', plan: 'pro' },
+      providerAccess: {
+        provider: 'meta' as const,
+        accountId: 'act_999',
+        accountName: 'Demo Account',
+        scopes: ['read'] as const,
+        allowed: true,
+      },
+      providerToken: PROVIDER_TOKEN,
+      tokenExpiresAt: '2099-06-01T00:00:00Z',
+    }));
+
+    const provider = new CuanInsightCredentialProvider(buildClient(resolve), {
+      callerToken: CALLER_TOKEN,
+      authMode: 'mcp_token',
+    });
+
+    await provider.resolve({
+      provider: 'meta',
+      accountId: 'act_999',
+      // connectionKey should be harmless in mcp_token mode
+      connectionKey: PER_REQUEST_KEY,
+    });
+
+    expect(resolve).toHaveBeenCalledTimes(1);
+    const resolveArg = resolve.mock.calls[0][0];
+    // callerToken is still set
+    expect(resolveArg.callerToken).toBe(CALLER_TOKEN);
+  });
+});
+
+
 });

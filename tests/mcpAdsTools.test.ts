@@ -3,6 +3,7 @@ import {
   ADS_MCP_TOOL_DEFINITIONS,
   handleAdsMcpToolCall,
   safeAdsMcpError,
+  toAdsBrokerRequest,
 } from '../src/broker/mcpTools.js';
 import type { AdsBroker } from '../src/broker/AdsBroker.js';
 import type { AdsBrokerRequest, AdsBrokerResponse, AdsMetricRecord } from '../src/broker/types.js';
@@ -184,4 +185,53 @@ describe('ads MCP broker tools', () => {
     expect(response.content[0].text).not.toContain('secret-token-value');
     expect(response.content[0].text).toContain('[REDACTED]');
   });
+
+
+describe('handleAdsMcpToolCall — per-request connectionKey passthrough', () => {
+  it('passes connectionKey through to AdsBrokerRequest', async () => {
+    let capturedRequest: AdsBrokerRequest | undefined;
+    const broker = {
+      ...createBrokerStub(),
+      listAccounts: async (request: AdsBrokerRequest) => {
+        capturedRequest = request;
+        return { ok: true, provider: 'meta', data: [{ account_id: 'act_123', account_name: 'Test' }] };
+      },
+    } as unknown as AdsBroker;
+
+    const response = await handleAdsMcpToolCall(
+      broker,
+      'ads_list_accounts',
+      {},
+      'cuk_test-key-123'
+    );
+
+    expect(response.isError).toBeFalsy();
+    expect(capturedRequest?.connectionKey).toBe('cuk_test-key-123');
+  });
+
+  it('passes undefined connectionKey when not provided', async () => {
+    let capturedRequest: AdsBrokerRequest | undefined;
+    const broker = {
+      ...createBrokerStub(),
+      listAccounts: async (request: AdsBrokerRequest) => {
+        capturedRequest = request;
+        return { ok: true, provider: 'meta', data: [] };
+      },
+    } as unknown as AdsBroker;
+
+    await handleAdsMcpToolCall(broker, 'ads_list_accounts', {});
+    expect(capturedRequest?.connectionKey).toBeUndefined();
+  });
+
+  it('toAdsBrokerRequest includes connectionKey', () => {
+    const request = toAdsBrokerRequest({ provider: 'meta' }, 'cuk_key');
+    expect(request.connectionKey).toBe('cuk_key');
+  });
+
+  it('toAdsBrokerRequest has undefined connectionKey when omitted', () => {
+    const request = toAdsBrokerRequest({ provider: 'meta' });
+    expect(request.connectionKey).toBeUndefined();
+  });
+});
+
 });
