@@ -91,7 +91,7 @@ console.log(analysis.recommendations);
 2. **Meta Access Token** — See [Authentication](#authentication)
 3. **Ad Account ID** — Your Meta ad account ID (format: `act_123456789`)
 
-### Configuration
+### Configuration — Local Mode
 
 Create `.mcp.json` in your project root (or add to existing):
 
@@ -115,6 +115,37 @@ Or set environment variables:
 export META_ACCESS_TOKEN="your_token_here"
 export META_AD_ACCOUNT_ID="act_123456789"
 ```
+
+### Configuration — Remote Mode with Cuan Insight
+
+For hosted deployments using Cuan Insight as credential control plane:
+
+**Recommended: Connection Key Mode**
+
+```env
+BROKER_RUNTIME_MODE=remote
+CUAN_INSIGHT_AUTH_MODE=connection_key
+CUAN_INSIGHT_CONNECTION_KEY=<key-from-cuan-insight-ui>
+CUAN_INSIGHT_API_BASE_URL=https://your-cuan-insight-domain/functions/v1
+CUAN_INSIGHT_SUPABASE_ANON_KEY=<supabase-anon-key-if-required>
+```
+
+- Key dibuat dari **Cuan Insight UI > AI/MCP Connectors**
+- MCP server mengirim header `x-cuan-mcp-connection-key`
+- Provider token tidak pernah ditampilkan ke AI client
+- Key dapat di-revoke kapan saja dari UI
+
+**Legacy: MCP Token Mode (default, backward compatible)**
+
+```env
+BROKER_RUNTIME_MODE=remote
+CUAN_INSIGHT_AUTH_MODE=mcp_token
+CUAN_INSIGHT_MCP_TOKEN=<mcp-token>
+CUAN_INSIGHT_API_BASE_URL=https://your-cuan-insight-domain/functions/v1
+CUAN_INSIGHT_SUPABASE_ANON_KEY=<supabase-anon-key-if-required>
+```
+
+See [`docs/CUAN_INSIGHT_CONNECTION_KEY_COMPATIBILITY.md`](docs/CUAN_INSIGHT_CONNECTION_KEY_COMPATIBILITY.md) for full auth mode documentation.
 
 ### Usage
 
@@ -179,35 +210,21 @@ console.log(`Total spend: $${insights.reduce((sum, i) => sum + i.spend, 0)}`);
 ### Available Tools
 
 - `getAdAccounts()` — List all ad accounts
-- `getCampaigns()` — Get campaigns for an account
-- `getCampaignInsights()` — Campaign-level performance
-- `getAdsetInsights()` — Ad set-level performance
-- `getAdsInsights()` — Ad-level performance
-- `generateDailyReport()` — Automated daily report
+- `getCampaigns()` — Fetch campaigns with filters
+- `getCampaignInsights()` — Campaign-level performance metrics
+- `getAdsetInsights()` — Ad set performance metrics
+- `getAdsInsights()` — Individual ad metrics
+- `generateDailyReport()` — Comprehensive daily analysis
 
-### Analysis & Rules
+All tools are **read-only**. For remote credential resolution via Cuan Insight, see [Remote Mode](#configuration--remote-mode-with-cuan-insight).
 
-```typescript
-import { analyzeCampaignPerformance } from 'meta-ads-agent-skill/analysis';
-import { RuleEngine } from 'meta-ads-agent-skill/rules';
-import { ecommerceRules } from 'meta-ads-agent-skill/rules/templates';
+---
 
-// Analyze performance
-const analysis = await analyzeCampaignPerformance(insights);
+## Rule Engine
 
-// Use rule engine
-const engine = new RuleEngine();
-engine.addRules(ecommerceRules);
+26 pre-built rule templates for automatic performance analysis:
 
-const results = engine.evaluate(insights);
-console.log(results.recommendations);
-```
-
-### Rule Templates
-
-26 pre-built rules across 4 categories:
-
-- **E-commerce** (6 rules) — Purchase optimization
+- **E-Commerce** (6 rules) — ROAS, purchases, conversion optimization
 - **Lead Generation** (6 rules) — Lead optimization
 - **Brand Awareness** (6 rules) — Reach optimization
 - **General Performance** (8 rules) — Universal rules
@@ -241,6 +258,17 @@ For production or autonomous AI agents, use a System User token that never expir
 7. Copy the token (never expires)
 
 **Recommended for:** Production use, AI agents, scheduled jobs
+
+### Option 3: Cuan Insight Connection Key (Hosted)
+
+For hosted MCP deployments using Cuan Insight as credential control plane:
+
+1. Generate Connection Key from **Cuan Insight UI > AI/MCP Connectors**
+2. Set `CUAN_INSIGHT_AUTH_MODE=connection_key`
+3. Set `CUAN_INSIGHT_CONNECTION_KEY=<key>`
+4. MCP server resolves provider tokens via Cuan Insight — no direct Meta token needed
+
+See [Remote Mode](#configuration--remote-mode-with-cuan-insight) for full setup.
 
 ---
 
@@ -277,6 +305,11 @@ meta-ads-agent-skill/
 │   ├── tools/                   # 6 API functions
 │   ├── analysis/                # Analysis logic
 │   ├── rules/                   # Rule engine + templates
+│   ├── broker/                  # Credential broker (multi-provider)
+│   │   ├── cuanInsightClient.ts # Cuan Insight HTTP client
+│   │   ├── credentials.ts       # Credential resolver + redaction
+│   │   ├── config.ts            # Broker config + env parsing
+│   │   └── factory.ts           # Broker factory
 │   └── utils/                   # Helpers
 ├── skills/                       # AI agent skills
 │   └── meta-ads/
@@ -284,9 +317,12 @@ meta-ads-agent-skill/
 │       ├── manage/SKILL.md      # Management skill
 │       └── shared/              # Shared references
 ├── mcp-server/                   # MCP server
-│   └── src/index.ts
+│   └── src/
+│       ├── index.ts             # Stdio entrypoint
+│       ├── createServer.ts      # McpServer factory
+│       └── http.ts              # HTTP/SSE/Streamable HTTP entrypoint
 ├── examples/                     # Code examples
-└── tests/                        # Unit tests
+└── tests/                        # Unit tests (239 tests)
 ```
 
 ---
@@ -338,9 +374,20 @@ npm run lint
 - ✅ v0.1.0 — Core library (read-only tools)
 - ✅ v0.2.0 — Advanced rule engine
 - ✅ v0.3.0 — AI skills layer
+- ✅ Connection Key auth mode (Phase 17.5C)
 - 🔜 v0.4.0 — Write operations (pause, budget changes)
 - 🔜 v0.5.0 — OAuth flow for skills
 - 🔜 v0.6.0 — Multi-account support
+
+---
+
+## Security
+
+- Do not commit `.env` or real credentials
+- Do not print `providerToken`, connection keys, or `Authorization` headers
+- Use `redactErrorMessage` / `redactTokenLikeValues` for safe error surfacing
+- Run `gitleaks detect --source . --redact` if available
+- See [`docs/KEAMANAN.md`](docs/KEAMANAN.md) for full security guidelines
 
 ---
 
@@ -371,6 +418,7 @@ MIT License - see [LICENSE](LICENSE) file for details.
 - **Issues:** https://github.com/ramadhanidiwanda-alt/meta-ads-agent-skill/issues
 - **Meta Marketing API:** https://developers.facebook.com/docs/marketing-api
 - **Docker MCP server setup:** [docs/DOCKER_MCP.md](docs/DOCKER_MCP.md)
+- **Connection Key docs:** [docs/CUAN_INSIGHT_CONNECTION_KEY_COMPATIBILITY.md](docs/CUAN_INSIGHT_CONNECTION_KEY_COMPATIBILITY.md)
 
 ---
 
@@ -386,6 +434,7 @@ MIT License - see [LICENSE](LICENSE) file for details.
 | Rule Engine | ✅ | ❌ | ❌ |
 | Open Source | ✅ | ✅ | ✅ |
 | Target Audience | Both | End users | Developers |
+| Connection Key Auth | ✅ | ❌ | ❌ |
 
 ---
 
@@ -396,5 +445,6 @@ MIT License - see [LICENSE](LICENSE) file for details.
 - **"Is this production-ready?"** — Yes for read operations, write ops coming in v0.4
 - **"Does this work with other AI agents?"** — Yes, any MCP-compatible agent
 - **"Can I self-host everything?"** — Yes, no external dependencies
+- **"Connection Key vs MCP Token?"** — Connection Key is recommended for end-user AI connector setups; MCP Token for developer self-host
 
 See [`SKILL_MIGRATION.md`](SKILL_MIGRATION.md) for more details on the architecture.
