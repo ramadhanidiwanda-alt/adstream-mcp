@@ -22,7 +22,8 @@ function base64UrlEncode(buf: string): string {
 }
 
 function pkceChallenge(verifier: string): string {
-  return base64UrlEncode(createHash('sha256').update(verifier).digest('base64url'));
+  // digest('base64url') already produces RFC 7636 compliant output (base64url, no padding)
+  return createHash('sha256').update(verifier).digest('base64url');
 }
 
 // ── OAuthStore Unit Tests ────────────────────────────────────────────────

@@ -48,6 +48,30 @@ const activeSseSessions = new Map<string, SSEServerTransport>();
  */
 const activeStreamableSessions = new Map<string, StreamableHTTPServerTransport>();
 
+// ── Safe debug logging ──────────────────────────────────────────────────
+const OAUTH_DEBUG = (env?: NodeJS.ProcessEnv): boolean =>
+  (env ?? process.env).MCP_OAUTH_DEBUG === 'true';
+
+function oauthDebug(stage: string, data: Record<string, unknown>, env?: NodeJS.ProcessEnv): void {
+  if (OAUTH_DEBUG(env)) {
+    // Redact all potentially sensitive keys
+    const safe: Record<string, unknown> = {};
+    const blocked = new Set([
+      'connection_key', 'key', 'code', 'code_verifier', 'access_token',
+      'token', 'secret', 'client_secret', 'password', 'authorization',
+      'body', 'key_hash', 'bearer',
+    ]);
+    for (const [k, v] of Object.entries(data)) {
+      if (blocked.has(k.toLowerCase()) || k.toLowerCase().includes('secret') || k.toLowerCase().includes('token') || k.toLowerCase().includes('key')) {
+        safe[k] = '[REDACTED]';
+      } else {
+        safe[k] = v;
+      }
+    }
+    console.error(`[OAUTH_DEBUG] ${stage}`, JSON.stringify(safe));
+  }
+}
+
 // ── OAuth store ──────────────────────────────────────────────────────────
 let oauthStore: OAuthStore | undefined;
 
@@ -333,6 +357,18 @@ async function handleGetAuthorize(
   const codeChallengeMethod = url.searchParams.get('code_challenge_method');
   const state = url.searchParams.get('state');
   const scope = url.searchParams.get('scope');
+  const resource = url.searchParams.get('resource') || undefined;
+
+  oauthDebug('authorize.get.start', {
+    client_id_prefix: clientId?.slice(0, 8) ?? 'none',
+    redirect_uri_host: redirectUri ? (() => { try { return new URL(redirectUri).host; } catch { return 'invalid'; } })() : 'none',
+    has_response_type: !!responseType,
+    has_scope: !!scope,
+    has_resource: !!resource,
+    has_state: !!state,
+    has_code_challenge: !!codeChallenge,
+    has_code_challenge_method: !!codeChallengeMethod,
+  }, process.env);
 
   // Validate required params
   const errors: string[] = [];
@@ -375,7 +411,14 @@ async function handleGetAuthorize(
     codeChallengeMethod: codeChallengeMethod!,
     state: state!,
     scope: scope!,
+    resource,
   });
+
+  oauthDebug('authorize.get.success', {
+    client_id_prefix: clientId?.slice(0, 8) ?? 'none',
+    response_type: responseType,
+    has_resource: !!resource,
+  }, process.env);
 
   writeHtml(res, 200, html);
 }
@@ -398,6 +441,16 @@ async function handlePostAuthorize(
   const state = params.get('state');
   const scope = params.get('scope');
   const connectionKey = params.get('connection_key');
+  const resource = params.get('resource') || undefined;
+
+  oauthDebug('authorize.post.start', {
+    client_id_prefix: clientId?.slice(0, 8) ?? 'none',
+    redirect_uri_host: redirectUri ? (() => { try { return new URL(redirectUri).host; } catch { return 'invalid'; } })() : 'none',
+    has_connection_key: !!connectionKey,
+    has_resource: !!resource,
+    has_state: !!state,
+    has_code_challenge: !!codeChallenge,
+  }, env);
 
   // Validate all required params
   const errors: string[] = [];
@@ -446,6 +499,9 @@ async function handlePostAuthorize(
   const keyValid = await validateConnectionKey(connectionKey!, env);
 
   if (!keyValid) {
+    oauthDebug('authorize.post.connection_key_invalid', {
+      client_id_prefix: clientId?.slice(0, 8) ?? 'none',
+    }, env);
     // Re-render form with error
     const html = renderAuthorizeForm({
       responseType: responseType!,
@@ -455,6 +511,7 @@ async function handlePostAuthorize(
       codeChallengeMethod: codeChallengeMethod!,
       state: state!,
       scope: scope!,
+      resource: params.get('resource') || undefined,
       error: 'Connection Key tidak valid atau sudah dicabut.',
     });
     writeHtml(res, 200, html);
@@ -463,7 +520,11 @@ async function handlePostAuthorize(
 
   // Create authorization code
   // (store already initialized above for client validation)
-  const resource = params.get('resource') || undefined;
+
+  oauthDebug('authorize.post.connection_key_valid', {
+    client_id_prefix: clientId?.slice(0, 8) ?? 'none',
+    has_resource: !!resource,
+  }, env);
 
   const { code } = store.createAuthorizationCode({
     connectionKey: connectionKey!,
@@ -475,10 +536,23 @@ async function handlePostAuthorize(
     resource,
   });
 
+  oauthDebug('authorize.post.code_created', {
+    client_id_prefix: clientId?.slice(0, 8) ?? 'none',
+    has_resource: !!resource,
+    redirect_uri_host: (() => { try { return new URL(redirectUri!).host; } catch { return 'invalid'; } })(),
+  }, env);
+
   // Redirect back
   const redirectUrl = new URL(redirectUri!);
   redirectUrl.searchParams.set('code', code);
   redirectUrl.searchParams.set('state', state!);
+
+  oauthDebug('authorize.post.redirect', {
+    client_id_prefix: clientId?.slice(0, 8) ?? 'none',
+    redirect_uri_scheme_host: `${redirectUrl.protocol}//${redirectUrl.host}`,
+    has_code: true,
+    has_state: true,
+  }, env);
 
   res.writeHead(302, { Location: redirectUrl.toString() });
   res.end();
@@ -499,6 +573,14 @@ async function handlePostToken(
   const clientId = params.get('client_id');
   const codeVerifier = params.get('code_verifier');
 
+  oauthDebug('token.post.start', {
+    client_id_prefix: clientId?.slice(0, 8) ?? 'none',
+    grant_type: grantType,
+    has_code: !!code,
+    has_redirect_uri: !!redirectUri,
+    has_code_verifier: !!codeVerifier,
+  }, env);
+
   // Validate
   if (grantType !== 'authorization_code') {
     writeJson(res, 400, { error: 'unsupported_grant_type' });
@@ -516,9 +598,16 @@ async function handlePostToken(
   // Validate client_id against allowlist (if configured) including DCR
   const store = getOAuthStore(env);
   if (!isClientIdAllowed(clientId, allowedClientIds, store)) {
+    oauthDebug('token.post.client_invalid', {
+      client_id_prefix: clientId?.slice(0, 8) ?? 'none',
+    }, env);
     writeJson(res, 400, { error: 'invalid_client', error_description: 'Client ID tidak dikenal.' });
     return;
   }
+
+  oauthDebug('token.post.client_valid', {
+    client_id_prefix: clientId?.slice(0, 8) ?? 'none',
+  }, env);
 
   // Redeem auth code
   // (store already initialized above for client validation)
@@ -530,9 +619,18 @@ async function handlePostToken(
   });
 
   if (!redeemed) {
+    oauthDebug('token.post.redeem_failed', {
+      client_id_prefix: clientId?.slice(0, 8) ?? 'none',
+      redirect_uri_match: false, // unknown which check failed
+    }, env);
     writeJson(res, 400, { error: 'invalid_grant', error_description: 'Authorization code is invalid, expired, or already used' });
     return;
   }
+
+  oauthDebug('token.post.code_found', {
+    client_id_prefix: clientId?.slice(0, 8) ?? 'none',
+    scope: redeemed.scope,
+  }, env);
 
   // Create access token
   const { accessToken, expiresIn } = store.createAccessToken({
@@ -540,6 +638,13 @@ async function handlePostToken(
     scope: redeemed.scope,
     clientId,
   });
+
+  oauthDebug('token.post.issued', {
+    client_id_prefix: clientId?.slice(0, 8) ?? 'none',
+    token_type: 'Bearer',
+    expires_in: expiresIn,
+    scope: redeemed.scope,
+  }, env);
 
   writeJson(res, 200, {
     access_token: accessToken,
@@ -572,6 +677,13 @@ async function handlePostRegister(
     writeJson(res, 400, { error: 'invalid_client_metadata', error_description: 'Request body must be valid JSON.' });
     return;
   }
+
+  oauthDebug('dcr.register.start', {
+    redirect_uris_count: Array.isArray(payload.redirect_uris) ? (payload.redirect_uris as unknown[]).length : 0,
+    client_name: payload.client_name || 'unnamed',
+    has_grant_types: !!payload.grant_types,
+    has_response_types: !!payload.response_types,
+  }, env);
 
   // Validate redirect_uris
   const redirectUris = payload.redirect_uris;
@@ -622,6 +734,13 @@ async function handlePostRegister(
     tokenEndpointAuthMethod,
     scope: payload.scope as string | undefined,
   });
+
+  oauthDebug('dcr.register.success', {
+    client_id_prefix: clientId.slice(0, 8),
+    redirect_uris_count: redirectUris.length,
+    token_endpoint_auth_method: tokenEndpointAuthMethod,
+    scope: payload.scope || 'mcp read write',
+  }, env);
 
   // Safe logging — never log raw body or secrets
   console.error(
@@ -787,7 +906,10 @@ export function createHttpMcpRequestHandler(
 
     // ── OAuth authorize (POST: submit connection key) ──
     if (req.method === 'POST' && url.pathname === '/authorize') {
-      handlePostAuthorize(req, res, env, config.allowedClientIds).catch(() => sendNotFound(res));
+      handlePostAuthorize(req, res, env, config.allowedClientIds).catch((e) => {
+        console.error('[POST /authorize] ERROR:', e instanceof Error ? e.message : String(e));
+        sendNotFound(res);
+      });
 
       return;
     }
@@ -830,7 +952,7 @@ export function createHttpMcpRequestHandler(
 
     // ── Streamable HTTP transport ──
     if (config.transport === 'streamable-http') {
-      handleStreamableHttpRequest(config, req, res, url).catch(() => {});
+      handleStreamableHttpRequest(config, req, res, url, env).catch(() => {});
       return;
     }
 
@@ -924,17 +1046,44 @@ async function handleStreamableHttpRequest(
   config: HttpMcpConfig,
   req: IncomingMessage,
   res: ServerResponse,
-  url: URL
+  url: URL,
+  env: NodeJS.ProcessEnv = process.env
 ): Promise<void> {
   const store = getOAuthStore();
 
   // OAuth mode: gate /mcp behind valid auth
   if (config.publicBaseUrl) {
+    const authHeader = req.headers.authorization;
+    const hasBearer = !!authHeader && typeof authHeader === 'string' && authHeader.startsWith('Bearer ');
+
+    if (hasBearer) {
+      oauthDebug('mcp.auth.bearer_present', {
+        path: url.pathname,
+        method: req.method,
+      }, env);
+    }
+
     if (!hasValidMcpAuth(req, config, store)) {
       const wwwAuth = `Bearer realm="Cuan Insight MCP", authorization_uri="${config.publicBaseUrl}/authorize"`;
       sendUnauthorized(res, wwwAuth);
       return;
     }
+
+    // Check if token resolved via OAuth
+    if (hasBearer) {
+      const bearerValue = authHeader!.slice(7).trim();
+      const resolved = store.resolveAccessToken(bearerValue);
+      oauthDebug('mcp.auth.token_resolved', {
+        resolved: !!resolved,
+        path: url.pathname,
+      }, env);
+    }
+
+    const authInfo = buildRequestAuth(req, store);
+    oauthDebug('mcp.auth.connection_context_resolved', {
+      has_connection_key: !!authInfo?.extra?.connectionKey,
+      path: url.pathname,
+    }, env);
   } else if (!hasValidBearerToken(req, config.bearerToken)) {
     // Legacy mode: check MCP_HTTP_BEARER_TOKEN only
     sendUnauthorized(res);
