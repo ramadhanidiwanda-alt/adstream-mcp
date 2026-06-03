@@ -6,6 +6,8 @@
 
 Current default transport is **stdio**. Remote transport can use **SSE** via `MCP_TRANSPORT=sse` or **Streamable HTTP** via `MCP_TRANSPORT=streamable-http`.
 
+As of Phase 16c, the internal MCP tool surface is registered through the SDK high-level `McpServer` API. Client setup, tool names, auth, and transport configuration are unchanged.
+
 ---
 
 ## Supported Modes
@@ -106,7 +108,7 @@ Security notes:
 |-----------|------|---------|--------|--------|
 | Stdio | Local | ✅ Yes | ❌ No | ✅ Production ready |
 | SSE | Remote | ❌ Opt-in | ✅ Yes | ✅ Implemented (Phase 16a) |
-| Streamable HTTP | Remote | ❌ Opt-in | ✅ Yes | ✅ Implemented (Phase 16b) |
+| Streamable HTTP | Remote | ❌ Opt-in | ✅ Yes | ✅ Implemented (Phase 16b), preserved after Phase 16c `McpServer` migration |
 
 ---
 
