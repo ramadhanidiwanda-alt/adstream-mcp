@@ -1,7 +1,7 @@
 # Docker MCP Server
 
 This Docker setup runs the Meta Ads MCP server. Default transport is **stdio**.
-A **remote SSE** HTTP server can be started via the `meta-ads-mcp-http` service.
+A remote HTTP server can be started via the `meta-ads-mcp-http` service with `MCP_TRANSPORT=sse` or `MCP_TRANSPORT=streamable-http`.
 
 ## Build
 
@@ -24,7 +24,7 @@ Then run the stdio server container:
 docker run --rm --env-file .env meta-ads-agent-skill:mcp
 ```
 
-## Run (SSE Remote Transport — New in Phase 16a)
+## Run (SSE Remote Transport)
 
 Start the HTTP server with SSE transport:
 
@@ -47,7 +47,29 @@ The server exposes:
 
 Always bind to `127.0.0.1` unless behind a reverse proxy.
 
-### Docker Compose (SSE)
+## Run (Streamable HTTP Remote Transport)
+
+Start the HTTP server with Streamable HTTP transport:
+
+```bash
+docker run --rm \
+  --env-file .env \
+  -e MCP_HTTP_ENABLED=true \
+  -e MCP_TRANSPORT=streamable-http \
+  -e MCP_HTTP_BEARER_TOKEN=<MCP_REMOTE_AUTH_TOKEN> \
+  -p 127.0.0.1:8787:8787 \
+  meta-ads-agent-skill:mcp \
+  node mcp-server/dist/http.js
+```
+
+The server exposes:
+
+- `POST /mcp` — Streamable HTTP session initialization
+- `GET /health` — Health check
+
+Always bind to `127.0.0.1` unless behind a reverse proxy.
+
+### Docker Compose (SSE or Streamable HTTP)
 
 The optional HTTP compose service uses the `http` profile:
 
@@ -59,7 +81,7 @@ The compose example maps host loopback `127.0.0.1:8787:8787`, runs
 `node mcp-server/dist/http.js`, and sets `MCP_HTTP_HOST=0.0.0.0` explicitly inside
 the container so Docker port publishing works.
 
-Add `MCP_TRANSPORT=sse` to the compose env or override to enable SSE transport.
+Add `MCP_TRANSPORT=sse` or `MCP_TRANSPORT=streamable-http` to the compose env or override to enable the desired remote transport.
 
 ## Docker Compose (Stdio)
 
@@ -97,13 +119,13 @@ META_AD_ACCOUNT_ID=act_your_ad_account_id
 META_API_VERSION=v20.0
 ```
 
-## SSE Transport Notes
+## Remote Transport Notes
 
-- **Stdio remains the default transport.** SSE must be explicitly enabled via `MCP_TRANSPORT=sse`.
-- The SSE transport uses the existing SDK v0.5.0 `SSEServerTransport` — no SDK upgrade required.
-- Streamable HTTP (`POST /mcp` without `sessionId`) is **not implemented** and returns 501.
-- Each SSE session creates its own MCP server instance. Sessions are cleaned up on disconnect.
-- `MCP_HTTP_BEARER_TOKEN` is used for SSE auth. Set it to a secure random value.
+- **Stdio remains the default transport.** Remote transports must be explicitly enabled with `MCP_TRANSPORT`.
+- SSE is enabled with `MCP_TRANSPORT=sse`.
+- Streamable HTTP is enabled with `MCP_TRANSPORT=streamable-http`.
+- Each remote session creates its own MCP server instance. Sessions are cleaned up on disconnect.
+- `MCP_HTTP_BEARER_TOKEN` is used for remote HTTP auth. Set it to a secure random value.
 
 ## Security Notes
 
@@ -112,13 +134,12 @@ META_API_VERSION=v20.0
 - Do not share your MCP token.
 - Pass secrets at runtime with `--env-file` or your container platform secret manager.
 - Do not hardcode private endpoints, access tokens, anon keys, or project refs in Docker files.
-- For SSE mode, always set `MCP_HTTP_BEARER_TOKEN`. Without it, the SSE endpoint has no auth.
-- Use a reverse proxy or Cloudflare Tunnel for public exposure. Never bind SSE to `0.0.0.0` directly.
+- For remote HTTP mode, always set `MCP_HTTP_BEARER_TOKEN`. Without it, the remote endpoint has no auth.
+- Use a reverse proxy or Cloudflare Tunnel for public exposure. Never bind remote MCP directly to `0.0.0.0` on a public interface.
 
 ## Limitations
 
 - This image runs stdio MCP by default.
-- SSE mode must be started explicitly with `MCP_TRANSPORT=sse`.
-- `POST /mcp` without `sessionId` fails fast because `@modelcontextprotocol/sdk@0.5.0` does not expose official Streamable HTTP server transport.
-- Remote URL / production HTTP MCP for Streamable HTTP requires a future SDK upgrade (Phase 16b).
+- Remote mode must be started explicitly with `MCP_TRANSPORT=sse` or `MCP_TRANSPORT=streamable-http`.
+- Default HTTP skeleton mode still returns 501 unless a remote transport is selected.
 - Current project scope remains read-only; no production write operations are added here.
