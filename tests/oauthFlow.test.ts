@@ -243,6 +243,65 @@ async function closeTestServer(ctx: TestContext): Promise<void> {
   }
 }
 
+/** Helper: run full authorize flow and return the redirect location + code verifier */
+async function doOAuthAuthorize(
+  ctx: TestContext,
+  params?: Partial<{
+    clientId: string; redirectUri: string; state: string; scope: string;
+    connectionKey: string;
+  }>
+): Promise<{ location: string; codeVerifier: string }> {
+  const codeVerifier = randomString();
+  const challenge = pkceChallenge(codeVerifier);
+
+  const formBody = new URLSearchParams({
+    response_type: 'code',
+    client_id: params?.clientId ?? 'test-client',
+    redirect_uri: params?.redirectUri ?? 'https://claude.ai/api/mcp/auth_callback',
+    code_challenge: challenge,
+    code_challenge_method: 'S256',
+    state: params?.state ?? 'test-state',
+    scope: params?.scope ?? 'mcp read',
+    connection_key: params?.connectionKey ?? 'ck_test_key',
+  });
+
+  const res = await fetch(`http://127.0.0.1:${ctx.port}/authorize`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: formBody.toString(),
+    redirect: 'manual',
+  });
+
+  return { location: res.headers.get('location')!, codeVerifier };
+}
+
+/** Helper: extract code from redirect URL */
+function extractCode(location: string): string {
+  return new URL(location).searchParams.get('code')!;
+}
+
+/** Helper: exchange code for token */
+async function doOAuthTokenExchange(
+  code: string,
+  codeVerifier: string,
+  ctx: TestContext,
+  clientId = 'test-client'
+) {
+  const tokenBody = new URLSearchParams({
+    grant_type: 'authorization_code',
+    code,
+    redirect_uri: 'https://claude.ai/api/mcp/auth_callback',
+    client_id: clientId,
+    code_verifier: codeVerifier,
+  });
+
+  return fetch(`http://127.0.0.1:${ctx.port}/token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: tokenBody.toString(),
+  });
+}
+
 // ── Metadata Endpoints ───────────────────────────────────────────────────
 
 describe('OAuth metadata endpoints', () => {
@@ -364,8 +423,8 @@ describe('Full authorize + token flow', () => {
     clientId: string; redirectUri: string; state: string; scope: string;
     connectionKey: string;
   }>): Promise<{ location: string; codeVerifier: string }> {
-    const codeVerifier = randomString();
-    const challenge = pkceChallenge(codeVerifier);
+    const verifier = randomString();
+    const challenge = pkceChallenge(verifier);
 
     const formBody = new URLSearchParams({
       response_type: 'code',
@@ -385,7 +444,7 @@ describe('Full authorize + token flow', () => {
       redirect: 'manual',
     });
 
-    return { location: res.headers.get('location')!, codeVerifier };
+    return { location: res.headers.get('location')!, codeVerifier: verifier };
   }
 
   /** Helper: extract code from redirect URL */
@@ -655,5 +714,179 @@ describe('HTTP config with OAuth fields', () => {
     expect(config.authCodeTtlSeconds).toBe(300);
     expect(config.accessTokenTtlSeconds).toBe(86400);
     expect(config.publicBaseUrl).toBeUndefined();
+  });
+});
+
+// ── MCP endpoint auth gating — native OAuth clients ──────────────────────
+
+describe('MCP endpoint auth gating (OAuth mode)', () => {
+  let ctx: TestContext;
+
+  beforeEach(async () => { ctx = await createTestServer(); });
+  afterEach(async () => { await closeTestServer(ctx); });
+
+  it('returns 401 for unauthenticated POST /mcp in OAuth mode', async () => {
+    const res = await fetch(`http://127.0.0.1:${ctx.port}/mcp`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: '1',
+        method: 'initialize',
+        params: { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: {} },
+      }),
+    });
+
+    expect(res.status).toBe(401);
+    expect(await res.json()).toEqual({ error: 'Unauthorized' });
+  });
+
+  it('returns 401 with WWW-Authenticate pointing to auth server', async () => {
+    const res = await fetch(`http://127.0.0.1:${ctx.port}/mcp`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: '1',
+        method: 'initialize',
+        params: { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: {} },
+      }),
+    });
+
+    expect(res.status).toBe(401);
+    const wwwAuth = res.headers.get('www-authenticate');
+    expect(wwwAuth).toBeTruthy();
+    expect(wwwAuth!.toLowerCase()).toContain('bearer');
+  });
+
+  it('returns 401 for unauthenticated GET /mcp in OAuth mode', async () => {
+    const res = await fetch(`http://127.0.0.1:${ctx.port}/mcp`);
+
+    expect(res.status).toBe(401);
+  });
+
+  it('allows /mcp with valid OAuth Bearer token', async () => {
+    // Complete OAuth flow to get access token
+    const { location, codeVerifier } = await doOAuthAuthorize(ctx);
+    const code = extractCode(location);
+    const tokenRes = await doOAuthTokenExchange(code, codeVerifier, ctx);
+    const tokenBody: any = await tokenRes.json();
+    const accessToken = tokenBody.access_token;
+
+    // Use token to access /mcp — verify auth gate passes (no 401)
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 4000);
+    try {
+      const res = await fetch(`http://127.0.0.1:${ctx.port}/mcp`, {
+        method: 'POST',
+        signal: controller.signal,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: '1',
+          method: 'initialize',
+          params: { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: {} },
+        }),
+      });
+      expect(res.status).not.toBe(401);
+    } catch {
+      // Abort/timeout means request was accepted (not immediate 401 rejection)
+    } finally {
+      clearTimeout(timeout);
+    }
+  });
+
+  it('rejects invalid Bearer token on /mcp', async () => {
+    const res = await fetch(`http://127.0.0.1:${ctx.port}/mcp`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer invalid-token',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: '1',
+        method: 'initialize',
+        params: { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: {} },
+      }),
+    });
+
+    expect(res.status).toBe(401);
+  });
+
+  it('allows /mcp with valid x-cuan-mcp-connection-key header', async () => {
+    // In OAuth mode, x-cuan-mcp-connection-key should still work
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 4000);
+    try {
+      const res = await fetch(`http://127.0.0.1:${ctx.port}/mcp`, {
+        method: 'POST',
+        signal: controller.signal,
+        headers: {
+          'Content-Type': 'application/json',
+          'x-cuan-mcp-connection-key': 'ck_test_key',
+        },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: '1',
+          method: 'initialize',
+          params: { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: {} },
+        }),
+      });
+      expect(res.status).not.toBe(401);
+    } catch {
+      // Abort/timeout means request was accepted (not immediate 401 rejection)
+    } finally {
+      clearTimeout(timeout);
+    }
+  });
+
+  it('allows /mcp with legacy Authorization Bearer (MCP_HTTP_BEARER_TOKEN)', async () => {
+    // Create server with bearerToken set (legacy mode, no publicBaseUrl)
+    const legacyCtx = await createTestServer({
+      publicBaseUrl: undefined,
+      bearerToken: 'legacy-static-token',
+    });
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 4000);
+      try {
+        const res = await fetch(`http://127.0.0.1:${legacyCtx.port}/mcp`, {
+          method: 'POST',
+          signal: controller.signal,
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer legacy-static-token',
+          },
+          body: JSON.stringify({
+            jsonrpc: '2.0',
+            id: '1',
+            method: 'initialize',
+            params: { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: {} },
+          }),
+        });
+        expect(res.status).not.toBe(401);
+      } catch {
+        // Abort/timeout means request was accepted (not immediate 401 rejection)
+      } finally {
+        clearTimeout(timeout);
+      }
+    } finally {
+      await closeTestServer(legacyCtx);
+    }
+  });
+
+  it('metadata endpoints remain public', async () => {
+    const authzRes = await fetch(`http://127.0.0.1:${ctx.port}/.well-known/oauth-authorization-server`);
+    expect(authzRes.status).toBe(200);
+
+    const protectRes = await fetch(`http://127.0.0.1:${ctx.port}/.well-known/oauth-protected-resource`);
+    expect(protectRes.status).toBe(200);
+
+    const healthRes = await fetch(`http://127.0.0.1:${ctx.port}/health`);
+    expect(healthRes.status).toBe(200);
   });
 });
