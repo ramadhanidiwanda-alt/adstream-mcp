@@ -63,17 +63,19 @@ export interface CredentialResolverOptions {
 }
 
 const REDACTED = '[REDACTED]';
-const TOKEN_KEY_PATTERN = /(access[_-]?token|authorization|bearer|appsecret[_-]?proof|token|secret)/i;
+const TOKEN_KEY_PATTERN = /(access[_-]?token|authorization|bearer|appsecret[_-]?proof|token|secret|connection[_-]?key)/i;
 const LONG_TOKEN_PATTERN = /\b[A-Za-z0-9._~+/=-]{16,}\b/g;
 
 export function redactErrorMessage(message: string): string {
   return message
     .replace(/(Authorization\s*:\s*Bearer\s+)[^\s,;]+/gi, `$1${REDACTED}`)
+    .replace(/(x-cuan-mcp-connection-key\s*:\s*)[^\s,;]+/gi, `$1${REDACTED}`)
     .replace(/([?&]?access_token=)[^\s&]+/gi, `$1${REDACTED}`)
     .replace(/([?&]?appsecret_proof=)[^\s&]+/gi, `$1${REDACTED}`)
     .replace(/(accessToken\s*[:=]\s*)[^\s,;&]+/gi, `$1${REDACTED}`)
     .replace(/(access_token\s*[:=]\s*)[^\s,;&]+/gi, `$1${REDACTED}`)
     .replace(/(token\s*[:=]\s*)[^\s,;&]+/gi, `$1${REDACTED}`)
+    .replace(/(connection[_-]?key\s*[:=]\s*)[^\s,;&]+/gi, `$1${REDACTED}`)
     .replace(LONG_TOKEN_PATTERN, REDACTED);
 }
 
@@ -104,11 +106,13 @@ export function redactTokenLikeValues<T>(value: T): T | string {
 function redactStructuredString(message: string): string {
   return message
     .replace(/(Authorization\s*:\s*Bearer\s+)[^\s,;]+/gi, `$1${REDACTED}`)
+    .replace(/(x-cuan-mcp-connection-key\s*:\s*)[^\s,;]+/gi, `$1${REDACTED}`)
     .replace(/([?&]?access_token=)[^\s&]+/gi, `$1${REDACTED}`)
     .replace(/([?&]?appsecret_proof=)[^\s&]+/gi, `$1${REDACTED}`)
     .replace(/(accessToken\s*[:=]\s*)[^\s,;&]+/gi, `$1${REDACTED}`)
     .replace(/(access_token\s*[:=]\s*)[^\s,;&]+/gi, `$1${REDACTED}`)
-    .replace(/(token\s*[:=]\s*)[^\s,;&]+/gi, `$1${REDACTED}`);
+    .replace(/(token\s*[:=]\s*)[^\s,;&]+/gi, `$1${REDACTED}`)
+    .replace(/(connection[_-]?key\s*[:=]\s*)[^\s,;&]+/gi, `$1${REDACTED}`);
 }
 
 export class EnvCredentialProvider implements CredentialProvider {
@@ -159,18 +163,33 @@ export class EnvCredentialProvider implements CredentialProvider {
 export interface CuanInsightProviderOptions {
   callerToken?: string;
   workspaceId?: string;
+  connectionKey?: string;
+  authMode?: 'mcp_token' | 'connection_key';
 }
 
 export class CuanInsightCredentialProvider implements CredentialProvider {
   readonly source = 'cuan_insight' as const;
+  private readonly client?: CuanInsightCredentialClient;
+  private readonly callerToken?: string;
+  private readonly workspaceId?: string;
+  private readonly connectionKey?: string;
+  private readonly authMode?: 'mcp_token' | 'connection_key';
 
   constructor(
-    private readonly client?: CuanInsightCredentialClient,
-    private readonly options: CuanInsightProviderOptions = {}
-  ) {}
+    client?: CuanInsightCredentialClient,
+    options?: CuanInsightProviderOptions
+  ) {
+    this.client = client;
+    this.callerToken = options?.callerToken;
+    this.workspaceId = options?.workspaceId;
+    this.connectionKey = options?.connectionKey;
+    this.authMode = options?.authMode;
+  }
 
   async resolve(request: CredentialResolveRequest): Promise<CredentialResolveResult> {
-    if (!isAdsProviderId(request.provider)) {
+    const provider = request.provider;
+
+    if (!isAdsProviderId(provider)) {
       return unsupportedProviderResult();
     }
 
@@ -178,65 +197,56 @@ export class CuanInsightCredentialProvider implements CredentialProvider {
       return {
         ok: false,
         error: {
-          code: 'CUAN_INSIGHT_CLIENT_NOT_CONFIGURED',
+          code: 'AUTHENTICATION_REQUIRED',
           message: 'Cuan Insight credential client is not configured',
-          provider: request.provider,
+          provider,
         },
       };
     }
 
-    let response: CuanInsightCredentialResolveResponse;
     try {
-      response = await this.client.resolve(this.toContractRequest(request));
+      const resolveRequest: CuanInsightCredentialResolveRequest = {
+        provider,
+        accountId: request.accountId,
+        workspaceId: this.workspaceId,
+        callerToken: this.callerToken,
+        requestedScopes: ['read'],
+        params: request.params,
+      };
+
+      const response = await this.client.resolve(resolveRequest);
+
+      return mapCuanInsightResponseToCredentialResult(
+        response,
+        provider,
+        request
+      );
     } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Cuan Insight credential resolution failed';
+
       return {
         ok: false,
         error: {
-          code: 'CUAN_INSIGHT_CREDENTIAL_RESOLUTION_FAILED',
-          message: redactErrorMessage(
-            error instanceof Error ? error.message : String(error)
-          ),
-          provider: request.provider,
+          code: 'INTERNAL_ERROR',
+          message: redactErrorMessage(message),
+          provider,
         },
       };
     }
-
-    return mapCuanInsightResponse(
-      { ...request, provider: request.provider },
-      response
-    );
-  }
-
-  private toContractRequest(
-    request: CredentialResolveRequest
-  ): CuanInsightCredentialResolveRequest {
-    if (!isAdsProviderId(request.provider)) {
-      throw new Error('Unsupported ads provider');
-    }
-
-    return {
-      provider: request.provider,
-      accountId: request.accountId,
-      workspaceId: this.options.workspaceId,
-      callerToken: this.options.callerToken,
-      requestedScopes: ['read'],
-      params: request.params,
-    };
   }
 }
 
-const SAFE_CUAN_INSIGHT_ERROR_CODE: CuanInsightCredentialErrorCode = 'INTERNAL_ERROR';
+const SAFE_CUAN_INSIGHT_ERROR_CODE = 'INTERNAL_ERROR';
 
-function mapCuanInsightResponse(
-  request: CredentialResolveRequest & { provider: AdsProviderId },
-  response: CuanInsightCredentialResolveResponse
+function mapCuanInsightResponseToCredentialResult(
+  response: CuanInsightCredentialResolveResponse,
+  provider: AdsProviderId,
+  request: CredentialResolveRequest
 ): CredentialResolveResult {
-  const provider = request.provider;
-
   if (!response.ok) {
-    const errorCode: CuanInsightCredentialErrorCode = isCuanInsightCredentialErrorCode(
-      response.error?.code
-    )
+    const errorCode = response.error?.code &&
+      isCuanInsightCredentialErrorCode(response.error?.code)
       ? (response.error!.code as CuanInsightCredentialErrorCode)
       : SAFE_CUAN_INSIGHT_ERROR_CODE;
 
