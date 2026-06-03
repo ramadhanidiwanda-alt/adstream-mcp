@@ -322,6 +322,7 @@ describe('OAuth metadata endpoints', () => {
     expect(body.grant_types_supported).toContain('authorization_code');
     expect(body.code_challenge_methods_supported).toContain('S256');
     expect(body.token_endpoint_auth_methods_supported).toContain('none');
+    expect(body.registration_endpoint).toBe('https://mcp.cuaninsight.com/register');
   });
 
   it('returns 200 for oauth-protected-resource metadata', async () => {
@@ -792,8 +793,8 @@ describe('HTTP config with OAuth fields', () => {
 
   it('parses OAuth config from environment', () => {
     process.env.MCP_PUBLIC_BASE_URL = 'https://mcp.cuaninsight.com';
-    process.env.MCP_OAUTH_AUTH_CODE_TTL_SECONDS= '600';
-    process.env.MCP_OAUTH_ACCESS_TOKEN_TTL_SECONDS= '43200';
+    process.env.MCP_OAUTH_AUTH_CODE_TTL_SECONDS='600';
+    process.env.MCP_OAUTH_ACCESS_TOKEN_TTL_SECONDS='43200';
 
     const config = parseHttpMcpConfig();
     expect(config.publicBaseUrl).toBe('https://mcp.cuaninsight.com');
@@ -831,7 +832,7 @@ describe('HTTP config with OAuth fields', () => {
   });
 
   it('handles empty or whitespace-only MCP_OAUTH_ALLOWED_CLIENT_IDS', () => {
-    process.env.MCP_OAUTH_ALLOWED_CLIENT_IDS = '';
+    process.env.MCP_OAUTH_ALLOWED_CLIENT_IDS=''
     const config1 = parseHttpMcpConfig();
     expect(config1.allowedClientIds).toBeUndefined();
 
@@ -1012,5 +1013,338 @@ describe('MCP endpoint auth gating (OAuth mode)', () => {
 
     const healthRes = await fetch(`http://127.0.0.1:${ctx.port}/health`);
     expect(healthRes.status).toBe(200);
+  });
+});
+
+// ── Dynamic Client Registration (DCR) HTTP Integration ───────────────────
+
+describe('POST /register — Dynamic Client Registration', () => {
+  let ctx: TestContext;
+
+  beforeEach(async () => { ctx = await createTestServer(); });
+  afterEach(async () => { await closeTestServer(ctx); });
+
+  it('returns 201 with client_id for valid registration', async () => {
+    const res = await fetch(`http://127.0.0.1:${ctx.port}/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        redirect_uris: ['https://claude.ai/api/mcp/auth_callback'],
+        client_name: 'Claude Desktop',
+        grant_types: ['authorization_code'],
+        response_types: ['code'],
+        token_endpoint_auth_method: 'none',
+        scope: 'mcp read write',
+      }),
+    });
+
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    expect(body.client_id).toBeTruthy();
+    expect(body.client_id.length).toBe(64);
+    expect(body.client_id_issued_at).toBeGreaterThan(0);
+    expect(body.redirect_uris).toEqual(['https://claude.ai/api/mcp/auth_callback']);
+    expect(body.grant_types).toEqual(['authorization_code']);
+    expect(body.response_types).toEqual(['code']);
+    expect(body.token_endpoint_auth_method).toBe('none');
+    expect(body.scope).toBe('mcp read write');
+    // No client_secret for public PKCE client
+    expect(body).not.toHaveProperty('client_secret');
+  });
+
+  it('returns 400 for missing redirect_uris', async () => {
+    const res = await fetch(`http://127.0.0.1:${ctx.port}/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ client_name: 'No URIs' }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toBe('invalid_client_metadata');
+  });
+
+  it('returns 400 for empty redirect_uris array', async () => {
+    const res = await fetch(`http://127.0.0.1:${ctx.port}/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ redirect_uris: [] }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toBe('invalid_client_metadata');
+  });
+
+  it('returns 400 for malformed JSON', async () => {
+    const res = await fetch(`http://127.0.0.1:${ctx.port}/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: 'not json',
+    });
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toBe('invalid_client_metadata');
+  });
+
+  it('rejects non-none token_endpoint_auth_method', async () => {
+    const res = await fetch(`http://127.0.0.1:${ctx.port}/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        redirect_uris: ['https://example.com/callback'],
+        token_endpoint_auth_method: 'client_secret_post',
+      }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toBe('invalid_client_metadata');
+  });
+
+  it('POST /oauth/register alias also works', async () => {
+    const res = await fetch(`http://127.0.0.1:${ctx.port}/oauth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        redirect_uris: ['https://claude.ai/api/mcp/auth_callback'],
+      }),
+    });
+
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    expect(body.client_id).toBeTruthy();
+  });
+});
+
+// ── DCR Client in OAuth Flow ──────────────────────────────────────────────
+
+describe('DCR-registered client in OAuth flow', () => {
+  let ctx: TestContext;
+  let registeredClientId: string;
+  const registeredRedirectUri = 'https://claude.ai/api/mcp/auth_callback';
+
+  beforeEach(async () => {
+    ctx = await createTestServer();
+    // Register a DCR client
+    const regRes = await fetch(`http://127.0.0.1:${ctx.port}/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        redirect_uris: [registeredRedirectUri],
+        client_name: 'Test DCR Client',
+        grant_types: ['authorization_code'],
+        response_types: ['code'],
+        token_endpoint_auth_method: 'none',
+        scope: 'mcp read write',
+      }),
+    });
+    const regBody = await regRes.json();
+    registeredClientId = regBody.client_id;
+  });
+  afterEach(async () => { await closeTestServer(ctx); });
+
+  it('DCR-registered client_id is accepted by GET /authorize', async () => {
+    const challenge = pkceChallenge(randomString());
+    const res = await fetch(
+      `http://127.0.0.1:${ctx.port}/authorize` +
+      `?response_type=code&client_id=${registeredClientId}` +
+      `&redirect_uri=${encodeURIComponent(registeredRedirectUri)}` +
+      `&code_challenge=${challenge}&code_challenge_method=S256` +
+      `&state=test&scope=mcp`
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toContain('text/html');
+  });
+
+  it('DCR client with unregistered redirect_uri rejected at GET /authorize', async () => {
+    const challenge = pkceChallenge(randomString());
+    const res = await fetch(
+      `http://127.0.0.1:${ctx.port}/authorize` +
+      `?response_type=code&client_id=${registeredClientId}` +
+      `&redirect_uri=https://evil.com/phish` +
+      `&code_challenge=${challenge}&code_challenge_method=S256` +
+      `&state=test&scope=mcp`
+    );
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toBe('invalid_request');
+  });
+
+  it('DCR-registered client_id completes full authorize + token flow', async () => {
+    const { location, codeVerifier } = await doOAuthAuthorize(ctx, {
+      clientId: registeredClientId,
+      redirectUri: registeredRedirectUri,
+    });
+    expect(location).toContain('code=');
+
+    const code = extractCode(location);
+    const tokenRes = await fetch(`http://127.0.0.1:${ctx.port}/token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        grant_type: 'authorization_code',
+        code,
+        redirect_uri: registeredRedirectUri,
+        client_id: registeredClientId,
+        code_verifier: codeVerifier,
+      }).toString(),
+    });
+
+    expect(tokenRes.status).toBe(200);
+    const tokenBody = await tokenRes.json();
+    expect(tokenBody.access_token).toBeTruthy();
+  });
+
+  it('DCR client token exchange with different redirect_uri rejected', async () => {
+    const { location, codeVerifier } = await doOAuthAuthorize(ctx, {
+      clientId: registeredClientId,
+      redirectUri: registeredRedirectUri,
+    });
+    const code = extractCode(location);
+
+    const tokenRes = await fetch(`http://127.0.0.1:${ctx.port}/token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        grant_type: 'authorization_code',
+        code,
+        redirect_uri: 'https://other-site.com/callback',
+        client_id: registeredClientId,
+        code_verifier: codeVerifier,
+      }).toString(),
+    });
+
+    expect(tokenRes.status).toBe(400);
+    const body = await tokenRes.json();
+    expect(body.error).toBe('invalid_grant');
+  });
+});
+
+// ── DCR + Static Allowlist Compatibility ──────────────────────────────────
+
+describe('DCR and static allowlist compatibility', () => {
+  it('static client_id cuan-insight-claude still works alongside DCR', async () => {
+    const ctx = await createTestServer({ allowedClientIds: ['cuan-insight-claude'] });
+
+    // Register a DCR client first
+    await fetch(`http://127.0.0.1:${ctx.port}/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ redirect_uris: ['https://claude.ai/api/mcp/auth_callback'] }),
+    });
+
+    // Static client should still work
+    const res = await fetch(
+      `http://127.0.0.1:${ctx.port}/authorize` +
+      `?response_type=code&client_id=cuan-insight-claude` +
+      `&redirect_uri=https://example.com/callback&code_challenge=abc` +
+      `&code_challenge_method=S256&state=xyz&scope=mcp`
+    );
+    expect(res.status).toBe(200);
+    await closeTestServer(ctx);
+  });
+
+  it('unregistered client_id rejected when allowlist configured', async () => {
+    const ctx = await createTestServer({ allowedClientIds: ['only-this'] });
+
+    // Try with a client_id not in allowlist and not DCR-registered
+    const res = await fetch(
+      `http://127.0.0.1:${ctx.port}/authorize` +
+      `?response_type=code&client_id=unregistered-other` +
+      `&redirect_uri=https://example.com/callback&code_challenge=abc` +
+      `&code_challenge_method=S256&state=xyz&scope=mcp`
+    );
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toBe('invalid_client');
+    await closeTestServer(ctx);
+  });
+});
+
+// ── DCR OAuthStore Unit Tests ─────────────────────────────────────────────
+
+describe('OAuthStore DCR unit tests', () => {
+  let store: OAuthStore;
+
+  beforeEach(() => {
+    store = new OAuthStore({ authCodeTtlMs: 60_000, accessTokenTtlMs: 60_000 });
+  });
+
+  it('registers a client and returns client_id', () => {
+    const { clientId, clientIdIssuedAt } = store.registerClient({
+      redirectUris: ['https://claude.ai/api/mcp/auth_callback'],
+      clientName: 'Test Claude',
+      grantTypes: ['authorization_code'],
+      responseTypes: ['code'],
+      tokenEndpointAuthMethod: 'none',
+      scope: 'mcp read write',
+    });
+
+    expect(clientId).toBeTruthy();
+    expect(clientId.length).toBe(64);
+    expect(clientIdIssuedAt).toBeGreaterThan(0);
+  });
+
+  it('isClientRegistered returns true after registration', () => {
+    const { clientId } = store.registerClient({
+      redirectUris: ['https://example.com/callback'],
+    });
+
+    expect(store.isClientRegistered(clientId)).toBe(true);
+    expect(store.isClientRegistered('nonexistent')).toBe(false);
+  });
+
+  it('getRegisteredClient returns full client record', () => {
+    const { clientId } = store.registerClient({
+      redirectUris: ['https://claude.ai/api/mcp/auth_callback'],
+      clientName: 'My Client',
+      grantTypes: ['authorization_code'],
+      responseTypes: ['code'],
+      scope: 'mcp read',
+    });
+
+    const client = store.getRegisteredClient(clientId);
+    expect(client).toBeDefined();
+    expect(client!.redirectUris).toEqual(['https://claude.ai/api/mcp/auth_callback']);
+    expect(client!.clientName).toBe('My Client');
+    expect(client!.grantTypes).toEqual(['authorization_code']);
+    expect(client!.responseTypes).toEqual(['code']);
+    expect(client!.tokenEndpointAuthMethod).toBe('none');
+  });
+
+  it('stats includes registeredClientCount', () => {
+    store.registerClient({ redirectUris: ['https://a.com/cb'] });
+    store.registerClient({ redirectUris: ['https://b.com/cb'] });
+
+    const stats = store.getStats();
+    expect(stats.registeredClientCount).toBe(2);
+  });
+
+  it('resource param is stored with auth code', () => {
+    const codeVerifier = randomString();
+    const codeChallenge = pkceChallenge(codeVerifier);
+
+    const { code } = store.createAuthorizationCode({
+      connectionKey: 'test-key',
+      clientId: 'test-client',
+      redirectUri: 'https://example.com/callback',
+      codeChallenge,
+      codeChallengeMethod: 'S256',
+      scope: 'mcp',
+      resource: 'https://mcp.cuaninsight.com/mcp',
+    });
+
+    const redeemed = store.redeemAuthorizationCode({
+      code,
+      codeVerifier,
+      clientId: 'test-client',
+      redirectUri: 'https://example.com/callback',
+    });
+    expect(redeemed).toBeDefined();
+    expect(redeemed!.connectionKey).toBe('test-key');
   });
 });
