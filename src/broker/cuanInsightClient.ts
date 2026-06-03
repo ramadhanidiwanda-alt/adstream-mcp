@@ -191,8 +191,9 @@ export function createCuanInsightCredentialClient(
         }
       }
 
-      // connection_key mode: connectionKey must be in config, not in request
-      if (authMode === 'connection_key' && (!config.connectionKey || config.connectionKey.trim() === '')) {
+      // connection_key mode: connectionKey from request (hosted multi-user) or config (local/single-tenant)
+      const effectiveConnectionKey = request.connectionKey?.trim() || config.connectionKey?.trim();
+      if (authMode === 'connection_key' && !effectiveConnectionKey) {
         throw new CuanInsightCredentialClientError(
           'MISSING_CALLER_TOKEN',
           'Connection key is not configured'
@@ -234,7 +235,7 @@ export function createCuanInsightCredentialClient(
         if (useHostedAuth) {
           headers['Authorization'] = `Bearer ${config.supabaseAnonKey}`;
         }
-        headers[CONNECTION_KEY_HEADER] = config.connectionKey!;
+        headers[CONNECTION_KEY_HEADER] = effectiveConnectionKey!;
       } else {
         // MCP token mode (legacy, default)
         if (useHostedAuth) {

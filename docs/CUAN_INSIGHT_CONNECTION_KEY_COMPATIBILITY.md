@@ -32,6 +32,9 @@ Key principles:
 
 ---
 
+> **Hosted multi-user limitation:** Current v0.4.0 supports env-based `CUAN_INSIGHT_CONNECTION_KEY` for local/single-tenant use. Per-request `x-cuan-mcp-connection-key` header passthrough for hosted multi-user remote MCP is planned for a future release. Do not configure one shared global connection key for multi-user deployments.
+
+
 ## C. Auth Modes
 
 ### 1. Recommended Hosted Mode — Connection Key (Phase 17.5C)
@@ -52,6 +55,9 @@ CUAN_INSIGHT_SUPABASE_ANON_KEY=<supabase-anon-key-if-required>
 - Provider token tidak pernah ditampilkan ke AI client
 - Jika `CUAN_INSIGHT_SUPABASE_ANON_KEY` tersedia, hosted Supabase auth tetap dipakai (`Authorization: Bearer <supabaseAnonKey>`)
 - Key dapat di-revoke dari UI Cuan Insight (immediate invalidation)
+
+> ⚠️ **Multi-user warning:** A Connection Key gives access to ad data for the organization. For hosted multi-user servers, never configure one shared global `CUAN_INSIGHT_CONNECTION_KEY`. Clients must send `x-cuan-mcp-connection-key` per request. This is planned for a future release.
+
 
 ### 2. Legacy / Default Mode — MCP Token
 

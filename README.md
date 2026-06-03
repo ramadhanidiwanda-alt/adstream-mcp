@@ -85,6 +85,46 @@ console.log(analysis.recommendations);
 
 ## Skills Setup
 
+
+### Recommended Hosted Setup
+
+Use Cuan Insight UI to create a Connection Key.
+
+**For local stdio / single-tenant:**
+```env
+CUAN_INSIGHT_AUTH_MODE=connection_key
+CUAN_INSIGHT_CONNECTION_KEY=<your-connection-key>
+```
+
+**For hosted multi-user Streamable HTTP:**
+Do not set a global connection key.
+Client must send `x-cuan-mcp-connection-key` per request.
+
+> Current v0.4.0 supports env-based Connection Key for local/single-tenant use.
+> Per-request Connection Key passthrough for hosted multi-user is planned.
+
+### Self-Hosted Setup
+
+Developer may self-host the MCP server.
+They can either:
+
+1. Still use Cuan Insight credential resolver with their own Connection Key, or
+2. Extend/configure provider-token handling themselves if they want to bypass Cuan Insight.
+
+For provider-token mode, set:
+```env
+BROKER_RUNTIME_MODE=local
+META_ACCESS_TOKEN=<your-meta-access-token>
+META_AD_ACCOUNT_ID=act_123456789
+```
+
+### xe2x9axa0xefxb8x8f Warning
+
+A Connection Key gives access to ad data available to the organization in Cuan Insight.
+Do not commit it.
+Do not share it.
+For hosted multi-user servers, never configure one shared global key.
+
 ### Prerequisites
 
 1. **AI Agent** — Any MCP-compatible agent or client; Claude Desktop is one example
@@ -134,6 +174,9 @@ CUAN_INSIGHT_SUPABASE_ANON_KEY=<supabase-anon-key-if-required>
 - MCP server mengirim header `x-cuan-mcp-connection-key`
 - Provider token tidak pernah ditampilkan ke AI client
 - Key dapat di-revoke kapan saja dari UI
+
+> Current v0.4.0 uses env-based Connection Key. Per-request `x-cuan-mcp-connection-key` passthrough for hosted multi-user is planned for a future release.
+
 
 **Legacy: MCP Token Mode (default, backward compatible)**
 
