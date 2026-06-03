@@ -6,6 +6,7 @@ import type { AddressInfo } from 'node:net';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { createMetaAdsMcpServer } from './createServer.js';
+import type { AuthInfo } from '@modelcontextprotocol/sdk/server/auth/types.js';
 
 const HTTP_TRANSPORT_UNAVAILABLE_MESSAGE =
   'Streamable HTTP transport requires MCP_TRANSPORT=streamable-http.';
@@ -101,6 +102,28 @@ function sendNotImplemented(res: ServerResponse): void {
   writeJson(res, 501, { error: HTTP_TRANSPORT_UNAVAILABLE_MESSAGE });
 }
 
+/**
+ * Extract connection key from request headers for hosted multi-user mode.
+ * Does NOT read env fallback — that belongs in the credential resolver.
+ */
+function extractConnectionKey(req: IncomingMessage): string | undefined {
+  const headerValue = req.headers['x-cuan-mcp-connection-key'];
+  if (!headerValue) return undefined;
+  const key = Array.isArray(headerValue) ? headerValue[0] : headerValue;
+  return key?.trim() || undefined;
+}
+
+/**
+ * Build minimal AuthInfo carrying the connection key so it flows through
+ * the MCP transport into tool handler extra.authInfo.
+ * Only populated when x-cuan-mcp-connection-key header is present.
+ */
+function buildRequestAuth(req: IncomingMessage): AuthInfo | undefined {
+  const connectionKey = extractConnectionKey(req);
+  if (!connectionKey) return undefined;
+  return { token: '', clientId: '', scopes: [], extra: { connectionKey } };
+}
+
 export function createHttpMcpRequestHandler(
   config: HttpMcpConfig,
   env: NodeJS.ProcessEnv = process.env
@@ -159,6 +182,7 @@ async function handleSseRequest(
   }
 
   if (req.method === 'GET' && url.pathname === config.path) {
+    (req as IncomingMessage & { auth?: AuthInfo }).auth = buildRequestAuth(req);
     await handleSseConnect(config, res);
     return;
   }
@@ -225,6 +249,7 @@ async function handleStreamableHttpRequest(
 
   // Existing session
   if (sessionId) {
+    (req as IncomingMessage & { auth?: AuthInfo }).auth = buildRequestAuth(req);
     const transport = activeStreamableSessions.get(sessionId);
     if (!transport) {
       sendNotFound(res);
@@ -240,6 +265,7 @@ async function handleStreamableHttpRequest(
     return;
   }
 
+  (req as IncomingMessage & { auth?: AuthInfo }).auth = buildRequestAuth(req);
   await handleStreamableHttpNewSession(req, res);
 }
 

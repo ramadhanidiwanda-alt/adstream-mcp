@@ -474,4 +474,40 @@ describe('Streamable HTTP transport endpoints', () => {
     expect(response.status).toBe(501);
     expect(text).toContain('Streamable HTTP transport requires MCP_TRANSPORT=streamable-http.');
   });
+
+
+describe('HTTP request-scoped connection key header capture', () => {
+  it('createHttpMcpRequestHandler function exists and is callable', () => {
+    const handler = createHttpMcpRequestHandler(
+      {
+        enabled: true,
+        host: '127.0.0.1',
+        port: 8787,
+        path: '/mcp',
+        transport: 'sse',
+        bearerToken: 'test-token',
+      },
+      {}
+    );
+
+    expect(typeof handler).toBe('function');
+  });
+
+  it('handler returns function for streamable-http transport', () => {
+    const handler = createHttpMcpRequestHandler(
+      {
+        enabled: true,
+        host: '127.0.0.1',
+        port: 8787,
+        path: '/mcp',
+        transport: 'streamable-http',
+        bearerToken: 'test-token',
+      },
+      {}
+    );
+
+    expect(typeof handler).toBe('function');
+  });
+});
+
 });

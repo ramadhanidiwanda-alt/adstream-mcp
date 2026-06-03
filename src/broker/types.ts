@@ -197,6 +197,8 @@ export interface AdsBrokerRequest {
   until?: string;
   params: Record<string, unknown>;
   credentials?: CredentialContext;
+  /** Per-request connection key (hosted multi-user). Sent as x-cuan-mcp-connection-key header. */
+  connectionKey?: string;
 }
 
 export interface AdsBrokerResponse<TData = AdsMetricRecord[] | unknown> {
