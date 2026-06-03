@@ -1,14 +1,15 @@
 # Cuan Insight Connection Key Compatibility
 
-> **Status**: Reference — Connection Key design not yet implemented  
+> **Status**: Implemented — Phase 17.5C merged (PR #21)  
 > **Date**: 2026-06-03  
+> **Updated**: 2026-06-03 (Phase 17.5E docs)  
 > **Related**: `docs/roadmap/mcp-connector-platform.md` (cuan-insight)
 
 ---
 
 ## A. Purpose
 
-This document explains how the meta-ads-agent-skill MCP server is designed to work with Cuan Insight as a credential authority, and how the future Cuan Insight Connection Key system should integrate with this server.
+This document explains how the meta-ads-agent-skill MCP server is designed to work with Cuan Insight as a credential authority, and how the Cuan Insight Connection Key system integrates with this server.
 
 Key principles:
 - This MCP server is the **execution layer** — it runs tools, not credentials.
@@ -26,91 +27,129 @@ Key principles:
 - Calls Meta Ads Graph API directly using resolved token
 - `providerToken` must never be logged
 - npm audit: 0 vulnerabilities
-- TypeScript strict mode, Vitest test suite
+- TypeScript strict mode, Vitest test suite (239 tests)
+- **Connection Key support: ✅ implemented (Phase 17.5C, PR #21)**
 
 ---
 
-## C. Existing Auth Modes
+## C. Auth Modes
 
-### 1. Developer / Self-Host MCP Token
+### 1. Recommended Hosted Mode — Connection Key (Phase 17.5C)
+
+Used when running the MCP server with a Connection Key generated from Cuan Insight UI.
+
+```env
+BROKER_RUNTIME_MODE=remote
+CUAN_INSIGHT_AUTH_MODE=connection_key
+CUAN_INSIGHT_CONNECTION_KEY=<key-from-cuan-insight-ui>
+CUAN_INSIGHT_API_BASE_URL=<cuan-insight-functions-base-url>
+CUAN_INSIGHT_SUPABASE_ANON_KEY=<supabase-anon-key-if-required>
+```
+
+- Key dibuat dari Cuan Insight UI > AI/MCP Connectors
+- Raw key hanya muncul sekali saat pembuatan
+- MCP server mengirim header `x-cuan-mcp-connection-key`
+- Provider token tidak pernah ditampilkan ke AI client
+- Jika `CUAN_INSIGHT_SUPABASE_ANON_KEY` tersedia, hosted Supabase auth tetap dipakai (`Authorization: Bearer <supabaseAnonKey>`)
+- Key dapat di-revoke dari UI Cuan Insight (immediate invalidation)
+
+### 2. Legacy / Default Mode — MCP Token
 
 Used when running the MCP server locally or self-hosted with a direct MCP token from Cuan Insight.
 
+```env
+BROKER_RUNTIME_MODE=remote
+CUAN_INSIGHT_AUTH_MODE=mcp_token
+CUAN_INSIGHT_MCP_TOKEN=<mcp-token>
+CUAN_INSIGHT_API_BASE_URL=<cuan-insight-functions-base-url>
+CUAN_INSIGHT_SUPABASE_ANON_KEY=<supabase-anon-key-if-required>
+```
+
+- Default mode (backward compatible)
 - Token passed via `X-Cuan-MCP-Token` header (hosted mode) or `Authorization: Bearer` header (local/dev)
 - Token is SHA-256 hashed in Cuan Insight `mcp_access_tokens` table
 - Cuan Insight validates hash and resolves provider token
-
-### 2. Remote Cuan Insight Credential Resolver
-
-Used when the MCP server is hosted and needs to authenticate requests from AI clients.
-
-- AI client connects to the MCP server (stdio/SSE/Streamable HTTP)
-- MCP server makes HTTP request to Cuan Insight Edge Function
-- Cuan Insight validates and returns provider token internally
-- MCP server calls provider API
+- Dipertahankan untuk developer/self-host/server env
 
 ### 3. Local Provider Credential Mode
 
 Available for local development/testing where a direct Meta access token is set via environment.
 
-- `META_ACCESS_TOKEN` env var (local dev only)
+```env
+BROKER_RUNTIME_MODE=local
+META_ACCESS_TOKEN=<meta-access-token>
+META_AD_ACCOUNT_ID=act_123456789
+```
+
 - Not used in production or hosted deployments
 
 ---
 
-## D. Future Connection Key Support
+## D. Connection Key Implementation (Phase 17.5C)
 
-### What Is a Connection Key?
+### Files Changed
 
-A Connection Key is a user-facing API key generated in Cuan Insight that allows AI clients to connect to the MCP server without exposing developer-level MCP tokens.
-
-### Key Properties
-
-- Organization-rooted (not workspace-only)
-- Scoped by workspace, provider, account, and permission level
-- Stored hashed in Cuan Insight
-- User sees it once at creation time
-- Revokable (immediate invalidation)
-
-### Integration with MCP Server
-
-The MCP server may need an **auth adapter** to validate or exchange a Connection Key:
-
-1. AI client connects with a Connection Key
-2. MCP server detects key format (Connection Key vs MCP Token)
-3. MCP server calls Cuan Insight resolver with the key
-4. Cuan Insight validates key, checks permissions, returns provider token
-5. MCP server caches resolved credentials for session lifetime
-
-### Auth Adapter Design Consideration
-
-```typescript
-interface AuthAdapter {
-  authenticate(request: AuthRequest): Promise<AuthResult>;
-}
-
-// Future implementation could support:
-class ConnectionKeyAdapter implements AuthAdapter {
-  async authenticate(request: AuthRequest): Promise<AuthResult> {
-    // Detect key type
-    // Call Cuan Insight resolver
-    // Return validated credentials
-  }
-}
-```
-
-### Relationship to Existing MCP Token Flow
-
-Connection Keys are **additive** — they do not replace the existing MCP token flow. Both should work:
-
-| Auth Method | Use Case |
+| File | Change |
 |---|---|
-| MCP Token | Developer self-host, direct API access |
-| Connection Key | End-user AI connector setup (Claude, Codex, Cursor, etc.) |
+| `src/broker/config.ts` | Parse `CUAN_INSIGHT_AUTH_MODE` and `CUAN_INSIGHT_CONNECTION_KEY` env vars |
+| `src/broker/cuanInsightClient.ts` | Send `x-cuan-mcp-connection-key` header when `authMode=connection_key` |
+| `src/broker/credentials.ts` | Add connection key redaction to `redactErrorMessage` |
+| `src/broker/factory.ts` | Wire `authMode` and `connectionKey` through `createRemoteCredentialResolver` |
+| `.env.example` | Document both legacy MCP token and recommended Connection Key modes |
+| `tests/*` | 21 new tests covering config, headers, redaction, security |
+
+### Validation
+
+- `npm test`: 20 files, 239 tests — PASS
+- `npm run build`: ESM 73.04 KB — PASS
+- `npm audit`: 0 vulnerabilities — PASS
+- Cold smoke test (stdio): tools/list (13 tools), ads_list_accounts — PASS
+- Security: zero secret leak in output/log/stderr
+
+### Pending
+
+- Full live smoke test with real Connection Key from Cuan Insight UI
+- Requires `CUAN_INSIGHT_CONNECTION_KEY` env var + deployed `mcp-resolve-credential` endpoint
+- Live revoke test: create key → resolve → revoke via UI → verify call fails
 
 ---
 
-## E. AI Client Compatibility
+## E. Troubleshooting
+
+### CUAN_INSIGHT_CONNECTION_KEY is required
+
+```
+Error: CUAN_INSIGHT_CONNECTION_KEY is required when CUAN_INSIGHT_AUTH_MODE=connection_key
+```
+
+Pastikan `CUAN_INSIGHT_CONNECTION_KEY` di-set jika menggunakan `connection_key` mode.
+
+### Cuan Insight returned status 404
+
+```
+"code": "INTERNAL_ERROR",
+"message": "Cuan Insight returned status 404"
+```
+
+Penyebab umum:
+- Endpoint `mcp-resolve-credential` belum di-deploy
+- `CUAN_INSIGHT_API_BASE_URL` atau `CUAN_INSIGHT_CREDENTIAL_RESOLVE_PATH` salah
+- Route belum terdaftar di Cuan Insight Edge Function
+
+### Revoked key
+
+Jika key di-revoke dari UI Cuan Insight, MCP call berikutnya akan gagal dengan:
+- `PROVIDER_TOKEN_REVOKED` atau `AUTHENTICATION_REQUIRED`
+- Tidak akan fallback ke credential lain
+- Error message aman (redacted)
+
+### Header x-cuan-mcp-connection-key belum diterima backend
+
+Pastikan Cuan Insight backend menerima dan memvalidasi header `x-cuan-mcp-connection-key`.
+
+---
+
+## F. AI Client Compatibility
 
 This MCP server is designed to work with any MCP-compatible AI client:
 
@@ -127,35 +166,49 @@ Each client uses the same MCP protocol. The transport mode (stdio/SSE/Streamable
 
 ---
 
-## F. What Must Not Change
+## G. Security Rules
 
-- **Do not store provider tokens in MCP server** — they belong in Cuan Insight
-- **Do not expose providerToken to AI client** — internal only
-- **Do not log Authorization headers or request bodies**
-- **Do not change tool business logic unnecessarily** — unless connection-key compatibility requires it
-- **Keep stdio as default transport**
-- **Preserve SSE and Streamable HTTP support**
-- **Keep npm audit at 0 vulnerabilities**
+- Never print raw connection key
+- Never print providerToken
+- Never print key_hash
+- Never print Authorization header
+- Never commit `.env`
+- Use `.env.local` or shell export for real key
+- Run `gitleaks detect --source . --redact` if available
+- Connection key redaction covers: `x-cuan-mcp-connection-key`, `connectionKey`, `connection_key`, `connection-key`
 
 ---
 
-## G. Future Work
+## H. What Must Not Change
 
-- Connection-key auth adapter for MCP server
+- **Do not store provider tokens in MCP server** — they belong in Cuan Insight
+- **Do not expose providerToken to AI client** — internal only
+- **Do not log Authorization headers, connection keys, or request bodies**
+- **Do not change tool business logic unnecessarily**
+- **Keep stdio as default transport**
+- **Preserve SSE and Streamable HTTP support**
+- **Keep npm audit at 0 vulnerabilities**
+- **Preserve backward compatibility** — Connection Keys are additive, not replacement
+
+---
+
+## I. Future Work
+
+- Full live smoke test with real Cuan Insight Connection Key
 - OAuth-compatible connector support if needed (wait for partner demand)
 - Setup docs per AI client (see cuan-insight roadmap Phase 4)
 - Live connector testing with real AI clients (Claude, Codex, Cursor, n8n)
 
 ---
 
-## H. Agent Instructions
+## J. Agent Instructions
 
 - Treat **Cuan Insight** as credential control plane
 - Treat **this repo** as MCP execution layer
 - Keep docs and code **client-agnostic**
 - **Do not design features solely around Claude**
 - **Do not implement Cuan Insight UI** in this repo
-- **Do not log providerToken** or auth headers
+- **Do not log providerToken**, connection keys, or auth headers
 - **Preserve backward compatibility** — Connection Keys are additive, not replacement
 - Read `docs/CUAN_INSIGHT_CONNECTION_KEY_COMPATIBILITY.md` before any auth-related work
 

@@ -2,16 +2,15 @@
 
 > **Updated:** 2026-06-03  
 > **Version:** v0.3.0  
-> **Last Phase:** Phase 16e — Final Phase 16 Release Summary
+> **Last Phase:** Phase 17.5E — Docs & Release Readiness
 
-### Phase 16 Across Sub-phases
+### Phase 17.5 Across Sub-phases
 | Phase | Summary | Key Changes | Status |
 |---|---|---|---|
-| **Phase 16** | Remote MCP HTTP evaluation | Evaluated SDK v1.29 Streamable HTTP feasibility | ✅ Done |
-| **Phase 16a** | SSE remote transport | Implemented `MCP_TRANSPORT=sse` on existing SDK | ✅ Done |
-| **Phase 16b** | SDK upgrade + Streamable HTTP | Upgraded @modelcontextprotocol/sdk to ^1.29.0, zod to ^3.25.76, added `MCP_TRANSPORT=streamable-http` | ✅ Done |
-| **Phase 16c** | McpServer migration | Replaced deprecated direct `Server` request handlers with `McpServer.registerTool(...)` | ✅ Done |
-| **Phase 16d** | Dependency audit remediation | Upgraded vitest to ^4.1.8 → 0 npm audit vulnerabilities | ✅ Done |
+| **Phase 17.5B** | Audit credential resolver | Confirmed zero Connection Key support in codebase | ✅ Done |
+| **Phase 17.5C** | Connection Key compatibility layer | `CUAN_INSIGHT_AUTH_MODE`, `CUAN_INSIGHT_CONNECTION_KEY`, `x-cuan-mcp-connection-key` header, 21 new tests | ✅ Done (PR #21) |
+| **Phase 17.5D** | Cold smoke validation | tools/list (13 tools), ads_list_accounts via stdio, security redaction verified | ✅ Done |
+| **Phase 17.5E** | Docs & release readiness | Update README.md, CUAN_INSIGHT_CONNECTION_KEY_COMPATIBILITY.md, PROJECT_STATUS.md, REMOTE_MCP_HTTP.md | ✅ Done |
 
 ---
 
@@ -25,6 +24,7 @@
 - **meta-ads-agent-skill** is the MCP server. It does **not** store Meta tokens — credentials are resolved from Cuan Insight at runtime.
 - The server supports **multi-user** and **multi-workspace** usage through remote credential resolution.
 - All tools are **read-only**. Write operations (pause, budget, create) are not implemented.
+- **Connection Key support** (Phase 17.5C): MCP server sends `x-cuan-mcp-connection-key` header when `CUAN_INSIGHT_AUTH_MODE=connection_key`.
 
 ---
 
@@ -54,6 +54,13 @@ MCP Client (Claude Desktop, Cline, etc.)
   │
   └─ [Streamable HTTP] ──► meta-ads-agent-skill (MCP Server via Streamable HTTP, Phase 16b)
 ```
+
+### Auth Modes (Phase 17.5C)
+
+| Auth Mode | Env | Header | Use Case |
+|---|---|---|---|
+| `mcp_token` (default) | `CUAN_INSIGHT_MCP_TOKEN` | `Authorization: Bearer` or `X-Cuan-MCP-Token` | Developer self-host, legacy |
+| `connection_key` | `CUAN_INSIGHT_CONNECTION_KEY` | `x-cuan-mcp-connection-key` | Cuan Insight UI AI/MCP Connector |
 
 MCP tools are registered through the high-level `McpServer.registerTool(...)` API as of Phase 16c. Transports still connect through the same stdio, SSE, and Streamable HTTP entrypoints.
 
@@ -116,54 +123,38 @@ Return normalized performance data
 | **Phase 16b** | **MCP SDK upgraded to v1.29.0 + Streamable HTTP implemented** — stdio default and SSE preserved |
 | **Phase 16c** | **MCP server migrated to `McpServer` API** — deprecated direct `Server` request handlers removed, 13-tool surface preserved |
 | **Phase 16d** | **Dependency audit remediated** — `vitest` upgraded to 4.1.8, audit reduced from 4 vulnerabilities to 0 |
+| **Phase 17.5B** | **Audit credential resolver** — confirmed zero Connection Key support in codebase |
+| **Phase 17.5C** | **Connection Key compatibility layer** — `CUAN_INSIGHT_AUTH_MODE`, `CUAN_INSIGHT_CONNECTION_KEY`, `x-cuan-mcp-connection-key` header, 21 new tests, PR #21 merged |
+| **Phase 17.5D** | **Cold smoke validation** — tools/list (13 tools), ads_list_accounts via stdio, security redaction verified |
+| **Phase 17.5E** | **Docs & release readiness** — README, CUAN_INSIGHT_CONNECTION_KEY_COMPATIBILITY, PROJECT_STATUS, REMOTE_MCP_HTTP updated |
 
 ---
 
 ## D. Completed PRs
 
-| Repo | PR | Title | Merge Commit | Summary |
-|---|---|---|---|---|
-| cuan-insight | [#52](https://github.com/ramadhanidiwanda-alt/cuan-insight/pull/52) | feat(mcp): support provider-level credential resolution | `33c1c89` | Adds provider-level discovery mode to `mcp-resolve-credential` edge function and `resolve_mcp_credential` RPC |
-| meta-ads-agent-skill | [#16](https://github.com/ramadhanidiwanda-alt/meta-ads-agent-skill/pull/16) | fix(meta): use provider-level credential resolution for account discovery | `064a487` | Updates `ads_list_accounts` to resolve credentials without accountId; accepts discovery response; maps `null` accountId correctly |
-| meta-ads-agent-skill | [#17](https://github.com/ramadhanidiwanda-alt/meta-ads-agent-skill/pull/17) | feat(mcp): add SSE remote transport | `52b4b58` | Adds `MCP_TRANSPORT=sse` support, auth gate, docs update |
-| meta-ads-agent-skill | TBD | chore(mcp): upgrade SDK for Streamable HTTP support | TBD | Upgrades MCP SDK to v1.29.0, adds `MCP_TRANSPORT=streamable-http`, preserves stdio and SSE |
-| meta-ads-agent-skill | TBD | refactor(mcp): migrate server implementation to McpServer | TBD | Replaces deprecated direct `Server` request-handler registration with `McpServer.registerTool(...)`; preserves stdio, SSE, Streamable HTTP, credential resolver behavior, and tool business logic |
-| meta-ads-agent-skill | TBD | chore(security): remediate npm audit vulnerabilities | TBD | Upgrades direct dev dependency `vitest` to 4.1.8; remediates transitive `vite`, `vite-node`, and `esbuild` audit findings |
-| meta-ads-agent-skill | [#20](https://github.com/ramadhanidiwanda-alt/meta-ads-agent-skill/pull/20) | chore(security): remediate npm audit vulnerabilities | `d5d2f96` | Upgrades `vitest` to 4.1.8, remediates 4 audit findings to 0 |
-| meta-ads-agent-skill | [#19](https://github.com/ramadhanidiwanda-alt/meta-ads-agent-skill/pull/19) | refactor(mcp): migrate server implementation to McpServer | `144b746` | Replaces deprecated `Server` request handlers with `McpServer.registerTool(...)`, preserves 13-tool surface |
+| PR | Title | Merge Commit | Summary |
+|---|---|---|---|
+| #21 | docs(mcp): document Cuan Insight connection key auth mode | `fed1321` | Connection Key compatibility layer + 21 tests + docs |
 
 ---
 
-## E. Final Validation
+## E. Transport Matrix
 
-All validations were performed after Phase 15.4 deploy on a live staging environment, plus Phase 16a/16b/16c/16d local validation.
-
-| Check | Result |
-|---|---|
-| `tools/list` | ✅ 13 tools returned (6 `ads_*` + 7 `meta_*`) |
-| `ads_list_accounts` | ✅ OK — resolved via provider-level credential, returned 25 ad accounts |
-| `ads_get_campaign_performance` | ✅ OK — 2 campaigns (account-scoped) |
-| `ads_get_adset_or_adgroup_performance` | ✅ OK — 6 adsets |
-| `ads_get_ad_performance` | ✅ OK — 9 ads |
-| Unit tests | ✅ 218/218 passed (Phase 16d, `vitest` 4.1.8) |
-| TypeScript typecheck | ✅ Passed |
-| Build | ✅ Passed |
-| MCP server package typecheck | ✅ Passed |
-| MCP server package build | ✅ Passed |
-| Dependency audit | ✅ 0 vulnerabilities after Phase 16d (`npm audit`) |
-| Docker build | ✅ `docker build -f Dockerfile.mcp -t meta-ads-agent-skill:mcp-phase16d-audit .` |
-
-### Transport Matrix
 | Transport | Status | Env | Notes |
 |---|---|---|---|
 | stdio | default | (none) | Safest local/client mode; legacy `meta_*` tools available |
 | SSE | supported | `MCP_TRANSPORT=sse` | Remote option; Bearer auth required via `MCP_HTTP_BEARER_TOKEN` |
 | Streamable HTTP | supported | `MCP_TRANSPORT=streamable-http` | Official remote HTTP transport via SDK v1.29; Bearer auth required |
+
+Test results:
+| Test | Result |
+|---|---|
 | Stdio smoke test | ✅ `tools/list` returned 13 tools with expected names |
 | SSE auth gate | ✅ 401 for missing/invalid token, 200 with valid token |
 | SSE POST /mcp (no sessionId) | ✅ 501 (SSE still requires `sessionId`) |
 | Streamable HTTP `/health` | ✅ 200 with `MCP_TRANSPORT=streamable-http` |
 | Streamable HTTP `GET /mcp` | ✅ 501 for new session (POST required) |
+| Connection Key cold smoke | ✅ tools/list (13 tools), ads_list_accounts, safe errors |
 
 ---
 
@@ -171,14 +162,15 @@ All validations were performed after Phase 15.4 deploy on a live staging environ
 
 - **MCP server does not persist Meta tokens.** Credentials are resolved at runtime and discarded after the request completes.
 - **providerToken** is used only internally for provider API calls and is never exposed in MCP responses.
-- **Raw tokens** (Meta access tokens, providerToken, MCP tokens) must never be logged.
+- **Raw tokens** (Meta access tokens, providerToken, MCP tokens, connection keys) must never be logged.
 - **No secrets** should appear in test output, stderr, logs, or MCP responses.
-- Use environment variables or placeholders (`<CUAN_INSIGHT_SUPABASE_URL>`, `<CUAN_INSIGHT_MCP_TOKEN>`) for all setup instructions.
+- Use environment variables or placeholders (`<CUAN_INSIGHT_CONNECTION_KEY>`, `<CUAN_INSIGHT_MCP_TOKEN>`) for all setup instructions.
 - All credential errors are redacted through `redactErrorMessage` and `redactTokenLikeValues` utilities before surfacing.
 - **SSE auth**: `MCP_HTTP_BEARER_TOKEN` gates all SSE endpoints. Missing/invalid tokens return 401.
 - **Streamable HTTP auth**: `MCP_HTTP_BEARER_TOKEN` gates Streamable HTTP endpoints. Missing/invalid tokens return 401.
 - **Authorization header** must never be logged by the SSE or Streamable HTTP transport.
-- **Dependency audit**: Phase 16d upgraded `vitest` from `^1.6.0` to `^4.1.8`, removing 4 dev-tooling vulnerabilities from `vitest`, `vite`, `vite-node`, and `esbuild`.
+- **Connection key redaction** covers: `x-cuan-mcp-connection-key`, `connectionKey`, `connection_key`, `connection-key` (Phase 17.5C).
+- **Dependency audit**: 0 vulnerabilities.
 
 ---
 
@@ -193,11 +185,17 @@ The MCP SDK is upgraded to `^1.29.0`, Streamable HTTP is implemented, and Phase 
 - Direct project usage of deprecated `Server.setRequestHandler(ListToolsRequestSchema/CallToolRequestSchema)` has been removed.
 - `McpServer` internally wraps SDK server primitives; this is expected and not project-level deprecated API usage.
 
+### Connection Key — Full Live Test Pending
+
+- Connection Key compatibility layer is merged (Phase 17.5C, PR #21).
+- Cold smoke test passed via stdio MCP server.
+- **Full live smoke test requires a real Connection Key from Cuan Insight UI.**
+- Live revoke test not yet performed.
+
 ### TikTok Provider Support
 
 - TikTok adapter is registered but returns `NOT_IMPLEMENTED` for all performance tools.
 - Provider-level credential resolution for TikTok returns `PROVIDER_NOT_READY`.
-- Full TikTok support requires additional development.
 
 ### Write Operations
 
@@ -205,36 +203,10 @@ All tools are read-only. Write operations (pause/resume campaigns, update budget
 
 ---
 
-## H. Next Steps (Optional)
+## H. Next Steps
 
-1. ✅ **Phase 16a: Implement SSE remote transport** — Done.
-2. ✅ **Phase 16b: Upgrade MCP SDK + implement Streamable HTTP** — Done.
-3. ✅ **Phase 16c: Migrate** from deprecated direct `Server` handlers to `McpServer` API — Done.
-4. ⏳ **Prepare open-source release** notes and contribution guidelines.
-5. ⏳ **Add CI live test** only if safe backend test environment is available.
-6. ⏳ **Add example MCP client config** with placeholders for `claude_desktop_config.json`.
-7. ✅ **Phase 16d: Dependency audit remediation** — Done.
-8. ✅ **Phase 16e: Final Phase 16 release summary** — Done.
-- **Dependency audit**: Phase 16d upgraded `vitest` from `^1.6.0` to `^4.1.8`, removing 4 dev-tooling vulnerabilities from `vitest`, `vite`, `vite-node`, and `esbuild`.
-
-### Phase 16 Security Notes
-- Raw token (`META_ACCESS_TOKEN`, `providerToken`) must never be logged.
-- `Authorization` headers must not be logged by the SSE or Streamable HTTP transport.
-- Request bodies should not be logged in remote mode.
-- Use placeholders in docs: `<MCP_HTTP_BEARER_TOKEN>`, `<CUAN_INSIGHT_MCP_TOKEN>`, `<HOST>`, `<PORT>`.
-- Remote transports must use Bearer auth (`MCP_HTTP_BEARER_TOKEN`).
-- Public exposure should use HTTPS + reverse proxy or Cloudflare Tunnel.
-- Cuan Insight was not changed during Phase 16 — credential resolver remains unchanged.
-
-### Phase 16 Not Done / Pending
-- Public production deployment for Remote MCP transports has not been performed yet.
-- Live backend credential test for remote transport is still optional/pending (no safe credentials provided).
-- App version was not bumped (stays at v0.3.0).
-- No tag/release was created.
-
-### Recommended Next Steps
-1. ⏳ Controlled production deploy of remote MCP transport if needed.
-2. ⏳ Live remote MCP client test with safe backend credentials.
-3. ⏳ Optional release tag only after deploy strategy is clear.
-4. ⏳ Optional CI job for transport smoke tests.
-5. ⏳ Continue periodic `npm audit` monitoring.
+1. ⏳ **Full live smoke test** with real Cuan Insight Connection Key (create → resolve → revoke → verify fail)
+2. ⏳ **Prepare open-source release** notes and contribution guidelines.
+3. ⏳ **Add CI live test** only if safe backend test environment is available.
+4. ⏳ **Add example MCP client config** with placeholders for `claude_desktop_config.json`.
+5. ⏳ **Continue periodic `npm audit` monitoring** (currently 0).
