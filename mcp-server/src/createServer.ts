@@ -1,8 +1,5 @@
-import { Server } from '@modelcontextprotocol/sdk/server/index.js';
-import {
-  CallToolRequestSchema,
-  ListToolsRequestSchema,
-} from '@modelcontextprotocol/sdk/types.js';
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { z } from 'zod';
 import {
   MetaClient,
   loadConfig,
@@ -30,10 +27,60 @@ export interface CreateMetaAdsMcpServerOptions {
   adsBroker?: ReturnType<typeof createDefaultAdsBroker>;
 }
 
+type ToolArguments = {
+  provider?: string;
+  providers?: string[];
+  accountId?: string;
+  params?: Record<string, unknown>;
+  adAccountId?: string;
+  since?: string;
+  until?: string;
+  status?: string[];
+  limit?: number;
+  category?: string;
+};
+
+const adsBaseInputSchema = {
+  provider: z
+    .enum(['meta', 'tiktok'])
+    .optional()
+    .describe('Ads provider. Defaults to meta when omitted.'),
+  providers: z
+    .array(z.enum(['meta', 'tiktok']))
+    .optional()
+    .describe('Future multi-provider reporting input. Multiple providers return NOT_IMPLEMENTED for now.'),
+  accountId: z
+    .string()
+    .optional()
+    .describe('Provider account id. Optional when credentials include a default account.'),
+  since: z.string().optional().describe('Start date in YYYY-MM-DD format.'),
+  until: z.string().optional().describe('End date in YYYY-MM-DD format.'),
+  params: z
+    .record(z.unknown())
+    .optional()
+    .describe('Optional provider-safe parameters such as limit.'),
+};
+
+const sinceUntilInputSchema = {
+  ...adsBaseInputSchema,
+  since: z.string().describe('Start date in YYYY-MM-DD format.'),
+  until: z.string().describe('End date in YYYY-MM-DD format.'),
+};
+
+const legacyAdAccountId = z
+  .string()
+  .describe('Ad account ID (e.g., act_123456789)');
+
+const legacyDateRangeInputSchema = {
+  adAccountId: legacyAdAccountId,
+  since: z.string().describe('Start date in YYYY-MM-DD format'),
+  until: z.string().describe('End date in YYYY-MM-DD format'),
+};
+
 export function createMetaAdsMcpServer(
   options: CreateMetaAdsMcpServerOptions = {}
-): Server {
-  const server = new Server(
+): McpServer {
+  const server = new McpServer(
     {
       name: 'meta-ads-mcp-server',
       version: '0.1.0',
@@ -56,305 +103,200 @@ export function createMetaAdsMcpServer(
 
   const adsBroker = options.adsBroker ?? createAdsBrokerFromConfig(brokerConfig);
 
-  server.setRequestHandler(ListToolsRequestSchema, async () => {
-    return {
-      tools: [
-        ...ADS_MCP_TOOL_DEFINITIONS,
-        {
-          name: 'meta_get_ad_accounts',
-          description: 'Fetch all Meta ad accounts accessible by the access token',
-          inputSchema: {
-            type: 'object',
-            properties: {},
-          },
-        },
-        {
-          name: 'meta_get_campaigns',
-          description: 'Fetch campaigns from a Meta ad account with optional filters',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              adAccountId: {
-                type: 'string',
-                description: 'Ad account ID (e.g., act_123456789)',
-              },
-              limit: {
-                type: 'number',
-                description: 'Maximum number of campaigns to fetch (default: 50)',
-              },
-              status: {
-                type: 'array',
-                items: { type: 'string' },
-                description: 'Filter by campaign status (e.g., ["ACTIVE", "PAUSED"])',
-              },
-            },
-            required: ['adAccountId'],
-          },
-        },
-        {
-          name: 'meta_get_campaign_insights',
-          description: 'Fetch campaign-level performance insights for a date range',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              adAccountId: {
-                type: 'string',
-                description: 'Ad account ID (e.g., act_123456789)',
-              },
-              since: {
-                type: 'string',
-                description: 'Start date in YYYY-MM-DD format',
-              },
-              until: {
-                type: 'string',
-                description: 'End date in YYYY-MM-DD format',
-              },
-            },
-            required: ['adAccountId', 'since', 'until'],
-          },
-        },
-        {
-          name: 'meta_get_adset_insights',
-          description: 'Fetch adset-level performance insights for a date range',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              adAccountId: {
-                type: 'string',
-                description: 'Ad account ID (e.g., act_123456789)',
-              },
-              since: {
-                type: 'string',
-                description: 'Start date in YYYY-MM-DD format',
-              },
-              until: {
-                type: 'string',
-                description: 'End date in YYYY-MM-DD format',
-              },
-            },
-            required: ['adAccountId', 'since', 'until'],
-          },
-        },
-        {
-          name: 'meta_get_ads_insights',
-          description: 'Fetch ad-level performance insights for a date range',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              adAccountId: {
-                type: 'string',
-                description: 'Ad account ID (e.g., act_123456789)',
-              },
-              since: {
-                type: 'string',
-                description: 'Start date in YYYY-MM-DD format',
-              },
-              until: {
-                type: 'string',
-                description: 'End date in YYYY-MM-DD format',
-              },
-            },
-            required: ['adAccountId', 'since', 'until'],
-          },
-        },
-        {
-          name: 'meta_generate_daily_report',
-          description: 'Generate comprehensive daily performance report with analysis',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              adAccountId: {
-                type: 'string',
-                description: 'Ad account ID (e.g., act_123456789)',
-              },
-              since: {
-                type: 'string',
-                description: 'Start date in YYYY-MM-DD format',
-              },
-              until: {
-                type: 'string',
-                description: 'End date in YYYY-MM-DD format',
-              },
-            },
-            required: ['adAccountId', 'since', 'until'],
-          },
-        },
-        {
-          name: 'meta_analyze_with_rules',
-          description: 'Analyze campaign insights using 26 pre-built rule templates',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              adAccountId: {
-                type: 'string',
-                description: 'Ad account ID (e.g., act_123456789)',
-              },
-              since: {
-                type: 'string',
-                description: 'Start date in YYYY-MM-DD format',
-              },
-              until: {
-                type: 'string',
-                description: 'End date in YYYY-MM-DD format',
-              },
-              category: {
-                type: 'string',
-                enum: ['ecommerce', 'leadgen', 'brand', 'general', 'all'],
-                description: 'Rule category to apply (default: all)',
-              },
-            },
-            required: ['adAccountId', 'since', 'until'],
-          },
-        },
-      ],
-    };
-  });
+  for (const toolDefinition of ADS_MCP_TOOL_DEFINITIONS) {
+    server.registerTool(
+      toolDefinition.name,
+      {
+        description: toolDefinition.description,
+        inputSchema: toolDefinition.inputSchema.required.includes('since')
+          ? sinceUntilInputSchema
+          : adsBaseInputSchema,
+      },
+      async (args: Record<string, unknown>) => handleAdsMcpToolCall(adsBroker, toolDefinition.name, args ?? {})
+    );
+  }
 
-  server.setRequestHandler(CallToolRequestSchema, async (request) => {
-    const { name, arguments: rawArgs } = request.params;
-    const args = (rawArgs ?? {}) as {
-      adAccountId?: string;
-      since?: string;
-      until?: string;
-      status?: string;
-      limit?: number;
-      category?: string;
-    };
+  server.registerTool(
+    'meta_get_ad_accounts',
+    {
+      description: 'Fetch all Meta ad accounts accessible by the access token',
+      inputSchema: {},
+    },
+    async () => handleLegacyMetaToolCall('meta_get_ad_accounts', {}, { isRemoteBrokerMode, client, config })
+  );
 
-    try {
-      if (isAdsMcpToolName(name)) {
-        return await handleAdsMcpToolCall(adsBroker, name, args ?? {});
-      }
+  server.registerTool(
+    'meta_get_campaigns',
+    {
+      description: 'Fetch campaigns from a Meta ad account with optional filters',
+      inputSchema: {
+        adAccountId: legacyAdAccountId,
+        limit: z.number().optional().describe('Maximum number of campaigns to fetch (default: 50)'),
+        status: z
+          .array(z.string())
+          .optional()
+          .describe('Filter by campaign status (e.g., ["ACTIVE", "PAUSED"])'),
+      },
+    },
+    async (args: ToolArguments) => handleLegacyMetaToolCall('meta_get_campaigns', args, { isRemoteBrokerMode, client, config })
+  );
 
-      if (isRemoteBrokerMode) {
-        return legacyMetaToolUnavailableInRemoteMode();
-      }
+  server.registerTool(
+    'meta_get_campaign_insights',
+    {
+      description: 'Fetch campaign-level performance insights for a date range',
+      inputSchema: legacyDateRangeInputSchema,
+    },
+    async (args: ToolArguments) => handleLegacyMetaToolCall('meta_get_campaign_insights', args, { isRemoteBrokerMode, client, config })
+  );
 
-      if (!client || !config) {
-        throw new Error('Legacy meta_* tools require local META_* env');
-      }
+  server.registerTool(
+    'meta_get_adset_insights',
+    {
+      description: 'Fetch adset-level performance insights for a date range',
+      inputSchema: legacyDateRangeInputSchema,
+    },
+    async (args: ToolArguments) => handleLegacyMetaToolCall('meta_get_adset_insights', args, { isRemoteBrokerMode, client, config })
+  );
 
-      switch (name) {
-        case 'meta_get_ad_accounts': {
-          const accounts = await getAdAccounts(client);
-          return {
-            content: [
-              {
-                type: 'text',
-                text: JSON.stringify(accounts, null, 2),
-              },
-            ],
-          };
-        }
+  server.registerTool(
+    'meta_get_ads_insights',
+    {
+      description: 'Fetch ad-level performance insights for a date range',
+      inputSchema: legacyDateRangeInputSchema,
+    },
+    async (args: ToolArguments) => handleLegacyMetaToolCall('meta_get_ads_insights', args, { isRemoteBrokerMode, client, config })
+  );
 
-        case 'meta_get_campaigns': {
-          const campaigns = await getCampaigns(client, {
-            adAccountId: (args.adAccountId || config.adAccountId) as string,
-            limit: args.limit,
-          });
-          return {
-            content: [
-              {
-                type: 'text',
-                text: JSON.stringify(campaigns, null, 2),
-              },
-            ],
-          };
-        }
+  server.registerTool(
+    'meta_generate_daily_report',
+    {
+      description: 'Generate comprehensive daily performance report with analysis',
+      inputSchema: legacyDateRangeInputSchema,
+    },
+    async (args: ToolArguments) => handleLegacyMetaToolCall('meta_generate_daily_report', args, { isRemoteBrokerMode, client, config })
+  );
 
-        case 'meta_get_campaign_insights': {
-          const insights = await getCampaignInsights(client, {
-            adAccountId: (args.adAccountId || config.adAccountId) as string,
-            since: args.since as string,
-            until: args.until as string,
-          });
-          return {
-            content: [
-              {
-                type: 'text',
-                text: JSON.stringify(insights, null, 2),
-              },
-            ],
-          };
-        }
-
-        case 'meta_get_adset_insights': {
-          const insights = await getAdsetInsights(client, {
-            adAccountId: (args.adAccountId || config.adAccountId) as string,
-            since: args.since as string,
-            until: args.until as string,
-          });
-          return {
-            content: [
-              {
-                type: 'text',
-                text: JSON.stringify(insights, null, 2),
-              },
-            ],
-          };
-        }
-
-        case 'meta_get_ads_insights': {
-          const insights = await getAdsInsights(client, {
-            adAccountId: (args.adAccountId || config.adAccountId) as string,
-            since: args.since as string,
-            until: args.until as string,
-          });
-          return {
-            content: [
-              {
-                type: 'text',
-                text: JSON.stringify(insights, null, 2),
-              },
-            ],
-          };
-        }
-
-        case 'meta_generate_daily_report': {
-          const report = await generateDailyReport(client, {
-            adAccountId: (args.adAccountId || config.adAccountId) as string,
-            since: args.since as string,
-            until: args.until as string,
-          });
-          return {
-            content: [
-              {
-                type: 'text',
-                text: JSON.stringify(report, null, 2),
-              },
-            ],
-          };
-        }
-
-        case 'meta_analyze_with_rules': {
-          const insights = await getCampaignInsights(client, {
-            adAccountId: (args.adAccountId || config.adAccountId) as string,
-            since: args.since as string,
-            until: args.until as string,
-          });
-
-          const engine = new RuleEngine();
-          const results = engine.applyRulesToInsights(insights, allRuleTemplates);
-
-          return {
-            content: [
-              {
-                type: 'text',
-                text: JSON.stringify(results, null, 2),
-              },
-            ],
-          };
-        }
-
-        default:
-          throw new Error(`Unknown tool: ${name}`);
-      }
-    } catch (error) {
-      return safeAdsMcpError(error);
-    }
-  });
+  server.registerTool(
+    'meta_analyze_with_rules',
+    {
+      description: 'Analyze campaign insights using 26 pre-built rule templates',
+      inputSchema: {
+        ...legacyDateRangeInputSchema,
+        category: z
+          .enum(['ecommerce', 'leadgen', 'brand', 'general', 'all'])
+          .optional()
+          .describe('Rule category to apply (default: all)'),
+      },
+    },
+    async (args: ToolArguments) => handleLegacyMetaToolCall('meta_analyze_with_rules', args, { isRemoteBrokerMode, client, config })
+  );
 
   return server;
+}
+
+async function handleLegacyMetaToolCall(
+  name: string,
+  args: ToolArguments,
+  context: {
+    isRemoteBrokerMode: boolean;
+    client?: MetaClient;
+    config?: MetaConfig;
+  }
+) {
+  try {
+    if (isAdsMcpToolName(name)) {
+      throw new Error(`Unexpected ads tool in legacy handler: ${name}`);
+    }
+
+    if (context.isRemoteBrokerMode) {
+      return legacyMetaToolUnavailableInRemoteMode();
+    }
+
+    if (!context.client || !context.config) {
+      throw new Error('Legacy meta_* tools require local META_* env');
+    }
+
+    switch (name) {
+      case 'meta_get_ad_accounts': {
+        const accounts = await getAdAccounts(context.client);
+        return asTextContent(accounts);
+      }
+
+      case 'meta_get_campaigns': {
+        const campaigns = await getCampaigns(context.client, {
+          adAccountId: (args.adAccountId || context.config.adAccountId) as string,
+          limit: args.limit,
+        });
+        return asTextContent(campaigns);
+      }
+
+      case 'meta_get_campaign_insights': {
+        const insights = await getCampaignInsights(context.client, {
+          adAccountId: (args.adAccountId || context.config.adAccountId) as string,
+          since: args.since as string,
+          until: args.until as string,
+        });
+        return asTextContent(insights);
+      }
+
+      case 'meta_get_adset_insights': {
+        const insights = await getAdsetInsights(context.client, {
+          adAccountId: (args.adAccountId || context.config.adAccountId) as string,
+          since: args.since as string,
+          until: args.until as string,
+        });
+        return asTextContent(insights);
+      }
+
+      case 'meta_get_ads_insights': {
+        const insights = await getAdsInsights(context.client, {
+          adAccountId: (args.adAccountId || context.config.adAccountId) as string,
+          since: args.since as string,
+          until: args.until as string,
+        });
+        return asTextContent(insights);
+      }
+
+      case 'meta_generate_daily_report': {
+        const report = await generateDailyReport(context.client, {
+          adAccountId: (args.adAccountId || context.config.adAccountId) as string,
+          since: args.since as string,
+          until: args.until as string,
+        });
+        return asTextContent(report);
+      }
+
+      case 'meta_analyze_with_rules': {
+        const insights = await getCampaignInsights(context.client, {
+          adAccountId: (args.adAccountId || context.config.adAccountId) as string,
+          since: args.since as string,
+          until: args.until as string,
+        });
+
+        const engine = new RuleEngine();
+        const results = engine.applyRulesToInsights(insights, allRuleTemplates);
+
+        return asTextContent(results);
+      }
+
+      default:
+        throw new Error(`Unknown tool: ${name}`);
+    }
+  } catch (error) {
+    return safeAdsMcpError(error);
+  }
+}
+
+function asTextContent(value: unknown) {
+  return {
+    content: [
+      {
+        type: 'text' as const,
+        text: JSON.stringify(value, null, 2),
+      },
+    ],
+  };
 }
 
 function legacyMetaToolUnavailableInRemoteMode() {
