@@ -1,8 +1,8 @@
 # Project Status — Meta Ads Agent Skill
 
 > **Updated:** 2026-06-03  
-> **Version:** v0.3.0  
-> **Last Phase:** Phase 17.5E — Docs & Release Readiness
+> **Version:** v0.4.0  
+> **Last Phase:** Phase 17.5G — Release Notes & Tag
 
 ### Phase 17.5 Across Sub-phases
 | Phase | Summary | Key Changes | Status |
@@ -10,6 +10,8 @@
 | **Phase 17.5B** | Audit credential resolver | Confirmed zero Connection Key support in codebase | ✅ Done |
 | **Phase 17.5C** | Connection Key compatibility layer | `CUAN_INSIGHT_AUTH_MODE`, `CUAN_INSIGHT_CONNECTION_KEY`, `x-cuan-mcp-connection-key` header, 21 new tests | ✅ Done (PR #21) |
 | **Phase 17.5D** | Cold smoke validation | tools/list (13 tools), ads_list_accounts via stdio, security redaction verified | ✅ Done |
+| **Phase 17.5F** | URL fix + live smoke test | Fixed `new URL()` stripping `/functions/v1`, live smoke 25 Meta accounts, revoke 401 verified | ✅ Done (PR #23) |
+| **Phase 17.5G** | Release notes & tag v0.4.0 | RELEASE_NOTES.md, version bump, tag | ✅ Done |
 | **Phase 17.5E** | Docs & release readiness | Update README.md, CUAN_INSIGHT_CONNECTION_KEY_COMPATIBILITY.md, PROJECT_STATUS.md, REMOTE_MCP_HTTP.md | ✅ Done |
 
 ---
@@ -126,6 +128,8 @@ Return normalized performance data
 | **Phase 17.5B** | **Audit credential resolver** — confirmed zero Connection Key support in codebase |
 | **Phase 17.5C** | **Connection Key compatibility layer** — `CUAN_INSIGHT_AUTH_MODE`, `CUAN_INSIGHT_CONNECTION_KEY`, `x-cuan-mcp-connection-key` header, 21 new tests, PR #21 merged |
 | **Phase 17.5D** | **Cold smoke validation** — tools/list (13 tools), ads_list_accounts via stdio, security redaction verified |
+| **Phase 17.5F** | URL fix + live smoke test | Fixed `new URL()` stripping `/functions/v1`, live smoke 25 Meta accounts, revoke 401 verified | ✅ Done (PR #23) |
+| **Phase 17.5G** | Release notes & tag v0.4.0 | RELEASE_NOTES.md, version bump, tag | ✅ Done |
 | **Phase 17.5E** | **Docs & release readiness** — README, CUAN_INSIGHT_CONNECTION_KEY_COMPATIBILITY, PROJECT_STATUS, REMOTE_MCP_HTTP updated |
 
 ---
@@ -185,12 +189,11 @@ The MCP SDK is upgraded to `^1.29.0`, Streamable HTTP is implemented, and Phase 
 - Direct project usage of deprecated `Server.setRequestHandler(ListToolsRequestSchema/CallToolRequestSchema)` has been removed.
 - `McpServer` internally wraps SDK server primitives; this is expected and not project-level deprecated API usage.
 
-### Connection Key — Full Live Test Pending
+### Connection Key
 
-- Connection Key compatibility layer is merged (Phase 17.5C, PR #21).
-- Cold smoke test passed via stdio MCP server.
-- **Full live smoke test requires a real Connection Key from Cuan Insight UI.**
-- Live revoke test not yet performed.
+- Connection Key compatibility layer merged (Phase 17.5C, PR #21).
+- **Live production verified:** 25 Meta ad accounts returned via Connection Key, revoked key rejected 401 (Phase 17.5F, PR #23).
+- Account-scoped tools require account connection in Cuan Insight UI (`ACCOUNT_NOT_CONNECTED`).
 
 ### TikTok Provider Support
 
@@ -205,8 +208,8 @@ All tools are read-only. Write operations (pause/resume campaigns, update budget
 
 ## H. Next Steps
 
-1. ⏳ **Full live smoke test** with real Cuan Insight Connection Key (create → resolve → revoke → verify fail)
-2. ⏳ **Prepare open-source release** notes and contribution guidelines.
+1. ✅ **Full live smoke test** with real Cuan Insight Connection Key — done (Phase 17.5F, PR #23).
+2. ✅ **Release notes** created (`RELEASE_NOTES.md`, v0.4.0).
 3. ⏳ **Add CI live test** only if safe backend test environment is available.
 4. ⏳ **Add example MCP client config** with placeholders for `claude_desktop_config.json`.
 5. ⏳ **Continue periodic `npm audit` monitoring** (currently 0).
