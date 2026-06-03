@@ -13,6 +13,8 @@ export interface AuthorizationCodeRecord {
   codeChallenge: string;
   codeChallengeMethod: 'S256';
   scope: string;
+  /** Optional resource parameter from MCP spec */
+  resource?: string;
   expiresAt: number; // Unix timestamp ms
   used: boolean;
 }
@@ -25,6 +27,17 @@ export interface AccessTokenRecord {
   scope: string;
   expiresAt: number; // Unix timestamp ms
   clientId: string;
+}
+
+export interface RegisteredClient {
+  clientId: string;
+  redirectUris: string[];
+  clientName?: string;
+  grantTypes: string[];
+  responseTypes: string[];
+  tokenEndpointAuthMethod: string;
+  scope: string;
+  issuedAt: number;
 }
 
 export interface OAuthStoreConfig {
@@ -70,6 +83,7 @@ function base64UrlDecode(input: string): string {
 export class OAuthStore {
   private authCodes = new Map<string, AuthorizationCodeRecord>();
   private accessTokens = new Map<string, AccessTokenRecord>();
+  private registeredClients = new Map<string, RegisteredClient>();
   private authCodeTtlMs: number;
   private accessTokenTtlMs: number;
 
@@ -91,6 +105,7 @@ export class OAuthStore {
     codeChallenge: string;
     codeChallengeMethod: string;
     scope: string;
+    resource?: string;
   }): { code: string } {
     const code = randomToken();
     const codeHash = sha256Hex(code);
@@ -107,6 +122,7 @@ export class OAuthStore {
       codeChallenge: params.codeChallenge,
       codeChallengeMethod: 'S256',
       scope: params.scope,
+      resource: params.resource,
       expiresAt: Date.now() + this.authCodeTtlMs,
       used: false,
     });
@@ -244,11 +260,59 @@ export class OAuthStore {
   /**
    * Get store stats (safe for logging — no secrets).
    */
+  // ── Dynamic Client Registration ──────────────────────────────────────
+
+  /**
+   * Register a new OAuth client via Dynamic Client Registration (RFC 7591).
+   * Returns the generated client_id (no client_secret for public PKCE clients).
+   */
+  registerClient(params: {
+    redirectUris: string[];
+    clientName?: string;
+    grantTypes?: string[];
+    responseTypes?: string[];
+    tokenEndpointAuthMethod?: string;
+    scope?: string;
+  }): { clientId: string; clientIdIssuedAt: number } {
+    const clientId = randomToken();
+    const now = Math.floor(Date.now() / 1000);
+
+    this.registeredClients.set(clientId, {
+      clientId,
+      redirectUris: params.redirectUris,
+      clientName: params.clientName,
+      grantTypes: params.grantTypes ?? ['authorization_code'],
+      responseTypes: params.responseTypes ?? ['code'],
+      tokenEndpointAuthMethod: params.tokenEndpointAuthMethod ?? 'none',
+      scope: params.scope ?? 'mcp read write',
+      issuedAt: now,
+    });
+
+    return { clientId, clientIdIssuedAt: now };
+  }
+
+  /**
+   * Get a registered client by client_id.
+   */
+  getRegisteredClient(clientId: string): RegisteredClient | undefined {
+    return this.registeredClients.get(clientId);
+  }
+
+  /**
+   * Check if a client_id is registered via DCR.
+   */
+  isClientRegistered(clientId: string): boolean {
+    return this.registeredClients.has(clientId);
+  }
+
+  // ── Cleanup ─────────────────────────────────────────────────────────
+
   getStats(): { activeAuthCodes: number; activeAccessTokens: number } {
     this.cleanupExpired();
     return {
       activeAuthCodes: this.authCodes.size,
       activeAccessTokens: this.accessTokens.size,
+      registeredClientCount: this.registeredClients.size,
     };
   }
 }

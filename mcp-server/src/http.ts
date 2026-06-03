@@ -113,9 +113,16 @@ function parseAllowedClientIds(raw?: string): string[] | undefined {
  * Check if a client_id is allowed based on allowlist config.
  * If allowlist is not configured, all clients are accepted.
  */
-function isClientIdAllowed(clientId: string, allowedIds?: string[]): boolean {
+function isClientIdAllowed(
+  clientId: string,
+  allowedIds?: string[],
+  store?: OAuthStore
+): boolean {
   if (!allowedIds || allowedIds.length === 0) return true;
-  return allowedIds.includes(clientId);
+  if (allowedIds.includes(clientId)) return true;
+  // Also check DCR-registered clients
+  if (store && store.isClientRegistered(clientId)) return true;
+  return false;
 }
 
 export function getHttpMcpMode(env: NodeJS.ProcessEnv = process.env): 'remote' | 'local' {
@@ -179,7 +186,7 @@ function sendNotImplemented(res: ServerResponse): void {
  * Supports three modes in order of precedence:
  * 1. OAuth Bearer token → resolves via OAuthStore to connection key
  * 2. x-cuan-mcp-connection-key header (manual client)
- * 3. Authorization: Bearer treated as direct connection key (alias, fallback)
+ * 3. Authorization: Bearer *** as direct connection key (alias, fallback)
  *
  * Does NOT read env fallback — that belongs in the credential resolver.
  */
@@ -230,7 +237,7 @@ function extractConnectionKey(
  * Checks:
  * 1. OAuth Bearer token (resolved via OAuthStore)
  * 2. x-cuan-mcp-connection-key header
- * 3. Authorization: Bearer <connection-key> alias
+ * 3. Authorization: Bearer *** alias
  */
 function buildRequestAuth(
   req: IncomingMessage,
@@ -291,6 +298,7 @@ function handleWellKnownAuthorizationServer(
     issuer,
     authorization_endpoint: `${issuer}/authorize`,
     token_endpoint: `${issuer}/token`,
+    registration_endpoint: `${issuer}/register`,
     response_types_supported: ['code'],
     grant_types_supported: ['authorization_code'],
     code_challenge_methods_supported: ['S256'],
@@ -342,10 +350,20 @@ async function handleGetAuthorize(
     return;
   }
 
-  // Validate client_id against allowlist (if configured)
-  if (!isClientIdAllowed(clientId!, allowedClientIds)) {
+  // Validate client_id against allowlist (if configured) including DCR
+  const store = getOAuthStore();
+  if (!isClientIdAllowed(clientId!, allowedClientIds, store)) {
     writeJson(res, 400, { error: 'invalid_client', error_description: 'Client ID tidak dikenal.' });
     return;
+  }
+
+  // For DCR-registered clients, validate redirect_uri matches one of the registered URIs
+  const registeredClient = store.getRegisteredClient(clientId!);
+  if (registeredClient) {
+    if (!registeredClient.redirectUris.includes(redirectUri!)) {
+      writeJson(res, 400, { error: 'invalid_request', error_description: 'redirect_uri not registered for this client.' });
+      return;
+    }
   }
 
   // Render form
@@ -398,10 +416,20 @@ async function handlePostAuthorize(
     return;
   }
 
-  // Validate client_id against allowlist (if configured)
-  if (!isClientIdAllowed(clientId!, allowedClientIds)) {
+  // Validate client_id against allowlist (if configured) including DCR
+  const store = getOAuthStore();
+  if (!isClientIdAllowed(clientId!, allowedClientIds, store)) {
     writeJson(res, 400, { error: 'invalid_client', error_description: 'Client ID tidak dikenal.' });
     return;
+  }
+
+  // For DCR-registered clients, validate redirect_uri matches one of the registered URIs
+  const registeredClient = store.getRegisteredClient(clientId!);
+  if (registeredClient) {
+    if (!registeredClient.redirectUris.includes(redirectUri!)) {
+      writeJson(res, 400, { error: 'invalid_request', error_description: 'redirect_uri not registered for this client.' });
+      return;
+    }
   }
 
   // Validate redirect_uri is a valid URL
@@ -434,7 +462,9 @@ async function handlePostAuthorize(
   }
 
   // Create authorization code
-  const store = getOAuthStore(env);
+  // (store already initialized above for client validation)
+  const resource = params.get('resource') || undefined;
+
   const { code } = store.createAuthorizationCode({
     connectionKey: connectionKey!,
     clientId: clientId!,
@@ -442,6 +472,7 @@ async function handlePostAuthorize(
     codeChallenge: codeChallenge!,
     codeChallengeMethod: codeChallengeMethod!,
     scope: scope!,
+    resource,
   });
 
   // Redirect back
@@ -482,14 +513,15 @@ async function handlePostToken(
     return;
   }
 
-  // Validate client_id against allowlist (if configured)
-  if (!isClientIdAllowed(clientId, allowedClientIds)) {
+  // Validate client_id against allowlist (if configured) including DCR
+  const store = getOAuthStore(env);
+  if (!isClientIdAllowed(clientId, allowedClientIds, store)) {
     writeJson(res, 400, { error: 'invalid_client', error_description: 'Client ID tidak dikenal.' });
     return;
   }
 
   // Redeem auth code
-  const store = getOAuthStore(env);
+  // (store already initialized above for client validation)
   const redeemed = store.redeemAuthorizationCode({
     code,
     codeVerifier,
@@ -514,6 +546,101 @@ async function handlePostToken(
     token_type: 'Bearer',
     expires_in: expiresIn,
     scope: redeemed.scope,
+  });
+}
+
+/**
+ * Handle Dynamic Client Registration (RFC 7591).
+ *
+ * Accepts JSON body from MCP clients (e.g. Claude) to auto-register
+ * without requiring manual OAuth Client ID entry.
+ *
+ * Logs safe metadata only (client_id prefix, redirect_uris count, client_name).
+ * Never logs raw registration body or sensitive fields.
+ */
+async function handlePostRegister(
+  req: IncomingMessage,
+  res: ServerResponse,
+  env: NodeJS.ProcessEnv
+): Promise<void> {
+  const body = await readBody(req);
+
+  let payload: Record<string, unknown>;
+  try {
+    payload = JSON.parse(body);
+  } catch {
+    writeJson(res, 400, { error: 'invalid_client_metadata', error_description: 'Request body must be valid JSON.' });
+    return;
+  }
+
+  // Validate redirect_uris
+  const redirectUris = payload.redirect_uris;
+  if (!Array.isArray(redirectUris) || redirectUris.length === 0) {
+    writeJson(res, 400, {
+      error: 'invalid_client_metadata',
+      error_description: 'redirect_uris is required and must be a non-empty array.',
+    });
+    return;
+  }
+
+  // Validate token_endpoint_auth_method
+  const tokenEndpointAuthMethod = (payload.token_endpoint_auth_method as string) || 'none';
+  if (tokenEndpointAuthMethod && tokenEndpointAuthMethod !== 'none') {
+    writeJson(res, 400, {
+      error: 'invalid_client_metadata',
+      error_description: 'Only token_endpoint_auth_method=none is supported for public PKCE clients.',
+    });
+    return;
+  }
+
+  // Validate grant_types if provided
+  const grantTypes = (payload.grant_types as string[]) || undefined;
+  if (grantTypes && !grantTypes.includes('authorization_code')) {
+    writeJson(res, 400, {
+      error: 'invalid_client_metadata',
+      error_description: 'grant_types must include authorization_code.',
+    });
+    return;
+  }
+
+  // Validate response_types if provided
+  const responseTypes = (payload.response_types as string[]) || undefined;
+  if (responseTypes && !responseTypes.includes('code')) {
+    writeJson(res, 400, {
+      error: 'invalid_client_metadata',
+      error_description: 'response_types must include code.',
+    });
+    return;
+  }
+
+  const store = getOAuthStore(env);
+  const { clientId, clientIdIssuedAt } = store.registerClient({
+    redirectUris: redirectUris as string[],
+    clientName: payload.client_name as string | undefined,
+    grantTypes,
+    responseTypes,
+    tokenEndpointAuthMethod,
+    scope: payload.scope as string | undefined,
+  });
+
+  // Safe logging — never log raw body or secrets
+  console.error(
+    `DCR: registered client ${clientId.slice(0, 8)}... ` +
+    `(${redirectUris.length} redirect_uri(s), name: ${payload.client_name || 'unnamed'})`
+  );
+
+  const resolvedGrantTypes = grantTypes ?? ['authorization_code'];
+  const resolvedResponseTypes = responseTypes ?? ['code'];
+  const resolvedScope = (payload.scope as string) || 'mcp read write';
+
+  writeJson(res, 201, {
+    client_id: clientId,
+    client_id_issued_at: clientIdIssuedAt,
+    redirect_uris: redirectUris,
+    grant_types: resolvedGrantTypes,
+    response_types: resolvedResponseTypes,
+    token_endpoint_auth_method: 'none',
+    scope: resolvedScope,
   });
 }
 
@@ -613,6 +740,8 @@ function isOAuthPath(pathname: string): boolean {
     pathname === '/authorize' ||
     pathname === '/token' ||
     pathname === '/revoke' ||
+    pathname === '/register' ||
+    pathname === '/oauth/register' ||
     pathname.startsWith('/.well-known/')
   );
 }
@@ -673,6 +802,12 @@ export function createHttpMcpRequestHandler(
     // ── OAuth revoke ──
     if (req.method === 'POST' && url.pathname === '/revoke') {
       handlePostRevoke(req, res, env).catch(() => sendNotFound(res));
+      return;
+    }
+
+    // ── Dynamic Client Registration (POST /register, POST /oauth/register) ──
+    if (req.method === 'POST' && (url.pathname === '/register' || url.pathname === '/oauth/register')) {
+      handlePostRegister(req, res, env).catch(() => sendNotFound(res));
       return;
     }
 
