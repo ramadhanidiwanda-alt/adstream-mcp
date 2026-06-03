@@ -2,7 +2,16 @@
 
 > **Updated:** 2026-06-03  
 > **Version:** v0.3.0  
-> **Last Phase:** Phase 16d — Dependency Audit Remediation
+> **Last Phase:** Phase 16e — Final Phase 16 Release Summary
+
+### Phase 16 Across Sub-phases
+| Phase | Summary | Key Changes | Status |
+|---|---|---|---|
+| **Phase 16** | Remote MCP HTTP evaluation | Evaluated SDK v1.29 Streamable HTTP feasibility | ✅ Done |
+| **Phase 16a** | SSE remote transport | Implemented `MCP_TRANSPORT=sse` on existing SDK | ✅ Done |
+| **Phase 16b** | SDK upgrade + Streamable HTTP | Upgraded @modelcontextprotocol/sdk to ^1.29.0, zod to ^3.25.76, added `MCP_TRANSPORT=streamable-http` | ✅ Done |
+| **Phase 16c** | McpServer migration | Replaced deprecated direct `Server` request handlers with `McpServer.registerTool(...)` | ✅ Done |
+| **Phase 16d** | Dependency audit remediation | Upgraded vitest to ^4.1.8 → 0 npm audit vulnerabilities | ✅ Done |
 
 ---
 
@@ -120,6 +129,8 @@ Return normalized performance data
 | meta-ads-agent-skill | TBD | chore(mcp): upgrade SDK for Streamable HTTP support | TBD | Upgrades MCP SDK to v1.29.0, adds `MCP_TRANSPORT=streamable-http`, preserves stdio and SSE |
 | meta-ads-agent-skill | TBD | refactor(mcp): migrate server implementation to McpServer | TBD | Replaces deprecated direct `Server` request-handler registration with `McpServer.registerTool(...)`; preserves stdio, SSE, Streamable HTTP, credential resolver behavior, and tool business logic |
 | meta-ads-agent-skill | TBD | chore(security): remediate npm audit vulnerabilities | TBD | Upgrades direct dev dependency `vitest` to 4.1.8; remediates transitive `vite`, `vite-node`, and `esbuild` audit findings |
+| meta-ads-agent-skill | [#20](https://github.com/ramadhanidiwanda-alt/meta-ads-agent-skill/pull/20) | chore(security): remediate npm audit vulnerabilities | `d5d2f96` | Upgrades `vitest` to 4.1.8, remediates 4 audit findings to 0 |
+| meta-ads-agent-skill | [#19](https://github.com/ramadhanidiwanda-alt/meta-ads-agent-skill/pull/19) | refactor(mcp): migrate server implementation to McpServer | `144b746` | Replaces deprecated `Server` request handlers with `McpServer.registerTool(...)`, preserves 13-tool surface |
 
 ---
 
@@ -141,6 +152,13 @@ All validations were performed after Phase 15.4 deploy on a live staging environ
 | MCP server package build | ✅ Passed |
 | Dependency audit | ✅ 0 vulnerabilities after Phase 16d (`npm audit`) |
 | Docker build | ✅ `docker build -f Dockerfile.mcp -t meta-ads-agent-skill:mcp-phase16d-audit .` |
+
+### Transport Matrix
+| Transport | Status | Env | Notes |
+|---|---|---|---|
+| stdio | default | (none) | Safest local/client mode; legacy `meta_*` tools available |
+| SSE | supported | `MCP_TRANSPORT=sse` | Remote option; Bearer auth required via `MCP_HTTP_BEARER_TOKEN` |
+| Streamable HTTP | supported | `MCP_TRANSPORT=streamable-http` | Official remote HTTP transport via SDK v1.29; Bearer auth required |
 | Stdio smoke test | ✅ `tools/list` returned 13 tools with expected names |
 | SSE auth gate | ✅ 401 for missing/invalid token, 200 with valid token |
 | SSE POST /mcp (no sessionId) | ✅ 501 (SSE still requires `sessionId`) |
@@ -195,3 +213,28 @@ All tools are read-only. Write operations (pause/resume campaigns, update budget
 4. ⏳ **Prepare open-source release** notes and contribution guidelines.
 5. ⏳ **Add CI live test** only if safe backend test environment is available.
 6. ⏳ **Add example MCP client config** with placeholders for `claude_desktop_config.json`.
+7. ✅ **Phase 16d: Dependency audit remediation** — Done.
+8. ✅ **Phase 16e: Final Phase 16 release summary** — Done.
+- **Dependency audit**: Phase 16d upgraded `vitest` from `^1.6.0` to `^4.1.8`, removing 4 dev-tooling vulnerabilities from `vitest`, `vite`, `vite-node`, and `esbuild`.
+
+### Phase 16 Security Notes
+- Raw token (`META_ACCESS_TOKEN`, `providerToken`) must never be logged.
+- `Authorization` headers must not be logged by the SSE or Streamable HTTP transport.
+- Request bodies should not be logged in remote mode.
+- Use placeholders in docs: `<MCP_HTTP_BEARER_TOKEN>`, `<CUAN_INSIGHT_MCP_TOKEN>`, `<HOST>`, `<PORT>`.
+- Remote transports must use Bearer auth (`MCP_HTTP_BEARER_TOKEN`).
+- Public exposure should use HTTPS + reverse proxy or Cloudflare Tunnel.
+- Cuan Insight was not changed during Phase 16 — credential resolver remains unchanged.
+
+### Phase 16 Not Done / Pending
+- Public production deployment for Remote MCP transports has not been performed yet.
+- Live backend credential test for remote transport is still optional/pending (no safe credentials provided).
+- App version was not bumped (stays at v0.3.0).
+- No tag/release was created.
+
+### Recommended Next Steps
+1. ⏳ Controlled production deploy of remote MCP transport if needed.
+2. ⏳ Live remote MCP client test with safe backend credentials.
+3. ⏳ Optional release tag only after deploy strategy is clear.
+4. ⏳ Optional CI job for transport smoke tests.
+5. ⏳ Continue periodic `npm audit` monitoring.
