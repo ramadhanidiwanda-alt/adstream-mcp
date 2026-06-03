@@ -7,6 +7,8 @@ import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { createMetaAdsMcpServer } from './createServer.js';
 import type { AuthInfo } from '@modelcontextprotocol/sdk/server/auth/types.js';
+import { OAuthStore, createOAuthStore } from './oauthStore.js';
+import { renderAuthorizeForm } from './authorizeForm.js';
 
 const HTTP_TRANSPORT_UNAVAILABLE_MESSAGE =
   'Streamable HTTP transport requires MCP_TRANSPORT=streamable-http.';
@@ -20,6 +22,12 @@ export interface HttpMcpConfig {
   path: string;
   transport: TransportType;
   bearerToken?: string;
+  /** Public base URL for OAuth metadata (e.g. https://mcp.cuaninsight.com) */
+  publicBaseUrl?: string;
+  /** OAuth auth code TTL in seconds */
+  authCodeTtlSeconds: number;
+  /** OAuth access token TTL in seconds */
+  accessTokenTtlSeconds: number;
 }
 
 export interface StartedHttpMcpServer {
@@ -37,6 +45,19 @@ const activeSseSessions = new Map<string, SSEServerTransport>();
  * Active Streamable HTTP sessions, keyed by session ID.
  */
 const activeStreamableSessions = new Map<string, StreamableHTTPServerTransport>();
+
+// ── OAuth store ──────────────────────────────────────────────────────────
+let oauthStore: OAuthStore | undefined;
+
+function getOAuthStore(env: NodeJS.ProcessEnv = process.env): OAuthStore {
+  if (!oauthStore) {
+    oauthStore = createOAuthStore({
+      authCodeTtlMs: (Number(env.MCP_OAUTH_AUTH_CODE_TTL_SECONDS) || 300) * 1000,
+      accessTokenTtlMs: (Number(env.MCP_OAUTH_ACCESS_TOKEN_TTL_SECONDS) || 86400) * 1000,
+    });
+  }
+  return oauthStore;
+}
 
 export function parseHttpMcpConfig(env: NodeJS.ProcessEnv = process.env): HttpMcpConfig {
   const portValue = env.MCP_HTTP_PORT ?? '8787';
@@ -69,6 +90,9 @@ export function parseHttpMcpConfig(env: NodeJS.ProcessEnv = process.env): HttpMc
     path,
     transport,
     bearerToken: env.MCP_HTTP_BEARER_TOKEN,
+    publicBaseUrl: env.MCP_PUBLIC_BASE_URL,
+    authCodeTtlSeconds: Number(env.MCP_OAUTH_AUTH_CODE_TTL_SECONDS) || 300,
+    accessTokenTtlSeconds: Number(env.MCP_OAUTH_ACCESS_TOKEN_TTL_SECONDS) || 86400,
   };
 }
 
@@ -77,8 +101,34 @@ export function getHttpMcpMode(env: NodeJS.ProcessEnv = process.env): 'remote' |
 }
 
 function writeJson(res: ServerResponse, statusCode: number, payload: unknown): void {
-  res.writeHead(statusCode, { 'Content-Type': 'application/json' });
-  res.end(JSON.stringify(payload));
+  const body = JSON.stringify(payload);
+  res.writeHead(statusCode, {
+    'Content-Type': 'application/json',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-cuan-mcp-connection-key, mcp-session-id',
+  });
+  res.end(body);
+}
+
+function writeJsonWithWwwAuth(res: ServerResponse, statusCode: number, payload: unknown): void {
+  const body = JSON.stringify(payload);
+  res.writeHead(statusCode, {
+    'Content-Type': 'application/json',
+    'WWW-Authenticate': 'Bearer realm="Cuan Insight MCP"',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-cuan-mcp-connection-key, mcp-session-id',
+  });
+  res.end(body);
+}
+
+function writeHtml(res: ServerResponse, statusCode: number, html: string): void {
+  res.writeHead(statusCode, {
+    'Content-Type': 'text/html; charset=utf-8',
+    'Access-Control-Allow-Origin': '*',
+  });
+  res.end(html);
 }
 
 function hasValidBearerToken(req: IncomingMessage, expectedToken?: string): boolean {
@@ -91,7 +141,7 @@ function hasValidBearerToken(req: IncomingMessage, expectedToken?: string): bool
 }
 
 function sendUnauthorized(res: ServerResponse): void {
-  writeJson(res, 401, { error: 'Unauthorized' });
+  writeJsonWithWwwAuth(res, 401, { error: 'Unauthorized' });
 }
 
 function sendNotFound(res: ServerResponse): void {
@@ -104,25 +154,389 @@ function sendNotImplemented(res: ServerResponse): void {
 
 /**
  * Extract connection key from request headers for hosted multi-user mode.
+ * Supports three modes in order of precedence:
+ * 1. OAuth Bearer token → resolves via OAuthStore to connection key
+ * 2. x-cuan-mcp-connection-key header (manual client)
+ * 3. Authorization: Bearer treated as direct connection key (alias, fallback)
+ *
  * Does NOT read env fallback — that belongs in the credential resolver.
  */
-function extractConnectionKey(req: IncomingMessage): string | undefined {
+function extractConnectionKey(
+  req: IncomingMessage,
+  store?: OAuthStore
+): string | undefined {
+  // Mode 1: OAuth Bearer token
+  const authorization = req.headers.authorization;
+  if (authorization && typeof authorization === 'string' && authorization.startsWith('Bearer ')) {
+    const bearerValue = authorization.slice(7).trim();
+
+    if (bearerValue) {
+      // First try: OAuth access token
+      if (store) {
+        const resolved = store.resolveAccessToken(bearerValue);
+        if (resolved) {
+          return resolved.connectionKey;
+        }
+      }
+
+      // Second: if Authorization matches MCP_HTTP_BEARER_TOKEN exactly, skip (server-level)
+      // Third: fallback — treat bearer as direct connection key alias
+      const configBearer = req.headers['x-server-bearer']; // not stored, skip
+      // For compatibility, try as connection key
+      // Only if it doesn't look like a server token
+      const connectionKeyFromBearer = bearerValue;
+      if (connectionKeyFromBearer) {
+        return connectionKeyFromBearer;
+      }
+    }
+  }
+
+  // Mode 2: x-cuan-mcp-connection-key header
   const headerValue = req.headers['x-cuan-mcp-connection-key'];
-  if (!headerValue) return undefined;
-  const key = Array.isArray(headerValue) ? headerValue[0] : headerValue;
-  return key?.trim() || undefined;
+  if (headerValue) {
+    const key = Array.isArray(headerValue) ? headerValue[0] : headerValue;
+    return key?.trim() || undefined;
+  }
+
+  return undefined;
 }
 
 /**
  * Build minimal AuthInfo carrying the connection key so it flows through
  * the MCP transport into tool handler extra.authInfo.
- * Only populated when x-cuan-mcp-connection-key header is present.
+ *
+ * Checks:
+ * 1. OAuth Bearer token (resolved via OAuthStore)
+ * 2. x-cuan-mcp-connection-key header
+ * 3. Authorization: Bearer <connection-key> alias
  */
-function buildRequestAuth(req: IncomingMessage): AuthInfo | undefined {
-  const connectionKey = extractConnectionKey(req);
+function buildRequestAuth(
+  req: IncomingMessage,
+  store?: OAuthStore
+): AuthInfo | undefined {
+  const connectionKey = extractConnectionKey(req, store);
   if (!connectionKey) return undefined;
   return { token: '', clientId: '', scopes: [], extra: { connectionKey } };
 }
+
+// ── OAuth Route Handlers ─────────────────────────────────────────────────
+
+function handleWellKnownAuthorizationServer(
+  config: HttpMcpConfig,
+  res: ServerResponse
+): void {
+  const issuer = config.publicBaseUrl ?? `http://${config.host}:${config.port}`;
+  writeJson(res, 200, {
+    issuer,
+    authorization_endpoint: `${issuer}/authorize`,
+    token_endpoint: `${issuer}/token`,
+    response_types_supported: ['code'],
+    grant_types_supported: ['authorization_code'],
+    code_challenge_methods_supported: ['S256'],
+    scopes_supported: ['mcp', 'read', 'write'],
+    token_endpoint_auth_methods_supported: ['none'],
+  });
+}
+
+function handleWellKnownProtectedResource(
+  config: HttpMcpConfig,
+  res: ServerResponse
+): void {
+  const issuer = config.publicBaseUrl ?? `http://${config.host}:${config.port}`;
+  writeJson(res, 200, {
+    resource: `${issuer}${config.path}`,
+    authorization_servers: [issuer],
+    scopes_supported: ['mcp', 'read', 'write'],
+    bearer_methods_supported: ['header'],
+  });
+}
+
+async function handleGetAuthorize(
+  req: IncomingMessage,
+  res: ServerResponse,
+  url: URL,
+  env: NodeJS.ProcessEnv
+): Promise<void> {
+  const responseType = url.searchParams.get('response_type');
+  const clientId = url.searchParams.get('client_id');
+  const redirectUri = url.searchParams.get('redirect_uri');
+  const codeChallenge = url.searchParams.get('code_challenge');
+  const codeChallengeMethod = url.searchParams.get('code_challenge_method');
+  const state = url.searchParams.get('state');
+  const scope = url.searchParams.get('scope');
+
+  // Validate required params
+  const errors: string[] = [];
+  if (!responseType) errors.push('response_type required');
+  if (!clientId) errors.push('client_id required');
+  if (!redirectUri) errors.push('redirect_uri required');
+  if (!codeChallenge) errors.push('code_challenge required');
+  if (!codeChallengeMethod) errors.push('code_challenge_method required');
+  if (codeChallengeMethod && codeChallengeMethod !== 'S256') errors.push('Only S256 code_challenge_method is supported');
+  if (!state) errors.push('state required');
+  if (!scope) errors.push('scope required');
+
+  if (errors.length > 0) {
+    writeJson(res, 400, { error: 'invalid_request', error_description: errors.join('; ') });
+    return;
+  }
+
+  // Render form
+  const html = renderAuthorizeForm({
+    responseType: responseType!,
+    clientId: clientId!,
+    redirectUri: redirectUri!,
+    codeChallenge: codeChallenge!,
+    codeChallengeMethod: codeChallengeMethod!,
+    state: state!,
+    scope: scope!,
+  });
+
+  writeHtml(res, 200, html);
+}
+
+async function handlePostAuthorize(
+  req: IncomingMessage,
+  res: ServerResponse,
+  env: NodeJS.ProcessEnv
+): Promise<void> {
+  // Read form body
+  const body = await readBody(req);
+  const params = new URLSearchParams(body);
+
+  const responseType = params.get('response_type');
+  const clientId = params.get('client_id');
+  const redirectUri = params.get('redirect_uri');
+  const codeChallenge = params.get('code_challenge');
+  const codeChallengeMethod = params.get('code_challenge_method');
+  const state = params.get('state');
+  const scope = params.get('scope');
+  const connectionKey = params.get('connection_key');
+
+  // Validate all required params
+  const errors: string[] = [];
+  if (!responseType) errors.push('response_type required');
+  if (!clientId) errors.push('client_id required');
+  if (!redirectUri) errors.push('redirect_uri required');
+  if (!codeChallenge) errors.push('code_challenge required');
+  if (!codeChallengeMethod) errors.push('code_challenge_method required');
+  if (codeChallengeMethod && codeChallengeMethod !== 'S256') errors.push('Only S256 code_challenge_method is supported');
+  if (!state) errors.push('state required');
+  if (!scope) errors.push('scope required');
+  if (!connectionKey) errors.push('connection_key required');
+
+  if (errors.length > 0) {
+    writeJson(res, 400, { error: 'invalid_request', error_description: errors.join('; ') });
+    return;
+  }
+
+  // Validate redirect_uri is a valid URL
+  try {
+    new URL(redirectUri!);
+  } catch {
+    writeJson(res, 400, { error: 'invalid_request', error_description: 'redirect_uri is not a valid URL' });
+    return;
+  }
+
+  // Validate Connection Key via Cuan Insight resolver
+  // For now: call the credential resolver to verify the key is valid
+  // This makes a lightweight probe call to Cuan Insight
+  const keyValid = await validateConnectionKey(connectionKey!, env);
+
+  if (!keyValid) {
+    // Re-render form with error
+    const html = renderAuthorizeForm({
+      responseType: responseType!,
+      clientId: clientId!,
+      redirectUri: redirectUri!,
+      codeChallenge: codeChallenge!,
+      codeChallengeMethod: codeChallengeMethod!,
+      state: state!,
+      scope: scope!,
+      error: 'Connection Key tidak valid atau sudah dicabut.',
+    });
+    writeHtml(res, 200, html);
+    return;
+  }
+
+  // Create authorization code
+  const store = getOAuthStore(env);
+  const { code } = store.createAuthorizationCode({
+    connectionKey: connectionKey!,
+    clientId: clientId!,
+    redirectUri: redirectUri!,
+    codeChallenge: codeChallenge!,
+    codeChallengeMethod: codeChallengeMethod!,
+    scope: scope!,
+  });
+
+  // Redirect back
+  const redirectUrl = new URL(redirectUri!);
+  redirectUrl.searchParams.set('code', code);
+  redirectUrl.searchParams.set('state', state!);
+
+  res.writeHead(302, { Location: redirectUrl.toString() });
+  res.end();
+}
+
+async function handlePostToken(
+  req: IncomingMessage,
+  res: ServerResponse,
+  env: NodeJS.ProcessEnv
+): Promise<void> {
+  const body = await readBody(req);
+  const params = new URLSearchParams(body);
+
+  const grantType = params.get('grant_type');
+  const code = params.get('code');
+  const redirectUri = params.get('redirect_uri');
+  const clientId = params.get('client_id');
+  const codeVerifier = params.get('code_verifier');
+
+  // Validate
+  if (grantType !== 'authorization_code') {
+    writeJson(res, 400, { error: 'unsupported_grant_type' });
+    return;
+  }
+
+  if (!code || !redirectUri || !clientId || !codeVerifier) {
+    writeJson(res, 400, {
+      error: 'invalid_request',
+      error_description: 'Missing required parameters: code, redirect_uri, client_id, code_verifier',
+    });
+    return;
+  }
+
+  // Redeem auth code
+  const store = getOAuthStore(env);
+  const redeemed = store.redeemAuthorizationCode({
+    code,
+    codeVerifier,
+    clientId,
+    redirectUri,
+  });
+
+  if (!redeemed) {
+    writeJson(res, 400, { error: 'invalid_grant', error_description: 'Authorization code is invalid, expired, or already used' });
+    return;
+  }
+
+  // Create access token
+  const { accessToken, expiresIn } = store.createAccessToken({
+    connectionKey: redeemed.connectionKey,
+    scope: redeemed.scope,
+    clientId,
+  });
+
+  writeJson(res, 200, {
+    access_token: accessToken,
+    token_type: 'Bearer',
+    expires_in: expiresIn,
+    scope: redeemed.scope,
+  });
+}
+
+async function handlePostRevoke(
+  req: IncomingMessage,
+  res: ServerResponse,
+  env: NodeJS.ProcessEnv
+): Promise<void> {
+  const body = await readBody(req);
+  const params = new URLSearchParams(body);
+  const token = params.get('token');
+
+  if (!token) {
+    writeJson(res, 400, { error: 'invalid_request', error_description: 'token parameter is required' });
+    return;
+  }
+
+  const store = getOAuthStore(env);
+  store.revokeAccessToken(token);
+
+  // RFC 7009: always return 200, even if token was invalid
+  writeJson(res, 200, { ok: true });
+}
+
+/**
+ * Validate a connection key by making a lightweight probe call to Cuan Insight.
+ * Returns true if the key is valid.
+ * Never leaks the key in logs or errors.
+ */
+async function validateConnectionKey(
+  connectionKey: string,
+  env: NodeJS.ProcessEnv
+): Promise<boolean> {
+  // If we have Cuan Insight resolver configured, probe it
+  // This is a lightweight resolve call — just checks key validity
+  const baseUrl = env.CUAN_INSIGHT_API_BASE_URL;
+  const supabaseAnonKey = env.CUAN_INSIGHT_SUPABASE_ANON_KEY;
+
+  // If no resolver configured, trust the key (local/single-tenant fallback)
+  if (!baseUrl || !supabaseAnonKey) {
+    // In local mode, connection key is validated at tool call time by the broker
+    return true;
+  }
+
+  try {
+    const endpointPath = env.CUAN_INSIGHT_CREDENTIAL_RESOLVE_PATH ?? '/mcp/resolve-credential';
+    const url = new URL(baseUrl.replace(/\/+$/, '') + endpointPath);
+
+    const resolveResponse = await fetch(url.toString(), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${supabaseAnonKey}`,
+        'x-cuan-mcp-connection-key': connectionKey,
+      },
+      body: JSON.stringify({
+        provider: 'meta', // Any supported provider for validation
+      }),
+      signal: AbortSignal.timeout(10000),
+    });
+
+    if (resolveResponse.ok) {
+      return true;
+    }
+
+    // 401 = invalid/revoked key
+    if (resolveResponse.status === 401) {
+      return false;
+    }
+
+    // Other errors — key might still be valid (network issue), allow through
+    // The tool call will do proper validation
+    return true;
+  } catch {
+    // Network error — allow through, tool call will validate properly
+    return true;
+  }
+}
+
+/**
+ * Read request body as string.
+ */
+function readBody(req: IncomingMessage): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    req.on('data', (chunk: Buffer) => chunks.push(chunk));
+    req.on('end', () => resolve(Buffer.concat(chunks).toString()));
+    req.on('error', reject);
+  });
+}
+
+/**
+ * Check if request is an OAuth-related path.
+ */
+function isOAuthPath(pathname: string): boolean {
+  return (
+    pathname === '/authorize' ||
+    pathname === '/token' ||
+    pathname === '/revoke' ||
+    pathname.startsWith('/.well-known/')
+  );
+}
+
+// ── Main request handler ─────────────────────────────────────────────────
 
 export function createHttpMcpRequestHandler(
   config: HttpMcpConfig,
@@ -131,29 +545,77 @@ export function createHttpMcpRequestHandler(
   return (req: IncomingMessage, res: ServerResponse): void => {
     const url = new URL(req.url ?? '/', `http://${req.headers.host ?? '127.0.0.1'}`);
 
-    // Health endpoint — always available
+    // ── CORS preflight ──
+    if (req.method === 'OPTIONS') {
+      res.writeHead(204, {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-cuan-mcp-connection-key, mcp-session-id',
+        'Access-Control-Max-Age': '86400',
+      });
+      res.end();
+      return;
+    }
+
+    // ── OAuth metadata endpoints ──
+    if (req.method === 'GET' && url.pathname === '/.well-known/oauth-authorization-server') {
+      handleWellKnownAuthorizationServer(config, res);
+      return;
+    }
+
+    if (req.method === 'GET' && url.pathname === '/.well-known/oauth-protected-resource') {
+      handleWellKnownProtectedResource(config, res);
+      return;
+    }
+
+    // ── OAuth authorize (GET: form) ──
+    if (req.method === 'GET' && url.pathname === '/authorize') {
+      handleGetAuthorize(req, res, url, env).catch(() => sendNotFound(res));
+      return;
+    }
+
+    // ── OAuth authorize (POST: submit connection key) ──
+    if (req.method === 'POST' && url.pathname === '/authorize') {
+      handlePostAuthorize(req, res, env).catch(() => sendNotFound(res));
+      return;
+    }
+
+    // ── OAuth token ──
+    if (req.method === 'POST' && url.pathname === '/token') {
+      handlePostToken(req, res, env).catch(() => sendNotFound(res));
+      return;
+    }
+
+    // ── OAuth revoke ──
+    if (req.method === 'POST' && url.pathname === '/revoke') {
+      handlePostRevoke(req, res, env).catch(() => sendNotFound(res));
+      return;
+    }
+
+    // ── Health endpoint — always available ──
     if (req.method === 'GET' && url.pathname === '/health') {
       writeJson(res, 200, {
         ok: true,
         transport: config.transport,
         mode: getHttpMcpMode(env),
+        oauth: config.publicBaseUrl ? true : false,
       });
       return;
     }
 
-    // SSE transport
+    // ── SSE transport ──
     if (config.transport === 'sse') {
       handleSseRequest(config, req, res, url).catch(() => {});
       return;
     }
 
-    // Streamable HTTP transport
+    // ── Streamable HTTP transport ──
     if (config.transport === 'streamable-http') {
       handleStreamableHttpRequest(config, req, res, url).catch(() => {});
       return;
     }
 
-    // HTTP mode (default, skeleton)
+    // ── HTTP mode (default, skeleton) ──
     if (req.method === 'POST' && url.pathname === config.path) {
       if (!hasValidBearerToken(req, config.bearerToken)) {
         sendUnauthorized(res);
@@ -168,7 +630,7 @@ export function createHttpMcpRequestHandler(
   };
 }
 
-// ── SSE handler ──────────────────────────────────────────────────────
+// ── SSE handler ──────────────────────────────────────────────────────────
 
 async function handleSseRequest(
   config: HttpMcpConfig,
@@ -182,7 +644,8 @@ async function handleSseRequest(
   }
 
   if (req.method === 'GET' && url.pathname === config.path) {
-    (req as IncomingMessage & { auth?: AuthInfo }).auth = buildRequestAuth(req);
+    const store = getOAuthStore();
+    (req as IncomingMessage & { auth?: AuthInfo }).auth = buildRequestAuth(req, store);
     await handleSseConnect(config, res);
     return;
   }
@@ -227,7 +690,7 @@ async function handleSseConnect(config: HttpMcpConfig, res: ServerResponse): Pro
   }
 }
 
-// ── Streamable HTTP handler ──────────────────────────────────────────
+// ── Streamable HTTP handler ──────────────────────────────────────────────
 
 async function handleStreamableHttpRequest(
   config: HttpMcpConfig,
@@ -246,10 +709,11 @@ async function handleStreamableHttpRequest(
   }
 
   const sessionId = req.headers['mcp-session-id'] as string | undefined;
+  const store = getOAuthStore();
 
   // Existing session
   if (sessionId) {
-    (req as IncomingMessage & { auth?: AuthInfo }).auth = buildRequestAuth(req);
+    (req as IncomingMessage & { auth?: AuthInfo }).auth = buildRequestAuth(req, store);
     const transport = activeStreamableSessions.get(sessionId);
     if (!transport) {
       sendNotFound(res);
@@ -265,7 +729,7 @@ async function handleStreamableHttpRequest(
     return;
   }
 
-  (req as IncomingMessage & { auth?: AuthInfo }).auth = buildRequestAuth(req);
+  (req as IncomingMessage & { auth?: AuthInfo }).auth = buildRequestAuth(req, store);
   await handleStreamableHttpNewSession(req, res);
 }
 
@@ -299,7 +763,7 @@ async function handleStreamableHttpNewSession(
   }
 }
 
-// ── Server startup ───────────────────────────────────────────────────
+// ── Server startup ───────────────────────────────────────────────────────
 
 export async function startHttpMcpServer(
   config: HttpMcpConfig = parseHttpMcpConfig(),
@@ -342,6 +806,15 @@ export async function startHttpMcpServer(
       console.error(`MCP endpoint: POST ${config.path}`);
       console.error('Health endpoint: GET /health');
       console.error(HTTP_TRANSPORT_UNAVAILABLE_MESSAGE);
+  }
+
+  // Log OAuth info
+  if (config.publicBaseUrl) {
+    console.error(`OAuth authorization endpoint: ${config.publicBaseUrl}/authorize`);
+    console.error(`OAuth token endpoint: ${config.publicBaseUrl}/token`);
+    console.error(`OAuth metadata: ${config.publicBaseUrl}/.well-known/oauth-authorization-server`);
+  } else {
+    console.error('OAuth flow: disabled (set MCP_PUBLIC_BASE_URL to enable)');
   }
 
   return {

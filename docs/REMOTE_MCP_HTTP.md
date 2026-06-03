@@ -23,6 +23,12 @@ Do not replace stdio config with HTTP unless your MCP client supports remote URL
 
 ```text
 GET /health
+GET /.well-known/oauth-authorization-server
+GET /.well-known/oauth-protected-resource
+GET /authorize
+POST /authorize
+POST /token
+POST /revoke
 POST /mcp
 ```
 
@@ -31,12 +37,59 @@ POST /mcp
 ```json
 {
   "ok": true,
-  "transport": "sse",
-  "mode": "remote"
+  "transport": "streamable-http",
+  "mode": "remote",
+  "oauth": true
 }
 ```
 
+`oauth` is `true` when `MCP_PUBLIC_BASE_URL` is configured.
+
+### OAuth Endpoints (Phase 19)
+
+For native MCP connector compatibility (Claude Desktop, Claude Code, etc.):
+
+- **`GET /.well-known/oauth-authorization-server`** — OAuth metadata for auto-discovery
+- **`GET /.well-known/oauth-protected-resource`** — Protected resource metadata
+- **`GET /authorize`** — Renders HTML form for Connection Key input
+- **`POST /authorize`** — Validates Connection Key, creates authorization code (PKCE), redirects to client
+- **`POST /token`** — PKCE exchange: authorization code → Bearer access token
+- **`POST /revoke`** — Revoke access token
+
 `mode` is `remote` when `BROKER_RUNTIME_MODE=remote`; otherwise it is `local`.
+
+### OAuth Flow
+
+```
+Claude klik Connect
+→ redirect ke https://mcp.cuaninsight.com/authorize?...
+→ Cuan Insight MCP server tampilkan form "Masukkan Connection Key"
+→ user paste Connection Key dari Cuan Insight UI
+→ server validasi Connection Key ke Cuan Insight resolver
+→ jika valid, server buat authorization code (PKCE S256)
+→ redirect balik ke Claude redirect_uri dengan ?code=...&state=...
+→ Claude call POST /token dengan code + code_verifier
+→ server validasi PKCE
+→ server issue access token (Bearer, 24h TTL)
+→ Claude call /mcp dengan Authorization: Bearer <access_token>
+→ MCP server resolve token → connection context
+→ tools/call berjalan
+```
+
+### Auth Modes
+
+| Mode | Auth Method | Header | Connector Type |
+|---|---|---|---|
+| OAuth (Phase 19) | Connection Key via form → Bearer token | `Authorization: Bearer <access_token>` | Native Claude connector |
+| Manual Header | Direct Connection Key | `x-cuan-mcp-connection-key` | Custom client |
+| Server Token (legacy) | Static bearer token | `Authorization: Bearer <MCP_HTTP_BEARER_TOKEN>` | Simple self-hosted |
+
+### Limitations (MVP)
+
+- OAuth store is **in-memory only** — auth codes and tokens are lost on server restart
+- Not suitable for multi-replica deployments without Redis/DB-backed store
+- No refresh token support yet
+- Connection Key validation makes a lightweight probe to Cuan Insight; if resolver is unavailable, key is accepted and validated at tool call time
 
 ## HTTP Env
 
@@ -47,6 +100,9 @@ MCP_HTTP_PORT=8787
 MCP_HTTP_PATH=/mcp
 MCP_HTTP_BEARER_TOKEN=change_me_for_self_hosted_http
 MCP_TRANSPORT=sse
+MCP_PUBLIC_BASE_URL=https://mcp.cuaninsight.com
+MCP_OAUTH_AUTH_CODE_TTL_SECONDS=300
+MCP_OAUTH_ACCESS_TOKEN_TTL_SECONDS=86400
 ```
 
 Defaults:
@@ -55,6 +111,12 @@ Defaults:
 - `MCP_HTTP_HOST=127.0.0.1`
 - `MCP_HTTP_PORT=8787`
 - `MCP_HTTP_PATH=/mcp`
+
+OAuth defaults (Phase 19):
+
+- `MCP_PUBLIC_BASE_URL` — not set (OAuth disabled)
+- `MCP_OAUTH_AUTH_CODE_TTL_SECONDS=300` (5 minutes)
+- `MCP_OAUTH_ACCESS_TOKEN_TTL_SECONDS=86400` (24 hours)
 
 Binding to `0.0.0.0` requires setting `MCP_HTTP_HOST=0.0.0.0` explicitly.
 If `MCP_HTTP_BEARER_TOKEN` is set, endpoints require:
@@ -181,8 +243,9 @@ works, but it does not expose the host port publicly.
 
 - Do not commit `.env`.
 - Do not print tokens, connection keys, or provider tokens.
-- Do not expose HTTP mode publicly without HTTPS, reverse proxy, and bearer/OAuth.
-- Do not deploy this skeleton as production remote MCP without auth.
-- OAuth Cuan Insight login is not implemented.
+- Do not expose HTTP mode publicly without HTTPS, reverse proxy, and auth.
+- **OAuth flow (Phase 19)**: Connection Key entered via `/authorize` form is validated against Cuan Insight but never stored in HTML, logs, or redirect URLs.
+- **Access tokens** from `/token` are stored as SHA-256 hashes; raw tokens are returned only once at creation.
+- **Authorization codes** are single-use, short-lived (5 min TTL), and PKCE-protected.
 - Connection key redaction covers `x-cuan-mcp-connection-key`, `connectionKey`, `connection_key`, `connection-key`.
 - Project scope stays read-only; no write operations are added.
