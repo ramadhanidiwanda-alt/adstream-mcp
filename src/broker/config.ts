@@ -1,6 +1,11 @@
 import type { BrokerRuntimeMode } from './credentials.js';
-import { createCuanInsightCredentialClient } from './cuanInsightClient.js';
-import { CuanInsightCredentialProvider } from './credentials.js';
+
+/**
+ * Supported Cuan Insight authentication modes.
+ * - 'mcp_token': legacy MCP token flow (default)
+ * - 'connection_key': Connection Key from Cuan Insight UI connector
+ */
+export type CuanInsightAuthMode = 'mcp_token' | 'connection_key';
 
 /**
  * Configuration for remote Cuan Insight credential resolution.
@@ -9,6 +14,8 @@ import { CuanInsightCredentialProvider } from './credentials.js';
  * - baseUrl must be provided via environment variable, never hardcoded
  * - endpoint path is configurable with a safe default
  * - timeout is configurable for network resilience
+ * - connectionKey/authMode are optional; when authMode is 'connection_key',
+ *   connectionKey is required
  */
 export interface RemoteBrokerConfig {
   /**
@@ -53,6 +60,25 @@ export interface RemoteBrokerConfig {
    * MUST NOT be logged or exposed in errors.
    */
   cuanInsightMcpToken?: string;
+
+  /**
+   * Authentication mode for Cuan Insight credential resolution.
+   * - 'mcp_token': legacy MCP token flow (default)
+   * - 'connection_key': Connection Key from Cuan Insight UI
+   *
+   * MUST be provided via CUAN_INSIGHT_AUTH_MODE environment variable.
+   * Default: 'mcp_token'
+   */
+  cuanInsightAuthMode?: CuanInsightAuthMode;
+
+  /**
+   * Connection Key from Cuan Insight UI connector.
+   * Required when authMode is 'connection_key'.
+   *
+   * MUST be provided via CUAN_INSIGHT_CONNECTION_KEY environment variable.
+   * MUST NOT be logged or exposed in errors.
+   */
+  cuanInsightConnectionKey?: string;
 }
 
 /**
@@ -82,11 +108,14 @@ export interface BrokerConfig {
  * - CUAN_INSIGHT_API_BASE_URL: Required when mode is 'remote'
  * - CUAN_INSIGHT_CREDENTIAL_RESOLVE_PATH: Optional endpoint path
  * - CUAN_INSIGHT_REQUEST_TIMEOUT_MS: Optional timeout in milliseconds
+ * - CUAN_INSIGHT_AUTH_MODE: 'mcp_token' | 'connection_key' (default: 'mcp_token')
+ * - CUAN_INSIGHT_CONNECTION_KEY: Required when authMode is 'connection_key'
  *
  * Security rules:
  * - Fails fast with clear error if remote mode is missing required config
- * - Never logs or exposes tokens
+ * - Never logs or exposes tokens or connection keys
  * - Validates timeout as positive integer
+ * - Validates authMode against allowed values
  *
  * @returns Parsed broker configuration
  * @throws Error if remote mode is missing required configuration
@@ -118,6 +147,27 @@ export function parseBrokerConfigFromEnv(): BrokerConfig {
     const mcpTokenHeaderName = process.env.CUAN_INSIGHT_MCP_TOKEN_HEADER_NAME;
     const mcpToken = process.env.CUAN_INSIGHT_MCP_TOKEN;
 
+    // Parse auth mode (connection key support — Phase 17.5C)
+    const authModeRaw = process.env.CUAN_INSIGHT_AUTH_MODE?.trim() || 'mcp_token';
+    let authMode: CuanInsightAuthMode;
+    if (authModeRaw === 'connection_key') {
+      authMode = 'connection_key';
+    } else if (authModeRaw === 'mcp_token') {
+      authMode = 'mcp_token';
+    } else {
+      throw new Error(
+        `Invalid CUAN_INSIGHT_AUTH_MODE: ${authModeRaw}. Must be 'mcp_token' or 'connection_key'.`
+      );
+    }
+
+    // Validate connection key requirement
+    const connectionKey = process.env.CUAN_INSIGHT_CONNECTION_KEY?.trim() || undefined;
+    if (authMode === 'connection_key' && !connectionKey) {
+      throw new Error(
+        'CUAN_INSIGHT_CONNECTION_KEY is required when CUAN_INSIGHT_AUTH_MODE=connection_key'
+      );
+    }
+
     let timeoutMs: number | undefined;
     if (timeoutStr) {
       timeoutMs = parseOptionalPositiveInteger(
@@ -135,6 +185,8 @@ export function parseBrokerConfigFromEnv(): BrokerConfig {
         cuanInsightSupabaseAnonKey: supabaseAnonKey?.trim() || undefined,
         cuanInsightMcpTokenHeaderName: mcpTokenHeaderName?.trim() || undefined,
         cuanInsightMcpToken: mcpToken?.trim() || undefined,
+        cuanInsightAuthMode: authMode,
+        cuanInsightConnectionKey: connectionKey,
       },
     };
   }

@@ -210,3 +210,111 @@ describe('parseBrokerConfigFromEnv', () => {
     });
   });
 });
+
+describe('auth mode configuration (Phase 17.5C)', () => {
+  it('defaults authMode to mcp_token when not set', () => {
+    process.env.BROKER_RUNTIME_MODE = 'remote';
+    process.env.CUAN_INSIGHT_API_BASE_URL = 'https://api.example.com';
+
+    const config = parseBrokerConfigFromEnv();
+
+    expect(config.cuanInsight?.cuanInsightAuthMode).toBe('mcp_token');
+  });
+
+  it('parses CUAN_INSIGHT_AUTH_MODE=mcp_token explicitly', () => {
+    process.env.BROKER_RUNTIME_MODE = 'remote';
+    process.env.CUAN_INSIGHT_API_BASE_URL = 'https://api.example.com';
+    process.env.CUAN_INSIGHT_AUTH_MODE = 'mcp_token';
+
+    const config = parseBrokerConfigFromEnv();
+
+    expect(config.cuanInsight?.cuanInsightAuthMode).toBe('mcp_token');
+  });
+
+  it('parses CUAN_INSIGHT_AUTH_MODE=connection_key', () => {
+    process.env.BROKER_RUNTIME_MODE = 'remote';
+    process.env.CUAN_INSIGHT_API_BASE_URL = 'https://api.example.com';
+    process.env.CUAN_INSIGHT_AUTH_MODE = 'connection_key';
+    process.env.CUAN_INSIGHT_CONNECTION_KEY = 'cuk_test-key-12345';
+
+    const config = parseBrokerConfigFromEnv();
+
+    expect(config.cuanInsight?.cuanInsightAuthMode).toBe('connection_key');
+    expect(config.cuanInsight?.cuanInsightConnectionKey).toBe('cuk_test-key-12345');
+  });
+
+  it('throws when CUAN_INSIGHT_AUTH_MODE is invalid', () => {
+    process.env.BROKER_RUNTIME_MODE = 'remote';
+    process.env.CUAN_INSIGHT_API_BASE_URL = 'https://api.example.com';
+    process.env.CUAN_INSIGHT_AUTH_MODE = 'invalid_mode';
+
+    expect(() => parseBrokerConfigFromEnv()).toThrow(
+      "Invalid CUAN_INSIGHT_AUTH_MODE: invalid_mode. Must be 'mcp_token' or 'connection_key'."
+    );
+  });
+
+  it('throws when authMode is connection_key but CUAN_INSIGHT_CONNECTION_KEY is missing', () => {
+    process.env.BROKER_RUNTIME_MODE = 'remote';
+    process.env.CUAN_INSIGHT_API_BASE_URL = 'https://api.example.com';
+    process.env.CUAN_INSIGHT_AUTH_MODE = 'connection_key';
+    delete process.env.CUAN_INSIGHT_CONNECTION_KEY;
+
+    expect(() => parseBrokerConfigFromEnv()).toThrow(
+      'CUAN_INSIGHT_CONNECTION_KEY is required when CUAN_INSIGHT_AUTH_MODE=connection_key'
+    );
+  });
+
+  it('throws when authMode is connection_key but CUAN_INSIGHT_CONNECTION_KEY is whitespace only', () => {
+    process.env.BROKER_RUNTIME_MODE = 'remote';
+    process.env.CUAN_INSIGHT_API_BASE_URL = 'https://api.example.com';
+    process.env.CUAN_INSIGHT_AUTH_MODE = 'connection_key';
+    process.env.CUAN_INSIGHT_CONNECTION_KEY = '   ';
+
+    expect(() => parseBrokerConfigFromEnv()).toThrow(
+      'CUAN_INSIGHT_CONNECTION_KEY is required when CUAN_INSIGHT_AUTH_MODE=connection_key'
+    );
+  });
+
+  it('does not require connection key when authMode is mcp_token', () => {
+    process.env.BROKER_RUNTIME_MODE = 'remote';
+    process.env.CUAN_INSIGHT_API_BASE_URL = 'https://api.example.com';
+    process.env.CUAN_INSIGHT_AUTH_MODE = 'mcp_token';
+    delete process.env.CUAN_INSIGHT_CONNECTION_KEY;
+
+    const config = parseBrokerConfigFromEnv();
+
+    expect(config.mode).toBe('remote');
+    expect(config.cuanInsight?.cuanInsightAuthMode).toBe('mcp_token');
+    expect(config.cuanInsight?.cuanInsightConnectionKey).toBeUndefined();
+  });
+
+  it('trims whitespace from connection key without exposing value', () => {
+    const connectionKey = 'cuk_trimmed-key-12345';
+    process.env.BROKER_RUNTIME_MODE = 'remote';
+    process.env.CUAN_INSIGHT_API_BASE_URL = 'https://api.example.com';
+    process.env.CUAN_INSIGHT_AUTH_MODE = 'connection_key';
+    process.env.CUAN_INSIGHT_CONNECTION_KEY = `  ${connectionKey}  `;
+
+    const config = parseBrokerConfigFromEnv();
+
+    expect(config.cuanInsight?.cuanInsightConnectionKey).toBe(connectionKey);
+  });
+
+  it('connection key is not printed in error messages during validation failure', () => {
+    const connectionKey = 'cuk_leaked-key-should-not-appear';
+    process.env.BROKER_RUNTIME_MODE = 'remote';
+    process.env.CUAN_INSIGHT_API_BASE_URL = 'https://api.example.com';
+    process.env.CUAN_INSIGHT_AUTH_MODE = 'invalid_mode';
+    process.env.CUAN_INSIGHT_CONNECTION_KEY = connectionKey;
+
+    expect(() => parseBrokerConfigFromEnv()).toThrow();
+
+    try {
+      parseBrokerConfigFromEnv();
+    } catch (error) {
+      // Error message must not contain the connection key
+      expect((error as Error).message).not.toContain(connectionKey);
+      expect((error as Error).message).not.toContain('cuk_');
+    }
+  });
+});
