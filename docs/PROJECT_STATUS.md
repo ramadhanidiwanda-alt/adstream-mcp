@@ -1,8 +1,8 @@
 # Project Status — Meta Ads Agent Skill
 
-> **Updated:** 2026-06-03  
-> **Version:** v0.4.0  
-> **Last Phase:** Phase 17.5G — Release Notes & Tag
+> **Updated:** 2026-06-04  
+> **Version:** v0.4.1  
+> **Last Phase:** Phase 19.4 — Claude Native Connector Verification
 
 ### Phase 17.5 Across Sub-phases
 | Phase | Summary | Key Changes | Status |
@@ -131,8 +131,9 @@ Return normalized performance data
 | **Phase 17.5F** | URL fix + live smoke test | Fixed `new URL()` stripping `/functions/v1`, live smoke 25 Meta accounts, revoke 401 verified | ✅ Done (PR #23) |
 | **Phase 17.5G** | Release notes & tag v0.4.0 | RELEASE_NOTES.md, version bump, tag | ✅ Done |
 | **Phase 17.5E** | **Docs & release readiness** — README, CUAN_INSIGHT_CONNECTION_KEY_COMPATIBILITY, PROJECT_STATUS, REMOTE_MCP_HTTP updated |
-| **Phase 19** | **MCP OAuth Connection Key Authorization Flow** — `/authorize`, `/token`, PKCE, Bearer token support, `.well-known/` metadata, 30+ tests, docs | ✅ Done |
-
+|| **Phase 19** | **MCP OAuth Connection Key Authorization Flow** — `/authorize`, `/token`, PKCE, Bearer token support, `.well-known/` metadata, 30+ tests, docs | ✅ Done |
+|| **Phase 19.4** | **Claude Native Connector Verification** — PKCE `digest('base64url')` fix, resource param preservation, DCR auto-register, Claude token exchange, 25 Meta ad accounts, safe debug logging, production debug disabled | ✅ Done |
+|
 ---
 
 ## D. Completed PRs
@@ -225,8 +226,9 @@ All tools are read-only. Write operations (pause/resume campaigns, update budget
 
 1. ✅ **Full live smoke test** with real Cuan Insight Connection Key — done (Phase 17.5F, PR #23).
 2. ✅ **Release notes** created (`RELEASE_NOTES.md`, v0.4.0).
-3. ✅ **Phase 19 — OAuth Connection Key flow** — `/authorize`, `/token`, PKCE, Bearer support (this PR).
-4. ⏳ **Add CI live test** only if safe backend test environment is available.
-5. ⏳ **Add example MCP client config** with placeholders for `claude_desktop_config.json`.
-6. ⏳ **Continue periodic `npm audit` monitoring** (currently 0).
-7. ⏳ **Post-MVP OAuth improvements**: persistent token store (Redis/DB), refresh tokens, multi-replica support.
+| 3. ✅ **Phase 19 — OAuth Connection Key flow** — `/authorize`, `/token`, PKCE, Bearer support (this PR).
+| 4. ✅ **Phase 19.4 — Claude Native Connector Verification** — PKCE fix, DCR auto-register, token exchange, 25 Meta accounts, production debug disabled.
+| 5. ⏳ **Add CI live test** only if safe backend test environment is available.
+| 6. ⏳ **Add example MCP client config** with placeholders for `claude_desktop_config.json`.
+| 7. ⏳ **Continue periodic `npm audit` monitoring** (currently 0).
+| 8. ⏳ **Post-MVP OAuth improvements**: persistent token store (Redis/DB), refresh tokens, multi-replica support.
