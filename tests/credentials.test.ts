@@ -135,3 +135,58 @@ describe('credential redaction utilities', () => {
     expect(redacted).not.toContain(token);
   });
 });
+
+describe('connection key redaction (Phase 17.5C)', () => {
+  it('masks x-cuan-mcp-connection-key header in error messages', () => {
+    const message = 'Request failed with x-cuan-mcp-connection-key: cuk_leaked-key-value-12345';
+    const redacted = redactErrorMessage(message);
+
+    expect(redacted).toContain('[REDACTED]');
+    expect(redacted).not.toContain('cuk_leaked-key-value-12345');
+    expect(redacted).not.toContain('cuk_');
+  });
+
+  it('masks connectionKey field in structured objects', () => {
+    const redacted = redactTokenLikeValues({
+      connectionKey: 'cuk_object-key-789',
+      safe: 'campaign_name',
+    });
+
+    expect(redacted).toEqual({
+      connectionKey: '[REDACTED]',
+      safe: 'campaign_name',
+    });
+  });
+
+  it('masks connection_key field in structured objects', () => {
+    const redacted = redactTokenLikeValues({
+      connection_key: 'cuk_snake-key-456',
+      safe: 'another_field',
+    });
+
+    expect(redacted).toEqual({
+      connection_key: '[REDACTED]',
+      safe: 'another_field',
+    });
+  });
+
+  it('masks connection-key field in structured objects', () => {
+    const redacted = redactTokenLikeValues({
+      'connection-key': 'cuk_dash-key-012',
+      safe: 'normal_field',
+    });
+
+    expect(redacted).toEqual({
+      'connection-key': '[REDACTED]',
+      safe: 'normal_field',
+    });
+  });
+
+  it('masks connection key in assignment-style strings', () => {
+    const message = 'Config has connection_key: cuk_assign-key-345 for provider';
+    const redacted = redactErrorMessage(message);
+
+    expect(redacted).toContain('connection_key: [REDACTED]');
+    expect(redacted).not.toContain('cuk_assign-key-345');
+  });
+});
