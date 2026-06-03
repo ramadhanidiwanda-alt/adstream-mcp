@@ -1339,3 +1339,125 @@ describe('createCuanInsightCredentialClient — connection_key auth mode', () =>
     expect(result.providerToken).toBe(PROVIDER_TOKEN);
   });
 });
+
+describe('createCuanInsightCredentialClient — URL construction', () => {
+  it('preserves base URL path when endpointPath is absolute', async () => {
+    let capturedUrl = '';
+    const mockFetch = vi.fn(async (url: string) => {
+      capturedUrl = url;
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          ok: true,
+          providerAccess: {
+            provider: 'meta',
+            accountId: 'act_123',
+            scopes: ['read'],
+            allowed: true,
+          },
+          providerToken: PROVIDER_TOKEN,
+        }),
+      };
+    }) as unknown as typeof fetch;
+
+    const config: CuanInsightCredentialClientConfig = {
+      baseUrl: 'https://project.supabase.co/functions/v1',
+      endpointPath: '/mcp-resolve-credential',
+      fetch: mockFetch,
+    };
+
+    const client = createCuanInsightCredentialClient({ config });
+
+    await client.resolve({
+      provider: 'meta',
+      accountId: 'act_123',
+      callerToken: CALLER_TOKEN,
+      requestedScopes: ['read'],
+    });
+
+    expect(capturedUrl).toBe(
+      'https://project.supabase.co/functions/v1/mcp-resolve-credential'
+    );
+  });
+
+  it('preserves base URL path with trailing slash', async () => {
+    let capturedUrl = '';
+    const mockFetch = vi.fn(async (url: string) => {
+      capturedUrl = url;
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          ok: true,
+          providerAccess: {
+            provider: 'meta',
+            accountId: 'act_123',
+            scopes: ['read'],
+            allowed: true,
+          },
+          providerToken: PROVIDER_TOKEN,
+        }),
+      };
+    }) as unknown as typeof fetch;
+
+    const config: CuanInsightCredentialClientConfig = {
+      baseUrl: 'https://project.supabase.co/functions/v1/',
+      endpointPath: '/mcp-resolve-credential',
+      fetch: mockFetch,
+    };
+
+    const client = createCuanInsightCredentialClient({ config });
+
+    await client.resolve({
+      provider: 'meta',
+      accountId: 'act_123',
+      callerToken: CALLER_TOKEN,
+      requestedScopes: ['read'],
+    });
+
+    expect(capturedUrl).toBe(
+      'https://project.supabase.co/functions/v1/mcp-resolve-credential'
+    );
+  });
+
+  it('handles base URL without path segments', async () => {
+    let capturedUrl = '';
+    const mockFetch = vi.fn(async (url: string) => {
+      capturedUrl = url;
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          ok: true,
+          providerAccess: {
+            provider: 'meta',
+            accountId: 'act_123',
+            scopes: ['read'],
+            allowed: true,
+          },
+          providerToken: PROVIDER_TOKEN,
+        }),
+      };
+    }) as unknown as typeof fetch;
+
+    const config: CuanInsightCredentialClientConfig = {
+      baseUrl: 'https://api.example.com',
+      endpointPath: '/mcp/credentials/resolve',
+      fetch: mockFetch,
+    };
+
+    const client = createCuanInsightCredentialClient({ config });
+
+    await client.resolve({
+      provider: 'meta',
+      accountId: 'act_123',
+      callerToken: CALLER_TOKEN,
+      requestedScopes: ['read'],
+    });
+
+    expect(capturedUrl).toBe(
+      'https://api.example.com/mcp/credentials/resolve'
+    );
+  });
+});

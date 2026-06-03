@@ -199,7 +199,10 @@ export function createCuanInsightCredentialClient(
         );
       }
 
-      const url = new URL(endpointPath, config.baseUrl);
+      // Preserve base URL path when endpointPath is absolute
+      const baseUrlClean = config.baseUrl.replace(/\/+$/, '');
+      const endpointClean = endpointPath.replace(/^\/+/, '/');
+      const url = new URL(baseUrlClean + endpointClean);
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
