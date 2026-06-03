@@ -2,7 +2,7 @@
 
 > **Updated:** 2026-06-03  
 > **Version:** v0.3.0  
-> **Last Phase:** Phase 16c — MCP Server API Migration
+> **Last Phase:** Phase 16d — Dependency Audit Remediation
 
 ---
 
@@ -106,6 +106,7 @@ Return normalized performance data
 | **Phase 16a** | **SSE remote transport implemented** — using existing SDK v0.5.0, no upgrade needed |
 | **Phase 16b** | **MCP SDK upgraded to v1.29.0 + Streamable HTTP implemented** — stdio default and SSE preserved |
 | **Phase 16c** | **MCP server migrated to `McpServer` API** — deprecated direct `Server` request handlers removed, 13-tool surface preserved |
+| **Phase 16d** | **Dependency audit remediated** — `vitest` upgraded to 4.1.8, audit reduced from 4 vulnerabilities to 0 |
 
 ---
 
@@ -118,12 +119,13 @@ Return normalized performance data
 | meta-ads-agent-skill | [#17](https://github.com/ramadhanidiwanda-alt/meta-ads-agent-skill/pull/17) | feat(mcp): add SSE remote transport | `52b4b58` | Adds `MCP_TRANSPORT=sse` support, auth gate, docs update |
 | meta-ads-agent-skill | TBD | chore(mcp): upgrade SDK for Streamable HTTP support | TBD | Upgrades MCP SDK to v1.29.0, adds `MCP_TRANSPORT=streamable-http`, preserves stdio and SSE |
 | meta-ads-agent-skill | TBD | refactor(mcp): migrate server implementation to McpServer | TBD | Replaces deprecated direct `Server` request-handler registration with `McpServer.registerTool(...)`; preserves stdio, SSE, Streamable HTTP, credential resolver behavior, and tool business logic |
+| meta-ads-agent-skill | TBD | chore(security): remediate npm audit vulnerabilities | TBD | Upgrades direct dev dependency `vitest` to 4.1.8; remediates transitive `vite`, `vite-node`, and `esbuild` audit findings |
 
 ---
 
 ## E. Final Validation
 
-All validations were performed after Phase 15.4 deploy on a live staging environment, plus Phase 16a/16b/16c local validation.
+All validations were performed after Phase 15.4 deploy on a live staging environment, plus Phase 16a/16b/16c/16d local validation.
 
 | Check | Result |
 |---|---|
@@ -132,11 +134,13 @@ All validations were performed after Phase 15.4 deploy on a live staging environ
 | `ads_get_campaign_performance` | ✅ OK — 2 campaigns (account-scoped) |
 | `ads_get_adset_or_adgroup_performance` | ✅ OK — 6 adsets |
 | `ads_get_ad_performance` | ✅ OK — 9 ads |
-| Unit tests | ✅ 218/218 passed (Phase 16c) |
+| Unit tests | ✅ 218/218 passed (Phase 16d, `vitest` 4.1.8) |
 | TypeScript typecheck | ✅ Passed |
 | Build | ✅ Passed |
 | MCP server package typecheck | ✅ Passed |
 | MCP server package build | ✅ Passed |
+| Dependency audit | ✅ 0 vulnerabilities after Phase 16d (`npm audit`) |
+| Docker build | ✅ `docker build -f Dockerfile.mcp -t meta-ads-agent-skill:mcp-phase16d-audit .` |
 | Stdio smoke test | ✅ `tools/list` returned 13 tools with expected names |
 | SSE auth gate | ✅ 401 for missing/invalid token, 200 with valid token |
 | SSE POST /mcp (no sessionId) | ✅ 501 (SSE still requires `sessionId`) |
@@ -156,6 +160,7 @@ All validations were performed after Phase 15.4 deploy on a live staging environ
 - **SSE auth**: `MCP_HTTP_BEARER_TOKEN` gates all SSE endpoints. Missing/invalid tokens return 401.
 - **Streamable HTTP auth**: `MCP_HTTP_BEARER_TOKEN` gates Streamable HTTP endpoints. Missing/invalid tokens return 401.
 - **Authorization header** must never be logged by the SSE or Streamable HTTP transport.
+- **Dependency audit**: Phase 16d upgraded `vitest` from `^1.6.0` to `^4.1.8`, removing 4 dev-tooling vulnerabilities from `vitest`, `vite`, `vite-node`, and `esbuild`.
 
 ---
 
