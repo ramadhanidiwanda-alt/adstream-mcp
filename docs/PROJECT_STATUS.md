@@ -1,8 +1,8 @@
 # Project Status — Meta Ads Agent Skill
 
-> **Updated:** 2026-06-02  
+> **Updated:** 2026-06-03  
 > **Version:** v0.3.0  
-> **Last Phase:** Phase 16a — SSE Remote Transport
+> **Last Phase:** Phase 16b — MCP SDK Upgrade + Streamable HTTP
 
 ---
 
@@ -43,7 +43,7 @@ MCP Client (Claude Desktop, Cline, etc.)
   │                                       ▼
   │                                   Normalized MCP Tool Response
   │
-  └─ [Future: Streamable HTTP] ──► Requires SDK upgrade (Phase 16b)
+  └─ [Streamable HTTP] ──► meta-ads-agent-skill (MCP Server via Streamable HTTP, Phase 16b)
 ```
 
 ### Discovery Flow (`ads_list_accounts`)
@@ -102,6 +102,7 @@ Return normalized performance data
 | Phase 15.5 | Final project documentation |
 | **Phase 16** | **Remote MCP HTTP evaluation** — SDK supports Streamable HTTP in v1.29+, but upgrade has medium risk |
 | **Phase 16a** | **SSE remote transport implemented** — using existing SDK v0.5.0, no upgrade needed |
+| **Phase 16b** | **MCP SDK upgraded to v1.29.0 + Streamable HTTP implemented** — stdio default and SSE preserved |
 
 ---
 
@@ -111,7 +112,8 @@ Return normalized performance data
 |---|---|---|---|---|
 | cuan-insight | [#52](https://github.com/ramadhanidiwanda-alt/cuan-insight/pull/52) | feat(mcp): support provider-level credential resolution | `33c1c89` | Adds provider-level discovery mode to `mcp-resolve-credential` edge function and `resolve_mcp_credential` RPC |
 | meta-ads-agent-skill | [#16](https://github.com/ramadhanidiwanda-alt/meta-ads-agent-skill/pull/16) | fix(meta): use provider-level credential resolution for account discovery | `064a487` | Updates `ads_list_accounts` to resolve credentials without accountId; accepts discovery response; maps `null` accountId correctly |
-| meta-ads-agent-skill | TBD | feat(mcp): add SSE remote transport | TBD | Adds `MCP_TRANSPORT=sse` support, auth gate, docs update |
+| meta-ads-agent-skill | [#17](https://github.com/ramadhanidiwanda-alt/meta-ads-agent-skill/pull/17) | feat(mcp): add SSE remote transport | `52b4b58` | Adds `MCP_TRANSPORT=sse` support, auth gate, docs update |
+| meta-ads-agent-skill | TBD | chore(mcp): upgrade SDK for Streamable HTTP support | TBD | Upgrades MCP SDK to v1.29.0, adds `MCP_TRANSPORT=streamable-http`, preserves stdio and SSE |
 
 ---
 
@@ -126,11 +128,13 @@ All validations were performed after Phase 15.4 deploy on a live staging environ
 | `ads_get_campaign_performance` | ✅ OK — 2 campaigns (account-scoped) |
 | `ads_get_adset_or_adgroup_performance` | ✅ OK — 6 adsets |
 | `ads_get_ad_performance` | ✅ OK — 9 ads |
-| Unit tests | ✅ 211/211 passed (Phase 16a) |
+| Unit tests | ✅ 217/217 passed (Phase 16b) |
 | TypeScript typecheck | ✅ Passed |
 | Build | ✅ Passed |
 | SSE auth gate | ✅ 401 for missing/invalid token, 200 with valid token |
-| SSE POST /mcp (no sessionId) | ✅ 501 (Streamable HTTP not implemented) |
+| SSE POST /mcp (no sessionId) | ✅ 501 (SSE still requires `sessionId`) |
+| Streamable HTTP `/health` | ✅ 200 with `MCP_TRANSPORT=streamable-http` |
+| Streamable HTTP `GET /mcp` | ✅ 501 for new session (POST required) |
 
 ---
 
@@ -143,18 +147,20 @@ All validations were performed after Phase 15.4 deploy on a live staging environ
 - Use environment variables or placeholders (`<CUAN_INSIGHT_SUPABASE_URL>`, `<CUAN_INSIGHT_MCP_TOKEN>`) for all setup instructions.
 - All credential errors are redacted through `redactErrorMessage` and `redactTokenLikeValues` utilities before surfacing.
 - **SSE auth**: `MCP_HTTP_BEARER_TOKEN` gates all SSE endpoints. Missing/invalid tokens return 401.
-- **Authorization header** must never be logged by the SSE transport.
+- **Streamable HTTP auth**: `MCP_HTTP_BEARER_TOKEN` gates Streamable HTTP endpoints. Missing/invalid tokens return 401.
+- **Authorization header** must never be logged by the SSE or Streamable HTTP transport.
 
 ---
 
 ## G. Known Limitations
 
-### Remote MCP HTTP Transport (Streamable HTTP) Not Complete
+### Deprecated MCP Server API
 
-The current MCP SDK version (`^0.5.0`) does not support the official **Streamable HTTP** server transport.
-- An HTTP entrypoint (`POST /mcp`) exists and returns **501 Not Implemented** for MCP messages without a `sessionId` query parameter.
-- **SSE transport** (`MCP_TRANSPORT=sse`) is now available as a remote alternative using the current SDK.
-- Streamable HTTP should be revisited after MCP SDK upgrade (Phase 16b).
+The MCP SDK is now upgraded to `^1.29.0` and Streamable HTTP is implemented. The low-level `Server` API still works but is deprecated in favor of `McpServer`.
+- Stdio remains the default entrypoint.
+- **SSE transport** (`MCP_TRANSPORT=sse`) remains available.
+- **Streamable HTTP transport** (`MCP_TRANSPORT=streamable-http`) is available behind explicit env opt-in.
+- Phase 16c should migrate from deprecated `Server` to `McpServer`.
 
 ### TikTok Provider Support
 
@@ -171,7 +177,7 @@ All tools are read-only. Write operations (pause/resume campaigns, update budget
 ## H. Next Steps (Optional)
 
 1. ✅ **Phase 16a: Implement SSE remote transport** — Done.
-2. 🔜 **Phase 16b: Upgrade MCP SDK** to v1.29+ for Streamable HTTP support.
+2. ✅ **Phase 16b: Upgrade MCP SDK + implement Streamable HTTP** — Done.
 3. 🔜 **Phase 16c: Migrate** from deprecated `Server` to `McpServer` API.
 4. ⏳ **Prepare open-source release** notes and contribution guidelines.
 5. ⏳ **Add CI live test** only if safe backend test environment is available.
