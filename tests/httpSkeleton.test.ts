@@ -58,9 +58,19 @@ describe('HTTP MCP skeleton config', () => {
     expect(config.transport).toBe('sse');
   });
 
-  it('ignores unknown transport values (falls back to http)', () => {
+  it('parses streamable-http transport configuration', () => {
     process.env.MCP_HTTP_ENABLED = 'true';
     process.env.MCP_TRANSPORT = 'streamable-http';
+
+    const config = parseHttpMcpConfig();
+
+    expect(config.enabled).toBe(true);
+    expect(config.transport).toBe('streamable-http');
+  });
+
+  it('ignores unknown transport values (falls back to http)', () => {
+    process.env.MCP_HTTP_ENABLED = 'true';
+    process.env.MCP_TRANSPORT = 'websocket';
 
     const config = parseHttpMcpConfig();
 
@@ -120,6 +130,25 @@ describe('HTTP MCP skeleton endpoints', () => {
     expect(body).toEqual({ ok: true, transport: 'sse', mode: 'local' });
   });
 
+  it('returns health status in Streamable HTTP mode', async () => {
+    server = createServer(
+      createHttpMcpRequestHandler(
+        { enabled: true, host: '127.0.0.1', port: 0, path: '/mcp', transport: 'streamable-http' },
+        { BROKER_RUNTIME_MODE: 'remote' }
+      )
+    );
+
+    await new Promise<void>((resolve) => server?.listen(0, '127.0.0.1', resolve));
+    const address = server.address();
+    const port = typeof address === 'object' && address ? address.port : 0;
+
+    const response = await fetch(`http://127.0.0.1:${port}/health`);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({ ok: true, transport: 'streamable-http', mode: 'remote' });
+  });
+
   it('returns 401 when bearer token is missing (HTTP mode)', async () => {
     server = createServer(
       createHttpMcpRequestHandler({
@@ -169,15 +198,65 @@ describe('HTTP MCP skeleton endpoints', () => {
     expect(text).not.toContain('secret-sse-token');
   });
 
-  it('POST /mcp without sessionId returns 501 in SSE mode', async () => {
-    const token = 'sse-test-token';
+  it('returns 401 when bearer token is missing (Streamable HTTP mode)', async () => {
     server = createServer(
       createHttpMcpRequestHandler({
         enabled: true,
         host: '127.0.0.1',
         port: 0,
         path: '/mcp',
-        transport: 'sse',
+        transport: 'streamable-http',
+        bearerToken: 'secret-test-token',
+      })
+    );
+
+    await new Promise<void>((resolve) => server?.listen(0, '127.0.0.1', resolve));
+    const address = server.address();
+    const port = typeof address === 'object' && address ? address.port : 0;
+
+    const response = await fetch(`http://127.0.0.1:${port}/mcp`);
+    const text = await response.text();
+
+    expect(response.status).toBe(401);
+    expect(text).toContain('Unauthorized');
+    expect(text).not.toContain('secret-test-token');
+  });
+
+  it('returns 401 with invalid bearer token (Streamable HTTP mode)', async () => {
+    server = createServer(
+      createHttpMcpRequestHandler({
+        enabled: true,
+        host: '127.0.0.1',
+        port: 0,
+        path: '/mcp',
+        transport: 'streamable-http',
+        bearerToken: 'valid-token',
+      })
+    );
+
+    await new Promise<void>((resolve) => server?.listen(0, '127.0.0.1', resolve));
+    const address = server.address();
+    const port = typeof address === 'object' && address ? address.port : 0;
+
+    const response = await fetch(`http://127.0.0.1:${port}/mcp`, {
+      headers: { Authorization: 'Bearer wrong-token' },
+    });
+    const text = await response.text();
+
+    expect(response.status).toBe(401);
+    expect(text).toContain('Unauthorized');
+    expect(text).not.toContain('valid-token');
+  });
+
+  it('returns 501 in HTTP mode with valid bearer', async () => {
+    const token = 'secret-test-token';
+    server = createServer(
+      createHttpMcpRequestHandler({
+        enabled: true,
+        host: '127.0.0.1',
+        port: 0,
+        path: '/mcp',
+        transport: 'http',
         bearerToken: token,
       })
     );
@@ -193,7 +272,7 @@ describe('HTTP MCP skeleton endpoints', () => {
     const text = await response.text();
 
     expect(response.status).toBe(501);
-    expect(text).toContain('HTTP transport is not available with current MCP SDK version.');
+    expect(text).toContain('Streamable HTTP transport requires MCP_TRANSPORT=streamable-http.');
     expect(text).not.toContain(token);
   });
 
@@ -216,7 +295,7 @@ describe('HTTP MCP skeleton endpoints', () => {
     const text = await response.text();
 
     expect(response.status).toBe(501);
-    expect(text).toContain('HTTP transport is not available with current MCP SDK version.');
+    expect(text).toContain('Streamable HTTP transport requires MCP_TRANSPORT=streamable-http.');
     expect(text).not.toContain(token);
   });
 
@@ -338,5 +417,61 @@ describe('SSE transport auth', () => {
     } finally {
       clearTimeout(timer);
     }
+  });
+});
+
+describe('Streamable HTTP transport endpoints', () => {
+  let server: Server | undefined;
+
+  afterEach(async () => {
+    if (!server) {
+      return;
+    }
+
+    await new Promise<void>((resolve) => server?.close(() => resolve()));
+    server = undefined;
+  });
+
+  it('returns 404 for unknown routes', async () => {
+    server = createServer(
+      createHttpMcpRequestHandler({
+        enabled: true,
+        host: '127.0.0.1',
+        port: 0,
+        path: '/mcp',
+        transport: 'streamable-http',
+      })
+    );
+
+    await new Promise<void>((resolve) => server?.listen(0, '127.0.0.1', resolve));
+    const address = server.address();
+    const port = typeof address === 'object' && address ? address.port : 0;
+
+    const response = await fetch(`http://127.0.0.1:${port}/nonexistent`);
+    const text = await response.text();
+
+    expect(response.status).toBe(404);
+  });
+
+  it('returns 501 for GET request (new Streamable HTTP session requires POST)', async () => {
+    server = createServer(
+      createHttpMcpRequestHandler({
+        enabled: true,
+        host: '127.0.0.1',
+        port: 0,
+        path: '/mcp',
+        transport: 'streamable-http',
+      })
+    );
+
+    await new Promise<void>((resolve) => server?.listen(0, '127.0.0.1', resolve));
+    const address = server.address();
+    const port = typeof address === 'object' && address ? address.port : 0;
+
+    const response = await fetch(`http://127.0.0.1:${port}/mcp`);
+    const text = await response.text();
+
+    expect(response.status).toBe(501);
+    expect(text).toContain('Streamable HTTP transport requires MCP_TRANSPORT=streamable-http.');
   });
 });

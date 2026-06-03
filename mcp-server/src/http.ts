@@ -1,19 +1,23 @@
 #!/usr/bin/env node
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
+import { randomUUID } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import type { AddressInfo } from 'node:net';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
+import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { createMetaAdsMcpServer } from './createServer.js';
 
 const HTTP_TRANSPORT_UNAVAILABLE_MESSAGE =
-  'HTTP transport is not available with current MCP SDK version.';
+  'Streamable HTTP transport requires MCP_TRANSPORT=streamable-http.';
+
+export type TransportType = 'http' | 'sse' | 'streamable-http';
 
 export interface HttpMcpConfig {
   enabled: boolean;
   host: string;
   port: number;
   path: string;
-  transport: 'sse' | 'http';
+  transport: TransportType;
   bearerToken?: string;
 }
 
@@ -27,6 +31,11 @@ export interface StartedHttpMcpServer {
  * Active SSE transport sessions, keyed by session ID.
  */
 const activeSseSessions = new Map<string, SSEServerTransport>();
+
+/**
+ * Active Streamable HTTP sessions, keyed by session ID.
+ */
+const activeStreamableSessions = new Map<string, StreamableHTTPServerTransport>();
 
 export function parseHttpMcpConfig(env: NodeJS.ProcessEnv = process.env): HttpMcpConfig {
   const portValue = env.MCP_HTTP_PORT ?? '8787';
@@ -43,7 +52,14 @@ export function parseHttpMcpConfig(env: NodeJS.ProcessEnv = process.env): HttpMc
   }
 
   const transportRaw = env.MCP_TRANSPORT ?? 'http';
-  const transport = transportRaw === 'sse' ? 'sse' : 'http';
+  let transport: TransportType;
+  if (transportRaw === 'streamable-http') {
+    transport = 'streamable-http';
+  } else if (transportRaw === 'sse') {
+    transport = 'sse';
+  } else {
+    transport = 'http';
+  }
 
   return {
     enabled: env.MCP_HTTP_ENABLED === 'true',
@@ -102,11 +118,15 @@ export function createHttpMcpRequestHandler(
       return;
     }
 
-    // SSE endpoint
+    // SSE transport
     if (config.transport === 'sse') {
-      handleSseRequest(config, req, res, url).catch(() => {
-        // Errors already handled inside handleSseRequest
-      });
+      handleSseRequest(config, req, res, url).catch(() => {});
+      return;
+    }
+
+    // Streamable HTTP transport
+    if (config.transport === 'streamable-http') {
+      handleStreamableHttpRequest(config, req, res, url).catch(() => {});
       return;
     }
 
@@ -125,25 +145,24 @@ export function createHttpMcpRequestHandler(
   };
 }
 
+// ── SSE handler ──────────────────────────────────────────────────────
+
 async function handleSseRequest(
   config: HttpMcpConfig,
   req: IncomingMessage,
   res: ServerResponse,
   url: URL
 ): Promise<void> {
-  // Auth check
   if (!hasValidBearerToken(req, config.bearerToken)) {
     sendUnauthorized(res);
     return;
   }
 
-  // GET /mcp -> establish SSE connection
   if (req.method === 'GET' && url.pathname === config.path) {
     await handleSseConnect(config, res);
     return;
   }
 
-  // POST /mcp with sessionId -> route message to existing SSE transport
   if (req.method === 'POST' && url.pathname === config.path) {
     const sessionId = url.searchParams.get('sessionId');
 
@@ -158,7 +177,6 @@ async function handleSseRequest(
       return;
     }
 
-    // POST without sessionId -> Streamable HTTP not implemented
     sendNotImplemented(res);
     return;
   }
@@ -177,15 +195,85 @@ async function handleSseConnect(config: HttpMcpConfig, res: ServerResponse): Pro
   try {
     await mcpServer.connect(transport);
     activeSseSessions.set(transport.sessionId, transport);
-
     console.error(`SSE session established: ${transport.sessionId}`);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'SSE connection failed';
     console.error(`SSE connection error: ${message}`);
-    // Response is already sent or failed; cleanup
     activeSseSessions.delete(transport.sessionId);
   }
 }
+
+// ── Streamable HTTP handler ──────────────────────────────────────────
+
+async function handleStreamableHttpRequest(
+  config: HttpMcpConfig,
+  req: IncomingMessage,
+  res: ServerResponse,
+  url: URL
+): Promise<void> {
+  if (!hasValidBearerToken(req, config.bearerToken)) {
+    sendUnauthorized(res);
+    return;
+  }
+
+  if (url.pathname !== config.path) {
+    sendNotFound(res);
+    return;
+  }
+
+  const sessionId = req.headers['mcp-session-id'] as string | undefined;
+
+  // Existing session
+  if (sessionId) {
+    const transport = activeStreamableSessions.get(sessionId);
+    if (!transport) {
+      sendNotFound(res);
+      return;
+    }
+    await transport.handleRequest(req, res);
+    return;
+  }
+
+  // New session — only allow POST (initialize)
+  if (req.method !== 'POST') {
+    sendNotImplemented(res);
+    return;
+  }
+
+  await handleStreamableHttpNewSession(req, res);
+}
+
+async function handleStreamableHttpNewSession(
+  req: IncomingMessage,
+  res: ServerResponse
+): Promise<void> {
+  const transport = new StreamableHTTPServerTransport({
+    sessionIdGenerator: () => randomUUID(),
+  });
+
+  const mcpServer = createMetaAdsMcpServer();
+
+  transport.onclose = () => {
+    if (transport.sessionId) {
+      activeStreamableSessions.delete(transport.sessionId);
+    }
+  };
+
+  try {
+    await mcpServer.connect(transport);
+    await transport.handleRequest(req, res);
+
+    if (transport.sessionId) {
+      activeStreamableSessions.set(transport.sessionId, transport);
+      console.error(`Streamable HTTP session established: ${transport.sessionId}`);
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Streamable HTTP request failed';
+    console.error(`Streamable HTTP error: ${message}`);
+  }
+}
+
+// ── Server startup ───────────────────────────────────────────────────
 
 export async function startHttpMcpServer(
   config: HttpMcpConfig = parseHttpMcpConfig(),
@@ -215,14 +303,19 @@ export async function startHttpMcpServer(
 
   console.error(`MCP HTTP server listening on ${config.host}:${address.port}`);
 
-  if (config.transport === 'sse') {
-    console.error(`SSE endpoint: GET ${config.path}`);
-    console.error(`Message endpoint: POST ${config.path}?sessionId=<id>`);
-    console.error('Streamable HTTP (POST /mcp without sessionId) still returns 501.');
-  } else {
-    console.error(`MCP endpoint: POST ${config.path}`);
-    console.error('Health endpoint: GET /health');
-    console.error(HTTP_TRANSPORT_UNAVAILABLE_MESSAGE);
+  switch (config.transport) {
+    case 'streamable-http':
+      console.error(`Streamable HTTP endpoint: ${config.path} (POST to initialize)`);
+      console.error('Session ID is returned in response headers for stateful mode.');
+      break;
+    case 'sse':
+      console.error(`SSE endpoint: GET ${config.path}`);
+      console.error(`Message endpoint: POST ${config.path}?sessionId=<id>`);
+      break;
+    default:
+      console.error(`MCP endpoint: POST ${config.path}`);
+      console.error('Health endpoint: GET /health');
+      console.error(HTTP_TRANSPORT_UNAVAILABLE_MESSAGE);
   }
 
   return {
@@ -235,7 +328,7 @@ export async function startHttpMcpServer(
 function failFastDisabled(): never {
   console.error('ERROR: HTTP MCP transport is disabled.');
   console.error('Set MCP_HTTP_ENABLED=true to start the HTTP server.');
-  console.error('Set MCP_TRANSPORT=sse to enable SSE remote transport.');
+  console.error('Available MCP_TRANSPORT values: sse, streamable-http');
   console.error('Stdio remains the default entrypoint: mcp-server/src/index.ts');
   process.exit(1);
 }
