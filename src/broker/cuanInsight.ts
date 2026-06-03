@@ -73,6 +73,8 @@ export interface CuanInsightCredentialResolveRequest {
   workspaceId?: string;
   callerToken?: string;
   requestedScopes?: ReadonlyArray<'read'>;
+  /** Per-request connection key override (hosted multi-user). Takes precedence over config.connectionKey. */
+  connectionKey?: string;
   params?: Record<string, unknown>;
 }
 

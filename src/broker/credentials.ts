@@ -17,6 +17,8 @@ export type BrokerRuntimeMode = 'local' | 'remote' | 'test';
 export interface CredentialResolveRequest {
   provider: unknown;
   accountId?: string;
+  /** Per-request connection key override (hosted multi-user). Falls back to env CUAN_INSIGHT_CONNECTION_KEY. */
+  connectionKey?: string;
   params?: Record<string, unknown>;
 }
 
@@ -210,6 +212,7 @@ export class CuanInsightCredentialProvider implements CredentialProvider {
         accountId: request.accountId,
         workspaceId: this.workspaceId,
         callerToken: this.callerToken,
+        connectionKey: request.connectionKey,
         requestedScopes: ['read'],
         params: request.params,
       };
