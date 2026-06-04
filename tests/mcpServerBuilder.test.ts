@@ -172,10 +172,11 @@ describe('MCP server builder', () => {
     );
   });
 
-  it('returns safe legacy tool error in remote mode without crashing initialization', async () => {
+  it('routes meta_get_ad_accounts through remote-safe ads_list_accounts', async () => {
     useRemoteBrokerEnv();
+    const adsBroker = createBrokerStub();
     const { client, server } = await createConnectedClient({
-      adsBroker: createBrokerStub(),
+      adsBroker,
     });
 
     try {
@@ -185,13 +186,17 @@ describe('MCP server builder', () => {
       });
 
       const text = response.content[0]?.text ?? '';
-      expect(text).toContain('Legacy meta_* tools require local META_* env');
+      expect(text).toContain('"ok": true');
       expect(text).not.toContain('test-mcp-token-secret');
       expect(text).not.toContain('test-supabase-anon-key');
       expect(text).not.toContain('META_ACCESS_TOKEN is required');
     } finally {
       await Promise.all([client.close(), server.close()]);
     }
+
+    expect(adsBroker.listAccounts).toHaveBeenCalledWith(
+      expect.objectContaining({ provider: 'meta', params: {} })
+    );
   });
 
   it('keeps local mode requiring legacy Meta env at initialization', () => {
