@@ -1,0 +1,16 @@
+title = "Cuan Insight Meta Ads Agent gitleaks config"
+
+[allowlist]
+description = "Allow only known dummy values in tests/docs. Real .env files stay blocked."
+
+regexes = [
+  '''cuk_01234567-89ab-cdef-0123-456789abcdef''',
+  '''test[_-]?api[_-]?key''',
+  '''Bearer <token>''',
+  '''Bearer \$[A-Z0-9_]+'''
+]
+
+paths = [
+  '''tests/.*''',
+  '''docs/.*'''
+]
