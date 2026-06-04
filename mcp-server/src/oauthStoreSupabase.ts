@@ -134,6 +134,9 @@ export class SupabaseOAuthStore implements IOAuthStore {
   /** Fetch implementation (injectable for testing) */
   private fetchImpl: typeof fetch;
 
+  /** Debug logging enabled via MCP_OAUTH_DEBUG or MCP_SUPABASE_STORE_DEBUG */
+  private debugEnabled: boolean;
+
   constructor(config: OAuthStoreConfig & { supabaseUrl: string; serviceRoleKey: string; fetch?: typeof fetch }) {
     this.authCodeTtlMs = config.authCodeTtlMs ?? 300_000;
     this.accessTokenTtlMs = config.accessTokenTtlMs ?? 86_400_000;
@@ -144,9 +147,25 @@ export class SupabaseOAuthStore implements IOAuthStore {
     this.connectionKeyIdCache = new Map();
     this.tokenResolveCache = new Map();
     this.fetchImpl = config.fetch ?? fetch;
+    this.debugEnabled = !!(
+      process.env.MCP_OAUTH_DEBUG === 'true' ||
+      process.env.MCP_SUPABASE_STORE_DEBUG === 'true'
+    );
 
     // Fire-and-forget: load persisted data from Supabase into caches
     this.loadPersistedData();
+  }
+
+  // ── Safe debug logging ───────────────────────────────────────────────
+
+  /**
+   * Log safe debug info. Never logs secrets (access tokens, auth codes,
+   * connection keys, service role key, code_verifier, providerToken).
+   * Only emits when MCP_OAUTH_DEBUG=true or MCP_SUPABASE_STORE_DEBUG=true.
+   */
+  private debugLog(operation: string, data: Record<string, unknown>): void {
+    if (!this.debugEnabled) return;
+    console.log(`[OAUTH_STORE] ${operation}`, JSON.stringify(data));
   }
 
   // ── Auth Code ───────────────────────────────────────────────────────
@@ -166,6 +185,12 @@ export class SupabaseOAuthStore implements IOAuthStore {
 
     // Supabase mode requires connectionKeyId, not raw connectionKey
     if (!params.connectionKeyId) {
+      this.debugLog('create_authorization_code', {
+        has_connection_key_id: false,
+        has_connection_key: !!params.connectionKey,
+        warning: 'connection_key_reference_missing — auth code will not be persisted in Supabase',
+        client_id_prefix: params.clientId.slice(0, 8),
+      });
       // Fallback: if connectionKey is given but no connectionKeyId, hash and store anyway
       // But this is an anti-pattern for Supabase mode
       if (!params.connectionKey) {
@@ -176,7 +201,7 @@ export class SupabaseOAuthStore implements IOAuthStore {
       }
     }
 
-    const effectiveConnectionKeyId = params.connectionKeyId ?? '';
+    const effectiveConnectionKeyId = params.connectionKeyId ?? null;
 
     if (params.codeChallengeMethod !== 'S256') {
       throw new Error('Only S256 code challenge method is supported');
@@ -203,22 +228,24 @@ export class SupabaseOAuthStore implements IOAuthStore {
       used: false,
     });
 
-    // Persist to Supabase (fire-and-forget)
-    this.supabaseQueryAsync(
-      'mcp_oauth_auth_codes',
-      'POST',
-      {
-        code_hash: codeHash,
-        client_id: params.clientId,
-        redirect_uri: params.redirectUri,
-        code_challenge: params.codeChallenge,
-        code_challenge_method: 'S256',
-        scope: params.scope,
-        resource: params.resource ?? null,
-        connection_key_id: effectiveConnectionKeyId,
-        expires_at: expiresAt,
-      }
-    );
+    // Persist to Supabase (fire-and-forget, only if connectionKeyId available)
+    if (effectiveConnectionKeyId) {
+      this.supabaseQueryAsync(
+        'mcp_oauth_auth_codes',
+        'POST',
+        {
+          code_hash: codeHash,
+          client_id: params.clientId,
+          redirect_uri: params.redirectUri,
+          code_challenge: params.codeChallenge,
+          code_challenge_method: 'S256',
+          scope: params.scope,
+          resource: params.resource ?? null,
+          connection_key_id: effectiveConnectionKeyId,
+          expires_at: expiresAt,
+        }
+      );
+    }
 
     return { code };
   }
@@ -364,10 +391,21 @@ export class SupabaseOAuthStore implements IOAuthStore {
       );
     }
 
-    const effectiveConnectionKeyId = params.connectionKeyId ?? '';
+    if (!params.connectionKeyId) {
+      this.debugLog('create_access_token', {
+        has_connection_key_id: false,
+        has_connection_key: !!params.connectionKey,
+        warning: 'connection_key_reference_missing — access token will not be persisted in Supabase',
+        client_id_prefix: params.clientId.slice(0, 8),
+      });
+    }
+
+    const effectiveConnectionKeyId = params.connectionKeyId ?? null;
 
     // Cache in memory for sync resolution
-    this.connectionKeyIdCache.set(tokenHash, effectiveConnectionKeyId);
+    if (effectiveConnectionKeyId) {
+      this.connectionKeyIdCache.set(tokenHash, effectiveConnectionKeyId);
+    }
 
     // Pre-build resolve cache entry
     const resolveEntry: OAuthResolvedToken = {
@@ -376,24 +414,29 @@ export class SupabaseOAuthStore implements IOAuthStore {
       clientId: params.clientId,
       scope: params.scope,
       resource: params.resource,
-      connectionKeyId: params.connectionKeyId,
+      connectionKeyId: effectiveConnectionKeyId ?? undefined,
     };
     this.tokenResolveCache.set(tokenHash, resolveEntry);
 
-    // Async persist to Supabase
-    const expiresAt = new Date(Date.now() + this.accessTokenTtlMs).toISOString();
-    this.supabaseQueryAsync(
-      'mcp_oauth_access_tokens',
-      'POST',
-      {
-        token_hash: tokenHash,
-        client_id: params.clientId,
-        scope: params.scope,
-        resource: params.resource ?? null,
-        connection_key_id: effectiveConnectionKeyId,
-        expires_at: expiresAt,
-      }
-    );
+    // Async persist to Supabase (only if connectionKeyId is available)
+    // Without a valid connectionKeyId, the FK constraint would fail.
+    // In-memory cache is populated for current session; after restart,
+    // only persisted tokens (with connectionKeyId) are reloaded.
+    if (effectiveConnectionKeyId) {
+      const expiresAt = new Date(Date.now() + this.accessTokenTtlMs).toISOString();
+      this.supabaseQueryAsync(
+        'mcp_oauth_access_tokens',
+        'POST',
+        {
+          token_hash: tokenHash,
+          client_id: params.clientId,
+          scope: params.scope,
+          resource: params.resource ?? null,
+          connection_key_id: effectiveConnectionKeyId,
+          expires_at: expiresAt,
+        }
+      );
+    }
 
     return { accessToken, expiresIn: Math.floor(this.accessTokenTtlMs / 1000) };
   }
@@ -628,6 +671,8 @@ export class SupabaseOAuthStore implements IOAuthStore {
    * Enables OAuth persistence after container restart.
    */
   private async loadPersistedData(): Promise<void> {
+    let clientCount = 0;
+    let tokenCount = 0;
     try {
       // 1. Load registered clients
       const clientRows = await this.supabaseQueryAsync(
@@ -651,6 +696,7 @@ export class SupabaseOAuthStore implements IOAuthStore {
               scope: row.scope != null ? String(row.scope) : 'mcp read write',
               issuedAt: Math.floor(new Date(row.created_at as string).getTime() / 1000),
             });
+            clientCount++;
           }
         }
       }
@@ -684,12 +730,14 @@ export class SupabaseOAuthStore implements IOAuthStore {
               resource: row.resource as string | undefined,
               connectionKeyId,
             });
+            tokenCount++;
           }
         }
       }
     } catch {
       // Silently fail — caches will be populated on-the-fly
     }
+    this.debugLog('load_persisted_data', { clients_loaded: clientCount, tokens_loaded: tokenCount });
   }
 
   private async supabaseQueryAsync(
@@ -732,7 +780,27 @@ export class SupabaseOAuthStore implements IOAuthStore {
       const response = await this.fetchImpl(url.toString(), fetchOptions);
 
       if (!response.ok) {
-        // Silently fail — don't leak service role key in errors
+        // Log error safely — never leak secrets
+        const hasConnectionKeyId = payload
+          ? ('connection_key_id' in payload && !!payload.connection_key_id)
+          : undefined;
+        let safeMessage = `HTTP ${response.status}`;
+        try {
+          const errorBody = await response.text() as string | undefined;
+          if (errorBody) {
+            const parsed = JSON.parse(errorBody) as Record<string, unknown>;
+            safeMessage = (parsed.message as string) || safeMessage;
+          }
+        } catch {
+          // Can't parse error body — use default message
+        }
+        this.debugLog('supabase_request_failed', {
+          table,
+          operation: method,
+          status: response.status,
+          message: safeMessage,
+          hasConnectionKeyId,
+        });
         return method === 'GET' ? [] : null;
       }
 
