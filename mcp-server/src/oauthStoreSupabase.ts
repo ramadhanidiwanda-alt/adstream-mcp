@@ -152,8 +152,10 @@ export class SupabaseOAuthStore implements IOAuthStore {
       process.env.MCP_SUPABASE_STORE_DEBUG === 'true'
     );
 
-    // Fire-and-forget: load persisted data from Supabase into caches
-    this.loadPersistedData();
+    // loadPersistedData() is called explicitly by startHttpMcpServer()
+    // before the HTTP server starts accepting requests.
+    // This avoids a race where the first request arrives before
+    // persisted OAuth tokens are loaded into the in-memory caches.
   }
 
   // ── Safe debug logging ───────────────────────────────────────────────
@@ -667,10 +669,12 @@ export class SupabaseOAuthStore implements IOAuthStore {
    */
   /**
    * Load persisted data from Supabase into in-memory caches.
-   * Called once on construction (fire-and-forget).
+   * Called explicitly by startHttpMcpServer() before the HTTP server
+   * starts accepting requests. Avoids race condition where first request
+   * arrives before persisted tokens are loaded into memory caches.
    * Enables OAuth persistence after container restart.
    */
-  private async loadPersistedData(): Promise<void> {
+  public async loadPersistedData(): Promise<void> {
     let clientCount = 0;
     let tokenCount = 0;
     try {

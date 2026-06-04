@@ -1223,6 +1223,7 @@ async function handleStreamableHttpRequest(
 
     const authInfo = buildRequestAuth(req, store);
     oauthDebug('mcp.auth.connection_context_resolved', {
+      has_oauth_context: !!authInfo?.extra?.oauthAuthContext,
       has_connection_key: !!authInfo?.extra?.connectionKey,
       path: url.pathname,
     }, env);
@@ -1299,6 +1300,14 @@ export async function startHttpMcpServer(
 ): Promise<StartedHttpMcpServer> {
   if (!config.enabled) {
     throw new Error('HTTP MCP transport is disabled. Set MCP_HTTP_ENABLED=true to enable it.');
+  }
+
+  // Prime the OAuth store caches from persistent storage BEFORE the
+  // server starts accepting requests. Avoids a race where the first
+  // request arrives before persisted tokens are loaded into memory.
+  const store = getOAuthStore(env);
+  if (typeof (store as unknown as Record<string, unknown>).loadPersistedData === 'function') {
+    await (store as unknown as { loadPersistedData(): Promise<void> }).loadPersistedData();
   }
 
   const server = createServer(createHttpMcpRequestHandler(config, env));
