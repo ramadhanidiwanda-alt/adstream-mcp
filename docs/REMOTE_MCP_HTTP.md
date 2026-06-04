@@ -96,8 +96,8 @@ Claude klik Connect
 
 ### Limitations (MVP)
 
-- OAuth store is **in-memory only** — auth codes and tokens are lost on server restart
-- Not suitable for multi-replica deployments without Redis/DB-backed store
+- OAuth store is **in-memory by default** — auth codes and tokens are lost on server restart
+- **Persistent store (Phase 20A)**: `MCP_OAUTH_STORE_DRIVER=supabase` persists tokens in Supabase. See [Persistent OAuth Store](#persistent-oauth-store-phase-20a).
 - No refresh token support yet
 - Connection Key validation makes a lightweight probe to Cuan Insight; if resolver is unavailable, key is accepted and validated at tool call time
 - PKCE challenge is computed using Node.js `digest('base64url')` directly (RFC 7636 compliant); do **not** wrap with additional `base64UrlEncode()` — that would double-encode and break Claude's native connector
@@ -173,6 +173,50 @@ CUAN_INSIGHT_MCP_TOKEN_HEADER_NAME=X-Cuan-MCP-Token
 ```
 
 Use your own hosted endpoint. Do not hardcode private endpoint, token, anon key, project ref, or domain in this repo.
+
+## Persistent OAuth Store (Phase 20A)
+
+Phase 20A adds a persistent OAuth store foundation via `MCP_OAUTH_STORE_DRIVER`.
+
+### Drivers
+
+| Driver | Description |
+|---|---|
+| `memory` (default) | In-memory store. Data lost on restart. Backward compatible. |
+| `supabase` | Persistent Supabase-backed store. Requires `MCP_OAUTH_SUPABASE_URL` + `MCP_OAUTH_SUPABASE_SERVICE_ROLE_KEY`. |
+
+### Env
+
+```env
+# OAuth store driver (default: memory)
+MCP_OAUTH_STORE_DRIVER=memory
+
+# Supabase (required when driver=supabase)
+MCP_OAUTH_SUPABASE_URL=https://<project>.supabase.co
+MCP_OAUTH_SUPABASE_SERVICE_ROLE_KEY=<service-role-key>
+```
+
+### Security
+
+- Authorization codes stored as **SHA-256 hash** only — raw code never persisted.
+- Access tokens stored as **SHA-256 hash** only — raw token returned once at creation.
+- Connection keys stored as **SHA-256 hash** only.
+- **Provider tokens are never stored** in the OAuth store.
+- `service_role` key must never be committed or logged.
+
+### Supabase Schema
+
+Tables: `mcp_oauth_clients`, `mcp_oauth_auth_codes`, `mcp_oauth_access_tokens`.
+Full schema in `docs/PERSISTENT_OAUTH_STORE.md`.
+
+### Current Status (Phase 20A.1)
+
+- `MemoryOAuthStore` (backward compatible default) — production-ready.
+- `SupabaseOAuthStore` — **skeleton only**. Implements the `IOAuthStore` interface with stub Supabase queries. Full production wiring requires:
+  - SQL migration to Cuan Insight Supabase (Phase 20B)
+  - Real Supabase REST API calls (fetch-based, no SDK dependency)
+  - Connection key resolution bridge (in-memory cache → Cuan Insight hash-based resolution)
+- **No production switch yet.** Default behavior unchanged.
 
 ## Troubleshooting
 

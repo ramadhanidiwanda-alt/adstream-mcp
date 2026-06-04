@@ -5,7 +5,13 @@ import {
   createHttpMcpRequestHandler,
   parseHttpMcpConfig,
 } from '../mcp-server/src/http.js';
-import { OAuthStore } from '../mcp-server/src/oauthStore.js';
+import {
+  OAuthStore,
+  type IOAuthStore,
+  createOAuthStoreFromEnv,
+  type OAuthStoreDriver,
+} from '../mcp-server/src/oauthStore.js';
+import { SupabaseOAuthStore } from '../mcp-server/src/oauthStoreSupabase.js';
 
 // ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -1347,5 +1353,187 @@ describe('OAuthStore DCR unit tests', () => {
     });
     expect(redeemed).toBeDefined();
     expect(redeemed!.connectionKey).toBe('test-key');
+  });
+});
+// ── Store Factory Tests ──────────────────────────────────────────────────
+
+describe('createOAuthStoreFromEnv factory', () => {
+  it('returns MemoryOAuthStore by default (no MCP_OAUTH_STORE_DRIVER)', () => {
+    const store = createOAuthStoreFromEnv({});
+    expect(store).toBeDefined();
+    // MemoryOAuthStore has cleanupExpired (private), verify via getStats
+    const stats = store.getStats();
+    expect(stats.activeAuthCodes).toBe(0);
+  });
+
+  it('returns MemoryOAuthStore when MCP_OAUTH_STORE_DRIVER=memory', () => {
+    const store = createOAuthStoreFromEnv({ MCP_OAUTH_STORE_DRIVER: 'memory' });
+    expect(store).toBeDefined();
+    const stats = store.getStats();
+    expect(stats.activeAuthCodes).toBe(0);
+  });
+
+  it('throws when MCP_OAUTH_STORE_DRIVER=supabase and env missing', () => {
+    expect(() => {
+      createOAuthStoreFromEnv({ MCP_OAUTH_STORE_DRIVER: 'supabase' });
+    }).toThrow(/MCP_OAUTH_SUPABASE_URL/);
+  });
+
+  it('throws for invalid driver', () => {
+    expect(() => {
+      createOAuthStoreFromEnv({ MCP_OAUTH_STORE_DRIVER: 'redis' });
+    }).toThrow(/Invalid MCP_OAUTH_STORE_DRIVER/);
+  });
+});
+
+// ── SupabaseOAuthStore Unit Tests ────────────────────────────────────────
+
+describe('SupabaseOAuthStore skeleton', () => {
+  it('can be instantiated with valid config', () => {
+    const store = new SupabaseOAuthStore({
+      supabaseUrl: 'https://example.supabase.co',
+      serviceRoleKey: 'test-key',
+      authCodeTtlMs: 60_000,
+      accessTokenTtlMs: 60_000,
+    });
+    expect(store).toBeDefined();
+
+    const stats = store.getStats();
+    expect(stats.activeAuthCodes).toBe(0);
+    expect(stats.activeAccessTokens).toBe(0);
+  });
+
+  it('registerClient returns clientId', () => {
+    const store = new SupabaseOAuthStore({
+      supabaseUrl: 'https://example.supabase.co',
+      serviceRoleKey: 'test-key',
+    });
+    const result = store.registerClient({
+      redirectUris: ['https://example.com/callback'],
+      clientName: 'Test App',
+    });
+    expect(result.clientId).toBeTruthy();
+    expect(result.clientId.length).toBeGreaterThan(0);
+    expect(result.clientIdIssuedAt).toBeGreaterThan(0);
+  });
+
+  it('isClientRegistered returns false for unknown client', () => {
+    const store = new SupabaseOAuthStore({
+      supabaseUrl: 'https://example.supabase.co',
+      serviceRoleKey: 'test-key',
+    });
+    expect(store.isClientRegistered('unknown-client')).toBe(false);
+  });
+
+  it('getRegisteredClient returns undefined for unknown client', () => {
+    const store = new SupabaseOAuthStore({
+      supabaseUrl: 'https://example.supabase.co',
+      serviceRoleKey: 'test-key',
+    });
+    expect(store.getRegisteredClient('unknown-client')).toBeUndefined();
+  });
+
+  it('createAuthorizationCode returns code', () => {
+    const store = new SupabaseOAuthStore({
+      supabaseUrl: 'https://example.supabase.co',
+      serviceRoleKey: 'test-key',
+    });
+    const codeVerifier = randomString();
+    const codeChallenge = createHash('sha256').update(codeVerifier).digest('base64url');
+
+    const { code } = store.createAuthorizationCode({
+      connectionKey: 'test-key',
+      clientId: 'test-client',
+      redirectUri: 'https://example.com/callback',
+      codeChallenge,
+      codeChallengeMethod: 'S256',
+      scope: 'mcp read',
+    });
+    expect(code).toBeTruthy();
+    expect(code.length).toBeGreaterThan(0);
+  });
+
+  it('redeemAuthorizationCode returns undefined (skeleton — no Supabase DB)', () => {
+    const store = new SupabaseOAuthStore({
+      supabaseUrl: 'https://example.supabase.co',
+      serviceRoleKey: 'test-key',
+    });
+    const codeVerifier = randomString();
+    const codeChallenge = createHash('sha256').update(codeVerifier).digest('base64url');
+
+    const { code } = store.createAuthorizationCode({
+      connectionKey: 'test-key',
+      clientId: 'test-client',
+      redirectUri: 'https://example.com/callback',
+      codeChallenge,
+      codeChallengeMethod: 'S256',
+      scope: 'mcp read',
+    });
+
+    // Skeleton returns undefined because no real Supabase DB backing
+    const redeemed = store.redeemAuthorizationCode({
+      code,
+      codeVerifier,
+      clientId: 'test-client',
+      redirectUri: 'https://example.com/callback',
+    });
+    expect(redeemed).toBeUndefined();
+  });
+
+  it('createAccessToken returns accessToken', () => {
+    const store = new SupabaseOAuthStore({
+      supabaseUrl: 'https://example.supabase.co',
+      serviceRoleKey: 'test-key',
+    });
+    const result = store.createAccessToken({
+      connectionKey: 'test-key',
+      scope: 'mcp read',
+      clientId: 'test-client',
+    });
+    expect(result.accessToken).toBeTruthy();
+    expect(result.expiresIn).toBeGreaterThan(0);
+  });
+
+  it('resolveAccessToken returns undefined (skeleton — cache set but DB validation fails)', () => {
+    const store = new SupabaseOAuthStore({
+      supabaseUrl: 'https://example.supabase.co',
+      serviceRoleKey: 'test-key',
+    });
+    const { accessToken } = store.createAccessToken({
+      connectionKey: 'test-key',
+      scope: 'mcp read',
+      clientId: 'test-client',
+    });
+
+    // Skeleton: cache stores key but DB validation returns empty → undefined
+    // Full implementation will validate against real Supabase
+    const resolved = store.resolveAccessToken(accessToken);
+    expect(resolved).toBeUndefined();
+  });
+
+  it('resolveAccessToken returns undefined for unknown token', () => {
+    const store = new SupabaseOAuthStore({
+      supabaseUrl: 'https://example.supabase.co',
+      serviceRoleKey: 'test-key',
+    });
+    expect(store.resolveAccessToken('unknown-token')).toBeUndefined();
+  });
+
+  it('revokeAccessToken returns true', () => {
+    const store = new SupabaseOAuthStore({
+      supabaseUrl: 'https://example.supabase.co',
+      serviceRoleKey: 'test-key',
+    });
+    const { accessToken } = store.createAccessToken({
+      connectionKey: 'test-key',
+      scope: 'mcp read',
+      clientId: 'test-client',
+    });
+
+    const revoked = store.revokeAccessToken(accessToken);
+    expect(revoked).toBe(true);
+
+    // After revoke, resolution should fail (cache cleared)
+    // Note: in skeleton, DB revoke is no-op, but cache is cleared
   });
 });

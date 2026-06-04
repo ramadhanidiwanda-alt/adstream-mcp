@@ -1,8 +1,8 @@
 # Project Status — Meta Ads Agent Skill
 
 > **Updated:** 2026-06-04  
-> **Version:** v0.4.1  
-> **Last Phase:** Phase 19.4 — Claude Native Connector Verification
+> **Version:** v0.4.2  
+> **Last Phase:** Phase 20A.1 — Persistent OAuth Store Foundation
 
 ### Phase 17.5 Across Sub-phases
 | Phase | Summary | Key Changes | Status |
@@ -204,9 +204,9 @@ The MCP SDK is upgraded to `^1.29.0`, Streamable HTTP is implemented, and Phase 
 
 ### OAuth Connector Flow (Phase 19)
 
-- OAuth implementation is **MVP quality** with **in-memory store** only.
-- Auth codes and access tokens are lost on server restart.
-- Not suitable for multi-replica deployments without Redis/DB-backed store.
+- OAuth implementation uses **in-memory store by default** (backward compatible).
+- **Persistent store (Phase 20A)**: `MCP_OAUTH_STORE_DRIVER=supabase` supports persistence via Supabase. `SupabaseOAuthStore` is skeleton-only in 20A.1; full production wiring in Phase 20B.
+- Auth codes and access tokens are lost on server restart when using default memory driver.
 - No refresh token support — re-authorize when access token expires.
 - Connection Key validation probes Cuan Insight; if resolver is unavailable, key is accepted as valid and errors surface at tool call time.
 - Bearer token resolution order: OAuth access token store → `MCP_HTTP_BEARER_TOKEN` (static) → `x-cuan-mcp-connection-key`.
@@ -231,4 +231,5 @@ All tools are read-only. Write operations (pause/resume campaigns, update budget
 | 5. ⏳ **Add CI live test** only if safe backend test environment is available.
 | 6. ⏳ **Add example MCP client config** with placeholders for `claude_desktop_config.json`.
 | 7. ⏳ **Continue periodic `npm audit` monitoring** (currently 0).
-| 8. ⏳ **Post-MVP OAuth improvements**: persistent token store (Redis/DB), refresh tokens, multi-replica support.
+| 8. ✅ **Phase 20A.1 — Persistent OAuth store foundation** — IOAuthStore interface, MemoryOAuthStore, SupabaseOAuthStore skeleton, factory, env config.
+| 9. ⏳ **Phase 20B — Supabase production wiring** — SQL migration, real REST API, connection key bridge.
