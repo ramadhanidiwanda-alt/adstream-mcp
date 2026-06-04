@@ -7,7 +7,7 @@ import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { createMetaAdsMcpServer } from './createServer.js';
 import type { AuthInfo } from '@modelcontextprotocol/sdk/server/auth/types.js';
-import { OAuthStore, createOAuthStore } from './oauthStore.js';
+import { OAuthStore, type IOAuthStore, createOAuthStoreFromEnv } from './oauthStore.js';
 import { renderAuthorizeForm } from './authorizeForm.js';
 
 const HTTP_TRANSPORT_UNAVAILABLE_MESSAGE =
@@ -73,14 +73,11 @@ function oauthDebug(stage: string, data: Record<string, unknown>, env?: NodeJS.P
 }
 
 // ── OAuth store ──────────────────────────────────────────────────────────
-let oauthStore: OAuthStore | undefined;
+let oauthStore: IOAuthStore | undefined;
 
-function getOAuthStore(env: NodeJS.ProcessEnv = process.env): OAuthStore {
+function getOAuthStore(env: NodeJS.ProcessEnv = process.env): IOAuthStore {
   if (!oauthStore) {
-    oauthStore = createOAuthStore({
-      authCodeTtlMs: (Number(env.MCP_OAUTH_AUTH_CODE_TTL_SECONDS) || 300) * 1000,
-      accessTokenTtlMs: (Number(env.MCP_OAUTH_ACCESS_TOKEN_TTL_SECONDS) || 86400) * 1000,
-    });
+    oauthStore = createOAuthStoreFromEnv(env);
   }
   return oauthStore;
 }
@@ -140,7 +137,7 @@ function parseAllowedClientIds(raw?: string): string[] | undefined {
 function isClientIdAllowed(
   clientId: string,
   allowedIds?: string[],
-  store?: OAuthStore
+  store?: IOAuthStore
 ): boolean {
   if (!allowedIds || allowedIds.length === 0) return true;
   if (allowedIds.includes(clientId)) return true;
@@ -216,7 +213,7 @@ function sendNotImplemented(res: ServerResponse): void {
  */
 function extractConnectionKey(
   req: IncomingMessage,
-  store?: OAuthStore
+  store?: IOAuthStore
 ): string | undefined {
   // Mode 1: OAuth Bearer token
   const authorization = req.headers.authorization;
@@ -265,7 +262,7 @@ function extractConnectionKey(
  */
 function buildRequestAuth(
   req: IncomingMessage,
-  store?: OAuthStore
+  store?: IOAuthStore
 ): AuthInfo | undefined {
   const connectionKey = extractConnectionKey(req, store);
   if (!connectionKey) return undefined;
@@ -280,7 +277,7 @@ function buildRequestAuth(
 function hasValidMcpAuth(
   req: IncomingMessage,
   config: HttpMcpConfig,
-  store?: OAuthStore
+  store?: IOAuthStore
 ): boolean {
   // Check 1: MCP_HTTP_BEARER_TOKEN (legacy static token)
   if (config.bearerToken) {
