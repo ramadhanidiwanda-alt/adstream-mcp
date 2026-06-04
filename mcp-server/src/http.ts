@@ -869,6 +869,7 @@ async function validateConnectionKey(
       },
       body: JSON.stringify({
         provider: 'meta', // Any supported provider for validation
+        requestedScopes: ['read'], // Required by Edge Function
       }),
       signal: AbortSignal.timeout(10000),
     });
