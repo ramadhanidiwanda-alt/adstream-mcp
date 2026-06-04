@@ -237,7 +237,30 @@ export class CuanInsightCredentialProvider implements CredentialProvider {
         resolveRequest.connectionKeyId = request.oauthAuthContext.connectionKeyId;
       }
 
+      // ── Temp debug: credential resolver request ──
+      if (process.env.MCP_OAUTH_DEBUG === 'true') {
+        console.log('[TOOL_DEBUG] credential.resolve.request', JSON.stringify({
+          provider,
+          is_oauth_token: isOAuthTokenMode,
+          has_connection_key: !!request.connectionKey,
+          has_connection_key_id: !!request.oauthAuthContext?.connectionKeyId,
+          has_token_hash: !!resolveRequest.tokenHash,
+          has_auth_type: !!resolveRequest.authType,
+          auth_type: resolveRequest.authType ?? 'none',
+        }));
+      }
+
       const response = await this.client.resolve(resolveRequest);
+
+      // ── Temp debug: credential resolver response ──
+      if (process.env.MCP_OAUTH_DEBUG === 'true') {
+        console.log('[TOOL_DEBUG] credential.resolve.response', JSON.stringify({
+          ok: response.ok,
+          has_provider_token: !!response.providerToken,
+          error_code: response.error?.code ?? null,
+          has_identity: !!response.identity,
+        }));
+      }
 
       return mapCuanInsightResponseToCredentialResult(
         response,
