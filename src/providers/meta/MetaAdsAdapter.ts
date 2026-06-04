@@ -16,7 +16,7 @@ import { redactErrorMessage } from '../../broker/credentials.js';
 import { normalizeMetaInsights } from './normalizer.js';
 
 export interface MetaAdsAdapterTools {
-  getAdAccounts(client: MetaClient): Promise<AdAccount[]>;
+  getAdAccounts(client: MetaClient, options?: { limit?: number }): Promise<AdAccount[]>;
   getCampaignInsights(
     client: MetaClient,
     options: { adAccountId: string; since: string; until: string; limit?: number }
@@ -65,8 +65,9 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
     if (!context.ok) return context.response;
 
     try {
-      const accounts = await this.tools.getAdAccounts(this.createClient(context.credential));
-      return { ok: true, provider: 'meta', data: accounts };
+      const limit = typeof request.params.limit === 'number' ? request.params.limit : undefined;
+      const accounts = await this.tools.getAdAccounts(this.createClient(context.credential), { limit });
+      return { ok: true, provider: 'meta', data: accounts, accounts };
     } catch (error) {
       return this.errorResponse(error);
     }
