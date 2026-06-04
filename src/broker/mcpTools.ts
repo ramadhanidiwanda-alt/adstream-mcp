@@ -89,6 +89,9 @@ function stripRawFromResponse<T>(value: T): T {
 }
 
 export function toAdsBrokerRequest(args: Record<string, unknown>, connectionKey?: string): AdsBrokerRequest {
+  // Extract oauth auth context if present (set by createServer.ts from extra.authInfo)
+  const oauthAuthContext = (args._oauthAuthContext as AdsBrokerRequest['oauthAuthContext']) ?? undefined;
+
   return {
     provider: parseProvider(args.provider),
     providers: parseProviders(args.providers),
@@ -97,6 +100,7 @@ export function toAdsBrokerRequest(args: Record<string, unknown>, connectionKey?
     until: typeof args.until === 'string' ? args.until : undefined,
     params: isPlainObject(args.params) ? args.params : {},
     connectionKey,
+    oauthAuthContext,
   };
 }
 

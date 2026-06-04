@@ -1494,7 +1494,7 @@ describe('SupabaseOAuthStore skeleton', () => {
     expect(result.expiresIn).toBeGreaterThan(0);
   });
 
-  it('resolveAccessToken returns undefined (skeleton — cache set but DB validation fails)', () => {
+  it('resolveAccessToken returns oauth_token result from in-memory cache', () => {
     const store = new SupabaseOAuthStore({
       supabaseUrl: 'https://example.supabase.co',
       serviceRoleKey: 'test-key',
@@ -1505,10 +1505,12 @@ describe('SupabaseOAuthStore skeleton', () => {
       clientId: 'test-client',
     });
 
-    // Skeleton: cache stores key but DB validation returns empty → undefined
-    // Full implementation will validate against real Supabase
+    // In-memory cache resolves synchronously with oauth_token auth type
     const resolved = store.resolveAccessToken(accessToken);
-    expect(resolved).toBeUndefined();
+    expect(resolved).toBeDefined();
+    expect(resolved!.authType).toBe('oauth_token');
+    expect(resolved!.clientId).toBe('test-client');
+    expect(resolved!.scope).toBe('mcp read');
   });
 
   it('resolveAccessToken returns undefined for unknown token', () => {
