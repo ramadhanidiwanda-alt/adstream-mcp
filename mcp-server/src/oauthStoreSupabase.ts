@@ -8,6 +8,7 @@ import {
   type OAuthStoreConfig,
   type OAuthResolvedToken,
   type RedeemAuthCodeResult,
+  type AuthorizationCodeRecord,
 } from './oauthStore.js';
 
 // ── Types ────────────────────────────────────────────────────────────────
@@ -121,6 +122,9 @@ export class SupabaseOAuthStore implements IOAuthStore {
   /** In-memory cache for registered DCR clients (sync access) */
   private registeredClients: Map<string, RegisteredClient>;
 
+  /** In-memory cache for auth codes (sync redeem) */
+  private authCodes: Map<string, AuthorizationCodeRecord>;
+
   /** In-memory cache mapping tokenHash → connectionKeyId for sync resolution */
   private connectionKeyIdCache: Map<string, string>;
 
@@ -136,6 +140,7 @@ export class SupabaseOAuthStore implements IOAuthStore {
     this.supabaseUrl = config.supabaseUrl;
     this.serviceRoleKey = config.serviceRoleKey;
     this.registeredClients = new Map();
+    this.authCodes = new Map();
     this.connectionKeyIdCache = new Map();
     this.tokenResolveCache = new Map();
     this.fetchImpl = config.fetch ?? fetch;
@@ -179,6 +184,23 @@ export class SupabaseOAuthStore implements IOAuthStore {
 
     // Insert auth code record — sync return, async DB write
     const expiresAt = new Date(Date.now() + this.authCodeTtlMs).toISOString();
+
+    // Cache in-memory for sync redeemAuthorizationCode
+    this.authCodes.set(codeHash, {
+      codeHash,
+      connectionKey: params.connectionKey ?? '',
+      connectionKeyId: effectiveConnectionKeyId || undefined,
+      clientId: params.clientId,
+      redirectUri: params.redirectUri,
+      codeChallenge: params.codeChallenge,
+      codeChallengeMethod: 'S256',
+      scope: params.scope,
+      resource: params.resource,
+      expiresAt: Date.now() + this.authCodeTtlMs,
+      used: false,
+    });
+
+    // Persist to Supabase (fire-and-forget)
     this.supabaseQueryAsync(
       'mcp_oauth_auth_codes',
       'POST',
@@ -204,15 +226,51 @@ export class SupabaseOAuthStore implements IOAuthStore {
     clientId: string;
     redirectUri: string;
   }): RedeemAuthCodeResult | undefined {
-    // Synchronous: query Supabase for the auth code record
-    // In production, this would be async. For Phase 20B.3, we use
-    // the in-memory cache path with Supabase as persistence layer.
-    // The actual redeem happens via the authorization_code grant flow
-    // which uses the in-memory code_hash lookup, not the DB directly.
+    // Check in-memory cache first (codes created this session)
+    const codeHash = sha256Hex(params.code);
+    const record = this.authCodes.get(codeHash);
 
-    // For now: check in-memory (codes that were just created in this session)
-    // In full production (Phase 20B.5+), add async Supabase lookup here.
-    return undefined;
+    if (!record) {
+      // Fallback: try async Supabase lookup (but this is sync, so return undefined)
+      // Full production (Phase 20B.5+): add async Supabase lookup
+      return undefined;
+    }
+
+    // Check already used
+    if (record.used) return undefined;
+
+    // Check expiry
+    if (Date.now() > record.expiresAt) {
+      this.authCodes.delete(codeHash);
+      return undefined;
+    }
+
+    // Check client_id match
+    if (record.clientId !== params.clientId) return undefined;
+
+    // Check redirect_uri match
+    if (record.redirectUri !== params.redirectUri) return undefined;
+
+    // Verify PKCE
+    const verifierHash = createHash('sha256')
+      .update(params.codeVerifier)
+      .digest()
+      .toString('base64')
+      .replace(/=/g, '')
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_');
+
+    if (record.codeChallenge !== verifierHash) return undefined;
+
+    // Mark as used (single-use)
+    record.used = true;
+
+    return {
+      connectionKey: record.connectionKey || undefined,
+      connectionKeyId: record.connectionKeyId,
+      scope: record.scope,
+      resource: record.resource,
+    };
   }
 
   /**
