@@ -7,7 +7,7 @@ import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { createMetaAdsMcpServer } from './createServer.js';
 import type { AuthInfo } from '@modelcontextprotocol/sdk/server/auth/types.js';
-import { OAuthStore, type IOAuthStore, createOAuthStoreFromEnv } from './oauthStore.js';
+import { OAuthStore, type IOAuthStore, type OAuthResolvedToken, createOAuthStoreFromEnv } from './oauthStore.js';
 import { renderAuthorizeForm } from './authorizeForm.js';
 
 const HTTP_TRANSPORT_UNAVAILABLE_MESSAGE =
@@ -203,18 +203,23 @@ function sendNotImplemented(res: ServerResponse): void {
 }
 
 /**
- * Extract connection key from request headers for hosted multi-user mode.
+ * Extract auth context from request headers for hosted multi-user mode.
  * Supports three modes in order of precedence:
- * 1. OAuth Bearer token → resolves via OAuthStore to connection key
+ * 1. OAuth Bearer token → resolves via OAuthStore
+ *    - connection_key authType → returns connectionKey string
+ *    - oauth_token authType → returns oauth resolved token context
  * 2. x-cuan-mcp-connection-key header (manual client)
  * 3. Authorization: Bearer *** as direct connection key (alias, fallback)
  *
+ * Returns { connectionKey } for legacy/connection_key mode,
+ * or { connectionKey, oauthAuthContext } for oauth_token mode.
+ *
  * Does NOT read env fallback — that belongs in the credential resolver.
  */
-function extractConnectionKey(
+function extractAuthContext(
   req: IncomingMessage,
   store?: IOAuthStore
-): string | undefined {
+): { connectionKey?: string; oauthAuthContext?: OAuthResolvedToken } | undefined {
   // Mode 1: OAuth Bearer token
   const authorization = req.headers.authorization;
   if (authorization && typeof authorization === 'string' && authorization.startsWith('Bearer ')) {
@@ -225,18 +230,18 @@ function extractConnectionKey(
       if (store) {
         const resolved = store.resolveAccessToken(bearerValue);
         if (resolved) {
-          return resolved.connectionKey;
+          if (resolved.authType === 'connection_key') {
+            return { connectionKey: resolved.connectionKey };
+          }
+          // oauth_token mode: return full auth context
+          return { oauthAuthContext: resolved };
         }
       }
 
-      // Second: if Authorization matches MCP_HTTP_BEARER_TOKEN exactly, skip (server-level)
-      // Third: fallback — treat bearer as direct connection key alias
-      const configBearer = req.headers['x-server-bearer']; // not stored, skip
-      // For compatibility, try as connection key
-      // Only if it doesn't look like a server token
+      // Fallback — treat bearer as direct connection key alias
       const connectionKeyFromBearer = bearerValue;
       if (connectionKeyFromBearer) {
-        return connectionKeyFromBearer;
+        return { connectionKey: connectionKeyFromBearer };
       }
     }
   }
@@ -245,15 +250,28 @@ function extractConnectionKey(
   const headerValue = req.headers['x-cuan-mcp-connection-key'];
   if (headerValue) {
     const key = Array.isArray(headerValue) ? headerValue[0] : headerValue;
-    return key?.trim() || undefined;
+    const trimmed = key?.trim();
+    if (trimmed) return { connectionKey: trimmed };
   }
 
   return undefined;
 }
 
+/** Backward-compat: extract connectionKey string for legacy callers. */
+function extractConnectionKey(
+  req: IncomingMessage,
+  store?: IOAuthStore
+): string | undefined {
+  const ctx = extractAuthContext(req, store);
+  return ctx?.connectionKey;
+}
+
 /**
- * Build minimal AuthInfo carrying the connection key so it flows through
+ * Build AuthInfo carrying the connection key + oauth context so it flows through
  * the MCP transport into tool handler extra.authInfo.
+ *
+ * In connection_key mode: extra.connectionKey = raw key string
+ * In oauth_token mode: extra.connectionKey = '' (empty) + extra.oauthAuthContext = resolved token
  *
  * Checks:
  * 1. OAuth Bearer token (resolved via OAuthStore)
@@ -264,9 +282,31 @@ function buildRequestAuth(
   req: IncomingMessage,
   store?: IOAuthStore
 ): AuthInfo | undefined {
-  const connectionKey = extractConnectionKey(req, store);
-  if (!connectionKey) return undefined;
-  return { token: '', clientId: '', scopes: [], extra: { connectionKey } };
+  const ctx = extractAuthContext(req, store);
+  if (!ctx) return undefined;
+
+  if (ctx.oauthAuthContext) {
+    return {
+      token: '',
+      clientId: ctx.oauthAuthContext.clientId,
+      scopes: (ctx.oauthAuthContext.scope || '').split(' ').filter(Boolean),
+      extra: {
+        connectionKey: '',
+        oauthAuthContext: ctx.oauthAuthContext,
+      },
+    };
+  }
+
+  if (ctx.connectionKey) {
+    return {
+      token: '',
+      clientId: '',
+      scopes: [],
+      extra: { connectionKey: ctx.connectionKey },
+    };
+  }
+
+  return undefined;
 }
 
 /**
@@ -491,11 +531,10 @@ async function handlePostAuthorize(
   }
 
   // Validate Connection Key via Cuan Insight resolver
-  // For now: call the credential resolver to verify the key is valid
-  // This makes a lightweight probe call to Cuan Insight
-  const keyValid = await validateConnectionKey(connectionKey!, env);
+  // Returns { valid, connectionKeyId } — connectionKeyId from identity (PR #59)
+  const keyValidation = await validateConnectionKey(connectionKey!, env);
 
-  if (!keyValid) {
+  if (!keyValidation.valid) {
     oauthDebug('authorize.post.connection_key_invalid', {
       client_id_prefix: clientId?.slice(0, 8) ?? 'none',
     }, env);
@@ -518,20 +557,34 @@ async function handlePostAuthorize(
   // Create authorization code
   // (store already initialized above for client validation)
 
+  const isSupabaseDriver = (env.MCP_OAUTH_STORE_DRIVER ?? 'memory') === 'supabase';
+
   oauthDebug('authorize.post.connection_key_valid', {
     client_id_prefix: clientId?.slice(0, 8) ?? 'none',
     has_resource: !!resource,
+    has_connection_key_id: !!keyValidation.connectionKeyId,
+    driver: isSupabaseDriver ? 'supabase' : 'memory',
   }, env);
 
-  const { code } = store.createAuthorizationCode({
-    connectionKey: connectionKey!,
+  // Build auth code params based on driver mode
+  const authCodeParams: Parameters<typeof store.createAuthorizationCode>[0] = {
     clientId: clientId!,
     redirectUri: redirectUri!,
     codeChallenge: codeChallenge!,
     codeChallengeMethod: codeChallengeMethod!,
     scope: scope!,
     resource,
-  });
+  };
+
+  if (isSupabaseDriver && keyValidation.connectionKeyId) {
+    // Supabase mode: store connectionKeyId reference, NOT raw connection key
+    authCodeParams.connectionKeyId = keyValidation.connectionKeyId;
+  } else {
+    // Memory mode (default): store connectionKey directly
+    authCodeParams.connectionKey = connectionKey!;
+  }
+
+  const { code } = store.createAuthorizationCode(authCodeParams);
 
   oauthDebug('authorize.post.code_created', {
     client_id_prefix: clientId?.slice(0, 8) ?? 'none',
@@ -629,11 +682,13 @@ async function handlePostToken(
     scope: redeemed.scope,
   }, env);
 
-  // Create access token
+  // Create access token — pass whichever credential reference was redeemed
   const { accessToken, expiresIn } = store.createAccessToken({
     connectionKey: redeemed.connectionKey,
+    connectionKeyId: redeemed.connectionKeyId,
     scope: redeemed.scope,
     clientId,
+    resource: redeemed.resource,
   });
 
   oauthDebug('token.post.issued', {
@@ -783,13 +838,13 @@ async function handlePostRevoke(
 
 /**
  * Validate a connection key by making a lightweight probe call to Cuan Insight.
- * Returns true if the key is valid.
+ * Returns validation result with optional connectionKeyId from identity response.
  * Never leaks the key in logs or errors.
  */
 async function validateConnectionKey(
   connectionKey: string,
   env: NodeJS.ProcessEnv
-): Promise<boolean> {
+): Promise<{ valid: boolean; connectionKeyId?: string }> {
   // If we have Cuan Insight resolver configured, probe it
   // This is a lightweight resolve call — just checks key validity
   const baseUrl = env.CUAN_INSIGHT_API_BASE_URL;
@@ -798,7 +853,7 @@ async function validateConnectionKey(
   // If no resolver configured, trust the key (local/single-tenant fallback)
   if (!baseUrl || !supabaseAnonKey) {
     // In local mode, connection key is validated at tool call time by the broker
-    return true;
+    return { valid: true };
   }
 
   try {
@@ -819,20 +874,28 @@ async function validateConnectionKey(
     });
 
     if (resolveResponse.ok) {
-      return true;
+      // Parse identity to extract connectionKeyId (added in Cuan Insight PR #59)
+      try {
+        const body = await resolveResponse.json() as Record<string, unknown>;
+        const identity = body.identity as Record<string, unknown> | undefined;
+        const connectionKeyId = identity?.connectionKeyId as string | undefined;
+        return { valid: true, connectionKeyId };
+      } catch {
+        return { valid: true };
+      }
     }
 
     // 401 = invalid/revoked key
     if (resolveResponse.status === 401) {
-      return false;
+      return { valid: false };
     }
 
     // Other errors — key might still be valid (network issue), allow through
     // The tool call will do proper validation
-    return true;
+    return { valid: true };
   } catch {
     // Network error — allow through, tool call will validate properly
-    return true;
+    return { valid: true };
   }
 }
 

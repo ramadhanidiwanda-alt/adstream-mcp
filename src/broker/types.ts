@@ -199,6 +199,15 @@ export interface AdsBrokerRequest {
   credentials?: CredentialContext;
   /** Per-request connection key (hosted multi-user). Sent as x-cuan-mcp-connection-key header. */
   connectionKey?: string;
+  /** OAuth token auth context (for oauth_token auth mode). When present, broker resolves via token hash. */
+  oauthAuthContext?: {
+    authType: 'oauth_token';
+    accessTokenHash: string;
+    clientId: string;
+    scope: string;
+    resource?: string;
+    connectionKeyId?: string;
+  };
 }
 
 export interface AdsBrokerResponse<TData = AdsMetricRecord[] | unknown> {

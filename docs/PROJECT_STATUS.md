@@ -1,8 +1,8 @@
 # Project Status — Meta Ads Agent Skill
 
 > **Updated:** 2026-06-04  
-> **Version:** v0.4.2  
-> **Last Phase:** Phase 20A.1 — Persistent OAuth Store Foundation
+> **Version:** v0.4.3  
+> **Last Phase:** Phase 20B.3 — Wire SupabaseOAuthStore to Cuan Insight OAuth Token Resolver
 
 ### Phase 17.5 Across Sub-phases
 | Phase | Summary | Key Changes | Status |
@@ -11,6 +11,9 @@
 | **Phase 17.5C** | Connection Key compatibility layer | `CUAN_INSIGHT_AUTH_MODE`, `CUAN_INSIGHT_CONNECTION_KEY`, `x-cuan-mcp-connection-key` header, 21 new tests | ✅ Done (PR #21) |
 | **Phase 17.5D** | Cold smoke validation | tools/list (13 tools), ads_list_accounts via stdio, security redaction verified | ✅ Done |
 | **Phase 17.5F** | URL fix + live smoke test | Fixed `new URL()` stripping `/functions/v1`, live smoke 25 Meta accounts, revoke 401 verified | ✅ Done (PR #23) |
+| **Phase 20A.1** | Persistent OAuth Store Foundation | IOAuthStore interface, MemoryOAuthStore, SupabaseOAuthStore skeleton, createOAuthStoreFromEnv | ✅ Done (PR #30) |
+| **Phase 20B.1-2** | Cuan Insight OAuth persistence schema + RPC | mcp_oauth_* tables, resolve_mcp_oauth_token_credential RPC, Edge Function extension | ✅ Done (cuán-insight PR #59, #60) |
+| **Phase 20B.3** | Wire SupabaseOAuthStore to credential resolver | SupabaseOAuthStore real persistence, connectionKeyId instead of raw key, dual authType (connection_key / oauth_token), async Supabase HTTP client | ✅ Done (PR #31) |
 | **Phase 17.5G** | Release notes & tag v0.4.0 | RELEASE_NOTES.md, version bump, tag | ✅ Done |
 | **Phase 17.5E** | Docs & release readiness | Update README.md, CUAN_INSIGHT_CONNECTION_KEY_COMPATIBILITY.md, PROJECT_STATUS.md, REMOTE_MCP_HTTP.md | ✅ Done |
 
@@ -24,7 +27,7 @@
 
 - **Cuan Insight** is the credential authority. It stores and manages all Meta access tokens, user/workspace/plan data, and account mappings.
 - **meta-ads-agent-skill** is the MCP server. It does **not** store Meta tokens — credentials are resolved from Cuan Insight at runtime.
-- The server supports **multi-user** and **multi-workspace** usage through remote credential resolution.
+- The server supports **multi-user** and **multi-workspace** usage through remote credential resolution (Connection Key or OAuth Token modes).
 - All tools are **read-only**. Write operations (pause, budget, create) are not implemented.
 - **Connection Key support** (Phase 17.5C): MCP server sends `x-cuan-mcp-connection-key` header when `CUAN_INSIGHT_AUTH_MODE=connection_key`.
 
@@ -129,6 +132,9 @@ Return normalized performance data
 | **Phase 17.5C** | **Connection Key compatibility layer** — `CUAN_INSIGHT_AUTH_MODE`, `CUAN_INSIGHT_CONNECTION_KEY`, `x-cuan-mcp-connection-key` header, 21 new tests, PR #21 merged |
 | **Phase 17.5D** | **Cold smoke validation** — tools/list (13 tools), ads_list_accounts via stdio, security redaction verified |
 | **Phase 17.5F** | URL fix + live smoke test | Fixed `new URL()` stripping `/functions/v1`, live smoke 25 Meta accounts, revoke 401 verified | ✅ Done (PR #23) |
+| **Phase 20A.1** | Persistent OAuth Store Foundation | IOAuthStore interface, MemoryOAuthStore, SupabaseOAuthStore skeleton, createOAuthStoreFromEnv | ✅ Done (PR #30) |
+| **Phase 20B.1-2** | Cuan Insight OAuth persistence schema + RPC | mcp_oauth_* tables, resolve_mcp_oauth_token_credential RPC, Edge Function extension | ✅ Done (cuán-insight PR #59, #60) |
+| **Phase 20B.3** | Wire SupabaseOAuthStore to credential resolver | SupabaseOAuthStore real persistence, connectionKeyId instead of raw key, dual authType (connection_key / oauth_token), async Supabase HTTP client | ✅ Done (PR #31) |
 | **Phase 17.5G** | Release notes & tag v0.4.0 | RELEASE_NOTES.md, version bump, tag | ✅ Done |
 | **Phase 17.5E** | **Docs & release readiness** — README, CUAN_INSIGHT_CONNECTION_KEY_COMPATIBILITY, PROJECT_STATUS, REMOTE_MCP_HTTP updated |
 || **Phase 19** | **MCP OAuth Connection Key Authorization Flow** — `/authorize`, `/token`, PKCE, Bearer token support, `.well-known/` metadata, 30+ tests, docs | ✅ Done |
