@@ -271,6 +271,15 @@ export class CuanInsightCredentialProvider implements CredentialProvider {
       const message =
         error instanceof Error ? error.message : 'Cuan Insight credential resolution failed';
 
+      // ── Temp debug: credential resolver exception ──
+      if (process.env.MCP_OAUTH_DEBUG === 'true') {
+        console.log('[TOOL_DEBUG] credential.resolve.exception', JSON.stringify({
+          error_message: message,
+          error_name: error instanceof Error ? error.name : typeof error,
+          has_stack: error instanceof Error && !!error.stack,
+        }));
+      }
+
       return {
         ok: false,
         error: {

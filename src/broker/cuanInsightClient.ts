@@ -203,8 +203,9 @@ export function createCuanInsightCredentialClient(
       }
 
       // connection_key mode: connectionKey from request (hosted multi-user) or config (local/single-tenant)
+      // Skip connection key requirement when using oauth_token auth type
       const effectiveConnectionKey = request.connectionKey?.trim() || config.connectionKey?.trim();
-      if (authMode === 'connection_key' && !effectiveConnectionKey) {
+      if (authMode === 'connection_key' && request.authType !== 'oauth_token' && !effectiveConnectionKey) {
         throw new CuanInsightCredentialClientError(
           'MISSING_CALLER_TOKEN',
           'Connection key is not configured'
