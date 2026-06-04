@@ -239,3 +239,36 @@ All tools are read-only. Write operations (pause/resume campaigns, update budget
 | 7. ⏳ **Continue periodic `npm audit` monitoring** (currently 0).
 | 8. ✅ **Phase 20A.1 — Persistent OAuth store foundation** — IOAuthStore interface, MemoryOAuthStore, SupabaseOAuthStore skeleton, factory, env config.
 | 9. ⏳ **Phase 20B — Supabase production wiring** — SQL migration, real REST API, connection key bridge.
+
+---
+
+## Phase 20B.4 Production Verification — Persistent OAuth Supabase Store
+
+**Status:** ✅ Verified on 2026-06-04
+
+### Final State
+- Supabase persistent OAuth store active with `MCP_OAUTH_STORE_DRIVER=supabase`.
+- OAuth clients, authorization codes, access tokens, and events persist in Cuan Insight Supabase tables.
+- OAuth access tokens are persisted by `token_hash`; raw access tokens are never stored.
+- OAuth access token rows store `connection_key_id` as an opaque reference; raw Connection Keys are not stored in OAuth token tables.
+- Cuan Insight credential resolver supports `authType=oauth_token` for persisted token resolution.
+- `loadPersistedData()` is awaited before `server.listen()` so restart cannot serve requests before token cache hydration finishes.
+- `ads_list_accounts` is remote-safe and uses OAuth user token context through Cuan Insight resolver.
+- `meta_get_ad_accounts` in remote mode routes to the same remote-safe account listing path instead of depending on local `META_*` environment variables.
+- MCP tool responses keep valid MCP content contract: `content[0].type = "text"` and `content[0].text` is a string.
+- Production debug flags must stay disabled after verification: `MCP_OAUTH_DEBUG=false`, `MCP_SUPABASE_STORE_DEBUG=false`.
+
+### Production Verification Result
+- `ads_list_accounts` works before container restart.
+- `ads_list_accounts` works after container restart without reconnect.
+- Persistent OAuth token reload confirmed.
+- Health response verified: `{"ok":true,"transport":"streamable-http","mode":"remote","oauth":true}`.
+
+### Rollback
+1. Set `MCP_OAUTH_STORE_DRIVER=memory`.
+2. Restart `cuan-mcp`.
+3. Ask Claude/ChatGPT connector users to reconnect if existing OAuth sessions were minted by persistent store.
+
+### Security Notes
+- Do not enable `MCP_OAUTH_DEBUG` or `MCP_SUPABASE_STORE_DEBUG` in production after verification.
+- Do not log or commit provider tokens, OAuth tokens, auth codes, code verifiers, raw Connection Keys, `key_hash`, full `token_hash`, full `code_hash`, or `Authorization` headers.
