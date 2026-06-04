@@ -19,6 +19,15 @@ export interface CredentialResolveRequest {
   accountId?: string;
   /** Per-request connection key override (hosted multi-user). Falls back to env CUAN_INSIGHT_CONNECTION_KEY. */
   connectionKey?: string;
+  /** OAuth token auth context — when present, broker resolves via oauth_token flow. */
+  oauthAuthContext?: {
+    authType: 'oauth_token';
+    accessTokenHash: string;
+    clientId: string;
+    scope: string;
+    resource?: string;
+    connectionKeyId?: string;
+  };
   params?: Record<string, unknown>;
 }
 
@@ -207,6 +216,8 @@ export class CuanInsightCredentialProvider implements CredentialProvider {
     }
 
     try {
+      const isOAuthTokenMode = request.oauthAuthContext?.authType === 'oauth_token';
+
       const resolveRequest: CuanInsightCredentialResolveRequest = {
         provider,
         accountId: request.accountId,
@@ -216,6 +227,15 @@ export class CuanInsightCredentialProvider implements CredentialProvider {
         requestedScopes: ['read'],
         params: request.params,
       };
+
+      // Pass oauth_token auth context when available
+      if (isOAuthTokenMode && request.oauthAuthContext) {
+        resolveRequest.authType = 'oauth_token';
+        resolveRequest.tokenHash = request.oauthAuthContext.accessTokenHash;
+        resolveRequest.oauthClientId = request.oauthAuthContext.clientId;
+        resolveRequest.oauthResource = request.oauthAuthContext.resource;
+        resolveRequest.connectionKeyId = request.oauthAuthContext.connectionKeyId;
+      }
 
       const response = await this.client.resolve(resolveRequest);
 

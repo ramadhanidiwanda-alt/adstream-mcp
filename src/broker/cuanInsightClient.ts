@@ -60,10 +60,11 @@ export interface CuanInsightCredentialClientConfig {
    * Authentication mode for credential resolution.
    * - 'mcp_token': legacy MCP token flow (default)
    * - 'connection_key': Connection Key from Cuan Insight UI
+ * - 'oauth_token': OAuth access token hash (resolved via mcp-resolve-credential authType=oauth_token)
    *
    * Default: 'mcp_token'
    */
-  authMode?: 'mcp_token' | 'connection_key';
+  authMode?: 'mcp_token' | 'connection_key' | 'oauth_token';
 
   /**
    * Connection Key from Cuan Insight UI connector.
@@ -191,6 +192,16 @@ export function createCuanInsightCredentialClient(
         }
       }
 
+      // oauth_token mode: resolve via OAuth token hash
+      if (authMode === 'oauth_token' || request.authType === 'oauth_token') {
+        if (!request.tokenHash) {
+          throw new CuanInsightCredentialClientError(
+            'MISSING_CALLER_TOKEN',
+            'OAuth token hash is required for oauth_token auth mode'
+          );
+        }
+      }
+
       // connection_key mode: connectionKey from request (hosted multi-user) or config (local/single-tenant)
       const effectiveConnectionKey = request.connectionKey?.trim() || config.connectionKey?.trim();
       if (authMode === 'connection_key' && !effectiveConnectionKey) {
@@ -211,6 +222,16 @@ export function createCuanInsightCredentialClient(
       const body: Record<string, unknown> = {
         provider: request.provider,
       };
+
+      // OAuth token mode: add authType and tokenHash
+      if (authMode === 'oauth_token' || request.authType === 'oauth_token') {
+        body.authType = 'oauth_token';
+        body.tokenHash = request.tokenHash;
+        if (request.oauthClientId) body.clientId = request.oauthClientId;
+        if (request.oauthResource) body.resource = request.oauthResource;
+        if (request.connectionKeyId) body.connectionKeyId = request.connectionKeyId;
+      }
+
       if (request.accountId !== undefined) {
         body.accountId = request.accountId;
       }
@@ -229,7 +250,13 @@ export function createCuanInsightCredentialClient(
         'Content-Type': 'application/json',
       };
 
-      if (authMode === 'connection_key') {
+      if (authMode === 'oauth_token' || request.authType === 'oauth_token') {
+        // OAuth token mode: send body-only auth (tokenHash in body)
+        // Supabase auth for endpoint access
+        if (config.supabaseAnonKey) {
+          headers['Authorization'] = `Bearer ${config.supabaseAnonKey}`;
+        }
+      } else if (authMode === 'connection_key') {
         // Connection Key mode: send connection key header
         // If hosted auth is also configured, send supabase anon key too
         if (useHostedAuth) {

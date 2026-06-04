@@ -304,3 +304,39 @@ works, but it does not expose the host port publicly.
 - **Authorization codes** are single-use, short-lived (5 min TTL), and PKCE-protected.
 - Connection key redaction covers `x-cuan-mcp-connection-key`, `connectionKey`, `connection_key`, `connection-key`.
 - Project scope stays read-only; no write operations are added.
+
+
+## OAuth Token Auth Mode (Phase 20B.3)
+
+When `MCP_OAUTH_STORE_DRIVER=supabase`, the server uses OAuth token auth mode instead of raw Connection Key:
+
+1. **Authorization**: User submits raw Connection Key only once during `/authorize`
+2. **Connection Key ID**: Cuan Insight resolver returns `identity.connectionKeyId` (opaque reference)
+3. **Storage**: SupabaseOAuthStore stores `connectionKeyId`, NOT the raw connection key
+4. **Token Resolution**: Access tokens are hashed (SHA-256) and resolved through Cuan Insight `mcp-resolve-credential` with `authType: "oauth_token"`
+5. **Dual Auth Types**: `resolveAccessToken()` returns `{ authType: "connection_key", connectionKey }` (memory) or `{ authType: "oauth_token", accessTokenHash, ... }` (supabase)
+
+### Security guarantees
+
+- Raw Connection Key never stored in Supabase (only `connectionKeyId` reference)
+- Authorization codes stored as SHA-256 hash only
+- Access tokens stored as SHA-256 hash only
+- Raw values never persisted
+
+### Production switch
+
+Default remains `memory`. To enable Supabase:
+
+```bash
+MCP_OAUTH_STORE_DRIVER=supabase
+MCP_OAUTH_SUPABASE_URL=https://your-project.supabase.co
+MCP_OAUTH_SUPABASE_SERVICE_ROLE_KEY=sb_secret_...
+```
+
+### Rollback
+
+```bash
+MCP_OAUTH_STORE_DRIVER=memory
+```
+
+Production remains memory until DB migrations are applied and env switch is explicitly done.
