@@ -116,7 +116,13 @@ export function createMetaAdsMcpServer(
       },
       async (args: Record<string, unknown>, extra: RequestHandlerExtra<ServerRequest, ServerNotification>) => {
         const connectionKey = extra.authInfo?.extra?.connectionKey as string | undefined;
-        return handleAdsMcpToolCall(adsBroker, toolDefinition.name, args ?? {}, connectionKey);
+        const oauthAuthContext = extra.authInfo?.extra?.oauthAuthContext;
+        // Pass oauth context through params for oauth_token mode
+        const toolArgs = args ?? {};
+        if (oauthAuthContext && !connectionKey) {
+          (toolArgs as Record<string, unknown>)._oauthAuthContext = oauthAuthContext;
+        }
+        return handleAdsMcpToolCall(adsBroker, toolDefinition.name, toolArgs, connectionKey);
       }
     );
   }
