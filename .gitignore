@@ -18,6 +18,16 @@ dist/
 .env.production.bak*
 *.env
 *.env.*
+*.pem
+*.key
+*env*.bak
+*env*.bak.*
+*env*.backup
+*env*.backup.*
+*env*.old
+*env*.orig
+*env*.save
+*env*.tmp
 
 # IDE
 .vscode/
