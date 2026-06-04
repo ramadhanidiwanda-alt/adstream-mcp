@@ -1470,14 +1470,15 @@ describe('SupabaseOAuthStore skeleton', () => {
       scope: 'mcp read',
     });
 
-    // Skeleton returns undefined because no real Supabase DB backing
+    // Now with in-memory cache, redeem works without Supabase DB
     const redeemed = store.redeemAuthorizationCode({
       code,
       codeVerifier,
       clientId: 'test-client',
       redirectUri: 'https://example.com/callback',
     });
-    expect(redeemed).toBeUndefined();
+    expect(redeemed).toBeDefined();
+    expect(redeemed!.scope).toBe('mcp read');
   });
 
   it('createAccessToken returns accessToken', () => {
