@@ -118,6 +118,9 @@ export class SupabaseOAuthStore implements IOAuthStore {
   private authCodeTtlMs: number;
   private accessTokenTtlMs: number;
 
+  /** In-memory cache for registered DCR clients (sync access) */
+  private registeredClients: Map<string, RegisteredClient>;
+
   /** In-memory cache mapping tokenHash → connectionKeyId for sync resolution */
   private connectionKeyIdCache: Map<string, string>;
 
@@ -132,6 +135,7 @@ export class SupabaseOAuthStore implements IOAuthStore {
     this.accessTokenTtlMs = config.accessTokenTtlMs ?? 86_400_000;
     this.supabaseUrl = config.supabaseUrl;
     this.serviceRoleKey = config.serviceRoleKey;
+    this.registeredClients = new Map();
     this.connectionKeyIdCache = new Map();
     this.tokenResolveCache = new Map();
     this.fetchImpl = config.fetch ?? fetch;
@@ -390,6 +394,19 @@ export class SupabaseOAuthStore implements IOAuthStore {
     const clientId = randomToken();
     const now = Math.floor(Date.now() / 1000);
 
+    // Cache in-memory for synchronous lookup
+    this.registeredClients.set(clientId, {
+      clientId,
+      redirectUris: params.redirectUris,
+      clientName: params.clientName,
+      grantTypes: params.grantTypes ?? ['authorization_code'],
+      responseTypes: params.responseTypes ?? ['code'],
+      tokenEndpointAuthMethod: params.tokenEndpointAuthMethod ?? 'none',
+      scope: params.scope ?? 'mcp read write',
+      issuedAt: now,
+    });
+
+    // Persist to Supabase (fire-and-forget)
     this.supabaseQueryAsync(
       'mcp_oauth_clients',
       'POST',
@@ -408,14 +425,19 @@ export class SupabaseOAuthStore implements IOAuthStore {
   }
 
   getRegisteredClient(clientId: string): RegisteredClient | undefined {
-    // Synchronous best-effort: return undefined for unknown clients
-    // In production, this should be async and query Supabase
-    // For Phase 20B.3, DCR validation happens via allowlist or post-creation cache
+    // Check in-memory cache first (DCR clients registered this session)
+    const cached = this.registeredClients.get(clientId);
+    if (cached) return cached;
+
+    // Future: async Supabase query for persisted clients
     return undefined;
   }
 
   isClientRegistered(clientId: string): boolean {
-    // Synchronous best-effort
+    // Check in-memory cache first (DCR clients registered this session)
+    if (this.registeredClients.has(clientId)) return true;
+
+    // Future: async Supabase query for persisted clients
     return false;
   }
 
