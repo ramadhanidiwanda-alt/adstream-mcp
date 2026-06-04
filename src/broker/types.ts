@@ -214,6 +214,7 @@ export interface AdsBrokerResponse<TData = AdsMetricRecord[] | unknown> {
   ok: boolean;
   provider?: AdsProviderId;
   data?: TData;
+  accounts?: unknown[];
   errors?: Array<{
     provider?: AdsProviderId;
     code?: string;

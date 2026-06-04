@@ -428,6 +428,8 @@ function isValidCuanInsightResponse(
       }
       const identity = response.identity as Record<string, unknown>;
       if (
+        identity.workspaceId !== undefined &&
+        identity.workspaceId !== null &&
         typeof identity.workspaceId !== 'string' ||
         typeof identity.plan !== 'string'
       ) {

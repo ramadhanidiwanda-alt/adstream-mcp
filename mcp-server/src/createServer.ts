@@ -133,7 +133,8 @@ export function createMetaAdsMcpServer(
       description: 'Fetch all Meta ad accounts accessible by the access token',
       inputSchema: {},
     },
-    async () => handleLegacyMetaToolCall('meta_get_ad_accounts', {}, { isRemoteBrokerMode, client, config })
+    async (args: ToolArguments, extra: RequestHandlerExtra<ServerRequest, ServerNotification>) =>
+      handleLegacyMetaToolCall('meta_get_ad_accounts', args ?? {}, { isRemoteBrokerMode, client, config, adsBroker, extra })
   );
 
   server.registerTool(
@@ -213,11 +214,26 @@ async function handleLegacyMetaToolCall(
     isRemoteBrokerMode: boolean;
     client?: MetaClient;
     config?: MetaConfig;
+    adsBroker?: ReturnType<typeof createDefaultAdsBroker>;
+    extra?: RequestHandlerExtra<ServerRequest, ServerNotification>;
   }
 ) {
   try {
     if (isAdsMcpToolName(name)) {
       throw new Error(`Unexpected ads tool in legacy handler: ${name}`);
+    }
+
+    if (context.isRemoteBrokerMode && name === 'meta_get_ad_accounts' && context.adsBroker) {
+      const toolArgs: Record<string, unknown> = {
+        provider: 'meta',
+        params: typeof args.limit === 'number' ? { limit: args.limit } : {},
+      };
+      const connectionKey = context.extra?.authInfo?.extra?.connectionKey as string | undefined;
+      const oauthAuthContext = context.extra?.authInfo?.extra?.oauthAuthContext;
+      if (oauthAuthContext && !connectionKey) {
+        toolArgs._oauthAuthContext = oauthAuthContext;
+      }
+      return handleAdsMcpToolCall(context.adsBroker, 'ads_list_accounts', toolArgs, connectionKey);
     }
 
     if (context.isRemoteBrokerMode) {

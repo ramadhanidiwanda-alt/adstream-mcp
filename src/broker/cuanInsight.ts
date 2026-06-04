@@ -31,7 +31,7 @@ export type CuanInsightCredentialErrorCode =
  */
 export interface CuanInsightMcpIdentity {
   userId?: string;
-  workspaceId: string;
+  workspaceId?: string | null;
   plan: string;
   email?: string;
   displayName?: string;
