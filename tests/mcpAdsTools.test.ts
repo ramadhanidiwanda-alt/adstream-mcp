@@ -223,6 +223,54 @@ describe('handleAdsMcpToolCall — per-request connectionKey passthrough', () =>
     expect(capturedRequest?.connectionKey).toBeUndefined();
   });
 
+  it('returns a valid MCP text response contract for ads_list_accounts', async () => {
+    const broker = {
+      ...createBrokerStub(),
+      listAccounts: async () => ({
+        ok: true,
+        provider: 'meta' as const,
+        data: [{ account_id: 'act_123', account_name: 'Test Account' }],
+      }),
+    } as unknown as AdsBroker;
+
+    const response = await handleAdsMcpToolCall(broker, 'ads_list_accounts', {});
+
+    expect(Array.isArray(response.content)).toBe(true);
+    expect(response.content[0]?.type).toBe('text');
+    expect(typeof response.content[0]?.text).toBe('string');
+    expect(response.content[0]?.text).not.toContain('response does not match expected contract');
+    expect(JSON.parse(response.content[0]!.text)).toMatchObject({ ok: true, provider: 'meta' });
+  });
+
+  it('passes OAuth auth context to remote-safe ads_list_accounts flow', async () => {
+    let capturedRequest: AdsBrokerRequest | undefined;
+    const broker = {
+      ...createBrokerStub(),
+      listAccounts: async (request: AdsBrokerRequest) => {
+        capturedRequest = request;
+        return { ok: true, provider: 'meta' as const, data: [] };
+      },
+    } as unknown as AdsBroker;
+
+    await handleAdsMcpToolCall(broker, 'ads_list_accounts', {
+      provider: 'meta',
+      _oauthAuthContext: {
+        authType: 'oauth_token',
+        accessTokenHash: 'oauth-token-hash',
+        clientId: 'client_123',
+        scope: 'mcp read',
+        connectionKeyId: 'ck_123',
+      },
+    });
+
+    expect(capturedRequest?.connectionKey).toBeUndefined();
+    expect(capturedRequest?.oauthAuthContext).toMatchObject({
+      authType: 'oauth_token',
+      accessTokenHash: 'oauth-token-hash',
+      connectionKeyId: 'ck_123',
+    });
+  });
+
   it('toAdsBrokerRequest includes connectionKey', () => {
     const request = toAdsBrokerRequest({ provider: 'meta' }, 'cuk_key');
     expect(request.connectionKey).toBe('cuk_key');
