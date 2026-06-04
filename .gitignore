@@ -10,9 +10,14 @@ dist/
 
 # Environment
 .env
-.env.production
+.env.*
+!.env.example
 .env.local
 .env.*.local
+.env.production
+.env.production.bak*
+*.env
+*.env.*
 
 # IDE
 .vscode/
