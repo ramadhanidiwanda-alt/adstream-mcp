@@ -144,6 +144,9 @@ export class SupabaseOAuthStore implements IOAuthStore {
     this.connectionKeyIdCache = new Map();
     this.tokenResolveCache = new Map();
     this.fetchImpl = config.fetch ?? fetch;
+
+    // Fire-and-forget: load persisted data from Supabase into caches
+    this.loadPersistedData();
   }
 
   // ── Auth Code ───────────────────────────────────────────────────────
@@ -604,6 +607,91 @@ export class SupabaseOAuthStore implements IOAuthStore {
    * - Service role key sent as apikey header + Authorization: Bearer
    * - Never logged
    */
+  /**
+   * Query Supabase REST API.
+   *
+   * Tables: mcp_oauth_clients, mcp_oauth_auth_codes, mcp_oauth_access_tokens, mcp_oauth_events
+   *
+   * Method:
+   * - GET: fetch rows with optional filters
+   * - POST: insert row
+   * - PATCH: update rows
+   * - DELETE: delete rows
+   *
+   * Security:
+   * - Service role key sent as apikey header + Authorization: Bearer
+   * - Never logged
+   */
+  /**
+   * Load persisted data from Supabase into in-memory caches.
+   * Called once on construction (fire-and-forget).
+   * Enables OAuth persistence after container restart.
+   */
+  private async loadPersistedData(): Promise<void> {
+    try {
+      // 1. Load registered clients
+      const clientRows = await this.supabaseQueryAsync(
+        'mcp_oauth_clients',
+        'GET',
+        undefined,
+        [{ key: 'revoked_at', op: 'is', value: 'null' }]
+      ) as Array<Record<string, unknown>> | undefined;
+
+      if (clientRows && Array.isArray(clientRows)) {
+        for (const row of clientRows) {
+          const clientId = row.client_id as string;
+          if (clientId) {
+            this.registeredClients.set(clientId, {
+              clientId,
+              redirectUris: (row.redirect_uris ?? []) as string[],
+              clientName: row.client_name != null ? String(row.client_name) : undefined,
+              grantTypes: (row.grant_types ?? ['authorization_code']) as string[],
+              responseTypes: (row.response_types ?? ['code']) as string[],
+              tokenEndpointAuthMethod: row.token_endpoint_auth_method != null ? String(row.token_endpoint_auth_method) : 'none',
+              scope: row.scope != null ? String(row.scope) : 'mcp read write',
+              issuedAt: Math.floor(new Date(row.created_at as string).getTime() / 1000),
+            });
+          }
+        }
+      }
+
+      // 2. Load active access tokens
+      const tokenRows = await this.supabaseQueryAsync(
+        'mcp_oauth_access_tokens',
+        'GET',
+        undefined,
+        [
+          { key: 'revoked_at', op: 'is', value: 'null' },
+        ]
+      ) as Array<Record<string, unknown>> | undefined;
+
+      if (tokenRows && Array.isArray(tokenRows)) {
+        const now = Date.now();
+        for (const row of tokenRows) {
+          const tokenHash = row.token_hash as string;
+          const expiresAt = new Date(row.expires_at as string).getTime();
+          if (!tokenHash || expiresAt <= now) continue;
+
+          const connectionKeyId = row.connection_key_id as string | undefined;
+
+          if (connectionKeyId) {
+            this.connectionKeyIdCache.set(tokenHash, connectionKeyId);
+            this.tokenResolveCache.set(tokenHash, {
+              authType: 'oauth_token',
+              accessTokenHash: tokenHash,
+              clientId: row.client_id as string ?? '',
+              scope: row.scope as string ?? '',
+              resource: row.resource as string | undefined,
+              connectionKeyId,
+            });
+          }
+        }
+      }
+    } catch {
+      // Silently fail — caches will be populated on-the-fly
+    }
+  }
+
   private async supabaseQueryAsync(
     table: string,
     method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
