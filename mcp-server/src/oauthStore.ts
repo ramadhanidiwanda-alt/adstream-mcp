@@ -1,4 +1,5 @@
 import { randomBytes, createHash } from 'node:crypto';
+import { SupabaseOAuthStore } from './oauthStoreSupabase.js';
 
 // ── Types ────────────────────────────────────────────────────────────────
 
@@ -516,9 +517,6 @@ export function createOAuthStoreFromEnv(
         );
       }
 
-      // Dynamic import to avoid requiring @supabase/supabase-js at build time
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { SupabaseOAuthStore } = require('./oauthStoreSupabase.js');
       return new SupabaseOAuthStore({ ...config, supabaseUrl, serviceRoleKey });
     }
 

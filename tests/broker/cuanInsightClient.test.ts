@@ -317,6 +317,75 @@ describe('createCuanInsightCredentialClient — config validation', () => {
       })
     ).rejects.toThrow('Caller token is required');
   });
+
+  it('does not require connectionKey when resolving oauth_token requests', async () => {
+    const mockFetch = vi.fn(async (url, options) => {
+      const body = JSON.parse((options as RequestInit).body as string);
+
+      expect(body).toMatchObject({
+        authType: 'oauth_token',
+        tokenHash: 'oauth-token-hash',
+        connectionKeyId: 'ck_123',
+      });
+
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          ok: true,
+          identity: {
+            userId: 'user_1',
+            workspaceId: null,
+            plan: 'pro',
+            connectionKeyId: 'ck_123',
+          },
+          providerAccess: {
+            provider: 'meta',
+            accountId: null,
+            scopes: ['read'],
+            allowed: true,
+          },
+          providerToken: PROVIDER_TOKEN,
+        }),
+      };
+    }) as unknown as typeof fetch;
+
+    const client = createCuanInsightCredentialClient({
+      config: {
+        baseUrl: 'https://api.example.com',
+        authMode: 'connection_key',
+        fetch: mockFetch,
+      },
+    });
+
+    const result = await client.resolve({
+      provider: 'meta',
+      authType: 'oauth_token',
+      tokenHash: 'oauth-token-hash',
+      connectionKeyId: 'ck_123',
+      requestedScopes: ['read'],
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.identity?.workspaceId).toBeNull();
+    expect(result.identity?.connectionKeyId).toBe('ck_123');
+  });
+
+  it('requires connectionKey only for connection_key auth mode', async () => {
+    const client = createCuanInsightCredentialClient({
+      config: {
+        baseUrl: 'https://api.example.com',
+        authMode: 'connection_key',
+      },
+    });
+
+    await expect(
+      client.resolve({
+        provider: 'meta',
+        requestedScopes: ['read'],
+      })
+    ).rejects.toThrow('Connection key is not configured');
+  });
 });
 
 describe('createCuanInsightCredentialClient — error handling', () => {

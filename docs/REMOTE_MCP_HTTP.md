@@ -340,3 +340,44 @@ MCP_OAUTH_STORE_DRIVER=memory
 ```
 
 Production remains memory until DB migrations are applied and env switch is explicitly done.
+
+---
+
+## Phase 20B.4 — Persistent OAuth Remote Mode
+
+Hosted Streamable HTTP deployments now support persistent OAuth through Supabase-backed MCP OAuth storage.
+
+### Required Production Settings
+
+```env
+MCP_TRANSPORT=streamable-http
+BROKER_RUNTIME_MODE=remote
+MCP_OAUTH_STORE_DRIVER=supabase
+MCP_OAUTH_DEBUG=false
+MCP_SUPABASE_STORE_DEBUG=false
+```
+
+`MCP_OAUTH_SUPABASE_URL` and `MCP_OAUTH_SUPABASE_SERVICE_ROLE_KEY` are required when `MCP_OAUTH_STORE_DRIVER=supabase`. Keep both outside Git and deployment logs.
+
+### Credential Resolution Flow
+
+1. Client completes MCP OAuth and receives bearer access token.
+2. MCP server hashes bearer token to `token_hash`.
+3. Supabase OAuth store resolves `token_hash` to `connection_key_id`, `client_id`, `scope`, `resource`, and expiry metadata.
+4. Broker calls Cuan Insight resolver with `authType=oauth_token` and `tokenHash`.
+5. Cuan Insight maps `connection_key_id` to provider credential context and returns a short-lived provider token.
+6. `ads_list_accounts` calls provider account discovery with the resolved OAuth user context.
+
+Raw bearer tokens, raw Connection Keys, and provider tokens never appear in MCP responses.
+
+### Restart Behavior
+
+`startHttpMcpServer()` awaits `loadPersistedData()` before `server.listen()`. This prevents a startup race where a request could arrive before persisted OAuth tokens were loaded into the in-memory cache.
+
+### Remote-Safe Account Listing
+
+`ads_list_accounts` is the canonical remote account discovery tool. `meta_get_ad_accounts` in remote mode routes to the same remote-safe listing path and must not require local `META_ACCESS_TOKEN` / `META_AD_ACCOUNT_ID` environment variables.
+
+### Rollback
+
+Set `MCP_OAUTH_STORE_DRIVER=memory`, restart `cuan-mcp`, then reconnect Claude/ChatGPT connectors if sessions no longer resolve.

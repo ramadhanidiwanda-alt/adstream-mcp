@@ -131,3 +131,25 @@ The `SupabaseOAuthStore` stores `connection_key_hash` but cannot recover the raw
 | 20A.1 | IOAuthStore, MemoryOAuthStore, SupabaseOAuthStore skeleton, factory, env config | ✅ Done |
 | 20B | SQL migration to Cuan Insight Supabase, real fetch-based REST API, connection key bridge | ⏳ Planned |
 | 20C | Refresh token support, multi-replica readiness | ⏳ Planned |
+
+---
+
+## Phase 20B.4 Verification Notes
+
+Production verification confirmed Supabase persistence for MCP OAuth sessions:
+
+- `MCP_OAUTH_STORE_DRIVER=supabase` enabled.
+- OAuth token rows persist `token_hash`, `client_id`, `connection_key_id`, `scope`, `resource`, and `expires_at`.
+- `connection_key_id` is stored as an opaque reference; raw Connection Keys are not stored in OAuth token rows.
+- `loadPersistedData()` hydrates registered clients and active access tokens during startup.
+- HTTP startup awaits hydration before listening.
+- `resolveAccessToken()` hashes the bearer token and resolves loaded cache entries without requiring raw token persistence.
+- Cuan Insight resolver accepts `authType=oauth_token` and `tokenHash` for provider credential resolution.
+- Verified health response: `{"ok":true,"transport":"streamable-http","mode":"remote","oauth":true}`.
+
+Production debug flags must remain disabled unless doing a short controlled incident debug window:
+
+```env
+MCP_OAUTH_DEBUG=false
+MCP_SUPABASE_STORE_DEBUG=false
+```
