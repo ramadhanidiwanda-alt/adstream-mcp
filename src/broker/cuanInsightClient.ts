@@ -306,6 +306,24 @@ export function createCuanInsightCredentialClient(
 
         const normalizedResponse = normalizeCuanInsightResponse(responseBody);
 
+        // ── Temp debug: raw resolver response shape ──
+        if (process.env.MCP_OAUTH_DEBUG === 'true') {
+          const safeShape: Record<string, unknown> = {};
+          if (normalizedResponse && typeof normalizedResponse === 'object') {
+            const nr = normalizedResponse as Record<string, unknown>;
+            for (const key of Object.keys(nr)) {
+              if (['providerToken','accessToken','token','key','secret','password'].some(k => key.toLowerCase().includes(k))) {
+                safeShape[key] = '<redacted>';
+              } else if (typeof nr[key] === 'object' && nr[key] !== null) {
+                safeShape[key] = '<object>';
+              } else {
+                safeShape[key] = nr[key];
+              }
+            }
+          }
+          console.log('[TOOL_DEBUG] cuan_insight.response', JSON.stringify(safeShape));
+        }
+
         // Validate response contract
         if (!isValidCuanInsightResponse(normalizedResponse)) {
           throw new CuanInsightCredentialClientError(
