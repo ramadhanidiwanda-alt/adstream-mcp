@@ -35,6 +35,8 @@ export interface CuanInsightMcpIdentity {
   plan: string;
   email?: string;
   displayName?: string;
+  /** Cuan Insight connection key ID — opaque reference, never the raw key. Added in PR #59. */
+  connectionKeyId?: string;
 }
 
 /**
@@ -75,6 +77,16 @@ export interface CuanInsightCredentialResolveRequest {
   requestedScopes?: ReadonlyArray<'read'>;
   /** Per-request connection key override (hosted multi-user). Takes precedence over config.connectionKey. */
   connectionKey?: string;
+  /** OAuth token auth mode — send authType: oauth_token to resolver instead of connection key. */
+  authType?: 'oauth_token';
+  /** SHA-256 hash of the OAuth access token (required when authType is oauth_token). */
+  tokenHash?: string;
+  /** Client ID for OAuth token resolution context. */
+  oauthClientId?: string;
+  /** Resource from OAuth authorization. */
+  oauthResource?: string;
+  /** Cuan Insight connection key ID for token resolution. */
+  connectionKeyId?: string;
   params?: Record<string, unknown>;
 }
 

@@ -87,6 +87,7 @@ export class AdsBroker {
       provider: provider.provider,
       accountId: request.accountId,
       connectionKey: request.connectionKey,
+      oauthAuthContext: request.oauthAuthContext,
       params: request.params,
     });
 
