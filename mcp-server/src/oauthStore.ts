@@ -5,8 +5,10 @@ import { randomBytes, createHash } from 'node:crypto';
 export interface AuthorizationCodeRecord {
   /** SHA-256 hash of the auth code (never store raw code) */
   codeHash: string;
-  /** Connection key (stored only for resolution — never logged) */
+  /** Connection key (only for memory mode — never logged). Supabase mode stores connectionKeyId instead. */
   connectionKey: string;
+  /** Cuan Insight connection key ID (only for supabase mode — never stores raw key) */
+  connectionKeyId?: string;
   clientId: string;
   redirectUri: string;
   /** Raw code_challenge for PKCE verification */
@@ -22,11 +24,15 @@ export interface AuthorizationCodeRecord {
 export interface AccessTokenRecord {
   /** SHA-256 hash of the access token */
   tokenHash: string;
-  /** Connection key associated with this token */
+  /** Connection key (only for memory mode). Supabase mode stores connectionKeyId instead. */
   connectionKey: string;
+  /** Cuan Insight connection key ID (only for supabase mode). Used to resolve via mcp-resolve-credential. */
+  connectionKeyId?: string;
   scope: string;
   expiresAt: number; // Unix timestamp ms
   clientId: string;
+  /** Resource from OAuth authorization */
+  resource?: string;
 }
 
 export interface RegisteredClient {
@@ -53,6 +59,62 @@ export interface StoreStats {
   registeredClientCount: number;
 }
 
+// ── OAuth Resolved Token types ────────────────────────────────────────────
+
+/** Connection key auth — returned by MemoryOAuthStore. */
+export interface OAuthConnectionKeyResult {
+  authType: 'connection_key';
+  connectionKey: string;
+  scope: string;
+  clientId: string;
+}
+
+/** OAuth token auth — returned by SupabaseOAuthStore. */
+export interface OAuthOAuthTokenResult {
+  authType: 'oauth_token';
+  accessTokenHash: string;
+  clientId: string;
+  scope: string;
+  resource?: string;
+  connectionKeyId?: string;
+}
+
+/** Union type for resolveAccessToken return. */
+export type OAuthResolvedToken = OAuthConnectionKeyResult | OAuthOAuthTokenResult;
+
+/** Params for createAuthorizationCode — accepts either connectionKey or connectionKeyId. */
+export interface CreateAuthCodeParams {
+  /** Raw connection key (memory mode) */
+  connectionKey?: string;
+  /** Cuan Insight connection key ID (supabase mode) */
+  connectionKeyId?: string;
+  clientId: string;
+  redirectUri: string;
+  codeChallenge: string;
+  codeChallengeMethod: string;
+  scope: string;
+  resource?: string;
+}
+
+/** Params for createAccessToken — accepts either connectionKey or connectionKeyId. */
+export interface CreateAccessTokenParams {
+  /** Raw connection key (memory mode) */
+  connectionKey?: string;
+  /** Cuan Insight connection key ID (supabase mode) */
+  connectionKeyId?: string;
+  scope: string;
+  clientId: string;
+  resource?: string;
+}
+
+/** Redeem result — returns connectionKey for memory, connectionKeyId for supabase. */
+export interface RedeemAuthCodeResult {
+  connectionKey?: string;
+  connectionKeyId?: string;
+  scope: string;
+  resource?: string;
+}
+
 // ── IOAuthStore interface ─────────────────────────────────────────────────
 
 /**
@@ -66,15 +128,7 @@ export interface IOAuthStore {
   // ── Auth Code ──────────────────────────────────────────────────────────
 
   /** Create authorization code. Returns raw code only once. */
-  createAuthorizationCode(params: {
-    connectionKey: string;
-    clientId: string;
-    redirectUri: string;
-    codeChallenge: string;
-    codeChallengeMethod: string;
-    scope: string;
-    resource?: string;
-  }): { code: string };
+  createAuthorizationCode(params: CreateAuthCodeParams): { code: string };
 
   /** Redeem authorization code with PKCE verification. */
   redeemAuthorizationCode(params: {
@@ -82,21 +136,17 @@ export interface IOAuthStore {
     codeVerifier: string;
     clientId: string;
     redirectUri: string;
-  }): { connectionKey: string; scope: string } | undefined;
+  }): RedeemAuthCodeResult | undefined;
 
   // ── Access Token ───────────────────────────────────────────────────────
 
   /** Create access token. Returns raw token only once. */
-  createAccessToken(params: {
-    connectionKey: string;
-    scope: string;
-    clientId: string;
-  }): { accessToken: string; expiresIn: number };
+  createAccessToken(params: CreateAccessTokenParams): { accessToken: string; expiresIn: number };
 
   /** Resolve access token to connection context. */
   resolveAccessToken(
     accessToken: string
-  ): { connectionKey: string; scope: string; clientId: string } | undefined;
+  ): OAuthResolvedToken | undefined;
 
   /** Revoke an access token. */
   revokeAccessToken(accessToken: string): boolean;
@@ -144,38 +194,48 @@ export function base64UrlEncode(input: string): string {
 }
 
 export function base64UrlDecode(input: string): string {
-  const padded = input.padEnd(input.length + ((4 - (input.length % 4)) % 4), '=');
-  return Buffer.from(padded.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString();
+  const base64 = input.replace(/-/g, '+').replace(/_/g, '/');
+  const padded = base64 + '=='.slice(0, (4 - (base64.length % 4)) % 4);
+  return Buffer.from(padded, 'base64').toString();
 }
 
 // ── MemoryOAuthStore ─────────────────────────────────────────────────────
 
 /**
- * In-memory OAuth store for local development and single-replica deployments.
+ * In-memory OAuth store implementation.
  *
- * Limitations:
- * - Data is lost on server restart
- * - Not suitable for multi-replica deployments
- * - No persistent backing store
+ * Default store for development and single-tenant deployments.
+ * All data lost on restart.
  *
- * For production multi-replica deployments, use SupabaseOAuthStore.
+ * Supports both connection_key and connectionKeyId modes:
+ * - connection_key: legacy mode — stores raw connection key reference
+ * - connectionKeyId: supabase-compatible mode — stores Cuan Insight key ID only
+ *
+ * Security:
+ * - Authorization codes stored as SHA-256 hash only
+ * - Access tokens stored as SHA-256 hash only
+ * - PKCE enforced on all code redemptions (S256 required)
  */
 export class MemoryOAuthStore implements IOAuthStore {
-  private authCodes = new Map<string, AuthorizationCodeRecord>();
-  private accessTokens = new Map<string, AccessTokenRecord>();
-  private registeredClients = new Map<string, RegisteredClient>();
+  private authCodes: Map<string, AuthorizationCodeRecord>;
+  private accessTokens: Map<string, AccessTokenRecord>;
+  private registeredClients: Map<string, RegisteredClient>;
   private authCodeTtlMs: number;
   private accessTokenTtlMs: number;
 
-  constructor(config: OAuthStoreConfig = {}) {
-    this.authCodeTtlMs = config.authCodeTtlMs ?? 300_000; // 5 min
-    this.accessTokenTtlMs = config.accessTokenTtlMs ?? 86_400_000; // 24h
+  constructor(config?: OAuthStoreConfig) {
+    this.authCodes = new Map();
+    this.accessTokens = new Map();
+    this.registeredClients = new Map();
+    this.authCodeTtlMs = config?.authCodeTtlMs ?? 300_000; // 5 min default
+    this.accessTokenTtlMs = config?.accessTokenTtlMs ?? 86_400_000; // 24h default
   }
 
   // ── Auth Code ───────────────────────────────────────────────────────
 
   createAuthorizationCode(params: {
-    connectionKey: string;
+    connectionKey?: string;
+    connectionKeyId?: string;
     clientId: string;
     redirectUri: string;
     codeChallenge: string;
@@ -185,14 +245,18 @@ export class MemoryOAuthStore implements IOAuthStore {
   }): { code: string } {
     const code = randomToken();
     const codeHash = sha256Hex(code);
+    const connectionKey = params.connectionKey ?? '';
 
     if (params.codeChallengeMethod !== 'S256') {
       throw new Error('Only S256 code challenge method is supported');
     }
 
-    this.authCodes.set(codeHash, {
+    this.cleanupExpired();
+
+    const record: AuthorizationCodeRecord = {
       codeHash,
-      connectionKey: params.connectionKey,
+      connectionKey,
+      connectionKeyId: params.connectionKeyId,
       clientId: params.clientId,
       redirectUri: params.redirectUri,
       codeChallenge: params.codeChallenge,
@@ -201,10 +265,9 @@ export class MemoryOAuthStore implements IOAuthStore {
       resource: params.resource,
       expiresAt: Date.now() + this.authCodeTtlMs,
       used: false,
-    });
+    };
 
-    this.cleanupExpired();
-
+    this.authCodes.set(codeHash, record);
     return { code };
   }
 
@@ -213,20 +276,17 @@ export class MemoryOAuthStore implements IOAuthStore {
     codeVerifier: string;
     clientId: string;
     redirectUri: string;
-  }): { connectionKey: string; scope: string } | undefined {
+  }): RedeemAuthCodeResult | undefined {
     const codeHash = sha256Hex(params.code);
     const record = this.authCodes.get(codeHash);
 
     if (!record) return undefined;
 
+    // Check already used
+    if (record.used) return undefined;
+
     // Check expiry
     if (Date.now() > record.expiresAt) {
-      this.authCodes.delete(codeHash);
-      return undefined;
-    }
-
-    // Check already used
-    if (record.used) {
       this.authCodes.delete(codeHash);
       return undefined;
     }
@@ -238,78 +298,96 @@ export class MemoryOAuthStore implements IOAuthStore {
     if (record.redirectUri !== params.redirectUri) return undefined;
 
     // Verify PKCE
-    const verifierHash = createHash('sha256')
-      .update(params.codeVerifier)
-      .digest('base64url');
-    const pkceMatch = verifierHash === record.codeChallenge;
+    const verifierHash = base64UrlEncode(
+      createHash('sha256').update(params.codeVerifier).digest()
+    );
 
-    if (process.env.MCP_OAUTH_DEBUG === 'true') {
-      console.error('[OAUTH_DEBUG] token.post.pkce_match', JSON.stringify({
-        match: pkceMatch,
-        challenge_len: record.codeChallenge.length,
-        verifier_hash_len: verifierHash.length,
-      }));
-    }
+    if (record.codeChallenge !== verifierHash) return undefined;
 
-    if (!pkceMatch) return undefined;
-
-    // Mark as used
+    // Mark as used (single-use)
     record.used = true;
 
     return {
-      connectionKey: record.connectionKey,
+      connectionKey: record.connectionKey || undefined,
+      connectionKeyId: record.connectionKeyId,
       scope: record.scope,
+      resource: record.resource,
     };
   }
 
   // ── Access Token ────────────────────────────────────────────────────
 
   createAccessToken(params: {
-    connectionKey: string;
+    connectionKey?: string;
+    connectionKeyId?: string;
     scope: string;
     clientId: string;
+    resource?: string;
   }): { accessToken: string; expiresIn: number } {
     const accessToken = randomToken();
     const tokenHash = sha256Hex(accessToken);
-    const expiresInSec = Math.floor(this.accessTokenTtlMs / 1000);
-
-    this.accessTokens.set(tokenHash, {
-      tokenHash,
-      connectionKey: params.connectionKey,
-      scope: params.scope,
-      expiresAt: Date.now() + this.accessTokenTtlMs,
-      clientId: params.clientId,
-    });
 
     this.cleanupExpired();
 
-    return { accessToken, expiresIn: expiresInSec };
+    const record: AccessTokenRecord = {
+      tokenHash,
+      connectionKey: params.connectionKey ?? '',
+      connectionKeyId: params.connectionKeyId,
+      scope: params.scope,
+      expiresAt: Date.now() + this.accessTokenTtlMs,
+      clientId: params.clientId,
+      resource: params.resource,
+    };
+
+    this.accessTokens.set(tokenHash, record);
+
+    return { accessToken, expiresIn: Math.floor(this.accessTokenTtlMs / 1000) };
   }
 
   resolveAccessToken(
     accessToken: string
-  ): { connectionKey: string; scope: string; clientId: string } | undefined {
+  ): OAuthResolvedToken | undefined {
     const tokenHash = sha256Hex(accessToken);
     const record = this.accessTokens.get(tokenHash);
 
     if (!record) return undefined;
 
     // Check expiry
-    if (Date.now() > record.expiresAt) {
+    const now = Date.now();
+    if (now > record.expiresAt) {
       this.accessTokens.delete(tokenHash);
       return undefined;
     }
 
-    return {
-      connectionKey: record.connectionKey,
-      scope: record.scope,
-      clientId: record.clientId,
-    };
+    // Return appropriate auth type
+    if (record.connectionKeyId) {
+      return {
+        authType: 'oauth_token',
+        accessTokenHash: record.tokenHash,
+        clientId: record.clientId,
+        scope: record.scope,
+        resource: record.resource,
+        connectionKeyId: record.connectionKeyId,
+      };
+    }
+    if (record.connectionKey) {
+      return {
+        authType: 'connection_key',
+        connectionKey: record.connectionKey,
+        scope: record.scope,
+        clientId: record.clientId,
+      };
+    }
+    return undefined;
   }
 
   revokeAccessToken(accessToken: string): boolean {
     const tokenHash = sha256Hex(accessToken);
-    return this.accessTokens.delete(tokenHash);
+    const record = this.accessTokens.get(tokenHash);
+    if (!record) return false;
+
+    this.accessTokens.delete(tokenHash);
+    return true;
   }
 
   // ── DCR ─────────────────────────────────────────────────────────────
@@ -379,9 +457,6 @@ export class MemoryOAuthStore implements IOAuthStore {
 
 /** @deprecated Use MemoryOAuthStore directly. Kept for backward compatibility. */
 export { MemoryOAuthStore as OAuthStore };
-
-// ── Factory ──────────────────────────────────────────────────────────────
-
 
 // ── Factory ──────────────────────────────────────────────────────────────
 
