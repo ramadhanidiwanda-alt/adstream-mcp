@@ -837,6 +837,34 @@ async function handlePostRevoke(
 }
 
 /**
+ * Safely extract connectionKeyId from Cuan Insight resolver response.
+ * Checks multiple possible response shapes:
+ * - identity.connectionKeyId (camelCase, direct)
+ * - identity.connection_key_id (snake_case, Supabase RPC convention)
+ * - data.identity.connectionKeyId (wrapped in data envelope)
+ * - data.identity.connection_key_id (wrapped + snake_case)
+ * - result.identity.connectionKeyId (wrapped in result)
+ * - result.identity.connection_key_id (wrapped result + snake_case)
+ */
+function extractConnectionKeyId(body: Record<string, unknown>): string | undefined {
+  const candidates: Array<Record<string, unknown> | undefined> = [
+    body.identity as Record<string, unknown> | undefined,
+    body.data ? (body.data as Record<string, unknown>).identity as Record<string, unknown> | undefined : undefined,
+    body.result ? (body.result as Record<string, unknown>).identity as Record<string, unknown> | undefined : undefined,
+  ];
+
+  for (const identity of candidates) {
+    if (!identity) continue;
+    const id = identity.connectionKeyId ?? identity.connection_key_id;
+    if (typeof id === 'string' && id.length > 0) return id;
+    // Also try number (unlikely but safe)
+    if (typeof id === 'number' && id > 0) return String(id);
+  }
+
+  return undefined;
+}
+
+/**
  * Validate a connection key by making a lightweight probe call to Cuan Insight.
  * Returns validation result with optional connectionKeyId from identity response.
  * Never leaks the key in logs or errors.
@@ -878,8 +906,35 @@ async function validateConnectionKey(
       // Parse identity to extract connectionKeyId (added in Cuan Insight PR #59)
       try {
         const body = await resolveResponse.json() as Record<string, unknown>;
-        const identity = body.identity as Record<string, unknown> | undefined;
-        const connectionKeyId = identity?.connectionKeyId as string | undefined;
+
+        // Safe extraction: check multiple possible paths
+        const connectionKeyId = extractConnectionKeyId(body);
+
+        // Safe structural debug (no secret values logged)
+        if (OAUTH_DEBUG(env)) {
+          const topKeys = Object.keys(body);
+          const identityRaw = body.identity as Record<string, unknown> | undefined;
+          const dataRaw = body.data as Record<string, unknown> | undefined;
+          const dataIdentity = dataRaw?.identity as Record<string, unknown> | undefined;
+          const resultRaw = body.result as Record<string, unknown> | undefined;
+          const resultIdentity = resultRaw?.identity as Record<string, unknown> | undefined;
+
+          console.error('[OAUTH_DEBUG] validate_connection_key.response_shape', JSON.stringify({
+            status: resolveResponse.status,
+            top_level_keys: topKeys,
+            has_identity: !!identityRaw,
+            identity_keys: identityRaw ? Object.keys(identityRaw) : [],
+            has_data: !!dataRaw,
+            has_data_identity: !!dataIdentity,
+            data_identity_keys: dataIdentity ? Object.keys(dataIdentity) : [],
+            has_result: !!resultRaw,
+            has_result_identity: !!resultIdentity,
+            result_identity_keys: resultIdentity ? Object.keys(resultIdentity) : [],
+            has_providerAccess: 'providerAccess' in body || 'provider_access' in body,
+            extracted_connection_key_id: !!connectionKeyId,
+          }));
+        }
+
         return { valid: true, connectionKeyId };
       } catch {
         return { valid: true };
