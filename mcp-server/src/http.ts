@@ -902,6 +902,32 @@ async function validateConnectionKey(
       signal: AbortSignal.timeout(10000),
     });
 
+    // Safe debug: log response status and body shape regardless of outcome
+    if (OAUTH_DEBUG(env)) {
+      try {
+        const debugBody = await resolveResponse.clone().json() as Record<string, unknown>;
+        const topKeys = Object.keys(debugBody);
+        const identityRaw = debugBody.identity as Record<string, unknown> | undefined;
+        console.error('[OAUTH_DEBUG] validate_connection_key.http_response', JSON.stringify({
+          status: resolveResponse.status,
+          ok: resolveResponse.ok,
+          top_level_keys: topKeys,
+          has_identity: !!identityRaw,
+          identity_keys: identityRaw ? Object.keys(identityRaw) : [],
+          has_data: 'data' in debugBody,
+          has_error: 'error' in debugBody,
+          error_code: typeof debugBody.error === 'object' && debugBody.error ? (debugBody.error as Record<string,unknown>).code : null,
+          content_type: resolveResponse.headers.get('content-type'),
+        }));
+      } catch {
+        console.error('[OAUTH_DEBUG] validate_connection_key.http_response', JSON.stringify({
+          status: resolveResponse.status,
+          ok: resolveResponse.ok,
+          top_level_keys: 'unparseable',
+        }));
+      }
+    }
+
     if (resolveResponse.ok) {
       // Parse identity to extract connectionKeyId (added in Cuan Insight PR #59)
       try {
