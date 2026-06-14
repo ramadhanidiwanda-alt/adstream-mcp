@@ -8,13 +8,18 @@ export { getCampaignInsights } from './tools/getCampaignInsights.js';
 export { getAdsetInsights } from './tools/getAdsetInsights.js';
 export { getAdsInsights } from './tools/getAdsInsights.js';
 export { generateDailyReport } from './tools/generateDailyReport.js';
+export { getLocationInsights } from './tools/getLocationInsights.js';
+export type * from './tools/getLocationInsights.js';
 
 export { analyzeCampaignPerformance } from './analysis/analyzeCampaignPerformance.js';
 export { recommendActions } from './analysis/recommendActions.js';
+export { summarizeLocationInsights } from './analysis/summarizeLocationInsights.js';
+export type * from './analysis/summarizeLocationInsights.js';
 
 export { parseActionValue, parseActionValueFromValues } from './utils/parseActions.js';
 export { formatCurrency, formatNumber } from './utils/formatCurrency.js';
 export { normalizeAccountId } from './utils/normalizeAccountId.js';
+export { normalizeLocationBreakdowns, assertLocationBreakdowns } from './utils/locationBreakdowns.js';
 
 export type * from './types.js';
 export type * from './broker/types.js';

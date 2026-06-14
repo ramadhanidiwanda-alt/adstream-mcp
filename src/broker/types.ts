@@ -145,6 +145,12 @@ export interface AdsDiagnostics {
   diagnostics?: string[];
 }
 
+export interface AdsMetricDimensions {
+  country?: string;
+  region?: string;
+  dma?: string;
+}
+
 export interface AdsActionMetric {
   action_type: string;
   value: number;
@@ -176,6 +182,7 @@ export interface AdsMetricRecord {
   engagement?: AdsEngagementMetrics;
   creative?: AdsCreativeMetadata;
   diagnostics?: AdsDiagnostics;
+  dimensions?: AdsMetricDimensions;
   actions?: AdsActionMetric[];
   calculated?: AdsCalculatedMetrics;
   raw?: unknown;

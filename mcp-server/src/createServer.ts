@@ -11,6 +11,7 @@ import {
   getCampaignInsights,
   getAdsetInsights,
   getAdsInsights,
+  getLocationInsights,
   generateDailyReport,
   RuleEngine,
   allRuleTemplates,
@@ -21,7 +22,9 @@ import {
   isAdsMcpToolName,
   parseBrokerConfigFromEnv,
   safeAdsMcpError,
-} from 'meta-ads-agent-skill';
+  assertLocationBreakdowns,
+  } from 'meta-ads-agent-skill';
+import type { LocationBreakdown } from 'meta-ads-agent-skill';
 
 export interface CreateMetaAdsMcpServerOptions {
   client?: MetaClient;
@@ -39,6 +42,8 @@ type ToolArguments = {
   until?: string;
   status?: string[];
   limit?: number;
+  level?: 'campaign' | 'adset' | 'ad';
+  breakdowns?: unknown;
   category?: string;
 };
 
@@ -60,7 +65,7 @@ const adsBaseInputSchema = {
   params: z
     .record(z.unknown())
     .optional()
-    .describe('Optional provider-safe parameters such as limit.'),
+    .describe('Optional provider-safe parameters such as limit and breakdowns.'),
 };
 
 const sinceUntilInputSchema = {
@@ -77,6 +82,30 @@ const legacyDateRangeInputSchema = {
   adAccountId: legacyAdAccountId,
   since: z.string().describe('Start date in YYYY-MM-DD format'),
   until: z.string().describe('End date in YYYY-MM-DD format'),
+  breakdowns: z
+    .array(z.enum(['country', 'region', 'dma']))
+    .optional()
+    .describe('Optional location breakdowns. Supported: country, region, dma.'),
+};
+
+const locationBreakdownSchema = z
+  .array(z.enum(['country', 'region', 'dma']))
+  .min(1)
+  .describe('Location breakdowns to apply. Supported: country, region, dma.');
+
+const legacyLocationBreakdownInputSchema = {
+  ...legacyDateRangeInputSchema,
+  level: z.enum(['campaign', 'adset', 'ad']).describe('Insight level to fetch.'),
+  breakdowns: locationBreakdownSchema,
+  limit: z.number().optional().describe('Maximum number of insight rows to fetch (default: 100)'),
+};
+
+const legacyLocationInsightsInputSchema = {
+  ...legacyLocationBreakdownInputSchema,
+  sortBy: z.enum(['spend', 'impressions', 'clicks', 'ctr', 'cpc', 'cpm']).optional().describe('Sort top locations by metric (default: spend)'),
+  sortDirection: z.enum(['asc', 'desc']).optional().describe('Sort direction (default: desc)'),
+  minSpend: z.number().optional().describe('Minimum location spend filter'),
+  minClicks: z.number().optional().describe('Minimum location clicks filter'),
 };
 
 export function createMetaAdsMcpServer(
@@ -181,6 +210,24 @@ export function createMetaAdsMcpServer(
   );
 
   server.registerTool(
+    'meta_get_insights_by_breakdown',
+    {
+      description: 'Fetch Meta Ads insights by supported location breakdowns (country, region, dma)',
+      inputSchema: legacyLocationBreakdownInputSchema,
+    },
+    async (args: ToolArguments) => handleLegacyMetaToolCall('meta_get_insights_by_breakdown', args, { isRemoteBrokerMode, client, config })
+  );
+
+  server.registerTool(
+    'meta_get_location_insights',
+    {
+      description: 'Fetch Meta Ads insights grouped and ranked by location (country, region, dma) with totals',
+      inputSchema: legacyLocationInsightsInputSchema,
+    },
+    async (args: ToolArguments) => handleLegacyMetaToolCall('meta_get_location_insights', args, { isRemoteBrokerMode, client, config })
+  );
+
+  server.registerTool(
     'meta_generate_daily_report',
     {
       description: 'Generate comprehensive daily performance report with analysis',
@@ -263,6 +310,7 @@ async function handleLegacyMetaToolCall(
           adAccountId: (args.adAccountId || context.config.adAccountId) as string,
           since: args.since as string,
           until: args.until as string,
+          breakdowns: assertLocationBreakdowns(args.breakdowns),
         });
         return asTextContent(insights);
       }
@@ -272,6 +320,7 @@ async function handleLegacyMetaToolCall(
           adAccountId: (args.adAccountId || context.config.adAccountId) as string,
           since: args.since as string,
           until: args.until as string,
+          breakdowns: assertLocationBreakdowns(args.breakdowns),
         });
         return asTextContent(insights);
       }
@@ -281,8 +330,45 @@ async function handleLegacyMetaToolCall(
           adAccountId: (args.adAccountId || context.config.adAccountId) as string,
           since: args.since as string,
           until: args.until as string,
+          breakdowns: assertLocationBreakdowns(args.breakdowns),
         });
         return asTextContent(insights);
+      }
+
+      case 'meta_get_insights_by_breakdown': {
+        const options = {
+          adAccountId: (args.adAccountId || context.config.adAccountId) as string,
+          since: args.since as string,
+          until: args.until as string,
+          limit: args.limit,
+          breakdowns: assertLocationBreakdowns(args.breakdowns),
+        };
+
+        if (args.level === 'campaign') {
+          return asTextContent(await getCampaignInsights(context.client, options));
+        }
+
+        if (args.level === 'adset') {
+          return asTextContent(await getAdsetInsights(context.client, options));
+        }
+
+        return asTextContent(await getAdsInsights(context.client, options));
+      }
+
+      case 'meta_get_location_insights': {
+        const summary = await getLocationInsights(context.client, {
+          adAccountId: (args.adAccountId || context.config.adAccountId) as string,
+          since: args.since as string,
+          until: args.until as string,
+          level: (args.level as 'campaign' | 'adset' | 'ad') ?? 'campaign',
+          breakdowns: assertLocationBreakdowns(args.breakdowns) as LocationBreakdown[] | undefined,
+          sortBy: args.sortBy as 'spend' | 'impressions' | 'clicks' | 'ctr' | 'cpc' | 'cpm' | undefined,
+          sortDirection: args.sortDirection as 'asc' | 'desc' | undefined,
+          minSpend: typeof args.minSpend === 'number' ? args.minSpend : undefined,
+          minClicks: typeof args.minClicks === 'number' ? args.minClicks : undefined,
+          limit: typeof args.limit === 'number' ? args.limit : undefined,
+        });
+        return asTextContent(summary);
       }
 
       case 'meta_generate_daily_report': {

@@ -177,7 +177,7 @@ function createAdsInputSchema(required: string[]) {
       },
       params: {
         type: 'object',
-        description: 'Optional provider-safe parameters such as limit.',
+        description: 'Optional provider-safe parameters such as limit and breakdowns.',
         additionalProperties: true,
       },
     },

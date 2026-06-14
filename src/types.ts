@@ -43,9 +43,19 @@ export interface ActionValue {
   value: string;
 }
 
+export const LOCATION_BREAKDOWNS = ['country', 'region', 'dma'] as const;
+export type LocationBreakdown = (typeof LOCATION_BREAKDOWNS)[number];
+
+export interface InsightBreakdownOptions {
+  breakdowns?: LocationBreakdown[];
+}
+
 export interface CampaignInsight {
   campaign_id: string;
   campaign_name: string;
+  country?: string;
+  region?: string;
+  dma?: string;
   spend: string;
   impressions: string;
   reach: string;
@@ -57,6 +67,48 @@ export interface CampaignInsight {
   actions?: Action[];
   action_values?: ActionValue[];
   purchase_roas?: Array<{ action_type: string; value: string }>;
+}
+
+export interface LocationInsightRow {
+  campaign_id: string;
+  campaign_name: string;
+  country?: string;
+  region?: string;
+  dma?: string;
+  spend: number;
+  impressions: number;
+  reach: number;
+  clicks: number;
+  inline_link_clicks: number;
+  ctr: number;
+  cpc: number;
+  cpm: number;
+}
+
+export interface LocationInsightSummary {
+  breakdown: string;
+  totals: {
+    spend: number;
+    impressions: number;
+    clicks: number;
+    ctr: number;
+    cpc: number;
+    cpm: number;
+    campaigns: number;
+  };
+  top_locations: Array<{
+    country?: string;
+    region?: string;
+    dma?: string;
+    spend: number;
+    impressions: number;
+    clicks: number;
+    ctr: number;
+    cpc: number;
+    cpm: number;
+    campaigns: number;
+  }>;
+  warnings: string[];
 }
 
 export interface AdsetInsight extends CampaignInsight {

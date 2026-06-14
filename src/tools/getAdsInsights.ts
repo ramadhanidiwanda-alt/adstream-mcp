@@ -1,8 +1,8 @@
 import type { MetaClient } from '../metaClient.js';
 import { normalizeAccountId } from '../utils/normalizeAccountId.js';
-import type { AdInsight } from '../types.js';
+import type { AdInsight, InsightBreakdownOptions } from '../types.js';
 
-export interface GetAdsInsightsOptions {
+export interface GetAdsInsightsOptions extends InsightBreakdownOptions {
   adAccountId: string;
   since: string;
   until: string;
@@ -13,7 +13,7 @@ export async function getAdsInsights(
   client: MetaClient,
   options: GetAdsInsightsOptions
 ): Promise<AdInsight[]> {
-  const { since, until, limit = 100 } = options;
+  const { since, until, limit = 100, breakdowns } = options;
   const adAccountId = normalizeAccountId(options.adAccountId);
 
   const fields = [
@@ -40,6 +40,7 @@ export async function getAdsInsights(
     level: 'ad',
     fields: fields.join(','),
     time_range: JSON.stringify({ since, until }),
+    breakdowns: breakdowns?.join(','),
     limit,
   });
 

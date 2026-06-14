@@ -4,6 +4,7 @@ import { getAdsInsights } from '../../tools/getAdsInsights.js';
 import { getAdsetInsights } from '../../tools/getAdsetInsights.js';
 import { getCampaignInsights } from '../../tools/getCampaignInsights.js';
 import type { AdAccount, AdInsight, AdsetInsight, CampaignInsight, MetaConfig } from '../../types.js';
+import type { LocationBreakdown } from '../../types.js';
 import type {
   AdsBrokerRequest,
   AdsBrokerResponse,
@@ -13,21 +14,22 @@ import type {
   CredentialContext,
 } from '../../broker/types.js';
 import { redactErrorMessage } from '../../broker/credentials.js';
+import { assertLocationBreakdowns } from '../../utils/locationBreakdowns.js';
 import { normalizeMetaInsights } from './normalizer.js';
 
 export interface MetaAdsAdapterTools {
   getAdAccounts(client: MetaClient, options?: { limit?: number }): Promise<AdAccount[]>;
   getCampaignInsights(
     client: MetaClient,
-    options: { adAccountId: string; since: string; until: string; limit?: number }
+    options: { adAccountId: string; since: string; until: string; limit?: number; breakdowns?: LocationBreakdown[] }
   ): Promise<CampaignInsight[]>;
   getAdsetInsights(
     client: MetaClient,
-    options: { adAccountId: string; since: string; until: string; limit?: number }
+    options: { adAccountId: string; since: string; until: string; limit?: number; breakdowns?: LocationBreakdown[] }
   ): Promise<AdsetInsight[]>;
   getAdsInsights(
     client: MetaClient,
-    options: { adAccountId: string; since: string; until: string; limit?: number }
+    options: { adAccountId: string; since: string; until: string; limit?: number; breakdowns?: LocationBreakdown[] }
   ): Promise<AdInsight[]>;
 }
 
@@ -132,7 +134,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
   private fetchInsights(
     client: MetaClient,
     level: 'campaign' | 'adset' | 'ad',
-    options: { adAccountId: string; since: string; until: string; limit?: number }
+    options: { adAccountId: string; since: string; until: string; limit?: number; breakdowns?: LocationBreakdown[] }
   ): Promise<Array<CampaignInsight | AdsetInsight | AdInsight>> {
     if (level === 'campaign') return this.tools.getCampaignInsights(client, options);
     if (level === 'adset') return this.tools.getAdsetInsights(client, options);
@@ -166,12 +168,32 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
     request: AdsBrokerRequest,
     credential: CredentialContext
   ):
-    | { ok: true; options: { adAccountId: string; since: string; until: string; limit?: number } }
+    | { ok: true; options: { adAccountId: string; since: string; until: string; limit?: number; breakdowns?: LocationBreakdown[] } }
     | { ok: false; response: AdsBrokerResponse<never> } {
     const adAccountId = request.accountId ?? credential.accountId;
     const since = request.since;
     const until = request.until;
     const limit = typeof request.params.limit === 'number' ? request.params.limit : undefined;
+    let breakdowns: LocationBreakdown[] | undefined;
+
+    try {
+      breakdowns = assertLocationBreakdowns(request.params.breakdowns);
+    } catch (error) {
+      return {
+        ok: false,
+        response: {
+          ok: false,
+          provider: 'meta',
+          errors: [
+            {
+              provider: 'meta',
+              code: 'INVALID_LOCATION_BREAKDOWN',
+              message: error instanceof Error ? error.message : 'Invalid location breakdown',
+            },
+          ],
+        },
+      };
+    }
 
     if (!adAccountId || !since || !until) {
       return {
@@ -190,7 +212,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       };
     }
 
-    return { ok: true, options: { adAccountId, since, until, limit } };
+    return { ok: true, options: { adAccountId, since, until, limit, breakdowns } };
   }
 
   private createClient(credential: CredentialContext): MetaClient {
