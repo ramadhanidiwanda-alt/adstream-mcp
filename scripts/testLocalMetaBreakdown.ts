@@ -37,7 +37,8 @@ async function main() {
   const since = process.env.META_TEST_SINCE ?? '2026-06-07';
   const until = process.env.META_TEST_UNTIL ?? '2026-06-14';
   const level = process.env.META_TEST_LEVEL ?? 'campaign';
-  const breakdown = process.env.META_TEST_BREAKDOWN ?? 'country';
+  const breakdownRaw = process.env.META_TEST_BREAKDOWN ?? 'country';
+  const breakdowns = breakdownRaw.split(',').map((b) => b.trim()).filter(Boolean);
 
   const server = createMetaAdsMcpServer();
   const client = new Client({ name: 'local-meta-breakdown-test', version: '1.0.0' }, { capabilities: {} });
@@ -53,7 +54,7 @@ async function main() {
         since,
         until,
         level,
-        breakdowns: [breakdown],
+        breakdowns,
         limit: 10,
       },
     });

@@ -95,6 +95,7 @@ const locationBreakdownSchema = z
 
 const legacyLocationBreakdownInputSchema = {
   ...legacyDateRangeInputSchema,
+  adAccountId: z.string().optional().describe('Ad account ID (optional, uses env META_AD_ACCOUNT_ID if omitted)'),
   level: z.enum(['campaign', 'adset', 'ad']).describe('Insight level to fetch.'),
   breakdowns: locationBreakdownSchema,
   limit: z.number().optional().describe('Maximum number of insight rows to fetch (default: 100)'),
@@ -102,6 +103,7 @@ const legacyLocationBreakdownInputSchema = {
 
 const legacyLocationInsightsInputSchema = {
   ...legacyLocationBreakdownInputSchema,
+  adAccountId: z.string().optional().describe('Ad account ID (optional, uses env META_AD_ACCOUNT_ID if omitted)'),
   sortBy: z.enum(['spend', 'impressions', 'clicks', 'ctr', 'cpc', 'cpm']).optional().describe('Sort top locations by metric (default: spend)'),
   sortDirection: z.enum(['asc', 'desc']).optional().describe('Sort direction (default: desc)'),
   minSpend: z.number().optional().describe('Minimum location spend filter'),

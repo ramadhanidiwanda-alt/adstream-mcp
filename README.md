@@ -4,6 +4,8 @@ TypeScript library + AI skills for Meta Ads analysis. Built for both developers 
 
 [![GitHub](https://img.shields.io/github/license/ramadhanidiwanda-alt/meta-ads-agent-skill)](LICENSE)
 [![npm version](https://img.shields.io/npm/v/meta-ads-agent-skill)](https://www.npmjs.com/package/meta-ads-agent-skill)
+[![tests](https://img.shields.io/badge/tests-361%20passed-brightgreen)]()
+[![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)]()
 
 ## Two Ways to Use This Project
 
