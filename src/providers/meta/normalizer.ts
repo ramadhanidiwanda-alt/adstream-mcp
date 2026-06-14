@@ -64,6 +64,14 @@ export function normalizeMetaInsight(
     record.leads = { leads };
   }
 
+  if (insight.country !== undefined || insight.region !== undefined || insight.dma !== undefined) {
+    record.dimensions = {
+      country: insight.country,
+      region: insight.region,
+      dma: insight.dma,
+    };
+  }
+
   if (purchaseValue !== undefined || purchaseRoas !== undefined) {
     record.conversions = {
       conversion_value: purchaseValue,

@@ -11,6 +11,8 @@ const legacyToolNames = [
   'meta_get_campaign_insights',
   'meta_get_adset_insights',
   'meta_get_ads_insights',
+  'meta_get_insights_by_breakdown',
+  'meta_get_location_insights',
   'meta_generate_daily_report',
   'meta_analyze_with_rules',
 ];
@@ -125,7 +127,7 @@ describe('MCP server builder', () => {
   it('keeps the expected MCP tool count', async () => {
     const response = await listRegisteredTools();
 
-    expect(response.tools).toHaveLength(13);
+    expect(response.tools).toHaveLength(15);
   });
 
   it('keeps full tool order stable for stdio and future transports', async () => {
