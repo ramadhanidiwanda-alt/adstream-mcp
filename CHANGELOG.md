@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.1] - 2026-06-14
+
+### Added - Location Breakdown Insights
+
+- **New types**: `LocationBreakdown` (`country`, `region`, `dma`), `InsightBreakdownOptions`, `LocationInsightRow`, `LocationInsightSummary`
+- **New tools**: `getLocationInsights()` — ranked/filtered location summary with totals
+- **New MCP tools**:
+  - `meta_get_insights_by_breakdown` — raw insight rows by country/region/dma
+  - `meta_get_location_insights` — grouped summary with ranking, totals, and warnings
+- **New utilities**: `summarizeLocationInsights()` — aggregation/ranking/filter engine, `assertLocationBreakdowns()` — safe validation
+- **Broker passthrough**: `params.breakdowns` forwarded through `MetaAdsAdapter`
+- **Normalizer**: maps `country`/`region`/`dma` to `dimensions` in `AdsMetricRecord`
+- **Tests**: 8 new unit tests for location insights, ranking, filters, empty edge cases
+- **Script**: `npm run test:local-meta-breakdown` for real Meta API testing with sanitized output
+
+### Changed
+
+- Existing `getCampaignInsights`, `getAdsetInsights`, `getAdsInsights` now accept optional `breakdowns` param
+- Existing MCP tools (`meta_get_campaign_insights`, etc.) now accept optional `breakdowns`
+
+### Rules
+
+- AGENTS.md add: merge verification checklist — confirm `git diff HEAD --stat` empty before merge
+
 ## [0.3.0] - 2026-05-29
 
 ### Added - AI Skills Layer
