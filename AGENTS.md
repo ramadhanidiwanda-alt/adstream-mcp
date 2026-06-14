@@ -400,8 +400,19 @@ npm run lint         # Lint code dengan ESLint
 1. `npm run format` - Format code
 2. `npm run build` - Pastikan build works
 3. `npm run test` - Semua tests passing
-4. Tidak ada console.logs di production code
-5. Tidak ada access tokens di code atau logs
+4. `git diff HEAD --stat` - Kosong (semua perubahan sudah di-commit)
+5. Tidak ada console.logs di production code
+6. Tidak ada access tokens di code atau logs
+
+### Checklist Sebelum Merge
+
+1. `git diff HEAD --stat` — output harus kosong
+2. `git status` — harus "nothing to commit, working tree clean"
+3. `npm run build` — harus sukses
+4. `npm run test` — semua tests harus passing
+5. Baru jalankan `git checkout main && git merge <branch>`
+6. Setelah merge, verifikasi lagi: `git diff HEAD --stat` kosong
+7. Jika `Already up to date` tapi file masih modified → perubahan belum commit di branch sumber
 
 ---
 
