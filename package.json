@@ -15,7 +15,8 @@
     "example:rule-engine": "tsx examples/rule-engine-demo.ts",
     "example:rule-templates": "tsx examples/rule-templates-demo.ts",
     "lint": "eslint src",
-    "format": "prettier --write src"
+    "format": "prettier --write src",
+    "test:local-meta-breakdown": "tsx --env-file=.env scripts/testLocalMetaBreakdown.ts"
   },
   "keywords": [
     "meta-ads",
