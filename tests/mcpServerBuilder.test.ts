@@ -15,6 +15,9 @@ const legacyToolNames = [
   'meta_get_location_insights',
   'meta_generate_daily_report',
   'meta_analyze_with_rules',
+  'tiktok_list_advertisers',
+  'tiktok_get_report',
+  'tiktok_get_gmv_max_report',
 ];
 
 const envKeys = [
@@ -127,7 +130,7 @@ describe('MCP server builder', () => {
   it('keeps the expected MCP tool count', async () => {
     const response = await listRegisteredTools();
 
-    expect(response.tools).toHaveLength(15);
+    expect(response.tools).toHaveLength(18);
   });
 
   it('keeps full tool order stable for stdio and future transports', async () => {
