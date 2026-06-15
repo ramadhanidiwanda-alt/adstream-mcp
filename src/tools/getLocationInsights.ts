@@ -4,7 +4,7 @@ import { assertLocationBreakdowns } from '../utils/locationBreakdowns.js';
 import { getCampaignInsights } from './getCampaignInsights.js';
 import { getAdsetInsights } from './getAdsetInsights.js';
 import { getAdsInsights } from './getAdsInsights.js';
-import { summarizeLocationInsights } from '../analysis/summarizeLocationInsights.js';
+import { summarizeLocationInsights, summarizeNestedLocationInsights } from '../analysis/summarizeLocationInsights.js';
 import type { LocationBreakdown, LocationInsightSummary, InsightBreakdownOptions } from '../types.js';
 
 export interface GetLocationInsightsOptions extends InsightBreakdownOptions {
@@ -36,9 +36,8 @@ export async function getLocationInsights(
 
   const adAccountId = normalizeAccountId(options.adAccountId);
   const breakdowns = assertLocationBreakdowns(options.breakdowns) ?? ['country'];
-  const breakdown = breakdowns[0];
 
-  const fetchOptions = { adAccountId, since, until, limit: 200, breakdowns: [breakdown] };
+  const fetchOptions = { adAccountId, since, until, limit: 200, breakdowns };
 
   let insights;
   if (level === 'adset') {
@@ -49,9 +48,21 @@ export async function getLocationInsights(
     insights = await getCampaignInsights(client, fetchOptions);
   }
 
-  return summarizeLocationInsights({
+  if (breakdowns.length === 1) {
+    return summarizeLocationInsights({
+      insights,
+      breakdown: breakdowns[0],
+      sortBy,
+      sortDirection,
+      minSpend,
+      minClicks,
+      limit,
+    });
+  }
+
+  return summarizeNestedLocationInsights({
     insights,
-    breakdown,
+    breakdowns,
     sortBy,
     sortDirection,
     minSpend,

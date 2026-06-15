@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { getLocationInsights } from '../src/tools/getLocationInsights.js';
-import { summarizeLocationInsights } from '../src/analysis/summarizeLocationInsights.js';
+import { summarizeLocationInsights, summarizeNestedLocationInsights } from '../src/analysis/summarizeLocationInsights.js';
 import type { CampaignInsight, MetaClient } from '../src/index.js';
 
 function createClientStub(insights: CampaignInsight[]): MetaClient {
@@ -152,5 +152,112 @@ describe('summarizeLocationInsights edge cases', () => {
 
     expect(result.breakdown).toBe('region');
     expect(result.top_locations[0].region).toBe('Jawa Barat');
+  });
+});
+
+describe('summarizeNestedLocationInsights', () => {
+  it('groups country → region hierarchically', () => {
+    const insights = [
+      basicInsight({ campaign_id: '1', country: 'ID', region: 'Jawa Barat', spend: '100', impressions: '1000', clicks: '50' }),
+      basicInsight({ campaign_id: '2', country: 'ID', region: 'Jawa Timur', spend: '50', impressions: '500', clicks: '20' }),
+      basicInsight({ campaign_id: '3', country: 'MY', region: 'Selangor', spend: '75', impressions: '750', clicks: '30' }),
+    ];
+
+    const result = summarizeNestedLocationInsights({
+      insights,
+      breakdowns: ['country', 'region'],
+    });
+
+    expect(result.breakdown).toEqual(['country', 'region']);
+    expect(result.hierarchy).toHaveLength(2);
+
+    // Country level
+    expect(result.hierarchy![0].key).toBe('ID');
+    expect(result.hierarchy![0].metrics.spend).toBe(150);
+    expect(result.hierarchy![0].metrics.campaigns).toBe(2);
+
+    // Region children
+    expect(result.hierarchy![0].children).toHaveLength(2);
+    expect(result.hierarchy![0].children![0].key).toBe('Jawa Barat');
+    expect(result.hierarchy![0].children![0].metrics.spend).toBe(100);
+    expect(result.hierarchy![0].children![1].key).toBe('Jawa Timur');
+    expect(result.hierarchy![0].children![1].metrics.spend).toBe(50);
+
+    // Second country
+    expect(result.hierarchy![1].key).toBe('MY');
+    expect(result.hierarchy![1].metrics.spend).toBe(75);
+    expect(result.hierarchy![1].children).toHaveLength(1);
+    expect(result.hierarchy![1].children![0].key).toBe('Selangor');
+  });
+
+  it('sorts children by spend descending within each parent', () => {
+    const insights = [
+      basicInsight({ campaign_id: '1', country: 'ID', region: 'B', spend: '30' }),
+      basicInsight({ campaign_id: '2', country: 'ID', region: 'A', spend: '100' }),
+      basicInsight({ campaign_id: '3', country: 'ID', region: 'C', spend: '50' }),
+    ];
+
+    const result = summarizeNestedLocationInsights({
+      insights,
+      breakdowns: ['country', 'region'],
+    });
+
+    expect(result.hierarchy![0].children![0].key).toBe('A');  // spend 100
+    expect(result.hierarchy![0].children![1].key).toBe('C');  // spend 50
+    expect(result.hierarchy![0].children![2].key).toBe('B');  // spend 30
+  });
+
+  it('handles unknown region within a country', () => {
+    const insights = [
+      basicInsight({ campaign_id: '1', country: 'ID', region: undefined }),
+    ];
+
+    const result = summarizeNestedLocationInsights({
+      insights,
+      breakdowns: ['country', 'region'],
+    });
+
+    expect(result.hierarchy![0].children![0].key).toBe('(unknown)');
+  });
+
+  it('provides backward-compat top_locations', () => {
+    const insights = [
+      basicInsight({ campaign_id: '1', country: 'ID', region: 'Jawa Barat', spend: '100' }),
+      basicInsight({ campaign_id: '2', country: 'MY', region: 'Selangor', spend: '50' }),
+    ];
+
+    const result = summarizeNestedLocationInsights({
+      insights,
+      breakdowns: ['country', 'region'],
+    });
+
+    expect(result.top_locations).toHaveLength(2);
+    expect(result.top_locations[0].country).toBe('ID');
+    expect(result.top_locations[1].country).toBe('MY');
+  });
+
+  it('applies limit to top-level only', () => {
+    const insights = Array.from({ length: 10 }, (_, i) =>
+      basicInsight({ campaign_id: `${i}`, country: `C${i}`, region: 'R1', spend: `${100 - i * 10}` })
+    );
+
+    const result = summarizeNestedLocationInsights({
+      insights,
+      breakdowns: ['country', 'region'],
+      limit: 3,
+    });
+
+    expect(result.hierarchy).toHaveLength(3);
+    expect(result.totals.campaigns).toBe(3);
+  });
+
+  it('handles empty insights gracefully', () => {
+    const result = summarizeNestedLocationInsights({
+      insights: [],
+      breakdowns: ['country', 'region'],
+    });
+
+    expect(result.hierarchy).toHaveLength(0);
+    expect(result.warnings).toContain('No insight data returned from Meta API');
   });
 });
