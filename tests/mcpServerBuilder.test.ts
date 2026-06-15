@@ -18,6 +18,7 @@ const legacyToolNames = [
   'tiktok_list_advertisers',
   'tiktok_get_report',
   'tiktok_get_gmv_max_report',
+  'tiktok_get_location_insights',
 ];
 
 const envKeys = [
@@ -130,7 +131,7 @@ describe('MCP server builder', () => {
   it('keeps the expected MCP tool count', async () => {
     const response = await listRegisteredTools();
 
-    expect(response.tools).toHaveLength(18);
+    expect(response.tools).toHaveLength(19);
   });
 
   it('keeps full tool order stable for stdio and future transports', async () => {

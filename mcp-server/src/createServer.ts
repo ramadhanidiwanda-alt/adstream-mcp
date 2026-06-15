@@ -27,6 +27,7 @@ import {
   getTikTokReport,
   getGmvMaxReport,
   getTikTokAdvertisers,
+  getTikTokLocationInsights,
   } from 'meta-ads-agent-skill';
 import type { LocationBreakdown } from 'meta-ads-agent-skill';
 
@@ -315,6 +316,24 @@ export function createMetaAdsMcpServer(
     async (args: Record<string, unknown>) => handleTikTokToolCall('tiktok_get_gmv_max_report', args, tiktokClient)
   );
 
+  server.registerTool(
+    'tiktok_get_location_insights',
+    {
+      description: 'Fetch TikTok Ads insights grouped by location (country, province, city) with totals and ranking',
+      inputSchema: {
+        advertiserId: z.string().describe('TikTok advertiser ID'),
+        breakdowns: z.array(z.enum(['country', 'province', 'city'])).describe('Location breakdown dimensions (e.g., ["country"])'),
+        dataLevel: z.enum(['AUCTION_CAMPAIGN', 'AUCTION_ADGROUP', 'AUCTION_AD']).optional().describe('Data level (default: AUCTION_CAMPAIGN)'),
+        startDate: z.string().optional().describe('Start date YYYY-MM-DD'),
+        endDate: z.string().optional().describe('End date YYYY-MM-DD'),
+        sortBy: z.enum(['spend', 'impressions', 'clicks', 'ctr', 'cpc', 'cpm']).optional().describe('Sort metric (default: spend)'),
+        sortDirection: z.enum(['asc', 'desc']).optional().describe('Sort direction (default: desc)'),
+        limit: z.number().optional().describe('Max locations (default: 50)'),
+      },
+    },
+    async (args: Record<string, unknown>) => handleTikTokToolCall('tiktok_get_location_insights', args, tiktokClient)
+  );
+
   return server;
 }
 
@@ -546,6 +565,20 @@ async function handleTikTokToolCall(
           pageSize: typeof args.pageSize === 'number' ? args.pageSize : undefined,
         });
         return asTextContent(report);
+      }
+
+      case 'tiktok_get_location_insights': {
+        const summary = await getTikTokLocationInsights(tiktokClient, {
+          advertiserId: args.advertiserId as string,
+          breakdowns: (args.breakdowns as 'country' | 'province' | 'city'[]) ?? ['country'],
+          dataLevel: args.dataLevel as 'AUCTION_CAMPAIGN' | 'AUCTION_ADGROUP' | 'AUCTION_AD' | undefined,
+          startDate: args.startDate as string | undefined,
+          endDate: args.endDate as string | undefined,
+          sortBy: args.sortBy as 'spend' | 'impressions' | 'clicks' | 'ctr' | 'cpc' | 'cpm' | undefined,
+          sortDirection: args.sortDirection as 'asc' | 'desc' | undefined,
+          limit: typeof args.limit === 'number' ? args.limit : undefined,
+        });
+        return asTextContent(summary);
       }
 
       default:

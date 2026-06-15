@@ -11,6 +11,8 @@ export { getGmvMaxReport } from './tools/getGmvMaxReport.js';
 export type * from './tools/getGmvMaxReport.js';
 export { getTikTokAdvertisers } from './tools/getTikTokAdvertisers.js';
 export type * from './tools/getTikTokAdvertisers.js';
+export { getTikTokLocationInsights } from './tools/getTikTokLocationInsights.js';
+export type * from './tools/getTikTokLocationInsights.js';
 
 export { getAdAccounts } from './tools/getAdAccounts.js';
 export { getCampaigns } from './tools/getCampaigns.js';
