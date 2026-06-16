@@ -13,7 +13,7 @@ export type * from './tools/getLocationInsights.js';
 
 export { analyzeCampaignPerformance } from './analysis/analyzeCampaignPerformance.js';
 export { recommendActions } from './analysis/recommendActions.js';
-export { summarizeLocationInsights } from './analysis/summarizeLocationInsights.js';
+export { summarizeLocationInsights, summarizeNestedLocationInsights } from './analysis/summarizeLocationInsights.js';
 export type * from './analysis/summarizeLocationInsights.js';
 
 export { parseActionValue, parseActionValueFromValues } from './utils/parseActions.js';
