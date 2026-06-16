@@ -2,6 +2,18 @@ export { MetaClient } from './metaClient.js';
 export { loadConfig, validateTokenFormat, validateAdAccountId, maskToken } from './config.js';
 export { MetaApiError } from './utils/metaError.js';
 
+export { TikTokApiClient, TikTokApiError } from './tiktokClient.js';
+export type * from './tiktokClient.js';
+
+export { getTikTokReport } from './tools/getTikTokReport.js';
+export type * from './tools/getTikTokReport.js';
+export { getGmvMaxReport } from './tools/getGmvMaxReport.js';
+export type * from './tools/getGmvMaxReport.js';
+export { getTikTokAdvertisers } from './tools/getTikTokAdvertisers.js';
+export type * from './tools/getTikTokAdvertisers.js';
+export { getTikTokLocationInsights } from './tools/getTikTokLocationInsights.js';
+export type * from './tools/getTikTokLocationInsights.js';
+
 export { getAdAccounts } from './tools/getAdAccounts.js';
 export { getCampaigns } from './tools/getCampaigns.js';
 export { getCampaignInsights } from './tools/getCampaignInsights.js';

@@ -23,6 +23,11 @@ import {
   parseBrokerConfigFromEnv,
   safeAdsMcpError,
   assertLocationBreakdowns,
+  TikTokApiClient,
+  getTikTokReport,
+  getGmvMaxReport,
+  getTikTokAdvertisers,
+  getTikTokLocationInsights,
   } from 'meta-ads-agent-skill';
 import type { LocationBreakdown } from 'meta-ads-agent-skill';
 
@@ -30,6 +35,7 @@ export interface CreateMetaAdsMcpServerOptions {
   client?: MetaClient;
   config?: MetaConfig;
   adsBroker?: ReturnType<typeof createDefaultAdsBroker>;
+  tiktokClient?: TikTokApiClient;
 }
 
 type ToolArguments = {
@@ -132,6 +138,15 @@ export function createMetaAdsMcpServer(
 
   if (!isRemoteBrokerMode && !client) {
     client = new MetaClient(options.config ?? loadConfig());
+  }
+
+  // TikTok client — from env if not provided explicitly
+  let tiktokClient = options.tiktokClient;
+  if (!tiktokClient && process.env.TIKTOK_ACCESS_TOKEN) {
+    tiktokClient = new TikTokApiClient({
+      accessToken: process.env.TIKTOK_ACCESS_TOKEN,
+      apiVersion: process.env.TIKTOK_API_VERSION,
+    });
   }
 
   const adsBroker = options.adsBroker ?? createAdsBrokerFromConfig(brokerConfig);
@@ -251,6 +266,72 @@ export function createMetaAdsMcpServer(
       },
     },
     async (args: ToolArguments) => handleLegacyMetaToolCall('meta_analyze_with_rules', args, { isRemoteBrokerMode, client, config })
+  );
+
+  // ── TikTok Ads tools ──
+
+  server.registerTool(
+    'tiktok_list_advertisers',
+    {
+      description: 'List TikTok advertiser accounts accessible by the access token',
+      inputSchema: {},
+    },
+    async () => handleTikTokToolCall('tiktok_list_advertisers', {}, tiktokClient)
+  );
+
+  server.registerTool(
+    'tiktok_get_report',
+    {
+      description: 'Fetch a synchronous TikTok Ads report (campaign, adgroup, or ad level)',
+      inputSchema: {
+        advertiserId: z.string().describe('TikTok advertiser ID'),
+        reportType: z.string().optional().default('BASIC').describe('Report type (default: BASIC)'),
+        dimensions: z.array(z.string()).describe('Dimension fields (e.g., [\"campaign_id\"])'),
+        metrics: z.array(z.string()).describe('Metric fields (e.g., [\"spend\", \"impressions\"])'),
+        dataLevel: z.enum(['AUCTION_CAMPAIGN', 'AUCTION_ADGROUP', 'AUCTION_AD']).describe('Data aggregation level'),
+        startDate: z.string().optional().describe('Start date YYYY-MM-DD'),
+        endDate: z.string().optional().describe('End date YYYY-MM-DD'),
+        page: z.number().optional().describe('Page number (default: 1)'),
+        pageSize: z.number().optional().describe('Page size (default: 100)'),
+      },
+    },
+    async (args: Record<string, unknown>) => handleTikTokToolCall('tiktok_get_report', args, tiktokClient)
+  );
+
+  server.registerTool(
+    'tiktok_get_gmv_max_report',
+    {
+      description: 'Fetch a GMV Max report from TikTok Shop Ads',
+      inputSchema: {
+        advertiserId: z.string().describe('TikTok advertiser ID'),
+        storeIds: z.array(z.string()).describe('Store IDs (1-3 stores)'),
+        dimensions: z.array(z.string()).describe('Dimension fields'),
+        metrics: z.array(z.string()).describe('Metric fields'),
+        startDate: z.string().describe('Start date YYYY-MM-DD'),
+        endDate: z.string().describe('End date YYYY-MM-DD'),
+        page: z.number().optional().describe('Page number (default: 1)'),
+        pageSize: z.number().optional().describe('Page size (default: 100)'),
+      },
+    },
+    async (args: Record<string, unknown>) => handleTikTokToolCall('tiktok_get_gmv_max_report', args, tiktokClient)
+  );
+
+  server.registerTool(
+    'tiktok_get_location_insights',
+    {
+      description: 'Fetch TikTok Ads insights grouped by location (country, province, city) with totals and ranking',
+      inputSchema: {
+        advertiserId: z.string().describe('TikTok advertiser ID'),
+        breakdowns: z.array(z.enum(['country', 'province', 'city'])).describe('Location breakdown dimensions (e.g., ["country"])'),
+        dataLevel: z.enum(['AUCTION_CAMPAIGN', 'AUCTION_ADGROUP', 'AUCTION_AD']).optional().describe('Data level (default: AUCTION_CAMPAIGN)'),
+        startDate: z.string().optional().describe('Start date YYYY-MM-DD'),
+        endDate: z.string().optional().describe('End date YYYY-MM-DD'),
+        sortBy: z.enum(['spend', 'impressions', 'clicks', 'ctr', 'cpc', 'cpm']).optional().describe('Sort metric (default: spend)'),
+        sortDirection: z.enum(['asc', 'desc']).optional().describe('Sort direction (default: desc)'),
+        limit: z.number().optional().describe('Max locations (default: 50)'),
+      },
+    },
+    async (args: Record<string, unknown>) => handleTikTokToolCall('tiktok_get_location_insights', args, tiktokClient)
   );
 
   return server;
@@ -433,4 +514,77 @@ function legacyMetaToolUnavailableInRemoteMode() {
       },
     ],
   };
+}
+
+async function handleTikTokToolCall(
+  name: string,
+  args: Record<string, unknown>,
+  tiktokClient?: TikTokApiClient
+) {
+  try {
+    if (!tiktokClient) {
+      return asTextContent({
+        ok: false,
+        error: {
+          code: 'TIKTOK_CLIENT_NOT_CONFIGURED',
+          message: 'Set TIKTOK_ACCESS_TOKEN env to use TikTok tools',
+        },
+      });
+    }
+
+    switch (name) {
+      case 'tiktok_list_advertisers': {
+        const advertisers = await getTikTokAdvertisers(tiktokClient);
+        return asTextContent(advertisers);
+      }
+
+      case 'tiktok_get_report': {
+        const report = await getTikTokReport(tiktokClient, {
+          advertiserId: args.advertiserId as string,
+          reportType: (args.reportType as string) ?? 'BASIC',
+          dimensions: args.dimensions as string[],
+          metrics: args.metrics as string[],
+          dataLevel: args.dataLevel as 'AUCTION_CAMPAIGN' | 'AUCTION_ADGROUP' | 'AUCTION_AD',
+          startDate: args.startDate as string | undefined,
+          endDate: args.endDate as string | undefined,
+          page: typeof args.page === 'number' ? args.page : undefined,
+          pageSize: typeof args.pageSize === 'number' ? args.pageSize : undefined,
+        });
+        return asTextContent(report);
+      }
+
+      case 'tiktok_get_gmv_max_report': {
+        const report = await getGmvMaxReport(tiktokClient, {
+          advertiserId: args.advertiserId as string,
+          storeIds: args.storeIds as string[],
+          dimensions: args.dimensions as string[],
+          metrics: args.metrics as string[],
+          startDate: args.startDate as string,
+          endDate: args.endDate as string,
+          page: typeof args.page === 'number' ? args.page : undefined,
+          pageSize: typeof args.pageSize === 'number' ? args.pageSize : undefined,
+        });
+        return asTextContent(report);
+      }
+
+      case 'tiktok_get_location_insights': {
+        const summary = await getTikTokLocationInsights(tiktokClient, {
+          advertiserId: args.advertiserId as string,
+          breakdowns: (args.breakdowns as 'country' | 'province' | 'city'[]) ?? ['country'],
+          dataLevel: args.dataLevel as 'AUCTION_CAMPAIGN' | 'AUCTION_ADGROUP' | 'AUCTION_AD' | undefined,
+          startDate: args.startDate as string | undefined,
+          endDate: args.endDate as string | undefined,
+          sortBy: args.sortBy as 'spend' | 'impressions' | 'clicks' | 'ctr' | 'cpc' | 'cpm' | undefined,
+          sortDirection: args.sortDirection as 'asc' | 'desc' | undefined,
+          limit: typeof args.limit === 'number' ? args.limit : undefined,
+        });
+        return asTextContent(summary);
+      }
+
+      default:
+        throw new Error(`Unknown TikTok tool: ${name}`);
+    }
+  } catch (error) {
+    return safeAdsMcpError(error);
+  }
 }
