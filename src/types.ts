@@ -50,6 +50,22 @@ export interface InsightBreakdownOptions {
   breakdowns?: LocationBreakdown[];
 }
 
+export interface LocationMetrics {
+  spend: number;
+  impressions: number;
+  clicks: number;
+  ctr: number;
+  cpc: number;
+  cpm: number;
+  campaigns: number;
+}
+
+export interface NestedLocationNode {
+  key: string;
+  metrics: LocationMetrics;
+  children?: NestedLocationNode[];
+}
+
 export interface CampaignInsight {
   campaign_id: string;
   campaign_name: string;
@@ -86,7 +102,7 @@ export interface LocationInsightRow {
 }
 
 export interface LocationInsightSummary {
-  breakdown: string;
+  breakdown: string | string[];
   totals: {
     spend: number;
     impressions: number;
@@ -108,6 +124,7 @@ export interface LocationInsightSummary {
     cpm: number;
     campaigns: number;
   }>;
+  hierarchy?: NestedLocationNode[];
   warnings: string[];
 }
 
