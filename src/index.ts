@@ -26,6 +26,8 @@ export { getAdsInsights } from './tools/getAdsInsights.js';
 export { generateDailyReport } from './tools/generateDailyReport.js';
 export { getLocationInsights } from './tools/getLocationInsights.js';
 export type * from './tools/getLocationInsights.js';
+export { getMetaPlacementPerformance } from './tools/getMetaPlacementPerformance.js';
+export type * from './tools/getMetaPlacementPerformance.js';
 
 // --- Mutation Tools ---
 export { pauseCampaign } from './tools/pauseCampaign.js';
@@ -46,11 +48,16 @@ export { analyzeCampaignPerformance } from './analysis/analyzeCampaignPerformanc
 export { recommendActions } from './analysis/recommendActions.js';
 export { summarizeLocationInsights, summarizeNestedLocationInsights } from './analysis/summarizeLocationInsights.js';
 export type * from './analysis/summarizeLocationInsights.js';
+export { analyzePlacementPerformance } from './analysis/analyzePlacementPerformance.js';
+export type * from './analysis/analyzePlacementPerformance.js';
 
 export { parseActionValue, parseActionValueFromValues } from './utils/parseActions.js';
 export { formatCurrency, formatNumber } from './utils/formatCurrency.js';
 export { normalizeAccountId } from './utils/normalizeAccountId.js';
-export { normalizeLocationBreakdowns, assertLocationBreakdowns } from './utils/locationBreakdowns.js';
+export {
+  normalizeLocationBreakdowns,
+  assertLocationBreakdowns,
+} from './utils/locationBreakdowns.js';
 
 export type * from './types.js';
 export type * from './broker/types.js';
@@ -125,9 +132,7 @@ export {
 } from './broker/remoteAuth.js';
 
 export type * from './broker/config.js';
-export {
-  parseBrokerConfigFromEnv,
-} from './broker/config.js';
+export { parseBrokerConfigFromEnv } from './broker/config.js';
 export {
   createRemoteCredentialResolver,
   createRemoteAdsBroker,

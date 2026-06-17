@@ -11,6 +11,7 @@ export const ADS_MCP_TOOL_NAMES = [
   'ads_get_adset_or_adgroup_performance',
   'ads_get_ad_performance',
   'ads_get_creative_performance',
+  'ads_get_placement_performance',
   'ads_generate_report',
   // --- Write operations ---
   'ads_pause_campaign',
@@ -55,6 +56,11 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
   {
     name: 'ads_get_creative_performance',
     description: 'Fetch normalized creative performance through the AdsBroker',
+    inputSchema: createAdsInputSchema(['since', 'until']),
+  },
+  {
+    name: 'ads_get_placement_performance',
+    description: 'Fetch platform and placement performance through the AdsBroker',
     inputSchema: createAdsInputSchema(['since', 'until']),
   },
   {
@@ -162,6 +168,8 @@ function callBrokerMethod(
       return broker.getAdPerformance(request);
     case 'ads_get_creative_performance':
       return broker.getCreativePerformance(request);
+    case 'ads_get_placement_performance':
+      return broker.getPlacementPerformance(request);
     case 'ads_generate_report':
       return broker.generateReport(request);
     // --- Write operations ---
