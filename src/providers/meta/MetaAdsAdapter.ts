@@ -5,7 +5,9 @@ import { getCampaigns } from '../../tools/getCampaigns.js';
 import { getAdsInsights } from '../../tools/getAdsInsights.js';
 import { getAdsetInsights } from '../../tools/getAdsetInsights.js';
 import { getCampaignInsights } from '../../tools/getCampaignInsights.js';
-import type { AccountInsight, AdAccount, AdInsight, AdsetInsight, Campaign, CampaignInsight, MetaConfig } from '../../types.js';
+import { getMetaPlacementPerformance } from '../../tools/getMetaPlacementPerformance.js';
+import type { GetMetaPlacementPerformanceOptions } from '../../tools/getMetaPlacementPerformance.js';
+import type { AccountInsight, AdAccount, AdInsight, AdsetInsight, Campaign, CampaignInsight, MetaConfig, PlacementPerformanceReport } from '../../types.js';
 import type { MutationResult } from '../../types.js';
 import type { LocationBreakdown } from '../../types.js';
 import { pauseCampaign as pauseCampaignTool } from '../../tools/pauseCampaign.js';
@@ -44,6 +46,10 @@ export interface MetaAdsAdapterTools {
     client: MetaClient,
     options: { adAccountId: string; since: string; until: string; limit?: number; breakdowns?: LocationBreakdown[] }
   ): Promise<AdInsight[]>;
+  getMetaPlacementPerformance(
+    client: MetaClient,
+    options: GetMetaPlacementPerformanceOptions
+  ): Promise<PlacementPerformanceReport>;
   // --- Write operations ---
   pauseCampaign(client: MetaClient, campaignId: string): Promise<MutationResult>;
   resumeCampaign(client: MetaClient, campaignId: string): Promise<MutationResult>;
@@ -78,6 +84,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       getCampaignInsights,
       getAdsetInsights,
       getAdsInsights,
+      getMetaPlacementPerformance,
       pauseCampaign: pauseCampaignTool,
       resumeCampaign: resumeCampaignTool,
       updateCampaignBudget: updateCampaignBudgetTool,
@@ -162,6 +169,26 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
         },
       ],
     };
+  }
+
+  async getPlacementPerformance(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<PlacementPerformanceReport>> {
+    const context = this.getCredentialContext(request);
+    if (!context.ok) return context.response;
+
+    const validation = this.getPlacementPerformanceOptions(request, context.credential);
+    if (!validation.ok) return validation.response;
+
+    try {
+      const data = await this.tools.getMetaPlacementPerformance(
+        this.createClient(context.credential),
+        validation.options
+      );
+      return { ok: true, provider: 'meta', data };
+    } catch (error) {
+      return this.errorResponse(error);
+    }
   }
 
   private async getPerformance(
@@ -273,6 +300,76 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
     }
 
     return { ok: true, options: { adAccountId, since, until, limit, breakdowns } };
+  }
+
+  private getPlacementPerformanceOptions(
+    request: AdsBrokerRequest,
+    credential: CredentialContext
+  ):
+    | { ok: true; options: GetMetaPlacementPerformanceOptions }
+    | { ok: false; response: AdsBrokerResponse<never> } {
+    const adAccountId = request.accountId ?? credential.accountId;
+    const since = request.since;
+    const until = request.until;
+    const limit = typeof request.params.limit === 'number' ? request.params.limit : undefined;
+    const minSpendShare =
+      typeof request.params.minSpendShare === 'number' ? request.params.minSpendShare : undefined;
+    const minConversions =
+      typeof request.params.minConversions === 'number' ? request.params.minConversions : undefined;
+    const campaignId = parseIdParam(request.params.campaignId);
+    const adsetId = parseIdParam(request.params.adsetId);
+    const adId = parseIdParam(request.params.adId);
+    const level = request.params.level;
+
+    if (!adAccountId || !since || !until) {
+      return {
+        ok: false,
+        response: {
+          ok: false,
+          provider: 'meta',
+          errors: [
+            {
+              provider: 'meta',
+              code: 'MISSING_REQUIRED_PARAMS',
+              message: 'Meta placement performance requests require accountId, since, and until',
+            },
+          ],
+        },
+      };
+    }
+
+    if (level !== undefined && level !== 'campaign' && level !== 'adset' && level !== 'ad') {
+      return {
+        ok: false,
+        response: {
+          ok: false,
+          provider: 'meta',
+          errors: [
+            {
+              provider: 'meta',
+              code: 'INVALID_LEVEL',
+              message: 'Meta placement performance level must be campaign, adset, or ad',
+            },
+          ],
+        },
+      };
+    }
+
+    return {
+      ok: true,
+      options: {
+        adAccountId,
+        since,
+        until,
+        limit,
+        level,
+        campaignId,
+        adsetId,
+        adId,
+        minSpendShare,
+        minConversions,
+      },
+    };
   }
 
   private createClient(credential: CredentialContext): MetaClient {
@@ -432,4 +529,10 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       ],
     };
   }
+}
+
+function parseIdParam(value: unknown): string | string[] | undefined {
+  if (typeof value === 'string') return value;
+  if (Array.isArray(value) && value.every((item) => typeof item === 'string')) return value;
+  return undefined;
 }
