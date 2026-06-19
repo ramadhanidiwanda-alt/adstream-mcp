@@ -4,7 +4,7 @@ TypeScript library + AI skills for Meta Ads analysis. Built for both developers 
 
 [![GitHub](https://img.shields.io/github/license/ramadhanidiwanda-alt/meta-ads-agent-skill)](LICENSE)
 [![npm version](https://img.shields.io/npm/v/meta-ads-agent-skill)](https://www.npmjs.com/package/meta-ads-agent-skill)
-[![tests](https://img.shields.io/badge/tests-361%20passed-brightgreen)]()
+[![tests](https://img.shields.io/badge/tests-391%20passed-brightgreen)]()
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)]()
 
 ## Two Ways to Use This Project
@@ -262,6 +262,36 @@ console.log(`Total spend: $${insights.reduce((sum, i) => sum + i.spend, 0)}`);
 - `generateDailyReport()` — Comprehensive daily analysis
 
 All tools are **read-only**. For remote credential resolution via Cuan Insight, see [Remote Mode](#configuration--remote-mode-with-cuan-insight).
+
+### Pagination
+
+By default, insight tools return only the first page (up to 100 rows). To fetch all data across multiple pages, enable pagination:
+
+```typescript
+import { getCampaignInsights } from 'meta-ads-agent-skill';
+
+const allInsights = await getCampaignInsights(client, {
+  adAccountId: 'act_123456789',
+  since: '2026-06-01',
+  until: '2026-06-19',
+  paginate: true,      // ← auto-fetch all pages
+  pageDelay: 100,      // ms delay between pages
+  maxPages: 10,        // safety limit
+});
+
+console.log(`Total: ${allInsights.length} rows`);
+```
+
+The client automatically handles Meta's cursor/after pagination, rate limit headers (`X-Ad-Account-Usage`), and HTTP 429 retries with exponential backoff.
+
+Available options for all insight tools (`getCampaignInsights`, `getAdsetInsights`, `getAdsInsights`):
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `paginate` | `false` | Enable multi-page fetching |
+| `maxPages` | `10` | Max pages to fetch (safety limit) |
+| `pageDelay` | `200` | Delay between pages (ms) |
+| `limit` | `100` | Rows per page |
 
 ---
 
