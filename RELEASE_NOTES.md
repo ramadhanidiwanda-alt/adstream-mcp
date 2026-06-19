@@ -1,6 +1,25 @@
 # Release Notes
 
-## v0.4.0 — Cuan Insight Connection Key Support
+## v0.4.2 — Pagination Loop & Rate Limit Safety
+
+**Date:** 2026-06-19
+
+### Added
+- Pagination loop — `MetaClient.metaGet(paginate: true)` auto-fetches all pages via cursor/after.
+- Rate limit safety — parses `X-Ad-Account-Usage`, auto-delays at >80%, retries 429 with exponential backoff.
+- New `paginate`, `maxPages`, `pageDelay` options on all 3 insight tools.
+- CI pipeline — GitHub Actions runs `tsc --noEmit` + `npm test` + gitleaks on every PR.
+- 16 new unit tests for pagination and rate limit (391 total).
+
+### Changed
+- ESLint migrated to flat config (`eslint.config.js`) for v9 compatibility.
+
+### Compatible
+- Fully backward compatible. Default `paginate: false` preserves existing behavior.
+
+---
+
+## v0.4.1 — Location Breakdown Insights
 
 **Date:** 2026-06-03
 
