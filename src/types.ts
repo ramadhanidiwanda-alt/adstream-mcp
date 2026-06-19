@@ -50,6 +50,42 @@ export interface InsightBreakdownOptions {
   breakdowns?: LocationBreakdown[];
 }
 
+// --- Pagination & Rate Limit Types ---
+
+export interface MetaPaging {
+  cursors: {
+    before: string;
+    after: string;
+  };
+  next?: string;
+  previous?: string;
+}
+
+export interface MetaPaginatedResponse<T> {
+  data: T[];
+  paging?: MetaPaging;
+}
+
+export interface PaginationOptions {
+  /** Whether to auto-paginate through all pages. Default: false */
+  paginate?: boolean;
+  /** Max pages to fetch. Default: 10 */
+  maxPages?: number;
+  /** Base delay (ms) between pages for rate limit safety. Default: 200 */
+  pageDelay?: number;
+}
+
+export interface RateLimitInfo {
+  /** Percentage of rate limit used (0-100) */
+  usagePercent: number;
+  /** Estimated calls remaining */
+  remaining: number;
+  /** Timestamp when rate limit resets (Unix epoch) */
+  resetAt: number | null;
+}
+
+// --- Location Types ---
+
 export interface LocationMetrics {
   spend: number;
   impressions: number;

@@ -1,8 +1,10 @@
-import type { MetaClient } from '../metaClient.js';
+import type { MetaClient, MetaGetOptions } from '../metaClient.js';
 import { normalizeAccountId } from '../utils/normalizeAccountId.js';
-import type { AdInsight, InsightBreakdownOptions } from '../types.js';
+import type { AdInsight, InsightBreakdownOptions, PaginationOptions } from '../types.js';
 
-export interface GetAdsInsightsOptions extends InsightBreakdownOptions {
+export interface GetAdsInsightsOptions
+  extends InsightBreakdownOptions,
+    PaginationOptions {
   adAccountId: string;
   since: string;
   until: string;
@@ -13,7 +15,7 @@ export async function getAdsInsights(
   client: MetaClient,
   options: GetAdsInsightsOptions
 ): Promise<AdInsight[]> {
-  const { since, until, limit = 100, breakdowns } = options;
+  const { since, until, limit = 100, breakdowns, paginate = false, maxPages, pageDelay } = options;
   const adAccountId = normalizeAccountId(options.adAccountId);
 
   const fields = [
@@ -36,13 +38,19 @@ export async function getAdsInsights(
     'purchase_roas',
   ];
 
+  const metaOptions: MetaGetOptions = {
+    paginate,
+    maxPages,
+    pageDelay,
+  };
+
   const response = await client.metaGet<{ data: AdInsight[] }>(`/act_${adAccountId}/insights`, {
     level: 'ad',
     fields: fields.join(','),
     time_range: JSON.stringify({ since, until }),
     breakdowns: breakdowns?.join(','),
     limit,
-  });
+  }, metaOptions);
 
   return response.data || [];
 }
