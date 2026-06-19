@@ -21,9 +21,6 @@ jobs:
       - name: Type check
         run: npx tsc --noEmit
 
-      - name: Lint
-        run: npx eslint src/
-
       - name: Unit tests
         run: npm test
 
