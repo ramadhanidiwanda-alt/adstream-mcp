@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.2] - 2026-06-19
+
+### Added — Pagination Loop & Rate Limit Safety
+
+- **Pagination loop**: `MetaClient.metaGet()` now supports `paginate: true` — auto-fetches all pages using Meta's cursor/after pagination
+- **Rate limit safety**:
+  - Parses `X-Ad-Account-Usage` header, tracks usage percentage
+  - Auto-delays between pages when usage >80%
+  - HTTP 429 retry with exponential backoff (max 3 retries)
+- **New options**: `paginate`, `maxPages`, `pageDelay` on `getCampaignInsights`, `getAdsetInsights`, `getAdsInsights`
+- **New types**: `MetaPaging`, `MetaPaginatedResponse<T>`, `PaginationOptions`, `RateLimitInfo`, `MetaGetOptions`
+- **CI pipeline**: GitHub Actions workflow — `tsc --noEmit` + `npm test` + gitleaks secret scan on every PR
+- **ESLint**: Migrated to flat config (`eslint.config.js`) for ESLint v9 compatibility
+- **Tests**: 16 new unit tests covering pagination loop, max pages, empty pages, 429 retry, rate limit header parsing, backward compatibility
+
+### Backward Compatible
+
+- `paginate: false` is default — all existing code works unchanged
+- No breaking API changes
+
 ## [0.4.1] - 2026-06-14
 
 ### Added - Location Breakdown Insights
