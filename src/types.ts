@@ -78,10 +78,47 @@ export interface PaginationOptions {
 export interface RateLimitInfo {
   /** Percentage of rate limit used (0-100) */
   usagePercent: number;
-  /** Estimated calls remaining */
   remaining: number;
-  /** Timestamp when rate limit resets (Unix epoch) */
-  resetAt: number | null;
+  resetAt: string | null;
+}
+
+// --- Mutation Types ---
+
+export type MutationOperation = 'pause' | 'resume' | 'update_budget' | 'rename';
+export type MutateEntityType = 'campaign' | 'adset' | 'ad';
+
+export interface MutationRequest {
+  operation: MutationOperation;
+  entityType: MutateEntityType;
+  entityId: string;
+  payload: Record<string, unknown>;
+}
+
+export interface MutationResult {
+  success: boolean;
+  id: string;
+  operation: MutationOperation;
+  entityType: MutateEntityType;
+  response?: Record<string, unknown>;
+  error?: string;
+}
+
+export interface AuditLogEntry {
+  timestamp: string;
+  operation: MutationOperation;
+  entityType: MutateEntityType;
+  entityId: string;
+  before?: Record<string, unknown>;
+  after?: Record<string, unknown>;
+  fields: Record<string, { old: unknown; new: unknown }>;
+  status: 'dry_run' | 'pending_confirmation' | 'executed' | 'failed';
+  error?: string;
+}
+
+export interface CampaignMutationOptions {
+  dryRun?: boolean;
+  /** Max budget increase as fraction (0.2 = 20%). Default 2.0 (200%). */
+  maxBudgetIncrease?: number;
 }
 
 // --- Location Types ---

@@ -230,6 +230,14 @@ export interface AdsBrokerResponse<TData = AdsMetricRecord[] | unknown> {
   meta?: Record<string, unknown>;
 }
 
+export interface AdsMutationResult {
+  success: boolean;
+  id: string;
+  operation: string;
+  response?: Record<string, unknown>;
+  error?: string;
+}
+
 export interface AdsProviderCapabilities {
   providers: AdsProviderId[];
   categories: AdsToolCategory[];
@@ -246,6 +254,11 @@ export interface AdsProviderAdapter {
   getAdsetOrAdgroupPerformance(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMetricRecord[]>>;
   getAdPerformance(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMetricRecord[]>>;
   getCreativePerformance(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMetricRecord[]>>;
+  // --- Write Operations ---
+  pauseCampaign(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>>;
+  resumeCampaign(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>>;
+  updateCampaignBudget(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>>;
+  renameCampaign(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>>;
 }
 
 export interface AdsToolDefinition {

@@ -4,11 +4,17 @@ import { getAdsInsights } from '../../tools/getAdsInsights.js';
 import { getAdsetInsights } from '../../tools/getAdsetInsights.js';
 import { getCampaignInsights } from '../../tools/getCampaignInsights.js';
 import type { AdAccount, AdInsight, AdsetInsight, CampaignInsight, MetaConfig } from '../../types.js';
+import type { MutationResult } from '../../types.js';
 import type { LocationBreakdown } from '../../types.js';
+import { pauseCampaign as pauseCampaignTool } from '../../tools/pauseCampaign.js';
+import { resumeCampaign as resumeCampaignTool } from '../../tools/resumeCampaign.js';
+import { updateCampaignBudget as updateCampaignBudgetTool } from '../../tools/updateCampaignBudget.js';
+import { renameCampaign as renameCampaignTool } from '../../tools/renameCampaign.js';
 import type {
   AdsBrokerRequest,
   AdsBrokerResponse,
   AdsMetricRecord,
+  AdsMutationResult,
   AdsProviderCapabilities,
   AdsProviderAdapter,
   CredentialContext,
@@ -31,6 +37,11 @@ export interface MetaAdsAdapterTools {
     client: MetaClient,
     options: { adAccountId: string; since: string; until: string; limit?: number; breakdowns?: LocationBreakdown[] }
   ): Promise<AdInsight[]>;
+  // --- Write operations ---
+  pauseCampaign(client: MetaClient, campaignId: string): Promise<MutationResult>;
+  resumeCampaign(client: MetaClient, campaignId: string): Promise<MutationResult>;
+  updateCampaignBudget(client: MetaClient, campaignId: string, dailyBudget: number): Promise<MutationResult>;
+  renameCampaign(client: MetaClient, campaignId: string, newName: string): Promise<MutationResult>;
 }
 
 export interface MetaAdsAdapterOptions {
@@ -44,7 +55,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
   readonly capabilities: AdsProviderCapabilities = {
     providers: ['meta'],
     categories: ['accounts', 'campaigns', 'ad_groups', 'ads', 'creatives', 'insights', 'reports', 'diagnostics'],
-    operations: ['read'],
+    operations: ['read', 'write'],
     supportsRaw: false,
   };
 
@@ -58,6 +69,10 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       getCampaignInsights,
       getAdsetInsights,
       getAdsInsights,
+      pauseCampaign: pauseCampaignTool,
+      resumeCampaign: resumeCampaignTool,
+      updateCampaignBudget: updateCampaignBudgetTool,
+      renameCampaign: renameCampaignTool,
       ...options.tools,
     };
   }
@@ -231,6 +246,142 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
         {
           provider: 'meta',
           code: 'META_ADAPTER_ERROR',
+          message: redactErrorMessage(error instanceof Error ? error.message : String(error)),
+        },
+      ],
+    };
+  }
+
+  // --- Write Operations ---
+
+  async pauseCampaign(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>> {
+    const context = this.getCredentialContext(request);
+    if (!context.ok) return context.response;
+
+    const campaignId = this.getEntityId(request);
+    if (!campaignId) {
+      return {
+        ok: false,
+        provider: 'meta',
+        errors: [{ provider: 'meta', code: 'MISSING_CAMPAIGN_ID', message: 'campaignId is required in request.params' }],
+      };
+    }
+
+    try {
+      const client = this.createClient(context.credential);
+      const result = await this.tools.pauseCampaign(client, campaignId);
+      return { ok: true, provider: 'meta', data: this.toAdsMutationResult(result) };
+    } catch (error) {
+      return this.writeErrorResponse(error);
+    }
+  }
+
+  async resumeCampaign(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>> {
+    const context = this.getCredentialContext(request);
+    if (!context.ok) return context.response;
+
+    const campaignId = this.getEntityId(request);
+    if (!campaignId) {
+      return {
+        ok: false,
+        provider: 'meta',
+        errors: [{ provider: 'meta', code: 'MISSING_CAMPAIGN_ID', message: 'campaignId is required in request.params' }],
+      };
+    }
+
+    try {
+      const client = this.createClient(context.credential);
+      const result = await this.tools.resumeCampaign(client, campaignId);
+      return { ok: true, provider: 'meta', data: this.toAdsMutationResult(result) };
+    } catch (error) {
+      return this.writeErrorResponse(error);
+    }
+  }
+
+  async updateCampaignBudget(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>> {
+    const context = this.getCredentialContext(request);
+    if (!context.ok) return context.response;
+
+    const campaignId = this.getEntityId(request);
+    const dailyBudget = typeof request.params.dailyBudget === 'number' ? request.params.dailyBudget : undefined;
+
+    if (!campaignId || dailyBudget === undefined) {
+      return {
+        ok: false,
+        provider: 'meta',
+        errors: [
+          {
+            provider: 'meta',
+            code: 'MISSING_REQUIRED_PARAMS',
+            message: 'campaignId and dailyBudget are required in request.params',
+          },
+        ],
+      };
+    }
+
+    try {
+      const client = this.createClient(context.credential);
+      const result = await this.tools.updateCampaignBudget(client, campaignId, dailyBudget);
+      return { ok: true, provider: 'meta', data: this.toAdsMutationResult(result) };
+    } catch (error) {
+      return this.writeErrorResponse(error);
+    }
+  }
+
+  async renameCampaign(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>> {
+    const context = this.getCredentialContext(request);
+    if (!context.ok) return context.response;
+
+    const campaignId = this.getEntityId(request);
+    const newName = typeof request.params.newName === 'string' ? request.params.newName : undefined;
+
+    if (!campaignId || !newName) {
+      return {
+        ok: false,
+        provider: 'meta',
+        errors: [
+          {
+            provider: 'meta',
+            code: 'MISSING_REQUIRED_PARAMS',
+            message: 'campaignId and newName are required in request.params',
+          },
+        ],
+      };
+    }
+
+    try {
+      const client = this.createClient(context.credential);
+      const result = await this.tools.renameCampaign(client, campaignId, newName);
+      return { ok: true, provider: 'meta', data: this.toAdsMutationResult(result) };
+    } catch (error) {
+      return this.writeErrorResponse(error);
+    }
+  }
+
+  private getEntityId(request: AdsBrokerRequest): string | undefined {
+    return typeof request.params.campaignId === 'string'
+      ? request.params.campaignId
+      : undefined;
+  }
+
+  private toAdsMutationResult(result: MutationResult): AdsMutationResult {
+    return {
+      success: result.success,
+      id: result.id,
+      operation: result.operation,
+      response: result.response,
+      error: result.error,
+    };
+  }
+
+  private writeErrorResponse(error: unknown): AdsBrokerResponse<never> {
+    return {
+      ok: false,
+      provider: 'meta',
+      errors: [
+        {
+          provider: 'meta',
+          code: 'META_WRITE_ERROR',
           message: redactErrorMessage(error instanceof Error ? error.message : String(error)),
         },
       ],
