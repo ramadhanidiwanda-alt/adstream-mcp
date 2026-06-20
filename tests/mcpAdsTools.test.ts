@@ -71,6 +71,10 @@ describe('ads MCP broker tools', () => {
       'ads_get_ad_performance',
       'ads_get_creative_performance',
       'ads_generate_report',
+      'ads_pause_campaign',
+      'ads_resume_campaign',
+      'ads_update_campaign_budget',
+      'ads_rename_campaign',
     ]);
     expect(legacyToolNames).toContain('meta_get_campaign_insights');
     expect(legacyToolNames).toContain('meta_get_ads_insights');

@@ -7,7 +7,7 @@ describe('MetaAdsAdapter', () => {
 
     expect(adapter.id).toBe('meta');
     expect(adapter.displayName).toBe('Meta Ads');
-    expect(adapter.capabilities.operations).toEqual(['read']);
+    expect(adapter.capabilities.operations).toEqual(['read', 'write']);
     expect(typeof adapter.listAccounts).toBe('function');
     expect(typeof adapter.getCampaignPerformance).toBe('function');
     expect(typeof adapter.getAdsetOrAdgroupPerformance).toBe('function');

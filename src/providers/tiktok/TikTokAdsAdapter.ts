@@ -2,8 +2,12 @@ import type {
   AdsBrokerRequest,
   AdsBrokerResponse,
   AdsMetricRecord,
+  AdsMutationResult,
   AdsProviderAdapter,
   AdsProviderCapabilities,
+  AdsToolCategory,
+  AdsToolDefinition,
+  CredentialContext,
 } from '../../broker/types.js';
 import { redactErrorMessage } from '../../broker/credentials.js';
 import { normalizeTikTokInsights, type TikTokInsightRecord } from './normalizer.js';
@@ -206,6 +210,38 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
           provider: 'tiktok',
           code: 'TIKTOK_ADAPTER_ERROR',
           message: redactErrorMessage(error instanceof Error ? error.message : String(error)),
+        },
+      ],
+    };
+  }
+
+  // --- Write Operations (not implemented for TikTok) ---
+
+  async pauseCampaign(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>> {
+    return this.writeNotImplemented();
+  }
+
+  async resumeCampaign(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>> {
+    return this.writeNotImplemented();
+  }
+
+  async updateCampaignBudget(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>> {
+    return this.writeNotImplemented();
+  }
+
+  async renameCampaign(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>> {
+    return this.writeNotImplemented();
+  }
+
+  private writeNotImplemented(): AdsBrokerResponse<never> {
+    return {
+      ok: false,
+      provider: 'tiktok',
+      errors: [
+        {
+          provider: 'tiktok',
+          code: 'NOT_IMPLEMENTED',
+          message: 'Write operations are not implemented for TikTok Ads yet',
         },
       ],
     };
