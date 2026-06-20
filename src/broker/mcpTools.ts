@@ -1,5 +1,5 @@
 import type { AdsBroker } from './AdsBroker.js';
-import type { AdsBrokerRequest, AdsBrokerResponse, AdsMetricRecord, AdsProviderId } from './types.js';
+import type { AdsBrokerRequest, AdsBrokerResponse, AdsMetricRecord, AdsMutationResult, AdsProviderId } from './types.js';
 import { isAdsProviderId } from './types.js';
 import { redactErrorMessage, redactTokenLikeValues } from './credentials.js';
 
@@ -10,6 +10,11 @@ export const ADS_MCP_TOOL_NAMES = [
   'ads_get_ad_performance',
   'ads_get_creative_performance',
   'ads_generate_report',
+  // --- Write operations ---
+  'ads_pause_campaign',
+  'ads_resume_campaign',
+  'ads_update_campaign_budget',
+  'ads_rename_campaign',
 ] as const;
 
 export type AdsMcpToolName = (typeof ADS_MCP_TOOL_NAMES)[number];
@@ -44,6 +49,27 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
     name: 'ads_generate_report',
     description: 'Generate an ads report through the AdsBroker',
     inputSchema: createAdsInputSchema(['since', 'until']),
+  },
+  // --- Write operations ---
+  {
+    name: 'ads_pause_campaign',
+    description: 'Pause a campaign. Returns success/error. Use with caution — campaign will stop spending.',
+    inputSchema: createWriteInputSchema(['campaignId']),
+  },
+  {
+    name: 'ads_resume_campaign',
+    description: 'Resume a paused campaign. Returns success/error.',
+    inputSchema: createWriteInputSchema(['campaignId']),
+  },
+  {
+    name: 'ads_update_campaign_budget',
+    description: 'Update a campaign\'s daily budget (in local currency minor units). Safety guard: rejects increases >200% by default.',
+    inputSchema: createWriteInputSchema(['campaignId', 'dailyBudget']),
+  },
+  {
+    name: 'ads_rename_campaign',
+    description: 'Rename a campaign. Returns success/error.',
+    inputSchema: createWriteInputSchema(['campaignId', 'newName']),
   },
 ] as const;
 
@@ -108,7 +134,7 @@ function callBrokerMethod(
   broker: AdsBroker,
   name: AdsMcpToolName,
   request: AdsBrokerRequest
-): Promise<AdsBrokerResponse<AdsMetricRecord[] | unknown>> {
+): Promise<AdsBrokerResponse<AdsMetricRecord[] | AdsMutationResult | unknown>> {
   switch (name) {
     case 'ads_list_accounts':
       return broker.listAccounts(request);
@@ -122,7 +148,43 @@ function callBrokerMethod(
       return broker.getCreativePerformance(request);
     case 'ads_generate_report':
       return broker.generateReport(request);
+    // --- Write operations ---
+    case 'ads_pause_campaign':
+      return broker.pauseCampaign(request);
+    case 'ads_resume_campaign':
+      return broker.resumeCampaign(request);
+    case 'ads_update_campaign_budget':
+      return broker.updateCampaignBudget(request);
+    case 'ads_rename_campaign':
+      return broker.renameCampaign(request);
   }
+}
+
+function createWriteInputSchema(required: string[]) {
+  const schema = createAdsInputSchema([]);
+  const writeProperties: Record<string, unknown> = {
+    campaignId: {
+      type: 'string',
+      description: 'The campaign ID to mutate (e.g. 120248446250030168)',
+    },
+    dailyBudget: {
+      type: 'number',
+      description: 'New daily budget in local currency minor units (e.g. 50000 for Rp50,000)',
+    },
+    newName: {
+      type: 'string',
+      description: 'New campaign name',
+    },
+  };
+
+  return {
+    type: 'object',
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      ...writeProperties,
+    },
+    required,
+  };
 }
 
 function parseProvider(provider: unknown): AdsProviderId | undefined {

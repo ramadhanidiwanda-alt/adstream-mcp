@@ -152,13 +152,36 @@ export function createMetaAdsMcpServer(
   const adsBroker = options.adsBroker ?? createAdsBrokerFromConfig(brokerConfig);
 
   for (const toolDefinition of ADS_MCP_TOOL_DEFINITIONS) {
+    const hasSince = toolDefinition.inputSchema.required.includes('since');
+    const hasCampaignId = toolDefinition.inputSchema.required.includes('campaignId');
+
+    let inputSchema: Record<string, z.ZodType<unknown>>;
+    if (hasCampaignId) {
+      const base = hasSince ? sinceUntilInputSchema : adsBaseInputSchema;
+      const requiresBudget = toolDefinition.inputSchema.required.includes('dailyBudget');
+      const requiresNewName = toolDefinition.inputSchema.required.includes('newName');
+
+      inputSchema = {
+        ...base,
+        campaignId: z.string().describe('The campaign ID to mutate (e.g. 120248446250030168)'),
+        dailyBudget: requiresBudget
+          ? z.number().describe('New daily budget (e.g. 50000 for Rp50,000)')
+          : z.number().optional().describe('New daily budget (e.g. 50000 for Rp50,000)'),
+        newName: requiresNewName
+          ? z.string().describe('New campaign name')
+          : z.string().optional().describe('New campaign name'),
+      };
+    } else if (hasSince) {
+      inputSchema = sinceUntilInputSchema;
+    } else {
+      inputSchema = adsBaseInputSchema;
+    }
+
     server.registerTool(
       toolDefinition.name,
       {
         description: toolDefinition.description,
-        inputSchema: toolDefinition.inputSchema.required.includes('since')
-          ? sinceUntilInputSchema
-          : adsBaseInputSchema,
+        inputSchema,
       },
       async (args: Record<string, unknown>, extra: RequestHandlerExtra<ServerRequest, ServerNotification>) => {
         const connectionKey = extra.authInfo?.extra?.connectionKey as string | undefined;

@@ -2,6 +2,7 @@ import type {
   AdsBrokerRequest,
   AdsBrokerResponse,
   AdsMetricRecord,
+  AdsMutationResult,
   AdsProviderAdapter,
   AdsProviderId,
   CredentialContext,
@@ -25,6 +26,12 @@ type AdapterMethod =
   | 'getAdsetOrAdgroupPerformance'
   | 'getAdPerformance'
   | 'getCreativePerformance';
+
+type AdapterWriteMethod =
+  | 'pauseCampaign'
+  | 'resumeCampaign'
+  | 'updateCampaignBudget'
+  | 'renameCampaign';
 
 export class AdsBroker {
   private readonly providerRegistry: ProviderRegistry;
@@ -106,6 +113,65 @@ export class AdsBroker {
       const adapterRequest = this.withCredential(request, provider.provider, credential.credential);
       const response = await adapter.adapter[method](adapterRequest);
       return this.sanitizeResponse(response as AdsBrokerResponse<TData>);
+    } catch (error) {
+      return this.errorResponse(
+        provider.provider,
+        'BROKER_ADAPTER_ERROR',
+        error instanceof Error ? error.message : String(error)
+      );
+    }
+  }
+
+  pauseCampaign(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>> {
+    return this.executeWrite(request, 'pauseCampaign');
+  }
+
+  resumeCampaign(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>> {
+    return this.executeWrite(request, 'resumeCampaign');
+  }
+
+  updateCampaignBudget(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>> {
+    return this.executeWrite(request, 'updateCampaignBudget');
+  }
+
+  renameCampaign(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>> {
+    return this.executeWrite(request, 'renameCampaign');
+  }
+
+  private async executeWrite(
+    request: AdsBrokerRequest,
+    method: AdapterWriteMethod
+  ): Promise<AdsBrokerResponse<AdsMutationResult>> {
+    const provider = this.resolveProviderId(request);
+    if (!provider.ok) return provider.response;
+
+    if (this.isMultiProviderRequest(request)) {
+      return this.notImplementedResponse('Cross-provider write requests are not implemented yet');
+    }
+
+    const credential = await this.credentialResolver.resolve({
+      provider: provider.provider,
+      accountId: request.accountId,
+      connectionKey: request.connectionKey,
+      oauthAuthContext: request.oauthAuthContext,
+      params: request.params,
+    });
+
+    if (!credential.ok) {
+      return this.errorResponse(provider.provider, credential.error.code, credential.error.message);
+    }
+
+    if (!this.permissionPolicy.canWrite(credential.credential)) {
+      return this.errorResponse(provider.provider, 'WRITE_NOT_ALLOWED', 'Write operation is not allowed by the current permission policy');
+    }
+
+    const adapter = this.getAdapter(provider.provider);
+    if (!adapter.ok) return adapter.response;
+
+    try {
+      const adapterRequest = this.withCredential(request, provider.provider, credential.credential);
+      const response = await adapter.adapter[method](adapterRequest);
+      return this.sanitizeResponse(response as AdsBrokerResponse<AdsMutationResult>);
     } catch (error) {
       return this.errorResponse(
         provider.provider,

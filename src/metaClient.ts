@@ -102,6 +102,71 @@ export class MetaClient {
     return { data: allData } as T;
   }
 
+  /** POST to Meta Graph API. Used for mutations (pause, update, rename). */
+  async metaPost<T = Record<string, unknown>>(
+    path: string,
+    params: Record<string, any> = {},
+    maxRetries: number = 3
+  ): Promise<T> {
+    let lastError: Error | null = null;
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      const url = `${this.baseUrl}${path}?access_token=${this.accessToken}`;
+
+      try {
+        const body = new URLSearchParams();
+        for (const [key, value] of Object.entries(params)) {
+          if (value !== undefined && value !== null) {
+            body.append(key, String(value));
+          }
+        }
+
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: body.toString(),
+        });
+
+        const data = await response.json();
+
+        // Check for Meta API error
+        if (!response.ok || isMetaErrorResponse(data)) {
+          if (isMetaErrorResponse(data)) {
+            const error = new MetaApiError(data.error);
+
+            // HTTP 429 = rate limit hit, retry with backoff
+            if (response.status === 429 && attempt < maxRetries) {
+              const backoff = Math.pow(2, attempt) * 1000;
+              await this.sleep(backoff);
+              lastError = error;
+              continue;
+            }
+
+            throw error;
+          }
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        return data as T;
+      } catch (error) {
+        if (error instanceof MetaApiError) {
+          throw error;
+        }
+
+        if (attempt < maxRetries) {
+          const backoff = Math.pow(2, attempt) * 500;
+          await this.sleep(backoff);
+          lastError = error instanceof Error ? error : new Error(String(error));
+          continue;
+        }
+
+        throw error;
+      }
+    }
+
+    throw lastError ?? new Error('Meta API POST request failed');
+  }
+
   private extractAfterCursor(nextUrl: string): string | undefined {
     try {
       const url = new URL(nextUrl);
