@@ -24,6 +24,21 @@ export { generateDailyReport } from './tools/generateDailyReport.js';
 export { getLocationInsights } from './tools/getLocationInsights.js';
 export type * from './tools/getLocationInsights.js';
 
+// --- Mutation Tools ---
+export { pauseCampaign } from './tools/pauseCampaign.js';
+export type * from './tools/pauseCampaign.js';
+export { resumeCampaign } from './tools/resumeCampaign.js';
+export type * from './tools/resumeCampaign.js';
+export { updateCampaignBudget } from './tools/updateCampaignBudget.js';
+export type * from './tools/updateCampaignBudget.js';
+export { renameCampaign } from './tools/renameCampaign.js';
+export type * from './tools/renameCampaign.js';
+export {
+  previewCampaignMutation,
+  executeCampaignMutation,
+} from './tools/campaignMutations.js';
+export type { CampaignMutationWorkflowOptions, CampaignMutationWorkflowResult } from './tools/campaignMutations.js';
+
 export { analyzeCampaignPerformance } from './analysis/analyzeCampaignPerformance.js';
 export { recommendActions } from './analysis/recommendActions.js';
 export { summarizeLocationInsights, summarizeNestedLocationInsights } from './analysis/summarizeLocationInsights.js';
