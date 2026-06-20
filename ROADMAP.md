@@ -1,7 +1,7 @@
 # Roadmap: meta-ads-agent-skill
 
-**Current Version:** v0.3.0  
-**Last Updated:** 2026-05-29
+**Current Version:** v0.5.0  
+**Last Updated:** 2026-06-20
 
 ---
 
@@ -40,55 +40,55 @@ Menjadi **the best Meta Ads toolkit** untuk AI agents dan developers — menggab
 - ✅ Creative fatigue diagnosis
 - ✅ Decision trees & heuristics
 
+### v0.4.1 (2026-06-14) - Location Breakdown Insights
+- ✅ Location Breakdown API with country/region/DMA
+- ✅ Custom sortable top-locations view
+- ✅ Cuan Insight Connection Key auth mode
+- ✅ minSpend/minClicks filtering
+
+### v0.4.2 (2026-06-19) - Pagination & CI Pipeline
+- ✅ Pagination loop — auto-fetch all pages via cursor/after
+- ✅ Rate limit safety — auto-delay at >80%, retry 429
+- ✅ GitHub Actions CI: tsc + test + gitleaks
+- ✅ ESLint flat config migration
+- ✅ 16 new pagination tests (391 total)
+
+### v0.5.0 (2026-06-20) - Write Operations (Campaign)
+- ✅ `metaPost()` — POST mutations to Meta Graph API
+- ✅ 4 campaign tools: pause, resume, budget, rename
+- ✅ Approval workflow: dry-run → confirm → execute → audit
+- ✅ Safety guard: max 200% budget increase
+- ✅ AdsBroker + MetaAdsAdapter write support
+- ✅ 4 MCP write tools
+- ✅ 21 new mutation tests (413 total)
+- ✅ Real API dry-run verified
+
 ---
 
 ## In Progress 🚧
 
-### v0.4.0 (Target: June 2026) - Write Operations
+### v0.6.0 (Target: July 2026) — Write Operations (Adset & Ad)
 
-**Goal:** Enable safe mutations with approval workflow
+**Goal:** Extend mutation coverage to adset and ad levels
 
 #### Features
 - [ ] **Write Operations**
-  - [ ] Pause/enable campaigns
-  - [ ] Pause/enable ad sets
-  - [ ] Pause/enable ads
-  - [ ] Update campaign budgets
+  - [ ] Pause/enable ad sets + ads
   - [ ] Update ad set budgets
-  - [ ] Rename campaigns
-
-- [ ] **Approval Workflow**
-  - [ ] Dry-run mode (show what would change)
-  - [ ] Confirmation prompt before mutations
+  - [ ] Rename ad sets + ads
+- [ ] **Approval Workflow Extension**
+  - [ ] Batch operations (pause 5 campaigns at once)
   - [ ] Rollback capability
-  - [ ] Audit log (who changed what, when)
-
 - [ ] **Safety Guards**
   - [ ] Rate limiting (max X changes per hour)
-  - [ ] Spending limits (don't increase budget > Y%)
   - [ ] Blacklist (never touch these campaigns)
   - [ ] Whitelist mode (only touch these campaigns)
-
 - [ ] **Skills Updates**
   - [ ] Update `manage/SKILL.md` to support write ops
   - [ ] Add `shared/references/safe-mutations.md`
-  - [ ] Add approval workflow examples
-
-**Why Important:**
-- End users can implement recommendations without leaving AI chat
-- Still safe (approval required, audit log, rollback)
-- Competitive with NotFair (they have write ops)
-
-**Risks:**
-- Accidental budget increases
-- Pausing profitable campaigns
-- Breaking learning phase
-
-**Mitigation:**
-- Always show before/after
-- Require explicit confirmation
-- Log everything
-- Easy rollback
+- [ ] **Tests**
+  - [ ] Adset/ad mutation tests
+  - [ ] Batch operation tests
 
 ---
 

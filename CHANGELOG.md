@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-06-20
+
+### Added — Write Operations (Campaign Level)
+
+- **`metaPost()`**: New method on `MetaClient` for POST mutations to Meta Graph API
+- **4 Campaign Mutation Tools**:
+  - `pauseCampaign()` — POST `{status: PAUSED}`
+  - `resumeCampaign()` — POST `{status: ACTIVE}`
+  - `updateCampaignBudget()` — POST `{daily_budget}` with safety guard (max 200% increase)
+  - `renameCampaign()` — POST `{name}`
+- **Approval Workflow** (`campaignMutations.ts`):
+  - `previewCampaignMutation()` — fetch current state, show diff (before → after)
+  - `executeCampaignMutation()` — dry-run mode (no changes) or execute mode
+  - Audit log entry with status: `dry_run` → `executed` / `failed`
+- **AdsBroker**: `executeWrite()` with permissions check
+- **MetaAdsAdapter**: 4 write methods + capabilities updated to `['read', 'write']`
+- **MCP tools**: `ads_pause_campaign`, `ads_resume_campaign`, `ads_update_campaign_budget`, `ads_rename_campaign`
+- **Tests**: 21 new unit tests (5 test files) — 413 total, all passing
+- **Real API verified**: Dry-run tested against live Meta account — confirmed safe
+
+### Backward Compatible
+
+- No breaking API changes
+- Write tools require explicit dry-run or confirmation — read-only mode unchanged
+- TikTok adapter returns NOT_IMPLEMENTED for write ops
+
 ## [0.4.2] - 2026-06-19
 
 ### Added — Pagination Loop & Rate Limit Safety

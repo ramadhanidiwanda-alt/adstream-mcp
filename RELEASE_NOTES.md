@@ -1,5 +1,28 @@
 # Release Notes
 
+## v0.5.0 — Write Operations (Campaign Level)
+
+**Date:** 2026-06-20
+
+### Added
+- `metaPost()` — new method on MetaClient for POST mutations to Meta Graph API.
+- `pauseCampaign()` — pause a campaign via POST `{status: PAUSED}`.
+- `resumeCampaign()` — resume a campaign via POST `{status: ACTIVE}`.
+- `updateCampaignBudget()` — update daily budget with safety guard (max 200% increase).
+- `renameCampaign()` — rename a campaign via POST `{name}`.
+- Approval workflow — `previewCampaignMutation()` (dry-run, show before→after) + `executeCampaignMutation()` (audit log).
+- AdsBroker `executeWrite()` with permissions check.
+- MetaAdsAdapter: 4 write methods + capabilities `['read', 'write']`.
+- MCP tools: `ads_pause_campaign`, `ads_resume_campaign`, `ads_update_campaign_budget`, `ads_rename_campaign`.
+- 21 new unit tests (413 total, all passing).
+- Real API dry-run verified against live Meta account.
+
+### Compatible
+- Fully backward compatible. Read-only tools unchanged.
+- TikTok adapter returns NOT_IMPLEMENTED for write ops.
+
+---
+
 ## v0.4.2 — Pagination Loop & Rate Limit Safety
 
 **Date:** 2026-06-19
