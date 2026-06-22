@@ -1,5 +1,30 @@
 # Release Notes
 
+## v0.5.1 — Campaign Listing Broker Tool
+
+**Date:** 2026-06-23
+
+### Added
+- `ads_list_campaigns` MCP broker tool — list all campaigns under an ad account in remote broker mode.
+- `AdsProviderAdapter.listCampaigns()` — new interface method for provider-agnostic campaign listing.
+- `AdsBroker.listCampaigns()` — broker method with credential resolution and permission checks.
+- Meta adapter uses existing `getCampaigns()` tool (Meta API `GET /act_{id}/campaigns`).
+- TikTok adapter uses new `getTikTokCampaigns()` tool (TikTok API `GET /campaign/get/`).
+- `getTikTokCampaigns()` — new tool wrapping TikTok Business API campaign endpoint.
+- Returns error `MISSING_ACCOUNT_ID` when accountId not provided or resolvable.
+- 10 new unit tests (420 total, all passing).
+
+### Why
+- `meta_get_campaigns` (legacy) is blocked in remote broker mode because it cannot resolve credentials from Cuan Insight.
+- `ads_get_campaign_performance` only returns campaigns with spending data in a given period, not a full listing.
+- Users connecting via Cuan Insight connection key need a way to list all campaigns under their ad account.
+
+### Compatible
+- Fully backward compatible. No breaking API changes.
+- Tool count updated from 23 to 24.
+
+---
+
 ## v0.5.0 — Write Operations (Campaign Level)
 
 **Date:** 2026-06-20
