@@ -40,6 +40,7 @@ function createBrokerStub(): AdsBroker {
 
   return {
     listAccounts: async () => ({ ok: true, provider: 'meta', data: [] }),
+    listCampaigns: async () => ({ ok: true, provider: 'meta', data: [] }),
     getCampaignPerformance: response,
     getAdsetOrAdgroupPerformance: response,
     getAdPerformance: response,
@@ -66,6 +67,7 @@ describe('ads MCP broker tools', () => {
 
     expect(adsToolNames).toEqual([
       'ads_list_accounts',
+    'ads_list_campaigns',
       'ads_get_campaign_performance',
       'ads_get_adset_or_adgroup_performance',
       'ads_get_ad_performance',

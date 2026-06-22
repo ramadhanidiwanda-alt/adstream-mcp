@@ -64,4 +64,65 @@ describe('MetaAdsAdapter', () => {
     expect(response.ok).toBe(false);
     expect(response.errors?.[0].code).toBe('NOT_IMPLEMENTED');
   });
+
+  it('lists campaigns via getCampaigns tool', async () => {
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        getCampaigns: async () => [
+          {
+            id: '123',
+            name: 'Conversion Campaign',
+            status: 'ACTIVE',
+            effective_status: 'ACTIVE',
+            objective: 'OUTCOME_SALES',
+            created_time: '2026-01-15T08:00:00+0000',
+            updated_time: '2026-06-20T12:00:00+0000',
+          },
+        ],
+      },
+    });
+
+    const response = await adapter.listCampaigns({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {},
+      credentials: {
+        provider: 'meta',
+        accessToken: 'secret-token',
+        accountId: 'act_123',
+        source: 'test',
+      },
+    });
+
+    expect(response.ok).toBe(true);
+    expect(response.data?.[0]).toMatchObject({ id: '123', name: 'Conversion Campaign' });
+  });
+
+  it('returns MISSING_ACCOUNT_ID when listing campaigns without accountId', async () => {
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        getCampaigns: async () => [],
+      },
+    });
+
+    const response = await adapter.listCampaigns({
+      provider: 'meta',
+      params: {},
+      credentials: {
+        provider: 'meta',
+        accessToken: 'secret-token',
+        source: 'test',
+      },
+    });
+
+    expect(response.ok).toBe(false);
+    expect(response.errors?.[0].code).toBe('MISSING_ACCOUNT_ID');
+  });
+
+  it('implements listCampaigns method on adapter contract', () => {
+    const adapter = new MetaAdsAdapter();
+    expect(typeof adapter.listCampaigns).toBe('function');
+  });
 });

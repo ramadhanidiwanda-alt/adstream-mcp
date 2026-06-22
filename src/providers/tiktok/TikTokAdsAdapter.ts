@@ -14,9 +14,12 @@ import { normalizeTikTokInsights, type TikTokInsightRecord } from './normalizer.
 import type { TikTokApiClient } from '../../tiktokClient.js';
 import { getTikTokReport, type TikTokDataLevel } from '../../tools/getTikTokReport.js';
 import { getTikTokAdvertisers } from '../../tools/getTikTokAdvertisers.js';
+import { getTikTokCampaigns } from '../../tools/getTikTokCampaigns.js';
+import type { TikTokCampaign } from '../../tools/getTikTokCampaigns.js';
 
 export interface TikTokAdsAdapterMockData {
   accounts?: unknown[];
+  tiktokCampaigns?: TikTokCampaign[];
   campaigns?: TikTokInsightRecord[];
   adgroups?: TikTokInsightRecord[];
   ads?: TikTokInsightRecord[];
@@ -67,6 +70,40 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
     }
 
     return this.notImplemented();
+  }
+
+  async listCampaigns(request: AdsBrokerRequest): Promise<AdsBrokerResponse<TikTokCampaign[]>> {
+    // Mock fallback (legacy pattern)
+    if (!this.client && this.options.mockData?.tiktokCampaigns) {
+      return { ok: true, provider: 'tiktok', data: this.options.mockData.tiktokCampaigns };
+    }
+
+    // No client
+    if (!this.client) {
+      return this.notImplemented();
+    }
+
+    const accountId = request.accountId ?? request.credentials?.accountId;
+    if (!accountId) {
+      return {
+        ok: false,
+        provider: 'tiktok',
+        errors: [{
+          provider: 'tiktok',
+          code: 'MISSING_ACCOUNT_ID',
+          message: 'accountId is required to list TikTok campaigns (provide accountId or use ads_list_accounts first)',
+        }],
+      };
+    }
+
+    try {
+      const page = typeof request.params.page === 'number' ? request.params.page : undefined;
+      const pageSize = typeof request.params.pageSize === 'number' ? request.params.pageSize : undefined;
+      const campaigns = await getTikTokCampaigns(this.client, { advertiserId: accountId, page, pageSize });
+      return { ok: true, provider: 'tiktok', data: campaigns };
+    } catch (error) {
+      return this.errorResponse(error);
+    }
   }
 
   async getCampaignPerformance(
