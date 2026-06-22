@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.1] - 2026-06-23
+
+### Added — Campaign Listing Broker Tool
+
+- **`ads_list_campaigns`** MCP broker tool — list all campaigns under an ad account in remote broker mode
+- **`AdsProviderAdapter.listCampaigns()`** — new interface method for provider-agnostic campaign listing
+- **`AdsBroker.listCampaigns()`** — broker method with credential resolution and permission checks
+- **Meta adapter** — uses existing `getCampaigns()` tool (Meta API `GET /act_{id}/campaigns`)
+- **TikTok adapter** — new `getTikTokCampaigns()` tool (TikTok API `GET /campaign/get/`)
+- **`getTikTokCampaigns()`** — new tool wrapping TikTok Business API campaign endpoint
+- Returns error `MISSING_ACCOUNT_ID` when accountId not provided or resolvable
+- 10 new unit tests (420 total, all passing)
+- Closes gap where `meta_get_campaigns` was blocked in remote broker mode
+
+### Backward Compatible
+
+- No breaking API changes
+- Tool count updated from 23 to 24
+- TikTok adapter returns `NOT_IMPLEMENTED` when no client configured (same pattern as existing tools)
+
 ## [0.5.0] - 2026-06-20
 
 ### Added — Write Operations (Campaign Level)

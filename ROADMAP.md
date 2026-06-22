@@ -1,7 +1,7 @@
 # Roadmap: meta-ads-agent-skill
 
-**Current Version:** v0.5.0  
-**Last Updated:** 2026-06-20
+**Current Version:** v0.5.1  
+**Last Updated:** 2026-06-23
 
 ---
 
@@ -62,6 +62,15 @@ Menjadi **the best Meta Ads toolkit** untuk AI agents dan developers — menggab
 - ✅ 4 MCP write tools
 - ✅ 21 new mutation tests (413 total)
 - ✅ Real API dry-run verified
+
+### v0.5.1 (2026-06-23) - Campaign Listing Broker Tool
+- ✅ `ads_list_campaigns` MCP broker tool (Meta + TikTok)
+- ✅ `AdsProviderAdapter.listCampaigns()` interface method
+- ✅ `AdsBroker.listCampaigns()` with credential resolution
+- ✅ Meta adapter uses existing `getCampaigns()` tool
+- ✅ TikTok adapter with new `getTikTokCampaigns()` tool
+- ✅ 10 new unit tests (420 total)
+- ✅ Closes gap where `meta_get_campaigns` was blocked in remote mode
 
 ---
 
