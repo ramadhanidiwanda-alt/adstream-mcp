@@ -102,4 +102,63 @@ describe('TikTokAdsAdapter', () => {
     expect(response.data?.[0].provider).toBe('tiktok');
     expect(JSON.stringify(response)).not.toContain('secret-token');
   });
+
+  it('returns NOT_IMPLEMENTED for listCampaigns when no client configured', async () => {
+    const adapter = new TikTokAdsAdapter();
+    const response = await adapter.listCampaigns({ params: {} });
+
+    expect(response.ok).toBe(false);
+    expect(response.errors?.[0].code).toBe('NOT_IMPLEMENTED');
+  });
+
+  it('returns MISSING_ACCOUNT_ID for listCampaigns with client but no accountId', async () => {
+    const adapter = new TikTokAdsAdapter({
+      client: { get: async () => ({ list: [] }) } as never,
+    });
+
+    const response = await adapter.listCampaigns({ params: {} });
+
+    expect(response.ok).toBe(false);
+    expect(response.errors?.[0].code).toBe('MISSING_ACCOUNT_ID');
+  });
+
+  it('lists campaigns via TikTok API client', async () => {
+    let capturedPath: string | undefined;
+    let capturedParams: Record<string, unknown> | undefined;
+    const adapter = new TikTokAdsAdapter({
+      client: {
+        get: async (path: string, params: Record<string, unknown> = {}) => {
+          capturedPath = path;
+          capturedParams = params;
+          return {
+            list: [
+              {
+                campaign_id: 'cmp_1',
+                campaign_name: 'TikTok Campaign A',
+                objective: 'VIDEO_VIEWS',
+                status: 'CAMPAIGN_STATUS_ENABLE',
+              },
+            ],
+          };
+        },
+      } as never,
+    });
+
+    const response = await adapter.listCampaigns({
+      provider: 'tiktok',
+      accountId: 'advertiser_123',
+      params: {},
+      credentials: { provider: 'tiktok', accessToken: 'x', accountId: 'advertiser_123', source: 'test' },
+    });
+
+    expect(response.ok).toBe(true);
+    expect(capturedPath).toBe('/campaign/get/');
+    expect(capturedParams?.advertiser_id).toBe('advertiser_123');
+    expect(response.data?.[0]).toMatchObject({ campaign_id: 'cmp_1', campaign_name: 'TikTok Campaign A' });
+  });
+
+  it('implements listCampaigns method on adapter contract', () => {
+    const adapter = new TikTokAdsAdapter();
+    expect(typeof adapter.listCampaigns).toBe('function');
+  });
 });
