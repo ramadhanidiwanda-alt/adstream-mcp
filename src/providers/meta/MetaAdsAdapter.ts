@@ -1,9 +1,10 @@
 import { MetaClient } from '../../metaClient.js';
 import { getAdAccounts } from '../../tools/getAdAccounts.js';
+import { getCampaigns } from '../../tools/getCampaigns.js';
 import { getAdsInsights } from '../../tools/getAdsInsights.js';
 import { getAdsetInsights } from '../../tools/getAdsetInsights.js';
 import { getCampaignInsights } from '../../tools/getCampaignInsights.js';
-import type { AdAccount, AdInsight, AdsetInsight, CampaignInsight, MetaConfig } from '../../types.js';
+import type { AdAccount, AdInsight, AdsetInsight, Campaign, CampaignInsight, MetaConfig } from '../../types.js';
 import type { MutationResult } from '../../types.js';
 import type { LocationBreakdown } from '../../types.js';
 import { pauseCampaign as pauseCampaignTool } from '../../tools/pauseCampaign.js';
@@ -25,6 +26,7 @@ import { normalizeMetaInsights } from './normalizer.js';
 
 export interface MetaAdsAdapterTools {
   getAdAccounts(client: MetaClient, options?: { limit?: number }): Promise<AdAccount[]>;
+  getCampaigns(client: MetaClient, options: { adAccountId: string; limit?: number }): Promise<Campaign[]>;
   getCampaignInsights(
     client: MetaClient,
     options: { adAccountId: string; since: string; until: string; limit?: number; breakdowns?: LocationBreakdown[] }
@@ -66,6 +68,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
     this.clientFactory = options.clientFactory ?? ((config) => new MetaClient(config));
     this.tools = {
       getAdAccounts,
+      getCampaigns,
       getCampaignInsights,
       getAdsetInsights,
       getAdsInsights,
@@ -85,6 +88,35 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       const limit = typeof request.params.limit === 'number' ? request.params.limit : undefined;
       const accounts = await this.tools.getAdAccounts(this.createClient(context.credential), { limit });
       return { ok: true, provider: 'meta', data: accounts, accounts };
+    } catch (error) {
+      return this.errorResponse(error);
+    }
+  }
+
+  async listCampaigns(request: AdsBrokerRequest): Promise<AdsBrokerResponse<Campaign[]>> {
+    const context = this.getCredentialContext(request);
+    if (!context.ok) return context.response;
+
+    const adAccountId = request.accountId ?? context.credential.accountId;
+    if (!adAccountId) {
+      return {
+        ok: false,
+        provider: 'meta',
+        errors: [{
+          provider: 'meta',
+          code: 'MISSING_ACCOUNT_ID',
+          message: 'accountId is required to list campaigns (provide accountId or use ads_list_accounts first)',
+        }],
+      };
+    }
+
+    try {
+      const limit = typeof request.params.limit === 'number' ? request.params.limit : undefined;
+      const campaigns = await this.tools.getCampaigns(
+        this.createClient(context.credential),
+        { adAccountId, limit }
+      );
+      return { ok: true, provider: 'meta', data: campaigns };
     } catch (error) {
       return this.errorResponse(error);
     }
