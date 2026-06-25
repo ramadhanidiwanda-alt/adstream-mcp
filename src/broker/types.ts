@@ -251,6 +251,7 @@ export interface AdsProviderAdapter {
   capabilities: AdsProviderCapabilities;
   listAccounts(request: AdsBrokerRequest): Promise<AdsBrokerResponse>;
   listCampaigns(request: AdsBrokerRequest): Promise<AdsBrokerResponse>;
+  getAccountPerformance(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMetricRecord[]>>;
   getCampaignPerformance(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMetricRecord[]>>;
   getAdsetOrAdgroupPerformance(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMetricRecord[]>>;
   getAdPerformance(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMetricRecord[]>>;

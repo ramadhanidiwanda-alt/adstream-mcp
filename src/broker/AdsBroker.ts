@@ -23,6 +23,7 @@ export interface AdsBrokerOptions {
 type AdapterMethod =
   | 'listAccounts'
   | 'listCampaigns'
+  | 'getAccountPerformance'
   | 'getCampaignPerformance'
   | 'getAdsetOrAdgroupPerformance'
   | 'getAdPerformance'
@@ -53,6 +54,10 @@ export class AdsBroker {
 
   listCampaigns(request: AdsBrokerRequest): Promise<AdsBrokerResponse> {
     return this.executeRead(request, 'listCampaigns');
+  }
+
+  getAccountPerformance(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMetricRecord[]>> {
+    return this.executeRead(request, 'getAccountPerformance');
   }
 
   getCampaignPerformance(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMetricRecord[]>> {

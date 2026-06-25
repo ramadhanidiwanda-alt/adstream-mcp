@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.2] - 2026-06-25
+
+### Added — Account-Level Performance Broker Tool
+
+- **`ads_get_account_performance`** MCP broker tool — fetch total Meta ad account performance directly from Meta Insights at `level=account`.
+- **`getAccountInsights()`** — new Meta API tool calling `GET /act_{id}/insights` with `level: 'account'`.
+- **`AdsProviderAdapter.getAccountPerformance()`** and **`AdsBroker.getAccountPerformance()`** — broker method with credential resolution and permission checks.
+- **Meta adapter** — returns normalized account-level metrics for spend, impressions, reach, clicks, link clicks, CTR, CPC, CPM, actions, purchase value, purchase ROAS, and leads.
+- **ROAS fallback** — when Meta does not return `purchase_roas`, normalized output calculates ROAS from `purchase_value / spend` when both values are available.
+- **TikTok adapter** — returns `NOT_IMPLEMENTED` for account performance until TikTok account-level reporting is implemented.
+
+### Backward Compatible
+
+- No breaking API changes.
+- Existing campaign/adset/ad/creative performance tools are unchanged.
+- Tool count updated from 24 to 25.
+
 ## [0.5.1] - 2026-06-23
 
 ### Added — Campaign Listing Broker Tool

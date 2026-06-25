@@ -9,10 +9,58 @@ describe('MetaAdsAdapter', () => {
     expect(adapter.displayName).toBe('Meta Ads');
     expect(adapter.capabilities.operations).toEqual(['read', 'write']);
     expect(typeof adapter.listAccounts).toBe('function');
+    expect(typeof adapter.getAccountPerformance).toBe('function');
     expect(typeof adapter.getCampaignPerformance).toBe('function');
     expect(typeof adapter.getAdsetOrAdgroupPerformance).toBe('function');
     expect(typeof adapter.getAdPerformance).toBe('function');
     expect(typeof adapter.getCreativePerformance).toBe('function');
+  });
+
+
+  it('wraps account insights tool and normalizes account-level response', async () => {
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        getAccountInsights: async () => [
+          {
+            account_id: 'act_123',
+            account_name: 'Main Account',
+            spend: '100',
+            impressions: '1000',
+            reach: '800',
+            clicks: '50',
+            inline_link_clicks: '40',
+            ctr: '5',
+            cpc: '2',
+            cpm: '100',
+            actions: [{ action_type: 'purchase', value: '4' }],
+            action_values: [{ action_type: 'purchase', value: '500' }],
+          },
+        ],
+      },
+    });
+
+    const response = await adapter.getAccountPerformance({
+      provider: 'meta',
+      accountId: 'act_123',
+      since: '2026-01-01',
+      until: '2026-06-24',
+      params: {},
+      credentials: {
+        provider: 'meta',
+        accessToken: 'secret-token',
+        accountId: 'act_123',
+        source: 'test',
+      },
+    });
+
+    expect(response.ok).toBe(true);
+    expect(response.data?.[0].level).toBe('account');
+    expect(response.data?.[0].identity.account_name).toBe('Main Account');
+    expect(response.data?.[0].delivery.spend).toBe(100);
+    expect(response.data?.[0].commerce?.purchases).toBe(4);
+    expect(response.data?.[0].commerce?.purchase_value).toBe(500);
+    expect(response.data?.[0].commerce?.purchase_roas).toBe(5);
   });
 
   it('wraps existing campaign insights tool and normalizes response', async () => {

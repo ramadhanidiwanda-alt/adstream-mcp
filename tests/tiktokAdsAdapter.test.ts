@@ -19,10 +19,20 @@ describe('TikTokAdsAdapter', () => {
     expect(adapter.displayName).toBe('TikTok Ads');
     expect(adapter.capabilities.operations).toEqual(['read']);
     expect(typeof adapter.listAccounts).toBe('function');
+    expect(typeof adapter.getAccountPerformance).toBe('function');
     expect(typeof adapter.getCampaignPerformance).toBe('function');
     expect(typeof adapter.getAdsetOrAdgroupPerformance).toBe('function');
     expect(typeof adapter.getAdPerformance).toBe('function');
     expect(typeof adapter.getCreativePerformance).toBe('function');
+  });
+
+
+  it('returns NOT_IMPLEMENTED for account performance until TikTok account insights are implemented', async () => {
+    const adapter = new TikTokAdsAdapter();
+    const response = await adapter.getAccountPerformance({ params: {} });
+
+    expect(response.ok).toBe(false);
+    expect(response.errors?.[0].code).toBe('NOT_IMPLEMENTED');
   });
 
   it('returns NOT_IMPLEMENTED when no mock data is configured', async () => {

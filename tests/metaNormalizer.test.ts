@@ -1,8 +1,40 @@
 import { describe, expect, it } from 'vitest';
 import { normalizeMetaInsight } from '../src/providers/meta/normalizer.js';
-import type { AdsetInsight, CampaignInsight } from '../src/types.js';
+import type { AccountInsight, AdsetInsight, CampaignInsight } from '../src/types.js';
 
 describe('normalizeMetaInsight', () => {
+
+  it('maps account-level insight and calculates fallback ROAS from purchase value and spend', () => {
+    const insight: AccountInsight = {
+      account_id: 'act_123',
+      account_name: 'Main Account',
+      spend: '200',
+      impressions: '2000',
+      reach: '1500',
+      clicks: '100',
+      inline_link_clicks: '80',
+      ctr: '5',
+      cpc: '2',
+      cpm: '100',
+      actions: [{ action_type: 'lead', value: '12' }],
+      action_values: [{ action_type: 'purchase', value: '1000' }],
+    };
+
+    const record = normalizeMetaInsight(insight, {
+      level: 'account',
+      accountId: 'act_123',
+      since: '2026-01-01',
+      until: '2026-06-24',
+    });
+
+    expect(record.level).toBe('account');
+    expect(record.identity.account_name).toBe('Main Account');
+    expect(record.delivery.spend).toBe(200);
+    expect(record.commerce?.purchase_value).toBe(1000);
+    expect(record.commerce?.purchase_roas).toBe(5);
+    expect(record.leads?.leads).toBe(12);
+  });
+
   it('converts numeric strings to numbers', () => {
     const insight: CampaignInsight = {
       campaign_id: 'cmp_1',

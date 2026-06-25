@@ -41,6 +41,7 @@ function createBrokerStub(): AdsBroker {
   return {
     listAccounts: async () => ({ ok: true, provider: 'meta', data: [] }),
     listCampaigns: async () => ({ ok: true, provider: 'meta', data: [] }),
+    getAccountPerformance: response,
     getCampaignPerformance: response,
     getAdsetOrAdgroupPerformance: response,
     getAdPerformance: response,
@@ -67,7 +68,8 @@ describe('ads MCP broker tools', () => {
 
     expect(adsToolNames).toEqual([
       'ads_list_accounts',
-    'ads_list_campaigns',
+      'ads_list_campaigns',
+      'ads_get_account_performance',
       'ads_get_campaign_performance',
       'ads_get_adset_or_adgroup_performance',
       'ads_get_ad_performance',
@@ -80,6 +82,28 @@ describe('ads MCP broker tools', () => {
     ]);
     expect(legacyToolNames).toContain('meta_get_campaign_insights');
     expect(legacyToolNames).toContain('meta_get_ads_insights');
+  });
+
+
+  it('routes ads_get_account_performance through AdsBroker', async () => {
+    let receivedRequest: AdsBrokerRequest | undefined;
+    const broker = {
+      ...createBrokerStub(),
+      getAccountPerformance: async (request: AdsBrokerRequest) => {
+        receivedRequest = request;
+        return { ok: true, provider: 'meta' as const, data: [createRecord()] };
+      },
+    } as unknown as AdsBroker;
+
+    const response = await handleAdsMcpToolCall(broker, 'ads_get_account_performance', {
+      provider: 'meta',
+      accountId: 'act_123',
+      since: '2026-01-01',
+      until: '2026-06-24',
+    });
+
+    expect(parseToolResponse(response).ok).toBe(true);
+    expect(receivedRequest).toMatchObject({ provider: 'meta', accountId: 'act_123' });
   });
 
   it('routes ads_get_campaign_performance through AdsBroker', async () => {

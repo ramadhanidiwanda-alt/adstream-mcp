@@ -106,6 +106,10 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
     }
   }
 
+  async getAccountPerformance(): Promise<AdsBrokerResponse<AdsMetricRecord[]>> {
+    return this.notImplemented();
+  }
+
   async getCampaignPerformance(
     request: AdsBrokerRequest
   ): Promise<AdsBrokerResponse<AdsMetricRecord[]>> {

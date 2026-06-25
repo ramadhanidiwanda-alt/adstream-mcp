@@ -18,6 +18,7 @@ export { getTikTokLocationInsights } from './tools/getTikTokLocationInsights.js'
 export type * from './tools/getTikTokLocationInsights.js';
 
 export { getAdAccounts } from './tools/getAdAccounts.js';
+export { getAccountInsights } from './tools/getAccountInsights.js';
 export { getCampaigns } from './tools/getCampaigns.js';
 export { getCampaignInsights } from './tools/getCampaignInsights.js';
 export { getAdsetInsights } from './tools/getAdsetInsights.js';

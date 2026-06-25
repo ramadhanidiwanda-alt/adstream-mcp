@@ -1,10 +1,10 @@
-import type { AdInsight, AdsetInsight, CampaignInsight } from '../../types.js';
+import type { AccountInsight, AdInsight, AdsetInsight, CampaignInsight } from '../../types.js';
 import type { AdsEntityLevel, AdsMetricRecord, AdsActionMetric } from '../../broker/types.js';
 
-export type MetaInsightRecord = CampaignInsight | AdsetInsight | AdInsight;
+export type MetaInsightRecord = AccountInsight | CampaignInsight | AdsetInsight | AdInsight;
 
 export interface NormalizeMetaInsightOptions {
-  level: Extract<AdsEntityLevel, 'campaign' | 'adset' | 'ad'>;
+  level: Extract<AdsEntityLevel, 'account' | 'campaign' | 'adset' | 'ad'>;
   accountId: string;
   since: string;
   until: string;
@@ -19,15 +19,18 @@ export function normalizeMetaInsight(
   const purchases = findActionValue(actions, 'purchase');
   const leads = findActionValue(actions, 'lead');
   const purchaseValue = findActionValueFromValues(insight.action_values, 'purchase');
-  const purchaseRoas = firstNumericValue(insight.purchase_roas);
+  const purchaseRoasFromMeta = firstNumericValue(insight.purchase_roas);
+  const spend = toNumber(insight.spend);
+  const purchaseRoas = purchaseRoasFromMeta ?? calculateRoas(findActionValueFromValues(insight.action_values, 'purchase'), spend);
 
   const record: AdsMetricRecord = {
     provider: 'meta',
     level: options.level,
     identity: {
-      account_id: options.accountId,
-      campaign_id: insight.campaign_id,
-      campaign_name: insight.campaign_name,
+      account_id: 'account_id' in insight && insight.account_id ? insight.account_id : options.accountId,
+      account_name: 'account_name' in insight ? insight.account_name : undefined,
+      campaign_id: 'campaign_id' in insight ? insight.campaign_id : undefined,
+      campaign_name: 'campaign_name' in insight ? insight.campaign_name : undefined,
       adset_or_adgroup_id: 'adset_id' in insight ? insight.adset_id : undefined,
       adset_or_adgroup_name: 'adset_name' in insight ? insight.adset_name : undefined,
       ad_id: 'ad_id' in insight ? insight.ad_id : undefined,
@@ -38,7 +41,7 @@ export function normalizeMetaInsight(
       date_stop: options.until,
     },
     delivery: {
-      spend: toNumber(insight.spend),
+      spend,
       impressions: toNumber(insight.impressions),
       reach: optionalNumber(insight.reach),
       cpm: optionalNumber(insight.cpm),
@@ -64,11 +67,15 @@ export function normalizeMetaInsight(
     record.leads = { leads };
   }
 
-  if (insight.country !== undefined || insight.region !== undefined || insight.dma !== undefined) {
+  const country = 'country' in insight ? insight.country : undefined;
+  const region = 'region' in insight ? insight.region : undefined;
+  const dma = 'dma' in insight ? insight.dma : undefined;
+
+  if (country !== undefined || region !== undefined || dma !== undefined) {
     record.dimensions = {
-      country: insight.country,
-      region: insight.region,
-      dma: insight.dma,
+      country,
+      region,
+      dma,
     };
   }
 
@@ -132,4 +139,12 @@ function optionalNumber(value: string | undefined): number | undefined {
 
   const parsed = Number.parseFloat(value);
   return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function calculateRoas(value: number | undefined, spend: number): number | undefined {
+  if (value === undefined || spend <= 0) {
+    return undefined;
+  }
+
+  return value / spend;
 }
