@@ -6,6 +6,7 @@ import { redactErrorMessage, redactTokenLikeValues } from './credentials.js';
 export const ADS_MCP_TOOL_NAMES = [
   'ads_list_accounts',
   'ads_list_campaigns',
+  'ads_get_account_performance',
   'ads_get_campaign_performance',
   'ads_get_adset_or_adgroup_performance',
   'ads_get_ad_performance',
@@ -30,6 +31,11 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
     name: 'ads_list_campaigns',
     description: 'List campaigns under an ad account through the AdsBroker',
     inputSchema: createAdsInputSchema([]),
+  },
+  {
+    name: 'ads_get_account_performance',
+    description: 'Fetch normalized account-level performance through the AdsBroker',
+    inputSchema: createAdsInputSchema(['since', 'until']),
   },
   {
     name: 'ads_get_campaign_performance',
@@ -146,6 +152,8 @@ function callBrokerMethod(
       return broker.listAccounts(request);
     case 'ads_list_campaigns':
       return broker.listCampaigns(request);
+    case 'ads_get_account_performance':
+      return broker.getAccountPerformance(request);
     case 'ads_get_campaign_performance':
       return broker.getCampaignPerformance(request);
     case 'ads_get_adset_or_adgroup_performance':
