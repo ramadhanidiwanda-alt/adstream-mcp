@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "adstream-mcp": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "-i",
+        "--env-file",
+        "/absolute/path/to/adstream-mcp/.env",
+        "adstream-mcp:local"
+      ]
+    }
+  }
+}

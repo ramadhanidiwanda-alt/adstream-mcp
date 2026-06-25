@@ -55,6 +55,8 @@ AI: [finds inefficient spend, calculates savings]
 
 **MCP client setup:** See [`docs/MCP_CLIENT_SETUP.md`](docs/MCP_CLIENT_SETUP.md) for generic stdio client and Docker setup.
 
+**Open-source setup guide:** See [`docs/SELF_HOSTING.md`](docs/SELF_HOSTING.md) to choose between Cuan Insight connection keys, local Docker stdio, remote HTTP, and OpenAI Responses API.
+
 **Learn more:** See [`skills/README.md`](skills/README.md)
 
 ---
