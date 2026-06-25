@@ -1,5 +1,30 @@
 # Release Notes
 
+## v0.5.2 — Account-Level Performance Broker Tool
+
+**Date:** 2026-06-25
+
+### Added
+- `ads_get_account_performance` MCP broker tool — fetch account-level performance for an ad account in remote broker mode.
+- `getAccountInsights()` — new Meta API wrapper for `GET /act_{id}/insights` using `level=account`.
+- `AdsProviderAdapter.getAccountPerformance()` — provider-agnostic interface method.
+- `AdsBroker.getAccountPerformance()` — credential-resolved read method.
+- Meta adapter normalization for account totals: spend, impressions, reach, clicks, link clicks, CTR, CPC, CPM, actions, purchase value, purchase ROAS, and leads.
+- Fallback ROAS calculation from `purchase_value / spend` when Meta does not return `purchase_roas`.
+- TikTok adapter returns `NOT_IMPLEMENTED` for account performance until TikTok account-level reporting is implemented.
+
+### Why
+- Portfolio and executive reports need account totals for a period, not campaign-by-campaign sums.
+- Summing campaign ROAS is mathematically invalid; account ROAS should come from total revenue divided by total spend.
+- Meta account-level Insights can be closer to Ads Manager totals for mixed objective, paused, old, CPAS, app, or marketplace campaign setups.
+
+### Compatible
+- Fully backward compatible. No breaking API changes.
+- Tool count updated from 24 to 25.
+- Existing campaign/adset/ad performance tools remain unchanged and should be used for drill-down analysis.
+
+---
+
 ## v0.5.1 — Campaign Listing Broker Tool
 
 **Date:** 2026-06-23

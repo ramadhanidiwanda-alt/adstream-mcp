@@ -139,6 +139,22 @@ export interface NestedLocationNode {
   children?: NestedLocationNode[];
 }
 
+export interface AccountInsight {
+  account_id?: string;
+  account_name?: string;
+  spend: string;
+  impressions: string;
+  reach: string;
+  clicks: string;
+  inline_link_clicks: string;
+  ctr: string;
+  cpc: string;
+  cpm: string;
+  actions?: Action[];
+  action_values?: ActionValue[];
+  purchase_roas?: Array<{ action_type: string; value: string }>;
+}
+
 export interface CampaignInsight {
   campaign_id: string;
   campaign_name: string;

@@ -1,10 +1,11 @@
 import { MetaClient } from '../../metaClient.js';
 import { getAdAccounts } from '../../tools/getAdAccounts.js';
+import { getAccountInsights } from '../../tools/getAccountInsights.js';
 import { getCampaigns } from '../../tools/getCampaigns.js';
 import { getAdsInsights } from '../../tools/getAdsInsights.js';
 import { getAdsetInsights } from '../../tools/getAdsetInsights.js';
 import { getCampaignInsights } from '../../tools/getCampaignInsights.js';
-import type { AdAccount, AdInsight, AdsetInsight, Campaign, CampaignInsight, MetaConfig } from '../../types.js';
+import type { AccountInsight, AdAccount, AdInsight, AdsetInsight, Campaign, CampaignInsight, MetaConfig } from '../../types.js';
 import type { MutationResult } from '../../types.js';
 import type { LocationBreakdown } from '../../types.js';
 import { pauseCampaign as pauseCampaignTool } from '../../tools/pauseCampaign.js';
@@ -27,6 +28,10 @@ import { normalizeMetaInsights } from './normalizer.js';
 export interface MetaAdsAdapterTools {
   getAdAccounts(client: MetaClient, options?: { limit?: number }): Promise<AdAccount[]>;
   getCampaigns(client: MetaClient, options: { adAccountId: string; limit?: number }): Promise<Campaign[]>;
+  getAccountInsights(
+    client: MetaClient,
+    options: { adAccountId: string; since: string; until: string; limit?: number }
+  ): Promise<AccountInsight[]>;
   getCampaignInsights(
     client: MetaClient,
     options: { adAccountId: string; since: string; until: string; limit?: number; breakdowns?: LocationBreakdown[] }
@@ -69,6 +74,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
     this.tools = {
       getAdAccounts,
       getCampaigns,
+      getAccountInsights,
       getCampaignInsights,
       getAdsetInsights,
       getAdsInsights,
@@ -122,6 +128,12 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
     }
   }
 
+  async getAccountPerformance(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<AdsMetricRecord[]>> {
+    return this.getPerformance(request, 'account');
+  }
+
   async getCampaignPerformance(
     request: AdsBrokerRequest
   ): Promise<AdsBrokerResponse<AdsMetricRecord[]>> {
@@ -154,7 +166,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
 
   private async getPerformance(
     request: AdsBrokerRequest,
-    level: 'campaign' | 'adset' | 'ad'
+    level: 'account' | 'campaign' | 'adset' | 'ad'
   ): Promise<AdsBrokerResponse<AdsMetricRecord[]>> {
     const context = this.getCredentialContext(request);
     if (!context.ok) return context.response;
@@ -180,9 +192,10 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
 
   private fetchInsights(
     client: MetaClient,
-    level: 'campaign' | 'adset' | 'ad',
+    level: 'account' | 'campaign' | 'adset' | 'ad',
     options: { adAccountId: string; since: string; until: string; limit?: number; breakdowns?: LocationBreakdown[] }
-  ): Promise<Array<CampaignInsight | AdsetInsight | AdInsight>> {
+  ): Promise<Array<AccountInsight | CampaignInsight | AdsetInsight | AdInsight>> {
+    if (level === 'account') return this.tools.getAccountInsights(client, options);
     if (level === 'campaign') return this.tools.getCampaignInsights(client, options);
     if (level === 'adset') return this.tools.getAdsetInsights(client, options);
     return this.tools.getAdsInsights(client, options);

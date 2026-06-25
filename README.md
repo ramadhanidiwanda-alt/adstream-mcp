@@ -7,6 +7,25 @@ TypeScript library + AI skills for Meta Ads analysis. Built for both developers 
 [![tests](https://img.shields.io/badge/tests-391%20passed-brightgreen)]()
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)]()
 
+
+## Account-Level Performance Tool
+
+`ads_get_account_performance` fetches Meta ad account totals directly from Meta Insights using `level=account`. Use this for portfolio summaries, executive reports, and account-level analysis where totals should not be derived by summing campaign rows.
+
+Example input:
+
+```json
+{
+  "provider": "meta",
+  "accountId": "act_662014947775593",
+  "since": "2026-01-01",
+  "until": "2026-06-24"
+}
+```
+
+Returned metrics include spend, impressions, reach, clicks, link clicks, CTR, CPC, CPM, actions, purchase value, purchase ROAS, and leads when Meta provides them. If Meta omits `purchase_roas`, normalized output can calculate ROAS from `purchase_value / spend` when both values are available.
+
+
 ## Two Ways to Use This Project
 
 ### 🤖 For End Users: AI Skills (Zero Code)

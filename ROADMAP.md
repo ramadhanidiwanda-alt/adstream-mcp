@@ -1,7 +1,7 @@
 # Roadmap: meta-ads-agent-skill
 
-**Current Version:** v0.5.1  
-**Last Updated:** 2026-06-23
+**Current Version:** v0.5.2
+**Last Updated:** 2026-06-25
 
 ---
 
@@ -71,6 +71,14 @@ Menjadi **the best Meta Ads toolkit** untuk AI agents dan developers — menggab
 - ✅ TikTok adapter with new `getTikTokCampaigns()` tool
 - ✅ 10 new unit tests (420 total)
 - ✅ Closes gap where `meta_get_campaigns` was blocked in remote mode
+
+
+### v0.5.2 (2026-06-25) - Account-Level Performance Broker Tool
+- ✅ `ads_get_account_performance` MCP broker tool
+- ✅ Meta Insights `level=account` via new `getAccountInsights()` tool
+- ✅ Account-level normalized metrics for spend, reach, clicks, purchases, purchase value, ROAS, and leads
+- ✅ ROAS fallback from `purchase_value / spend` when Meta omits `purchase_roas`
+- ✅ TikTok account performance stub returns `NOT_IMPLEMENTED`
 
 ---
 
