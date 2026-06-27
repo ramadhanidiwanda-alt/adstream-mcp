@@ -132,6 +132,10 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
     return this.getPerformance(request, 'creative', this.options.mockData?.creatives);
   }
 
+  async getPlacementPerformance(): Promise<AdsBrokerResponse> {
+    return this.notImplemented();
+  }
+
   private async getPerformance(
     request: AdsBrokerRequest,
     level: 'campaign' | 'adgroup' | 'ad' | 'creative',

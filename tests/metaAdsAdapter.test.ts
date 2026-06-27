@@ -14,6 +14,7 @@ describe('MetaAdsAdapter', () => {
     expect(typeof adapter.getAdsetOrAdgroupPerformance).toBe('function');
     expect(typeof adapter.getAdPerformance).toBe('function');
     expect(typeof adapter.getCreativePerformance).toBe('function');
+    expect(typeof adapter.getPlacementPerformance).toBe('function');
   });
 
 
@@ -111,6 +112,48 @@ describe('MetaAdsAdapter', () => {
 
     expect(response.ok).toBe(false);
     expect(response.errors?.[0].code).toBe('NOT_IMPLEMENTED');
+  });
+
+  it('forwards placement filter params to Meta placement tool', async () => {
+    let receivedOptions;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        getMetaPlacementPerformance: async (_client, options) => {
+          receivedOptions = options;
+          return {
+            provider: 'meta',
+            date_range: { since: options.since, until: options.until },
+            totals: { spend: 0, impressions: 0, clicks: 0, conversions: 0, ctr: 0, cpc: 0, cpm: 0 },
+            placements: [],
+            summary: { insufficient_data: [] },
+            warnings: [],
+          };
+        },
+      },
+    });
+
+    const response = await adapter.getPlacementPerformance({
+      provider: 'meta',
+      accountId: 'act_123',
+      since: '2026-05-01',
+      until: '2026-05-07',
+      params: { level: 'ad', campaignId: 'cmp_1', adsetId: ['adset_1'], adId: 'ad_1' },
+      credentials: {
+        provider: 'meta',
+        accessToken: 'secret-token',
+        accountId: 'act_123',
+        source: 'test',
+      },
+    });
+
+    expect(response.ok).toBe(true);
+    expect(receivedOptions).toMatchObject({
+      level: 'ad',
+      campaignId: 'cmp_1',
+      adsetId: ['adset_1'],
+      adId: 'ad_1',
+    });
   });
 
   it('lists campaigns via getCampaigns tool', async () => {

@@ -27,7 +27,8 @@ type AdapterMethod =
   | 'getCampaignPerformance'
   | 'getAdsetOrAdgroupPerformance'
   | 'getAdPerformance'
-  | 'getCreativePerformance';
+  | 'getCreativePerformance'
+  | 'getPlacementPerformance';
 
 type AdapterWriteMethod =
   | 'pauseCampaign'
@@ -76,6 +77,10 @@ export class AdsBroker {
 
   getCreativePerformance(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMetricRecord[]>> {
     return this.executeRead(request, 'getCreativePerformance');
+  }
+
+  getPlacementPerformance(request: AdsBrokerRequest): Promise<AdsBrokerResponse> {
+    return this.executeRead(request, 'getPlacementPerformance');
   }
 
   async generateReport(request: AdsBrokerRequest): Promise<AdsBrokerResponse<never>> {
