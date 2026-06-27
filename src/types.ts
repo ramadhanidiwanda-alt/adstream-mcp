@@ -46,6 +46,9 @@ export interface ActionValue {
 export const LOCATION_BREAKDOWNS = ['country', 'region', 'dma'] as const;
 export type LocationBreakdown = (typeof LOCATION_BREAKDOWNS)[number];
 
+export const META_PLACEMENT_BREAKDOWNS = ['publisher_platform', 'platform_position'] as const;
+export type MetaPlacementBreakdown = (typeof META_PLACEMENT_BREAKDOWNS)[number];
+
 export interface InsightBreakdownOptions {
   breakdowns?: LocationBreakdown[];
 }
@@ -161,6 +164,8 @@ export interface CampaignInsight {
   country?: string;
   region?: string;
   dma?: string;
+  publisher_platform?: string;
+  platform_position?: string;
   spend: string;
   impressions: string;
   reach: string;
@@ -172,6 +177,58 @@ export interface CampaignInsight {
   actions?: Action[];
   action_values?: ActionValue[];
   purchase_roas?: Array<{ action_type: string; value: string }>;
+}
+
+export type PlacementRecommendation = 'scale' | 'monitor' | 'reduce' | 'insufficient_data';
+export type PlacementConfidence = 'low' | 'medium' | 'high';
+
+export interface PlacementPerformance {
+  provider: 'meta' | 'tiktok';
+  platform: string;
+  placement: string;
+  spend: number;
+  impressions: number;
+  clicks: number;
+  ctr: number;
+  cpc: number;
+  cpm: number;
+  conversions: number;
+  costPerConversion?: number;
+  revenue?: number;
+  roas?: number;
+  spendShare: number;
+  conversionShare?: number;
+  confidence: PlacementConfidence;
+  recommendation: PlacementRecommendation;
+  reason: string;
+}
+
+export interface PlacementPerformanceReport {
+  provider: 'meta' | 'tiktok';
+  date_range: {
+    since: string;
+    until: string;
+  };
+  totals: {
+    spend: number;
+    impressions: number;
+    clicks: number;
+    conversions: number;
+    ctr: number;
+    cpc: number;
+    cpm: number;
+    costPerConversion?: number;
+    revenue?: number;
+    roas?: number;
+  };
+  placements: PlacementPerformance[];
+  summary: {
+    best?: PlacementPerformance;
+    worst?: PlacementPerformance;
+    waste?: PlacementPerformance;
+    insufficient_data: PlacementPerformance[];
+  };
+  warnings: string[];
 }
 
 export interface LocationInsightRow {

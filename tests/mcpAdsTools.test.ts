@@ -50,6 +50,7 @@ function createBrokerStub(): AdsBroker {
       provider: 'meta',
       errors: [{ provider: 'meta', code: 'NOT_IMPLEMENTED', message: 'not implemented' }],
     }),
+    getPlacementPerformance: response,
     generateReport: async () => ({
       ok: false,
       provider: 'meta',
@@ -74,6 +75,7 @@ describe('ads MCP broker tools', () => {
       'ads_get_adset_or_adgroup_performance',
       'ads_get_ad_performance',
       'ads_get_creative_performance',
+      'ads_get_placement_performance',
       'ads_generate_report',
       'ads_pause_campaign',
       'ads_resume_campaign',
