@@ -203,6 +203,7 @@ export interface AdsReportTotals {
   cpc?: number;
   ctr?: number;
   cpm?: number;
+  currency?: string;
 }
 
 export type AdsReportLevel = Extract<AdsEntityLevel, 'account' | 'campaign'>;
@@ -232,6 +233,32 @@ export interface AdsReport {
   opportunity_findings?: string[];
   next_actions?: string[];
   disclaimer: string;
+}
+
+export interface AdsProviderReportError {
+  provider?: AdsProviderId;
+  code: string;
+  message: string;
+}
+
+export interface AdsMultiProviderReport {
+  report_kind: AdsReportKind;
+  format: AdsReportFormat;
+  level: AdsReportLevel;
+  providers: AdsProviderId[];
+  date_range: {
+    since: string;
+    until: string;
+  };
+  totals: AdsReportTotals;
+  per_provider: AdsReport[];
+  currencies: string[];
+  mixed_currency: boolean;
+  findings: string[];
+  recommendations: string[];
+  disclaimer: string;
+  warnings?: string[];
+  errors?: AdsProviderReportError[];
 }
 
 export interface CredentialContext {
