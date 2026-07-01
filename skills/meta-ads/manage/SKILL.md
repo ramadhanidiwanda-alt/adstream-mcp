@@ -12,6 +12,66 @@ This skill analyzes Meta Ads performance and provides actionable recommendations
 
 Follow `../shared/preamble.md` — MCP detection, config resolution, ad account selection.
 
+## Intent Discovery Gate
+
+Before calling data tools or proposing changes, confirm the user's real objective. This skill is for non-technical marketers, so guide them with choices instead of making them write a full brief.
+
+### When to ask first
+
+Ask at least one clarifying question before analysis or mutation planning unless the user already gave all three:
+
+1. **Objective** — what outcome they want
+2. **Scope** — account, campaign, ad set, ad, or timeframe
+3. **Mode** — analyze, recommend, dry-run, or execute after confirmation
+
+Do not treat vague requests like "optimize this", "fix my ads", or "make it better" as permission to mutate anything. Clarify intent first.
+
+### First question — single choice
+
+Use this as the default first question:
+
+```text
+Sebelum saya ambil data, tujuan utamanya yang mana?
+1. Cari masalah performa
+2. Cari peluang scaling
+3. Turunkan CPA/CPL
+4. Buat laporan cepat
+5. Siapkan dry-run perubahan campaign
+```
+
+If the user already states the objective, skip this and ask the next missing piece.
+
+### Constraint question — multi-select
+
+When the request could lead to recommendations or write operations, ask for constraints. The user may choose multiple:
+
+```text
+Constraint apa yang harus saya ikuti? Pilih boleh lebih dari satu:
+- Jangan ubah budget
+- Jangan pause campaign aktif
+- Fokus spend terbesar
+- Fokus 7/14/30 hari terakhir
+- Prioritaskan ROAS/profit
+- Prioritaskan lead volume
+```
+
+### Mode selection
+
+Map the user's answer into one mode and state it back before proceeding:
+
+| Mode | Use when | Allowed behavior |
+|---|---|---|
+| `analyze_only` | User wants to understand performance | Read data, summarize findings, no action plan required |
+| `recommend_only` | User wants what to do next | Read data, rank top 3 actions, no mutation calls |
+| `dry_run_mutation` | User wants to preview a campaign change | Use supported dry-run write tools only; show before/after and expected impact |
+| `execute_after_confirmation` | User explicitly asks to execute a supported campaign change | Run dry-run first, ask for explicit confirmation, then execute only the confirmed change |
+
+Execution requires a separate confirmation after the dry-run result. Never execute in the same response that first proposes the change.
+
+### Scope defaults
+
+If the user does not specify timeframe, default to `last_30d` for strategic analysis and `last_7d` for urgent troubleshooting. If they do not specify entity scope, start at campaign level and drill down only when the data points to an ad set or ad issue.
+
 ## Operating principles
 
 1. **Recommend, then explain.** When you spot waste or opportunity, present the finding with evidence and expected impact.
@@ -194,20 +254,20 @@ Your MCP server provides these tools:
 - Request only the fields you need to reduce API latency
 - Make parallel calls when analyzing multiple campaigns
 
-### Write operations
+### Guarded write operations
 
-**Your current implementation is read-only.** When the user asks to:
-- Pause a campaign/ad set/ad
-- Change budget
-- Update targeting
-- Create new campaigns
+Campaign-level write operations may be available through broker/MCP tools, depending on the connected server. Supported campaign operations are pause, resume, budget update, and rename.
 
-Explain:
-> I can analyze your Meta Ads and provide recommendations, but I cannot make changes directly. Here's what I recommend:
->
-> [Specific recommendation with expected impact]
->
-> To implement this, go to Meta Ads Manager and [specific steps].
+**Rules:**
+- Always start with `dry_run_mutation` for write-like requests.
+- Show the before/after diff, expected impact, risks, and audit intent.
+- Ask for explicit confirmation after the dry-run result.
+- Execute only the exact confirmed operation and entity.
+- Never expose access tokens, provider tokens, connection keys, or raw authorization headers.
+
+When the user asks for unsupported operations — ad set/ad writes, targeting changes, creative upload, or campaign creation — explain the limitation and offer a safe alternative:
+
+> I can't execute that operation from this skill yet. I can analyze the data, prepare a recommended change, or create a dry-run plan for supported campaign-level operations.
 
 ## Conditional handoffs
 
@@ -237,8 +297,9 @@ Change: +61% (anomaly — investigate)
 
 ## Guardrails
 
-1. **Read-only skill.** Analyze and recommend; don't mutate. User implements changes in Meta Ads Manager.
+1. **Discovery first.** Confirm objective, scope, and mode before tool calls unless the user already gave all three.
 2. **Ground in data.** Every recommendation must cite specific metrics. "Your CPM is high" is not a finding. "Campaign X has CPM $45, which is 50% above the $30 industry benchmark" is a finding.
 3. **Use business context when available.** If `business-context.json` exists, frame recommendations in dollar terms (Headroom $, Break-Even ROAS). If missing, use relative terms (ROAS, CPA) and suggest running audit.
 4. **Cite attribution window.** Always mention "7DC1DV" or whatever window is used when reporting ROAS/CPA.
 5. **Don't over-recommend.** Focus on top 3 actions, not a laundry list. Prioritize by dollar impact.
+6. **Mutation safety.** Campaign writes require dry-run, explicit confirmation, and exact-scope execution. Adset/ad writes remain unsupported until v0.6.0.
