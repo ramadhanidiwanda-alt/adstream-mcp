@@ -117,6 +117,59 @@ describe('TikTokAdsAdapter', () => {
     expect(response.data?.[0].conversions?.conversion_value).toBe(3000);
   });
 
+  it('fetches placement performance via TikTok API client', async () => {
+    let capturedParams: Record<string, unknown> | undefined;
+    const adapter = new TikTokAdsAdapter({
+      client: {
+        get: async (_path: string, params: Record<string, unknown> = {}) => {
+          capturedParams = params;
+          return {
+            list: [
+              {
+                dimensions: { adgroup_id: 'adgroup_1' },
+                metrics: {
+                  placement_type: 'PLACEMENT_TIKTOK',
+                  spend: '250',
+                  impressions: '5000',
+                  clicks: '125',
+                  ctr: '2.5',
+                  cpc: '2',
+                  cpm: '50',
+                  conversions: '10',
+                  conversion_value: '1000',
+                },
+              },
+            ],
+            page_info: { page: 1, page_size: 100, total_number: 1, total_page: 1 },
+          };
+        },
+      } as never,
+    });
+
+    const response = await adapter.getPlacementPerformance({
+      provider: 'tiktok',
+      accountId: 'advertiser_123',
+      since: '2026-05-01',
+      until: '2026-05-07',
+      params: {},
+      credentials: { provider: 'tiktok', accessToken: 'x', accountId: 'advertiser_123', source: 'test' },
+    });
+
+    expect(response.ok).toBe(true);
+    expect(capturedParams?.data_level).toBe('AUCTION_ADGROUP');
+    expect(capturedParams?.dimensions).toEqual(['adgroup_id']);
+    expect(capturedParams?.metrics).toContain('placement_type');
+    expect(response.data?.[0]).toMatchObject({
+      provider: 'tiktok',
+      level: 'account',
+      identity: { account_id: 'advertiser_123' },
+      dimensions: { placement: 'PLACEMENT_TIKTOK', platform: 'tiktok' },
+      delivery: { spend: 250, impressions: 5000 },
+      clicks: { clicks: 125, ctr: 2.5, cpc: 2 },
+      conversions: { conversions: 10, conversion_value: 1000 },
+    });
+  });
+
   it('returns NOT_IMPLEMENTED when no mock data is configured', async () => {
     const adapter = new TikTokAdsAdapter();
     const response = await adapter.getCampaignPerformance({ params: {} });

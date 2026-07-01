@@ -121,8 +121,71 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
     return this.getPerformance(request, 'creative', this.options.mockData?.creatives);
   }
 
-  async getPlacementPerformance(): Promise<AdsBrokerResponse> {
-    return this.notImplemented();
+  async getPlacementPerformance(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMetricRecord[]>> {
+    return this.getPlacementPerformanceForRequest(request);
+  }
+
+  private async getPlacementPerformanceForRequest(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<AdsMetricRecord[]>> {
+    const accountId = request.accountId ?? request.credentials?.accountId;
+    if (!accountId || !request.since || !request.until) {
+      return {
+        ok: false,
+        provider: 'tiktok',
+        errors: [
+          {
+            provider: 'tiktok',
+            code: 'MISSING_REQUIRED_PARAMS',
+            message: 'TikTok placement performance requests require accountId, since, and until',
+          },
+        ],
+      };
+    }
+
+    if (!this.client) {
+      return this.notImplemented();
+    }
+
+    try {
+      const report = await getTikTokReport(this.client, {
+        advertiserId: accountId,
+        reportType: 'BASIC',
+        dimensions: ['adgroup_id'],
+        metrics: ['placement_type', 'spend', 'impressions', 'clicks', 'ctr', 'cpc', 'cpm', 'conversions', 'conversion_value', 'real_time_conversion_value_per_cost'],
+        dataLevel: 'AUCTION_ADGROUP',
+        startDate: request.since,
+        endDate: request.until,
+      });
+
+      const records: TikTokInsightRecord[] = report.list.map((row) => ({
+        advertiser_id: accountId,
+        adgroup_id: row.dimensions.adgroup_id,
+        placement_type: row.metrics.placement_type ?? row.dimensions.placement_type,
+        spend: row.metrics.spend,
+        impressions: row.metrics.impressions,
+        clicks: row.metrics.clicks,
+        ctr: row.metrics.ctr,
+        cpc: row.metrics.cpc,
+        cpm: row.metrics.cpm,
+        conversions: row.metrics.conversions,
+        conversion_value: row.metrics.conversion_value,
+        roas: row.metrics.real_time_conversion_value_per_cost,
+      }));
+
+      return {
+        ok: true,
+        provider: 'tiktok',
+        data: normalizeTikTokInsights(records, {
+          level: 'account',
+          accountId,
+          since: request.since,
+          until: request.until,
+        }),
+      };
+    } catch (error) {
+      return this.errorResponse(error);
+    }
   }
 
   private async getPerformance(
@@ -168,7 +231,7 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
               : level === 'adgroup' ? 'adgroup_id'
               : 'campaign_id',
           ],
-          metrics: ['spend', 'impressions', 'clicks', 'ctr', 'cpc', 'cpm', 'conversions', 'conversion_value'],
+          metrics: ['spend', 'impressions', 'clicks', 'ctr', 'cpc', 'cpm', 'conversions', 'conversion_value', 'real_time_conversion_value_per_cost'],
           dataLevel,
           startDate: request.since,
           endDate: request.until,
@@ -179,6 +242,8 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
           campaign_id: row.dimensions.campaign_id,
           adgroup_id: row.dimensions.adgroup_id,
           ad_id: row.dimensions.ad_id,
+          objective_type: row.dimensions.objective_type,
+          operation_status: row.dimensions.operation_status,
           spend: row.metrics.spend,
           impressions: row.metrics.impressions,
           clicks: row.metrics.clicks,
@@ -187,6 +252,7 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
           cpm: row.metrics.cpm,
           conversions: row.metrics.conversions,
           conversion_value: row.metrics.conversion_value,
+          roas: row.metrics.real_time_conversion_value_per_cost,
         }));
 
         return {
