@@ -16,9 +16,11 @@ import {
   RuleEngine,
   allRuleTemplates,
   ADS_MCP_TOOL_DEFINITIONS,
+  COMMERCE_MCP_TOOL_DEFINITIONS,
   createDefaultAdsBroker,
   createAdsBrokerFromConfig,
   handleAdsMcpToolCall,
+  handleCommerceMcpToolCall,
   isAdsMcpToolName,
   parseBrokerConfigFromEnv,
   safeAdsMcpError,
@@ -193,6 +195,30 @@ export function createMetaAdsMcpServer(
         }
         return handleAdsMcpToolCall(adsBroker, toolDefinition.name, toolArgs, connectionKey);
       }
+    );
+  }
+
+  for (const toolDefinition of COMMERCE_MCP_TOOL_DEFINITIONS) {
+    server.registerTool(
+      toolDefinition.name,
+      {
+        description: toolDefinition.description,
+        inputSchema: {
+          provider: z.enum(['tiktok_gmv']).describe('Commerce provider. Only tiktok_gmv is supported today.'),
+          accountId: z.string().describe('Provider account or advertiser id.'),
+          storeIds: z.array(z.string()).describe('Commerce store ids to query.'),
+          since: z.string().describe('Start date in YYYY-MM-DD format.'),
+          until: z.string().describe('End date in YYYY-MM-DD format.'),
+          dimensions: z.array(z.string()).optional().describe('Provider dimensions to request.'),
+          metrics: z.array(z.string()).optional().describe('Provider metrics to request.'),
+          params: z.record(z.unknown()).optional().describe('Optional provider-safe parameters.'),
+        },
+      },
+      async (args: Record<string, unknown>) => handleCommerceMcpToolCall(toolDefinition.name, args ?? {}, {
+        fetchGmvMaxReport: tiktokClient
+          ? (options) => getGmvMaxReport(tiktokClient, options)
+          : undefined,
+      })
     );
   }
 
