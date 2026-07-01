@@ -28,7 +28,7 @@ export interface TikTokInsightRecord {
 }
 
 export interface NormalizeTikTokInsightOptions {
-  level: Extract<AdsEntityLevel, 'campaign' | 'adgroup' | 'ad' | 'creative'>;
+  level: Extract<AdsEntityLevel, 'account' | 'campaign' | 'adgroup' | 'ad' | 'creative'>;
   accountId: string;
   since: string;
   until: string;
