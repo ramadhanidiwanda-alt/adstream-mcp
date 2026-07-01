@@ -17,6 +17,7 @@ import type { TikTokCampaign } from '../../tools/getTikTokCampaigns.js';
 export interface TikTokAdsAdapterMockData {
   accounts?: unknown[];
   tiktokCampaigns?: TikTokCampaign[];
+  account?: TikTokInsightRecord[];
   campaigns?: TikTokInsightRecord[];
   adgroups?: TikTokInsightRecord[];
   ads?: TikTokInsightRecord[];
@@ -92,8 +93,10 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
     }
   }
 
-  async getAccountPerformance(): Promise<AdsBrokerResponse<AdsMetricRecord[]>> {
-    return this.notImplemented();
+  async getAccountPerformance(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<AdsMetricRecord[]>> {
+    return this.getPerformance(request, 'account', this.options.mockData?.account);
   }
 
   async getCampaignPerformance(
@@ -124,7 +127,7 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
 
   private async getPerformance(
     request: AdsBrokerRequest,
-    level: 'campaign' | 'adgroup' | 'ad' | 'creative',
+    level: 'account' | 'campaign' | 'adgroup' | 'ad' | 'creative',
     mockData: TikTokInsightRecord[] | undefined
   ): Promise<AdsBrokerResponse<AdsMetricRecord[]>> {
     // No client and no mock → not implemented
@@ -150,7 +153,8 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
     // Real API client
     if (this.client) {
       try {
-        const dataLevel = level === 'campaign' ? 'AUCTION_CAMPAIGN'
+        const dataLevel = level === 'account' ? 'AUCTION_ADVERTISER'
+          : level === 'campaign' ? 'AUCTION_CAMPAIGN'
           : level === 'adgroup' ? 'AUCTION_ADGROUP'
           : level === 'ad' ? 'AUCTION_AD'
           : 'AUCTION_CAMPAIGN';
@@ -159,7 +163,10 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
           advertiserId: accountId,
           reportType: 'BASIC',
           dimensions: [
-            level === 'ad' ? 'ad_id' : level === 'adgroup' ? 'adgroup_id' : 'campaign_id',
+            level === 'account' ? 'advertiser_id'
+              : level === 'ad' ? 'ad_id'
+              : level === 'adgroup' ? 'adgroup_id'
+              : 'campaign_id',
           ],
           metrics: ['spend', 'impressions', 'clicks', 'ctr', 'cpc', 'cpm', 'conversions', 'conversion_value'],
           dataLevel,
