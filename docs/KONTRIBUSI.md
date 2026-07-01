@@ -1,6 +1,6 @@
 # Panduan Kontribusi
 
-> Cara berkontribusi ke meta-ads-agent-skill
+> Cara berkontribusi ke adstream-mcp
 
 **Versi:** 1.0 | **Terakhir Diupdate:** 2026-05-29
 
@@ -165,8 +165,8 @@ chore(deps): update dependencies
 
 1. **Fork & Clone**
 ```bash
-git clone https://github.com/YOUR_USERNAME/meta-ads-agent-skill.git
-cd meta-ads-agent-skill
+git clone https://github.com/YOUR_USERNAME/adstream-mcp.git
+cd adstream-mcp
 npm install
 ```
 
@@ -467,8 +467,8 @@ Contributors akan di-list di:
 
 ## 📧 Contact
 
-- **Issues:** [GitHub Issues](https://github.com/ramadhanidiwanda-alt/meta-ads-agent-skill/issues)
-- **Discussions:** [GitHub Discussions](https://github.com/ramadhanidiwanda-alt/meta-ads-agent-skill/discussions)
+- **Issues:** [GitHub Issues](https://github.com/ramadhanidiwanda-alt/adstream-mcp/issues)
+- **Discussions:** [GitHub Discussions](https://github.com/ramadhanidiwanda-alt/adstream-mcp/discussions)
 
 ---
 

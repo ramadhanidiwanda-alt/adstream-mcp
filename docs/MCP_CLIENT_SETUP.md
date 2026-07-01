@@ -2,7 +2,7 @@
 
 ## Overview
 
-`meta-ads-agent-skill` is a generic MCP server for Meta Ads analysis. It exposes read-only ads tools through the Model Context Protocol so MCP-compatible AI clients and agents can call the same tool surface.
+`adstream-mcp` is a generic MCP server for Meta Ads analysis. It exposes read-only ads tools through the Model Context Protocol so MCP-compatible AI clients and agents can call the same tool surface.
 
 Current default transport is **stdio**. Remote transport can use **SSE** via `MCP_TRANSPORT=sse` or **Streamable HTTP** via `MCP_TRANSPORT=streamable-http`.
 
@@ -17,7 +17,7 @@ As of Phase 16c, the internal MCP tool surface is registered through the SDK hig
 Use this mode when your MCP client can run a local command and pass environment variables to it.
 
 ```text
-node /absolute/path/to/meta-ads-agent-skill/mcp-server/dist/index.js
+node /absolute/path/to/adstream-mcp/mcp-server/dist/index.js
 ```
 
 Build before first use:
@@ -36,7 +36,7 @@ Use this mode when your MCP client can launch Docker as a stdio command.
 Build the local image first:
 
 ```bash
-docker build -f Dockerfile.mcp -t meta-ads-agent-skill:mcp-local .
+docker build -f Dockerfile.mcp -t adstream-mcp:mcp-local .
 ```
 
 Then point your MCP client at `docker run` with `-i` so stdio stays attached.
@@ -72,7 +72,7 @@ MCP_TRANSPORT=streamable-http \
 MCP_HTTP_HOST=127.0.0.1 \
 MCP_HTTP_PORT=8787 \
 MCP_HTTP_BEARER_TOKEN=<MCP_REMOTE_AUTH_TOKEN> \
-node /absolute/path/to/meta-ads-agent-skill/mcp-server/dist/http.js
+node /absolute/path/to/adstream-mcp/mcp-server/dist/http.js
 ```
 
 The server exposes:
@@ -86,7 +86,7 @@ Client config shape for clients that support remote Streamable HTTP:
 ```json
 {
   "mcpServers": {
-    "meta-ads-agent-skill": {
+    "adstream-mcp": {
       "url": "http://localhost:8787/mcp",
       "headers": {
         "Authorization": "Bearer <MCP_REMOTE_AUTH_TOKEN>"
@@ -141,10 +141,10 @@ Use this shape for any MCP-compatible client that supports stdio servers. Replac
 ```json
 {
   "mcpServers": {
-    "meta-ads-agent-skill": {
+    "adstream-mcp": {
       "command": "node",
       "args": [
-        "/absolute/path/to/meta-ads-agent-skill/mcp-server/dist/index.js"
+        "/absolute/path/to/adstream-mcp/mcp-server/dist/index.js"
       ],
       "env": {
         "BROKER_RUNTIME_MODE": "remote",
@@ -168,7 +168,7 @@ If your client supports inheriting environment variables from the shell, you can
 Build the image locally before using this config:
 
 ```bash
-docker build -f Dockerfile.mcp -t meta-ads-agent-skill:mcp-local .
+docker build -f Dockerfile.mcp -t adstream-mcp:mcp-local .
 ```
 
 Use this shape for MCP-compatible clients that can launch Docker:
@@ -176,15 +176,15 @@ Use this shape for MCP-compatible clients that can launch Docker:
 ```json
 {
   "mcpServers": {
-    "meta-ads-agent-skill": {
+    "adstream-mcp": {
       "command": "docker",
       "args": [
         "run",
         "--rm",
         "-i",
         "--env-file",
-        "/absolute/path/to/meta-ads-agent-skill/.env",
-        "meta-ads-agent-skill:mcp-local"
+        "/absolute/path/to/adstream-mcp/.env",
+        "adstream-mcp:mcp-local"
       ]
     }
   }
@@ -207,7 +207,7 @@ MCP_TRANSPORT=sse \
 MCP_HTTP_HOST=127.0.0.1 \
 MCP_HTTP_PORT=8787 \
 MCP_HTTP_BEARER_TOKEN=<MCP_REMOTE_AUTH_TOKEN> \
-node /absolute/path/to/meta-ads-agent-skill/mcp-server/dist/http.js
+node /absolute/path/to/adstream-mcp/mcp-server/dist/http.js
 ```
 
 Client config (if your client supports SSE URL-based MCP):
@@ -215,7 +215,7 @@ Client config (if your client supports SSE URL-based MCP):
 ```json
 {
   "mcpServers": {
-    "meta-ads-agent-skill": {
+    "adstream-mcp": {
       "url": "http://localhost:8787/mcp",
       "headers": {
         "Authorization": "Bearer <MCP_REMOTE_AUTH_TOKEN>"
@@ -253,10 +253,10 @@ Claude Desktop is one MCP client example. Add a server entry with the same comma
 ```json
 {
   "mcpServers": {
-    "meta-ads-agent-skill": {
+    "adstream-mcp": {
       "command": "node",
       "args": [
-        "/absolute/path/to/meta-ads-agent-skill/mcp-server/dist/index.js"
+        "/absolute/path/to/adstream-mcp/mcp-server/dist/index.js"
       ],
       "env": {
         "BROKER_RUNTIME_MODE": "remote",
@@ -360,7 +360,7 @@ Checks:
 
 - If run manually without MCP input, clean exit can be normal when stdin closes.
 - In client config, keep `-i` so stdin remains attached.
-- Run `docker run --rm -i --env-file /absolute/path/.env meta-ads-agent-skill:mcp-local` from a terminal to test interactive startup.
+- Run `docker run --rm -i --env-file /absolute/path/.env adstream-mcp:mcp-local` from a terminal to test interactive startup.
 
 ### HTTP `/mcp` Returns 501
 

@@ -1,10 +1,11 @@
 {
-  "name": "meta-ads-mcp-server",
+  "name": "adstream-mcp-server",
   "version": "0.1.0",
-  "description": "MCP server wrapper for Meta Ads Agent Skill",
+  "description": "MCP server wrapper for Adstream MCP",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
+    "adstream-mcp": "dist/index.js",
     "meta-ads-mcp": "dist/index.js"
   },
   "scripts": {
@@ -15,6 +16,8 @@
   },
   "keywords": [
     "mcp",
+    "adstream",
+    "cuan-insight",
     "meta-ads",
     "facebook-ads",
     "claude",
@@ -23,7 +26,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "meta-ads-agent-skill": "file:..",
+    "adstream-mcp": "file:..",
     "@modelcontextprotocol/sdk": "^1.29.0"
   },
   "devDependencies": {

@@ -28,8 +28,8 @@ import {
   getGmvMaxReport,
   getTikTokAdvertisers,
   getTikTokLocationInsights,
-  } from 'meta-ads-agent-skill';
-import type { LocationBreakdown } from 'meta-ads-agent-skill';
+  } from 'adstream-mcp';
+import type { LocationBreakdown } from 'adstream-mcp';
 
 export interface CreateMetaAdsMcpServerOptions {
   client?: MetaClient;
@@ -121,7 +121,7 @@ export function createMetaAdsMcpServer(
 ): McpServer {
   const server = new McpServer(
     {
-      name: 'meta-ads-mcp-server',
+      name: 'adstream-mcp-server',
       version: '0.1.0',
     },
     {

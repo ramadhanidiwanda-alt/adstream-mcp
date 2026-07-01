@@ -9,7 +9,7 @@
 
 ## A. Purpose
 
-This document explains how the meta-ads-agent-skill MCP server is designed to work with Cuan Insight as a credential authority, and how the Cuan Insight Connection Key system integrates with this server.
+This document explains how the adstream-mcp MCP server is designed to work with Cuan Insight as a credential authority, and how the Cuan Insight Connection Key system integrates with this server.
 
 Key principles:
 - This MCP server is the **execution layer** — it runs tools, not credentials.
@@ -221,4 +221,4 @@ Each client uses the same MCP protocol. The transport mode (stdio/SSE/Streamable
 
 ---
 
-*Part of meta-ads-agent-skill MCP ecosystem. See also: [ROADMAP.md](../ROADMAP.md), [MCP Client Setup](MCP_CLIENT_SETUP.md).*
+*Part of adstream-mcp MCP ecosystem. See also: [ROADMAP.md](../ROADMAP.md), [MCP Client Setup](MCP_CLIENT_SETUP.md).*
