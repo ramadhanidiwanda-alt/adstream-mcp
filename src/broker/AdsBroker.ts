@@ -3,6 +3,7 @@ import type {
   AdsBrokerResponse,
   AdsMetricRecord,
   AdsMutationResult,
+  AdsReport,
   AdsProviderAdapter,
   AdsProviderId,
   CredentialContext,
@@ -12,6 +13,7 @@ import { defaultDenyWritePermissionPolicy, isAdsProviderId } from './types.js';
 import type { CredentialResolverContract } from './credentials.js';
 import { redactErrorMessage, redactTokenLikeValues } from './credentials.js';
 import type { ProviderRegistry } from './providerRegistry.js';
+import { buildAdsSummaryReport } from './reportEngine.js';
 
 export interface AdsBrokerOptions {
   providerRegistry: ProviderRegistry;
@@ -83,7 +85,7 @@ export class AdsBroker {
     return this.executeRead(request, 'getPlacementPerformance');
   }
 
-  async generateReport(request: AdsBrokerRequest): Promise<AdsBrokerResponse<never>> {
+  async generateReport(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsReport>> {
     const provider = this.resolveProviderId(request);
     if (!provider.ok) return provider.response;
 
@@ -91,7 +93,20 @@ export class AdsBroker {
       return this.notImplementedResponse('Cross-provider report generation is not implemented yet');
     }
 
-    return this.notImplementedResponse('AdsBroker report generation is not implemented yet', provider.provider);
+    const performance = await this.getAccountPerformance(request);
+    if (!performance.ok) {
+      return {
+        ok: false,
+        provider: performance.provider,
+        errors: performance.errors,
+      };
+    }
+
+    return {
+      ok: true,
+      provider: provider.provider,
+      data: buildAdsSummaryReport(provider.provider, performance.data ?? [], request),
+    };
   }
 
   private async executeRead<TData>(

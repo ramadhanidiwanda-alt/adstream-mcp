@@ -188,6 +188,37 @@ export interface AdsMetricRecord {
   raw?: unknown;
 }
 
+export type AdsReportFormat = 'summary' | 'daily' | 'audit' | 'executive';
+export type AdsReportKind = 'ads';
+
+export interface AdsReportTotals {
+  spend: number;
+  impressions: number;
+  clicks: number;
+  reach?: number;
+  purchases?: number;
+  purchase_value?: number;
+  leads?: number;
+  roas?: number;
+  cpc?: number;
+  ctr?: number;
+  cpm?: number;
+}
+
+export interface AdsReport {
+  provider: AdsProviderId;
+  report_kind: AdsReportKind;
+  format: AdsReportFormat;
+  date_range: {
+    since: string;
+    until: string;
+  };
+  totals: AdsReportTotals;
+  findings: string[];
+  recommendations: string[];
+  disclaimer: string;
+}
+
 export interface CredentialContext {
   provider: AdsProviderId;
   accessToken?: string;
