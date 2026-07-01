@@ -79,7 +79,7 @@ Target platform akhir:
 | Provider IDs | Hardcoded `meta`, `tiktok` (`src/broker/types.ts`) | Belum bisa Google/marketplace |
 | Report engine | `ads_generate_report` → `NOT_IMPLEMENTED` (`src/broker/AdsBroker.ts`) | Capability laporan belum ada |
 | Cross-provider | Multi-provider request → `NOT_IMPLEMENTED` | Belum ada laporan lintas platform |
-| TikTok adapter | `getAccountPerformance`/`getPlacementPerformance` stub | TikTok belum setara Meta |
+| TikTok adapter | `getPlacementPerformance` stub (account performance kini implemented) | TikTok belum sepenuhnya setara Meta |
 | Create ads | Belum ada (hanya campaign-level mutate) | "Membuat iklan" belum didukung |
 | Commerce model | `AdsMetricRecord` fokus ads, belum commerce (GMV/order/SKU/live) | Marketplace belum ter-model |
 | Paket metadata | `package.json` sudah memakai `adstream-mcp` | Perlu dipertahankan konsisten di semua docs dan examples |
@@ -202,7 +202,7 @@ Prinsip urutan (sesuai keputusan §0): **stabilkan fondasi → report engine →
 
 **Goal:** TikTok setara Meta; aktifkan CPAS sebagai mode Meta.
 
-- [ ] TikTok `getAccountPerformance` real (bukan stub).
+- [x] TikTok `getAccountPerformance` real (bukan stub).
 - [ ] TikTok `getPlacementPerformance`.
 - [ ] Normalisasi GMV Max ke `CommerceRecord` (masuk commerce report, bukan ads report).
 - [ ] **Meta CPAS sebagai mode** di adapter Meta (catalog/partner ads), bukan provider terpisah — parameter mode + normalisasi tambahan.

@@ -1,6 +1,10 @@
 import type { TikTokApiClient } from '../tiktokClient.js';
 
-export type TikTokDataLevel = 'AUCTION_CAMPAIGN' | 'AUCTION_ADGROUP' | 'AUCTION_AD';
+export type TikTokDataLevel =
+  | 'AUCTION_ADVERTISER'
+  | 'AUCTION_CAMPAIGN'
+  | 'AUCTION_ADGROUP'
+  | 'AUCTION_AD';
 
 export interface TikTokReportOptions {
   advertiserId: string;
