@@ -6,7 +6,7 @@ import {
   toAdsBrokerRequest,
 } from '../src/broker/mcpTools.js';
 import type { AdsBroker } from '../src/broker/AdsBroker.js';
-import type { AdsBrokerRequest, AdsBrokerResponse, AdsMetricRecord } from '../src/broker/types.js';
+import type { AdsBrokerRequest, AdsBrokerResponse, AdsMetricRecord, AdsReport } from '../src/broker/types.js';
 
 const legacyToolNames = [
   'meta_get_ad_accounts',
@@ -52,9 +52,18 @@ function createBrokerStub(): AdsBroker {
     }),
     getPlacementPerformance: response,
     generateReport: async () => ({
-      ok: false,
+      ok: true,
       provider: 'meta',
-      errors: [{ provider: 'meta', code: 'NOT_IMPLEMENTED', message: 'not implemented' }],
+      data: {
+        provider: 'meta',
+        report_kind: 'ads',
+        format: 'summary',
+        date_range: { since: '2026-05-01', until: '2026-05-07' },
+        totals: { spend: 10, impressions: 100, clicks: 0 },
+        findings: ['Analyzed 1 normalized ads performance row.'],
+        recommendations: ['Review objective-specific success metrics before making optimization decisions.'],
+        disclaimer: 'These recommendations are suggestions only. Review performance context and business constraints before taking action.',
+      } satisfies AdsReport,
     }),
   } as unknown as AdsBroker;
 }
@@ -150,7 +159,7 @@ describe('ads MCP broker tools', () => {
     expect(calls).toEqual(['adgroup', 'ad']);
   });
 
-  it('returns safe NOT_IMPLEMENTED for creative performance and report generation', async () => {
+  it('returns safe NOT_IMPLEMENTED for creative performance and routes report generation', async () => {
     const broker = createBrokerStub();
 
     const creativeResponse = parseToolResponse(
@@ -159,7 +168,8 @@ describe('ads MCP broker tools', () => {
     const reportResponse = parseToolResponse(await handleAdsMcpToolCall(broker, 'ads_generate_report', {}));
 
     expect(creativeResponse.errors?.[0].code).toBe('NOT_IMPLEMENTED');
-    expect(reportResponse.errors?.[0].code).toBe('NOT_IMPLEMENTED');
+    expect(reportResponse.ok).toBe(true);
+    expect(reportResponse.data).toMatchObject({ provider: 'meta', report_kind: 'ads', format: 'summary' });
   });
 
   it('returns safe invalid provider response from AdsBroker path', async () => {

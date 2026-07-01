@@ -218,11 +218,49 @@ describe('AdsBroker', () => {
     expect(response.errors?.[0].code).toBe('NOT_IMPLEMENTED');
   });
 
-  it('returns NOT_IMPLEMENTED for generateReport', async () => {
-    const { broker } = createBroker();
-    const response = await broker.generateReport(baseRequest);
+  it('generates a single-provider account report from normalized metrics', async () => {
+    const adapter = createAdapter({
+      getAccountPerformance: async () => ({
+        ok: true,
+        provider: 'meta',
+        data: [
+          createMetricRecord({
+            level: 'account',
+            delivery: { spend: 100, impressions: 1000, reach: 800 },
+            clicks: { clicks: 50, ctr: 5, cpc: 2 },
+            commerce: { purchases: 4, purchase_value: 400, purchase_roas: 4 },
+            leads: { leads: 6 },
+          }),
+        ],
+      }),
+    });
+    const { broker } = createBroker(adapter);
 
-    expect(response.ok).toBe(false);
-    expect(response.errors?.[0].code).toBe('NOT_IMPLEMENTED');
+    const response = await broker.generateReport({
+      ...baseRequest,
+      params: { format: 'summary' },
+    });
+
+    expect(response.ok).toBe(true);
+    expect(response.provider).toBe('meta');
+    expect(response.data).toMatchObject({
+      provider: 'meta',
+      report_kind: 'ads',
+      format: 'summary',
+      date_range: { since: '2026-05-01', until: '2026-05-07' },
+      totals: {
+        spend: 100,
+        impressions: 1000,
+        clicks: 50,
+        reach: 800,
+        purchases: 4,
+        purchase_value: 400,
+        leads: 6,
+        roas: 4,
+      },
+    });
+    expect(response.data?.findings.length).toBeGreaterThan(0);
+    expect(response.data?.recommendations.length).toBeGreaterThan(0);
+    expect(response.data?.disclaimer).toContain('suggestion');
   });
 });
