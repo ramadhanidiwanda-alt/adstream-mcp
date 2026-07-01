@@ -205,10 +205,20 @@ export interface AdsReportTotals {
   cpm?: number;
 }
 
+export type AdsReportLevel = Extract<AdsEntityLevel, 'account' | 'campaign'>;
+export type AdsReportRating = 'excellent' | 'good' | 'needs_attention' | 'critical';
+
+export interface AdsReportScorecard {
+  score: number;
+  rating: AdsReportRating;
+  reasons: string[];
+}
+
 export interface AdsReport {
   provider: AdsProviderId;
   report_kind: AdsReportKind;
   format: AdsReportFormat;
+  level: AdsReportLevel;
   date_range: {
     since: string;
     until: string;
@@ -216,6 +226,11 @@ export interface AdsReport {
   totals: AdsReportTotals;
   findings: string[];
   recommendations: string[];
+  scorecard?: AdsReportScorecard;
+  efficiency_findings?: string[];
+  risk_findings?: string[];
+  opportunity_findings?: string[];
+  next_actions?: string[];
   disclaimer: string;
 }
 
