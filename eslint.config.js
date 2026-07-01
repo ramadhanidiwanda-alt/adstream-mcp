@@ -1,15 +1,14 @@
 import js from '@eslint/js';
+import tseslint from 'typescript-eslint';
 
 export default [
   {
     ignores: ['dist/', 'node_modules/', 'coverage/', '*.config.*'],
   },
+  js.configs.recommended,
+  ...tseslint.configs.recommended,
   {
-    ...js.configs.recommended,
-    files: ['src/**/*.ts', 'src/**/*.js'],
-  },
-  {
-    files: ['src/**/*.ts', 'src/**/*.js'],
+    files: ['src/**/*.ts', 'src/**/*.js', 'mcp-server/src/**/*.ts', 'tests/**/*.ts'],
     languageOptions: {
       ecmaVersion: 'latest',
       sourceType: 'module',
@@ -32,7 +31,9 @@ export default [
       },
     },
     rules: {
-      'no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
+      'no-unused-vars': 'off',
+      '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+      '@typescript-eslint/no-explicit-any': 'off',
       'no-console': 'off',
     },
   },

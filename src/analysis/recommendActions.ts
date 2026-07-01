@@ -15,7 +15,7 @@ export function recommendActions(analyses: CampaignAnalysis[]): ActionRecommenda
   for (const analysis of analyses) {
     let priority: ActionRecommendation['priority'] = 'low';
     let action = '';
-    let rationale = analysis.reason;
+    const rationale = analysis.reason;
 
     if (analysis.status === 'warning') {
       priority = 'high';

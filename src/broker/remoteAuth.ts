@@ -1,4 +1,3 @@
-import type { AdsProviderId } from './types.js';
 import { isAdsProviderId } from './types.js';
 import type { CuanInsightCredentialResolveRequest } from './cuanInsight.js';
 
