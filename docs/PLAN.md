@@ -145,8 +145,8 @@ Setiap adapter mengekspos `capabilities` sehingga broker dan agent tahu apa yang
 | Capability | meta | meta_cpas* | tiktok | tiktok_gmv | google | shopee | tokopedia | lazada |
 |---|---|---|---|---|---|---|---|---|
 | list_accounts | ✅ | ▶ | ✅ | ▶ | ▶ | ▶ | ▶ | ▶ |
-| read_performance | ✅ | ▶ | 🟡 | 🟡 | ▶ | ▶ | ▶ | ▶ |
-| placement_performance | ✅ | ▶ | ⬜ | ⬜ | ▶ | ▶ | ▶ | ▶ |
+| read_performance | ✅ | ▶ | ✅ | ✅ | ▶ | ▶ | ▶ | ▶ |
+| placement_performance | ✅ | ▶ | ✅ | n/a | ▶ | ▶ | ▶ | ▶ |
 | ads_report | ⬜ | ⬜ | ⬜ | n/a | ⬜ | ⬜ | ⬜ | ⬜ |
 | commerce_data | n/a | n/a | ✅ | ✅ | n/a | ▶ | ▶ | ▶ |
 | write_campaign | ✅ | ▶ | ⬜ | ⬜ | ▶ | ▶ | ▶ | ▶ |
@@ -203,11 +203,12 @@ Prinsip urutan (sesuai keputusan §0): **stabilkan fondasi → report engine →
 **Goal:** TikTok setara Meta; aktifkan CPAS sebagai mode Meta.
 
 - [x] TikTok `getAccountPerformance` real (bukan stub).
-- [ ] TikTok `getPlacementPerformance`.
+- [x] TikTok `getPlacementPerformance` real via TikTok report attribute metric `placement_type`.
 - [x] Normalisasi GMV Max ke `CommerceRecord` (masuk `commerce_get_performance`, bukan ads report).
 - [x] Expose `commerce_get_performance` untuk TikTok GMV Max: records + totals + metadata + warnings, tanpa findings/recommendations naratif.
 - [ ] **Meta CPAS sebagai mode** di adapter Meta (catalog/partner ads), bukan provider terpisah — parameter mode + normalisasi tambahan.
-- [ ] Tests parity untuk TikTok read + CPAS smoke.
+- [x] Tests parity untuk TikTok read + GMV Max data tool.
+- [ ] CPAS smoke test setelah Meta CPAS mode dibuat.
 
 **Exit:** TikTok read setara Meta; CPAS mode read jalan; GMV Max tersedia sebagai normalized commerce JSON.
 
