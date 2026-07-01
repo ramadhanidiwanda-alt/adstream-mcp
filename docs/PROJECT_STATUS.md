@@ -222,7 +222,8 @@ The MCP SDK is upgraded to `^1.29.0`, Streamable HTTP is implemented, and Phase 
 
 ### TikTok Provider Support
 
-- TikTok adapter supports campaign listing via `ads_list_campaigns`, but account performance still returns `NOT_IMPLEMENTED`.
+- TikTok adapter supports campaign listing via `ads_list_campaigns`.
+- Account performance is implemented via the integrated report endpoint using `data_level=AUCTION_ADVERTISER` and normalizes into account-level `AdsMetricRecord` rows.
 - Provider-level credential resolution for TikTok returns `PROVIDER_NOT_READY`.
 
 ### Write Operations

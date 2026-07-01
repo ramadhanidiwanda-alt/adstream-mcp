@@ -27,12 +27,94 @@ describe('TikTokAdsAdapter', () => {
   });
 
 
-  it('returns NOT_IMPLEMENTED for account performance until TikTok account insights are implemented', async () => {
+  it('returns NOT_IMPLEMENTED for account performance when no client or mock data is configured', async () => {
     const adapter = new TikTokAdsAdapter();
     const response = await adapter.getAccountPerformance({ params: {} });
 
     expect(response.ok).toBe(false);
     expect(response.errors?.[0].code).toBe('NOT_IMPLEMENTED');
+  });
+
+  it('returns normalized mock account performance in test mode', async () => {
+    const adapter = new TikTokAdsAdapter({
+      mockData: {
+        account: [
+          {
+            advertiser_id: 'advertiser_1',
+            spend: '500',
+            impressions: '10000',
+            clicks: '400',
+            conversions: '20',
+            conversion_value: '2000',
+          },
+        ],
+      },
+    });
+
+    const response = await adapter.getAccountPerformance({
+      provider: 'tiktok',
+      accountId: 'advertiser_1',
+      since: '2026-05-01',
+      until: '2026-05-07',
+      params: {},
+      credentials: { provider: 'tiktok', accessToken: 'secret-token', accountId: 'advertiser_1', source: 'test' },
+    });
+
+    expect(response.ok).toBe(true);
+    expect(response.data?.[0].level).toBe('account');
+    expect(response.data?.[0].provider).toBe('tiktok');
+    expect(response.data?.[0].delivery.spend).toBe(500);
+    expect(response.data?.[0].conversions?.conversion_value).toBe(2000);
+    expect(response.data?.[0].raw).toBeUndefined();
+  });
+
+  it('fetches account performance via TikTok API client with advertiser-level report', async () => {
+    let capturedPath: string | undefined;
+    let capturedParams: Record<string, unknown> | undefined;
+    const adapter = new TikTokAdsAdapter({
+      client: {
+        get: async (path: string, params: Record<string, unknown> = {}) => {
+          capturedPath = path;
+          capturedParams = params;
+          return {
+            list: [
+              {
+                dimensions: { advertiser_id: 'advertiser_123' },
+                metrics: {
+                  spend: '750',
+                  impressions: '15000',
+                  clicks: '600',
+                  ctr: '4',
+                  cpc: '1.25',
+                  cpm: '50',
+                  conversions: '30',
+                  conversion_value: '3000',
+                },
+              },
+            ],
+            page_info: { page: 1, page_size: 100, total_number: 1, total_page: 1 },
+          };
+        },
+      } as never,
+    });
+
+    const response = await adapter.getAccountPerformance({
+      provider: 'tiktok',
+      accountId: 'advertiser_123',
+      since: '2026-05-01',
+      until: '2026-05-07',
+      params: {},
+      credentials: { provider: 'tiktok', accessToken: 'x', accountId: 'advertiser_123', source: 'test' },
+    });
+
+    expect(response.ok).toBe(true);
+    expect(capturedPath).toBe('/report/integrated/get/');
+    expect(capturedParams?.data_level).toBe('AUCTION_ADVERTISER');
+    expect(capturedParams?.dimensions).toEqual(['advertiser_id']);
+    expect(response.data?.[0].level).toBe('account');
+    expect(response.data?.[0].identity.account_id).toBe('advertiser_123');
+    expect(response.data?.[0].delivery.spend).toBe(750);
+    expect(response.data?.[0].conversions?.conversion_value).toBe(3000);
   });
 
   it('returns NOT_IMPLEMENTED when no mock data is configured', async () => {
