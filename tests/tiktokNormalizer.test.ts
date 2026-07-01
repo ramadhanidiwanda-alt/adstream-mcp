@@ -69,6 +69,25 @@ describe('normalizeTikTokInsight', () => {
     expect(record.video?.watched_100_percent).toBe(3);
   });
 
+  it('maps TikTok placement and setup fields when present', () => {
+    const record = normalizeTikTokInsight(
+      {
+        campaign_id: 'cmp_1',
+        campaign_name: 'Campaign 1',
+        objective_type: 'PRODUCT_SALES',
+        operation_status: 'ENABLE',
+        placement_type: 'PLACEMENT_TIKTOK',
+        spend: '10',
+        impressions: '100',
+        clicks: '5',
+      },
+      { level: 'campaign', accountId: 'advertiser_1', since: '2026-05-01', until: '2026-05-07' }
+    );
+
+    expect(record.setup).toMatchObject({ objective: 'PRODUCT_SALES', status: 'ENABLE' });
+    expect(record.dimensions).toMatchObject({ placement: 'PLACEMENT_TIKTOK', platform: 'tiktok' });
+  });
+
   it('only includes raw when requested', () => {
     const insight = { spend: '1', impressions: '2', clicks: '3' };
     const record = normalizeTikTokInsight(insight, {

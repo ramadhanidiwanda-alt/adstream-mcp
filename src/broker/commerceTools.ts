@@ -66,6 +66,7 @@ export interface CommercePerformanceData {
     };
     dimensions: string[];
     metrics: string[];
+    store_ids: string[];
     source: 'tiktok_gmv_max';
     record_count: number;
     page_info?: GmvMaxReportResult['page_info'];
@@ -199,13 +200,22 @@ async function getCommercePerformance(
         date_range: { since: request.value.since, until: request.value.until },
         dimensions: request.value.dimensions,
         metrics: request.value.metrics,
+        store_ids: request.value.storeIds,
         source: 'tiktok_gmv_max',
         record_count: records.length,
         page_info: report.page_info,
       },
-      warnings: [],
+      warnings: buildCommerceWarnings(records),
     },
   };
+}
+
+function buildCommerceWarnings(records: CommerceRecord[]): string[] {
+  if (records.length === 0) {
+    return ['TikTok GMV Max returned no rows for the requested date range and stores.'];
+  }
+
+  return [];
 }
 
 function parseCommercePerformanceRequest(args: Record<string, unknown>):

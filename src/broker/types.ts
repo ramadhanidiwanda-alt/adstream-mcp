@@ -149,6 +149,8 @@ export interface AdsMetricDimensions {
   country?: string;
   region?: string;
   dma?: string;
+  platform?: string;
+  placement?: string;
 }
 
 export interface AdsActionMetric {

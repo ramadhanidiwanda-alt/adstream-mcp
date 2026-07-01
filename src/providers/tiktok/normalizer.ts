@@ -8,6 +8,13 @@ export interface TikTokInsightRecord {
   adgroup_name?: string;
   ad_id?: string;
   ad_name?: string;
+  objective_type?: string;
+  objective?: string;
+  operation_status?: string;
+  status?: string;
+  placement_type?: string;
+  placement?: string;
+  platform?: string;
   spend?: string | number;
   impressions?: string | number;
   reach?: string | number;
@@ -71,6 +78,24 @@ export function normalizeTikTokInsight(
     },
   };
 
+  const objective = insight.objective_type ?? insight.objective;
+  const status = insight.operation_status ?? insight.status;
+  if (objective !== undefined || status !== undefined) {
+    record.setup = {
+      objective,
+      status,
+    };
+  }
+
+  const placement = insight.placement_type ?? insight.placement;
+  const platform = insight.platform ?? inferPlatformFromPlacement(placement);
+  if (placement !== undefined || platform !== undefined) {
+    record.dimensions = {
+      placement,
+      platform,
+    };
+  }
+
   const conversions = optionalNumber(insight.conversions);
   if (conversions !== undefined || conversionValue !== undefined || roas !== undefined) {
     record.conversions = {
@@ -130,4 +155,13 @@ function optionalNumber(value: string | number | undefined): number | undefined 
 
   const parsed = typeof value === 'number' ? value : Number.parseFloat(value);
   return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function inferPlatformFromPlacement(placement: string | undefined): string | undefined {
+  if (!placement) return undefined;
+  const normalizedPlacement = placement.toLowerCase();
+  if (normalizedPlacement.includes('tiktok')) return 'tiktok';
+  if (normalizedPlacement.includes('pangle')) return 'pangle';
+  if (normalizedPlacement.includes('global_app_bundle')) return 'global_app_bundle';
+  return undefined;
 }
