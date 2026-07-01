@@ -1,6 +1,6 @@
 # Panduan Testing
 
-> Best practices untuk testing meta-ads-agent-skill
+> Best practices untuk testing adstream-mcp
 
 **Versi:** 1.0 | **Terakhir Diupdate:** 2026-05-29
 

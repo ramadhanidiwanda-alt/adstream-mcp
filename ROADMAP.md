@@ -1,18 +1,18 @@
-# Roadmap: meta-ads-agent-skill
+# Roadmap: adstream-mcp
 
 **Current Version:** v0.5.2
-**Last Updated:** 2026-06-25
+**Last Updated:** 2026-07-01
 
 ---
 
 ## Vision
 
-Menjadi **the best Meta Ads toolkit** untuk AI agents dan developers — menggabungkan kekuatan TypeScript library dengan kemudahan AI-native skills.
+Menjadi **open-source Ads + Commerce MCP connector hub** untuk AI agents dan developers — menggabungkan TypeScript library, MCP server, AI-native skills, dan Cuan Insight sebagai credential control plane.
 
 **Target Audience:**
 - 🎯 Primary: End users (marketers) via AI skills
-- 🎯 Secondary: Developers via TypeScript library
-- 🎯 Tertiary: Agencies managing multiple accounts
+- 🎯 Secondary: Developers via TypeScript library + MCP
+- 🎯 Tertiary: Agencies and Cuan Insight workspaces managing multiple providers/accounts
 
 ---
 
@@ -84,6 +84,19 @@ Menjadi **the best Meta Ads toolkit** untuk AI agents dan developers — menggab
 
 ## In Progress 🚧
 
+### Phase 0 (Target: July 2026) — Adstream MCP Foundation Sync
+
+**Goal:** Align the repository with the `adstream-mcp` multi-platform direction before deeper feature work.
+
+#### Features
+- [x] Sync package, README, and repository metadata from legacy Meta-first naming to `adstream-mcp`
+- [x] Keep Meta CPAS as a Meta adapter mode, not a separate provider
+- [x] Add provider capability matrix as code and use it as adapter source of truth
+- [x] Add `docs/PROVIDER_ONBOARDING.md` for future provider adapters
+- [x] Mark `ads_*` as stable public MCP surface and `meta_*`/`tiktok_*` as legacy/debug surfaces
+
+**See also:** `docs/PLAN.md` for the full multi-platform master plan.
+
 ### v0.6.0 (Target: July 2026) — Write Operations (Adset & Ad)
 
 **Goal:** Extend mutation coverage to adset and ad levels
@@ -114,9 +127,9 @@ Menjadi **the best Meta Ads toolkit** untuk AI agents dan developers — menggab
 
 ## Planned 📅
 
-### v0.7.0 (Target: August 2026) - OAuth & Token Management
+### v0.7.0 (Historical) - OAuth & Token Management
 
-**Goal:** Simplify authentication for end users
+**Goal:** Simplify authentication for end users. Most remote OAuth/persistent-store foundation work is already completed in `docs/PROJECT_STATUS.md`; remaining work is cleanup, docs, and refresh-token decisions.
 
 #### Features
 - [ ] **OAuth 2.0 Flow**
@@ -394,10 +407,10 @@ skills/meta-ads/playbooks/
 - [ ] API for third-party integrations
 
 **Platform Expansion:**
-- [ ] Google Ads support (same skills, different platform)
-- [ ] TikTok Ads support
-- [ ] LinkedIn Ads support
-- [ ] Unified cross-platform reporting
+- [ ] Google Ads support (next major provider after report engine)
+- [ ] TikTok parity (regular ads + GMV Max commerce reporting)
+- [ ] Indonesian marketplace ads (Shopee/Tokopedia/Lazada/Blibli), pursued in parallel based on API access
+- [ ] Unified cross-platform ads reporting and separate commerce/GMV reporting
 
 **Community:**
 - [ ] Public skill marketplace (users share custom skills)

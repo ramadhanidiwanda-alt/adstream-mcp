@@ -1,7 +1,7 @@
-# Perbandingan: meta-ads-agent-skill vs pipeboard-co/meta-ads-mcp
+# Perbandingan: adstream-mcp vs pipeboard-co/meta-ads-mcp
 
 **Date:** 2026-05-29  
-**Your Project:** meta-ads-agent-skill v0.3.0  
+**Your Project:** adstream-mcp v0.3.0  
 **Their Project:** pipeboard-co/meta-ads-mcp v1.0.112
 
 ---
@@ -29,7 +29,7 @@
 
 **Your Project:**
 ```
-meta-ads-agent-skill/
+adstream-mcp/
 ├── src/                    # TypeScript library
 │   ├── metaClient.ts
 │   ├── tools/ (6 functions)

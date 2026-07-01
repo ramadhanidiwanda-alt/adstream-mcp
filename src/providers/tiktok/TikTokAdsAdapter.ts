@@ -4,11 +4,11 @@ import type {
   AdsMetricRecord,
   AdsMutationResult,
   AdsProviderAdapter,
-  AdsProviderCapabilities,
   AdsToolCategory,
   AdsToolDefinition,
   CredentialContext,
 } from '../../broker/types.js';
+import { ADS_PROVIDER_CAPABILITY_MATRIX } from '../../broker/types.js';
 import { redactErrorMessage } from '../../broker/credentials.js';
 import { normalizeTikTokInsights, type TikTokInsightRecord } from './normalizer.js';
 import type { TikTokApiClient } from '../../tiktokClient.js';
@@ -42,12 +42,7 @@ const LEVEL_TO_DATA_LEVEL: Record<string, TikTokDataLevel> = {
 export class TikTokAdsAdapter implements AdsProviderAdapter {
   readonly id = 'tiktok' as const;
   readonly displayName = 'TikTok Ads';
-  readonly capabilities: AdsProviderCapabilities = {
-    providers: ['tiktok'],
-    categories: ['accounts', 'campaigns', 'ad_groups', 'ads', 'creatives', 'insights', 'reports', 'diagnostics'],
-    operations: ['read'],
-    supportsRaw: false,
-  };
+  readonly capabilities = ADS_PROVIDER_CAPABILITY_MATRIX.tiktok;
 
   constructor(private readonly options: TikTokAdsAdapterOptions = {}) {}
 

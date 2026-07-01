@@ -1,7 +1,7 @@
 {
-  "name": "meta-ads-agent-skill",
+  "name": "adstream-mcp",
   "version": "0.5.2",
-  "description": "TypeScript library + AI skills for Meta Ads analysis. Built for developers and end users.",
+  "description": "Open-source MCP connector hub for ads and commerce analytics, powered by Cuan Insight credentials.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "type": "module",
@@ -20,6 +20,9 @@
   },
   "keywords": [
     "meta-ads",
+    "adstream",
+    "cuan-insight",
+    "ads-mcp",
     "facebook-ads",
     "instagram-ads",
     "marketing-api",
@@ -39,7 +42,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ramadhanidiwanda-alt/meta-ads-agent-skill.git"
+    "url": "https://github.com/ramadhanidiwanda-alt/adstream-mcp.git"
   },
   "files": [
     "dist",

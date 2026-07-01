@@ -245,6 +245,21 @@ export interface AdsProviderCapabilities {
   supportsRaw?: boolean;
 }
 
+export const ADS_PROVIDER_CAPABILITY_MATRIX = {
+  meta: {
+    providers: ['meta'],
+    categories: ['accounts', 'campaigns', 'ad_groups', 'ads', 'creatives', 'insights', 'reports', 'diagnostics'],
+    operations: ['read', 'write'],
+    supportsRaw: false,
+  },
+  tiktok: {
+    providers: ['tiktok'],
+    categories: ['accounts', 'campaigns', 'ad_groups', 'ads', 'creatives', 'insights', 'reports', 'diagnostics'],
+    operations: ['read'],
+    supportsRaw: false,
+  },
+} as const satisfies Record<AdsProviderId, AdsProviderCapabilities>;
+
 export interface AdsProviderAdapter {
   id: AdsProviderId;
   displayName: string;
