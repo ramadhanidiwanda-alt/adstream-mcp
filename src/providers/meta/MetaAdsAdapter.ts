@@ -36,15 +36,15 @@ export interface MetaAdsAdapterTools {
   ): Promise<AccountInsight[]>;
   getCampaignInsights(
     client: MetaClient,
-    options: { adAccountId: string; since: string; until: string; limit?: number; breakdowns?: LocationBreakdown[] }
+    options: { adAccountId: string; since: string; until: string; limit?: number; breakdowns?: Array<LocationBreakdown | 'product_id'> }
   ): Promise<CampaignInsight[]>;
   getAdsetInsights(
     client: MetaClient,
-    options: { adAccountId: string; since: string; until: string; limit?: number; breakdowns?: LocationBreakdown[] }
+    options: { adAccountId: string; since: string; until: string; limit?: number; breakdowns?: Array<LocationBreakdown | 'product_id'> }
   ): Promise<AdsetInsight[]>;
   getAdsInsights(
     client: MetaClient,
-    options: { adAccountId: string; since: string; until: string; limit?: number; breakdowns?: LocationBreakdown[] }
+    options: { adAccountId: string; since: string; until: string; limit?: number; breakdowns?: Array<LocationBreakdown | 'product_id'> }
   ): Promise<AdInsight[]>;
   getMetaPlacementPerformance(
     client: MetaClient,
@@ -204,9 +204,15 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
         accountId: validation.options.adAccountId,
         since: validation.options.since,
         until: validation.options.until,
+        mode: validation.options.mode,
       });
 
-      return { ok: true, provider: 'meta', data };
+      return {
+        ok: true,
+        provider: 'meta',
+        data,
+        meta: validation.options.mode === 'cpas' ? { mode: 'cpas' } : undefined,
+      };
     } catch (error) {
       return this.errorResponse(error);
     }
@@ -215,7 +221,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
   private fetchInsights(
     client: MetaClient,
     level: 'account' | 'campaign' | 'adset' | 'ad',
-    options: { adAccountId: string; since: string; until: string; limit?: number; breakdowns?: LocationBreakdown[] }
+    options: { adAccountId: string; since: string; until: string; limit?: number; breakdowns?: Array<LocationBreakdown | 'product_id'>; mode?: 'standard' | 'cpas' }
   ): Promise<Array<AccountInsight | CampaignInsight | AdsetInsight | AdInsight>> {
     if (level === 'account') return this.tools.getAccountInsights(client, options);
     if (level === 'campaign') return this.tools.getCampaignInsights(client, options);
@@ -250,31 +256,36 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
     request: AdsBrokerRequest,
     credential: CredentialContext
   ):
-    | { ok: true; options: { adAccountId: string; since: string; until: string; limit?: number; breakdowns?: LocationBreakdown[] } }
+    | { ok: true; options: { adAccountId: string; since: string; until: string; limit?: number; breakdowns?: Array<LocationBreakdown | 'product_id'>; mode?: 'standard' | 'cpas' } }
     | { ok: false; response: AdsBrokerResponse<never> } {
     const adAccountId = request.accountId ?? credential.accountId;
     const since = request.since;
     const until = request.until;
     const limit = typeof request.params.limit === 'number' ? request.params.limit : undefined;
-    let breakdowns: LocationBreakdown[] | undefined;
+    const mode = request.params.mode === 'cpas' ? 'cpas' : undefined;
+    let breakdowns: Array<LocationBreakdown | 'product_id'> | undefined;
 
-    try {
-      breakdowns = assertLocationBreakdowns(request.params.breakdowns);
-    } catch (error) {
-      return {
-        ok: false,
-        response: {
+    if (mode === 'cpas') {
+      breakdowns = ['product_id'];
+    } else {
+      try {
+        breakdowns = assertLocationBreakdowns(request.params.breakdowns);
+      } catch (error) {
+        return {
           ok: false,
-          provider: 'meta',
-          errors: [
-            {
-              provider: 'meta',
-              code: 'INVALID_LOCATION_BREAKDOWN',
-              message: error instanceof Error ? error.message : 'Invalid location breakdown',
-            },
-          ],
-        },
-      };
+          response: {
+            ok: false,
+            provider: 'meta',
+            errors: [
+              {
+                provider: 'meta',
+                code: 'INVALID_LOCATION_BREAKDOWN',
+                message: error instanceof Error ? error.message : 'Invalid location breakdown',
+              },
+            ],
+          },
+        };
+      }
     }
 
     if (!adAccountId || !since || !until) {
@@ -294,7 +305,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       };
     }
 
-    return { ok: true, options: { adAccountId, since, until, limit, breakdowns } };
+    return { ok: true, options: { adAccountId, since, until, limit, breakdowns, mode } };
   }
 
   private getPlacementPerformanceOptions(

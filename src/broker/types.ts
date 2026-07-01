@@ -151,6 +151,10 @@ export interface AdsMetricDimensions {
   dma?: string;
   platform?: string;
   placement?: string;
+  product_id?: string;
+  product_name?: string;
+  product_set_id?: string;
+  catalog_segment_id?: string;
 }
 
 export interface AdsActionMetric {

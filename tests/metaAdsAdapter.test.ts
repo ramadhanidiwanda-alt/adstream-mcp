@@ -106,6 +106,72 @@ describe('MetaAdsAdapter', () => {
     expect(response.data?.[0].raw).toBeUndefined();
   });
 
+  it('enables CPAS mode as Meta campaign performance parameters', async () => {
+    let receivedOptions: Record<string, unknown> | undefined;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        getCampaignInsights: async (_client, options) => {
+          receivedOptions = options as unknown as Record<string, unknown>;
+          return [
+            {
+              campaign_id: 'cmp_1',
+              campaign_name: 'CPAS Campaign',
+              product_id: 'sku_1',
+              product_name: 'Hero SKU',
+              product_set_id: 'set_1',
+              catalog_segment_id: 'segment_1',
+              spend: '10',
+              impressions: '100',
+              reach: '90',
+              clicks: '5',
+              inline_link_clicks: '4',
+              ctr: '5',
+              cpc: '2',
+              cpm: '100',
+              actions: [{ action_type: 'purchase', value: '2' }],
+              action_values: [{ action_type: 'purchase', value: '200' }],
+            },
+          ];
+        },
+      },
+    });
+
+    const response = await adapter.getCampaignPerformance({
+      provider: 'meta',
+      accountId: 'act_123',
+      since: '2026-05-01',
+      until: '2026-05-07',
+      params: { mode: 'cpas', limit: 25 },
+      credentials: {
+        provider: 'meta',
+        accessToken: 'secret-token',
+        accountId: 'act_123',
+        source: 'test',
+      },
+    });
+
+    expect(response.ok).toBe(true);
+    expect(receivedOptions).toMatchObject({
+      adAccountId: 'act_123',
+      since: '2026-05-01',
+      until: '2026-05-07',
+      limit: 25,
+      breakdowns: ['product_id'],
+    });
+    expect(response.meta).toMatchObject({ mode: 'cpas' });
+    expect(response.data?.[0]).toMatchObject({
+      setup: { buying_type: 'cpas' },
+      commerce: { purchases: 2, purchase_value: 200, purchase_roas: 20 },
+      dimensions: {
+        product_id: 'sku_1',
+        product_name: 'Hero SKU',
+        product_set_id: 'set_1',
+        catalog_segment_id: 'segment_1',
+      },
+    });
+  });
+
   it('returns safe not-implemented response for creative performance', async () => {
     const adapter = new MetaAdsAdapter();
     const response = await adapter.getCreativePerformance({ params: {} });
