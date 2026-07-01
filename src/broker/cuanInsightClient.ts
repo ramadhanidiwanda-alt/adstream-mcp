@@ -297,7 +297,7 @@ export function createCuanInsightCredentialClient(
         let responseBody: unknown;
         try {
           responseBody = await response.json();
-        } catch (parseError) {
+        } catch {
           throw new CuanInsightCredentialClientError(
             'INVALID_RESPONSE',
             'Failed to parse Cuan Insight response as JSON'

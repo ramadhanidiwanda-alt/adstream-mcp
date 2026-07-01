@@ -4,15 +4,12 @@ import type {
   AdsMetricRecord,
   AdsMutationResult,
   AdsProviderAdapter,
-  AdsToolCategory,
-  AdsToolDefinition,
-  CredentialContext,
 } from '../../broker/types.js';
 import { ADS_PROVIDER_CAPABILITY_MATRIX } from '../../broker/types.js';
 import { redactErrorMessage } from '../../broker/credentials.js';
 import { normalizeTikTokInsights, type TikTokInsightRecord } from './normalizer.js';
 import type { TikTokApiClient } from '../../tiktokClient.js';
-import { getTikTokReport, type TikTokDataLevel } from '../../tools/getTikTokReport.js';
+import { getTikTokReport } from '../../tools/getTikTokReport.js';
 import { getTikTokAdvertisers } from '../../tools/getTikTokAdvertisers.js';
 import { getTikTokCampaigns } from '../../tools/getTikTokCampaigns.js';
 import type { TikTokCampaign } from '../../tools/getTikTokCampaigns.js';
@@ -32,12 +29,6 @@ export interface TikTokAdsAdapterOptions {
   /** Provide a real TikTok API client */
   client?: TikTokApiClient;
 }
-
-const LEVEL_TO_DATA_LEVEL: Record<string, TikTokDataLevel> = {
-  campaign: 'AUCTION_CAMPAIGN',
-  adgroup: 'AUCTION_ADGROUP',
-  ad: 'AUCTION_AD',
-};
 
 export class TikTokAdsAdapter implements AdsProviderAdapter {
   readonly id = 'tiktok' as const;
