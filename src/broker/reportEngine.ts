@@ -1,19 +1,30 @@
-import type { AdsBrokerRequest, AdsMetricRecord, AdsProviderId, AdsReport, AdsReportFormat, AdsReportTotals } from './types.js';
+import type {
+  AdsBrokerRequest,
+  AdsMetricRecord,
+  AdsProviderId,
+  AdsReport,
+  AdsReportFormat,
+  AdsReportLevel,
+  AdsReportScorecard,
+  AdsReportTotals,
+} from './types.js';
 
 const DEFAULT_DISCLAIMER = 'These recommendations are suggestions only. Review performance context and business constraints before taking action.';
 
 export function buildAdsSummaryReport(
   provider: AdsProviderId,
   records: AdsMetricRecord[],
-  request: AdsBrokerRequest
+  request: AdsBrokerRequest,
+  level: AdsReportLevel = 'account'
 ): AdsReport {
   const totals = calculateTotals(records);
   const format = parseReportFormat(request.params.format);
 
-  return {
+  const report: AdsReport = {
     provider,
     report_kind: 'ads',
     format,
+    level,
     date_range: {
       since: request.since ?? records[0]?.time.date_start ?? '',
       until: request.until ?? records[0]?.time.date_stop ?? '',
@@ -23,6 +34,19 @@ export function buildAdsSummaryReport(
     recommendations: buildRecommendations(totals, records.length),
     disclaimer: DEFAULT_DISCLAIMER,
   };
+
+  if (format === 'audit') {
+    return {
+      ...report,
+      scorecard: buildScorecard(totals, records.length),
+      efficiency_findings: buildEfficiencyFindings(totals),
+      risk_findings: buildRiskFindings(totals, records.length),
+      opportunity_findings: buildOpportunityFindings(totals),
+      next_actions: buildNextActions(totals),
+    };
+  }
+
+  return report;
 }
 
 function calculateTotals(records: AdsMetricRecord[]): AdsReportTotals {
@@ -100,6 +124,120 @@ function buildRecommendations(totals: AdsReportTotals, recordCount: number): str
 
   recommendations.push('Use campaign/adset/ad-level breakdowns before applying any changes.');
   return recommendations;
+}
+
+function buildScorecard(totals: AdsReportTotals, recordCount: number): AdsReportScorecard {
+  if (recordCount === 0) {
+    return { score: 0, rating: 'critical', reasons: ['No performance rows were available.'] };
+  }
+
+  let score = 65;
+  const reasons: string[] = [];
+
+  if (totals.roas !== undefined) {
+    if (totals.roas >= 4) {
+      score += 20;
+      reasons.push('ROAS is strong relative to spend.');
+    } else if (totals.roas >= 2) {
+      score += 8;
+      reasons.push('ROAS is acceptable but should be monitored.');
+    } else {
+      score -= 20;
+      reasons.push('ROAS is below a healthy scaling threshold.');
+    }
+  }
+
+  if (totals.ctr !== undefined) {
+    if (totals.ctr >= 2) {
+      score += 7;
+      reasons.push('CTR indicates healthy engagement.');
+    } else if (totals.ctr < 1) {
+      score -= 10;
+      reasons.push('CTR suggests weak creative or audience fit.');
+    }
+  }
+
+  if (totals.spend > 0 && totals.clicks === 0) {
+    score -= 20;
+    reasons.push('Spend has not produced clicks.');
+  }
+
+  const normalizedScore = Math.max(0, Math.min(100, score));
+  return {
+    score: normalizedScore,
+    rating: scoreToRating(normalizedScore),
+    reasons,
+  };
+}
+
+function buildEfficiencyFindings(totals: AdsReportTotals): string[] {
+  const findings: string[] = [];
+
+  if (totals.cpc !== undefined) {
+    findings.push(`Average CPC was ${formatNumber(totals.cpc)}.`);
+  }
+
+  if (totals.ctr !== undefined) {
+    findings.push(`Overall CTR was ${formatNumber(totals.ctr)}%.`);
+  }
+
+  if (totals.cpm !== undefined) {
+    findings.push(`Overall CPM was ${formatNumber(totals.cpm)}.`);
+  }
+
+  return findings.length ? findings : ['Insufficient click and impression data to evaluate efficiency.'];
+}
+
+function buildRiskFindings(totals: AdsReportTotals, recordCount: number): string[] {
+  const findings: string[] = [];
+
+  if (recordCount === 0) {
+    findings.push('No data returned; reporting conclusions are blocked.');
+  }
+
+  if (totals.spend > 0 && totals.clicks === 0) {
+    findings.push('Spend is present but clicks are zero. Check delivery, objective, tracking, or creative quality.');
+  }
+
+  if (totals.roas !== undefined && totals.roas < 2) {
+    findings.push('ROAS is below 2.0; avoid scaling until campaign-level drivers are reviewed.');
+  }
+
+  return findings.length ? findings : ['No critical efficiency risks detected from the normalized totals.'];
+}
+
+function buildOpportunityFindings(totals: AdsReportTotals): string[] {
+  const findings: string[] = [];
+
+  if (totals.roas !== undefined && totals.roas >= 3) {
+    findings.push('High ROAS indicates potential budget headroom if campaign-level consistency is confirmed.');
+  }
+
+  if (totals.leads !== undefined && totals.leads > 0) {
+    findings.push('Lead volume is present; connect lead quality or CRM feedback before scaling.');
+  }
+
+  return findings.length ? findings : ['Use lower-level breakdowns to identify pockets of scale or waste.'];
+}
+
+function buildNextActions(totals: AdsReportTotals): string[] {
+  const actions = ['Review campaign-level performance before making budget changes.'];
+
+  if (totals.roas !== undefined && totals.roas >= 3) {
+    actions.push('Shortlist high-ROAS campaigns for controlled budget increases.');
+  } else if (totals.roas !== undefined) {
+    actions.push('Inspect low-ROAS campaigns for creative, targeting, landing page, or tracking issues.');
+  }
+
+  actions.push('Do not execute write operations without explicit confirmation and audit logging.');
+  return actions;
+}
+
+function scoreToRating(score: number): AdsReportScorecard['rating'] {
+  if (score >= 85) return 'excellent';
+  if (score >= 70) return 'good';
+  if (score >= 45) return 'needs_attention';
+  return 'critical';
 }
 
 function parseReportFormat(value: unknown): AdsReportFormat {
