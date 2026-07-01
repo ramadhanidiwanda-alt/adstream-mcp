@@ -258,6 +258,8 @@ Your MCP server provides these tools:
 
 Campaign-level write operations may be available through broker/MCP tools, depending on the connected server. Supported campaign operations are pause, resume, budget update, and rename.
 
+For the full lifecycle and confirmation requirements, follow `../../../docs/WRITE_SAFETY_CONTRACT.md`.
+
 **Rules:**
 - Always start with `dry_run_mutation` for write-like requests.
 - Show the before/after diff, expected impact, risks, and audit intent.
