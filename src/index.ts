@@ -103,6 +103,13 @@ export {
   toAdsBrokerRequest,
 } from './broker/mcpTools.js';
 export type * from './broker/mcpTools.js';
+export {
+  COMMERCE_MCP_TOOL_DEFINITIONS,
+  COMMERCE_MCP_TOOL_NAMES,
+  handleCommerceMcpToolCall,
+  safeCommerceMcpError,
+} from './broker/commerceTools.js';
+export type * from './broker/commerceTools.js';
 export type * from './broker/reportEngine.js';
 export { buildAdsSummaryReport } from './broker/reportEngine.js';
 export type * from './broker/commerceReportEngine.js';

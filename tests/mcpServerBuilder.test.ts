@@ -3,6 +3,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { createMetaAdsMcpServer } from '../mcp-server/src/createServer.js';
 import { ADS_MCP_TOOL_DEFINITIONS } from '../src/broker/mcpTools.js';
+import { COMMERCE_MCP_TOOL_DEFINITIONS } from '../src/broker/commerceTools.js';
 import type { AdsBroker } from '../src/broker/AdsBroker.js';
 
 const legacyToolNames = [
@@ -131,7 +132,7 @@ describe('MCP server builder', () => {
   it('keeps the expected MCP tool count', async () => {
     const response = await listRegisteredTools();
 
-    expect(response.tools).toHaveLength(26);
+    expect(response.tools).toHaveLength(27);
   });
 
   it('keeps full tool order stable for stdio and future transports', async () => {
@@ -140,6 +141,7 @@ describe('MCP server builder', () => {
 
     expect(names).toEqual([
       ...ADS_MCP_TOOL_DEFINITIONS.map((tool) => tool.name),
+      ...COMMERCE_MCP_TOOL_DEFINITIONS.map((tool) => tool.name),
       ...legacyToolNames,
     ]);
   });
@@ -156,6 +158,9 @@ describe('MCP server builder', () => {
       expect(names).toEqual(expect.arrayContaining(legacyToolNames));
       expect(names).toEqual(
         expect.arrayContaining(ADS_MCP_TOOL_DEFINITIONS.map((tool) => tool.name))
+      );
+      expect(names).toEqual(
+        expect.arrayContaining(COMMERCE_MCP_TOOL_DEFINITIONS.map((tool) => tool.name))
       );
     } finally {
       await Promise.all([client.close(), server.close()]);
