@@ -177,12 +177,12 @@ Prinsip urutan (sesuai keputusan §0): **stabilkan fondasi → report engine →
 
 **Goal:** `ads_generate_report` benar-benar menghasilkan laporan, single-provider dulu. Ads report dan commerce report dipisah sejak desain.
 
-- [ ] Implement `ReportEngine` di `src/broker/` (input: provider, range, level, format, `report_kind: ads|commerce`).
-- [ ] Format laporan ads: `summary`, `daily`, `audit`, `executive` (mulai 1–2 dulu).
-- [ ] Output ternormalisasi + ringkasan naratif (findings, recommendations, disclaimer).
-- [ ] `ads_generate_report` memanggil `ReportEngine` (hapus `NOT_IMPLEMENTED`).
+- [x] Implement `ReportEngine` di `src/broker/` (input: provider, range, level, format, `report_kind: ads|commerce`).
+- [x] Format laporan ads: `summary`, `daily`, `audit`, `executive` (mulai 1–2 dulu).
+- [x] Output ternormalisasi + ringkasan naratif (findings, recommendations, disclaimer).
+- [x] `ads_generate_report` memanggil `ReportEngine` (hapus `NOT_IMPLEMENTED`).
 - [ ] Reuse `analyzeCampaignPerformance`, `recommendActions`, `RuleEngine`.
-- [ ] Tests: report Meta account + campaign level.
+- [x] Tests: report Meta account + campaign level.
 
 **Exit:** `ads_generate_report` mengembalikan laporan Meta (data test), tercakup test.
 
@@ -190,11 +190,11 @@ Prinsip urutan (sesuai keputusan §0): **stabilkan fondasi → report engine →
 
 **Goal:** Satu laporan menggabungkan >1 provider.
 
-- [ ] Implement multi-provider read di `AdsBroker` (hapus `NOT_IMPLEMENTED` cross-provider).
-- [ ] Strategi agregasi: normalisasi ke `AdsMetricRecord`, satukan by level, hitung total.
-- [ ] Penanganan partial failure: satu provider gagal tidak menggagalkan seluruh laporan (`errors[]` per provider).
-- [ ] Currency handling: normalisasi/anotasi mata uang berbeda (jangan salah jumlah).
-- [ ] Tests: Meta + TikTok gabungan.
+- [x] Implement multi-provider read di `AdsBroker` (hapus `NOT_IMPLEMENTED` cross-provider).
+- [x] Strategi agregasi: normalisasi ke `AdsMetricRecord`, satukan by level, hitung total.
+- [x] Penanganan partial failure: satu provider gagal tidak menggagalkan seluruh laporan (`errors[]` per provider).
+- [x] Currency handling: normalisasi/anotasi mata uang berbeda (jangan salah jumlah).
+- [x] Tests: Meta + TikTok gabungan.
 
 **Exit:** laporan lintas Meta+TikTok dengan total & per-provider breakdown, partial failure aman.
 

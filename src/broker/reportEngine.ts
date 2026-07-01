@@ -1,6 +1,7 @@
 import type {
   AdsBrokerRequest,
   AdsMetricRecord,
+  AdsMultiProviderReport,
   AdsProviderId,
   AdsReport,
   AdsReportFormat,
@@ -49,6 +50,105 @@ export function buildAdsSummaryReport(
   return report;
 }
 
+export function buildCrossProviderReport(
+  perProvider: AdsReport[],
+  request: AdsBrokerRequest,
+  level: AdsReportLevel
+): AdsMultiProviderReport {
+  const totals = combineTotals(perProvider.map((report) => report.totals));
+  const format = parseReportFormat(request.params.format);
+  const providers = perProvider.map((report) => report.provider);
+
+  const currencies = collectCurrencies(perProvider);
+  const mixedCurrency = currencies.length > 1;
+  const warnings: string[] = [];
+  if (mixedCurrency) {
+    warnings.push(
+      `Mixed currency totals detected (${currencies.join(', ')}); treat combined monetary totals as indicative only.`
+    );
+  }
+
+  const findings = [
+    `Aggregated ${perProvider.length} provider report${perProvider.length === 1 ? '' : 's'}: ${providers.join(', ')}.`,
+    `Combined spend was ${formatNumber(totals.spend)} across ${formatNumber(totals.impressions)} impressions.`,
+  ];
+
+  return {
+    report_kind: 'ads',
+    format,
+    level,
+    providers,
+    date_range: {
+      since: request.since ?? perProvider[0]?.date_range.since ?? '',
+      until: request.until ?? perProvider[0]?.date_range.until ?? '',
+    },
+    totals,
+    per_provider: perProvider,
+    currencies,
+    mixed_currency: mixedCurrency,
+    findings,
+    recommendations: ['Compare per-provider efficiency before shifting budget across platforms.'],
+    disclaimer: DEFAULT_DISCLAIMER,
+    warnings: warnings.length ? warnings : undefined,
+  };
+}
+
+function combineTotals(all: AdsReportTotals[]): AdsReportTotals {
+  const combined: AdsReportTotals = {
+    spend: all.reduce((total, item) => total + item.spend, 0),
+    impressions: all.reduce((total, item) => total + item.impressions, 0),
+    clicks: all.reduce((total, item) => total + item.clicks, 0),
+  };
+
+  const reach = sumDefined(all, (item) => item.reach);
+  const purchases = sumDefined(all, (item) => item.purchases);
+  const purchaseValue = sumDefined(all, (item) => item.purchase_value);
+  const leads = sumDefined(all, (item) => item.leads);
+
+  if (reach !== undefined) combined.reach = reach;
+  if (purchases !== undefined) combined.purchases = purchases;
+  if (purchaseValue !== undefined) combined.purchase_value = purchaseValue;
+  if (leads !== undefined) combined.leads = leads;
+
+  if (combined.spend > 0 && purchaseValue !== undefined) {
+    combined.roas = roundMetric(purchaseValue / combined.spend);
+  }
+
+  if (combined.clicks > 0) {
+    combined.cpc = roundMetric(combined.spend / combined.clicks);
+  }
+
+  if (combined.impressions > 0) {
+    combined.ctr = roundMetric((combined.clicks / combined.impressions) * 100);
+    combined.cpm = roundMetric((combined.spend / combined.impressions) * 1000);
+  }
+
+  return combined;
+}
+
+function collectCurrencies(perProvider: AdsReport[]): string[] {
+  const currencies: string[] = [];
+  for (const report of perProvider) {
+    const currency = report.totals.currency;
+    if (currency && !currencies.includes(currency)) {
+      currencies.push(currency);
+    }
+  }
+  return currencies;
+}
+
+function sumDefined(all: AdsReportTotals[], getValue: (item: AdsReportTotals) => number | undefined): number | undefined {
+  let hasValue = false;
+  const total = all.reduce((sumValue, item) => {
+    const value = getValue(item);
+    if (value === undefined) return sumValue;
+    hasValue = true;
+    return sumValue + value;
+  }, 0);
+
+  return hasValue ? total : undefined;
+}
+
 function calculateTotals(records: AdsMetricRecord[]): AdsReportTotals {
   const totals: AdsReportTotals = {
     spend: sum(records, (record) => record.delivery.spend),
@@ -79,7 +179,17 @@ function calculateTotals(records: AdsMetricRecord[]): AdsReportTotals {
     totals.cpm = roundMetric((totals.spend / totals.impressions) * 1000);
   }
 
+  const currency = firstCurrency(records);
+  if (currency !== undefined) totals.currency = currency;
+
   return totals;
+}
+
+function firstCurrency(records: AdsMetricRecord[]): string | undefined {
+  for (const record of records) {
+    if (record.setup?.currency) return record.setup.currency;
+  }
+  return undefined;
 }
 
 function buildFindings(totals: AdsReportTotals, recordCount: number): string[] {

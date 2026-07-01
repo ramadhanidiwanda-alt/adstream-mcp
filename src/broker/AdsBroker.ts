@@ -4,6 +4,8 @@ import type {
   AdsMetricRecord,
   AdsMutationResult,
   AdsReport,
+  AdsMultiProviderReport,
+  AdsProviderReportError,
   AdsProviderAdapter,
   AdsProviderId,
   CredentialContext,
@@ -13,7 +15,7 @@ import { defaultDenyWritePermissionPolicy, isAdsProviderId } from './types.js';
 import type { CredentialResolverContract } from './credentials.js';
 import { redactErrorMessage, redactTokenLikeValues } from './credentials.js';
 import type { ProviderRegistry } from './providerRegistry.js';
-import { buildAdsSummaryReport } from './reportEngine.js';
+import { buildAdsSummaryReport, buildCrossProviderReport } from './reportEngine.js';
 
 export interface AdsBrokerOptions {
   providerRegistry: ProviderRegistry;
@@ -85,15 +87,18 @@ export class AdsBroker {
     return this.executeRead(request, 'getPlacementPerformance');
   }
 
-  async generateReport(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsReport>> {
+  async generateReport(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<AdsReport | AdsMultiProviderReport>> {
     const provider = this.resolveProviderId(request);
     if (!provider.ok) return provider.response;
 
+    const reportLevel = request.params.level === 'campaign' ? 'campaign' : 'account';
+
     if (this.isMultiProviderRequest(request)) {
-      return this.notImplementedResponse('Cross-provider report generation is not implemented yet');
+      return this.generateCrossProviderReport(request, reportLevel);
     }
 
-    const reportLevel = request.params.level === 'campaign' ? 'campaign' : 'account';
     const performance = reportLevel === 'campaign'
       ? await this.getCampaignPerformance(request)
       : await this.getAccountPerformance(request);
@@ -109,6 +114,52 @@ export class AdsBroker {
       ok: true,
       provider: provider.provider,
       data: buildAdsSummaryReport(provider.provider, performance.data ?? [], request, reportLevel),
+    };
+  }
+
+  private async generateCrossProviderReport(
+    request: AdsBrokerRequest,
+    reportLevel: 'account' | 'campaign'
+  ): Promise<AdsBrokerResponse<AdsMultiProviderReport>> {
+    const providers = (request.providers ?? []).filter(isAdsProviderId);
+    const perProvider: AdsReport[] = [];
+    const errors: AdsProviderReportError[] = [];
+
+    for (const providerId of providers) {
+      const singleRequest: AdsBrokerRequest = {
+        ...request,
+        provider: providerId,
+        providers: undefined,
+      };
+
+      const performance = reportLevel === 'campaign'
+        ? await this.getCampaignPerformance(singleRequest)
+        : await this.getAccountPerformance(singleRequest);
+
+      if (!performance.ok) {
+        for (const error of performance.errors ?? []) {
+          errors.push({
+            provider: error.provider ?? providerId,
+            code: error.code ?? 'PROVIDER_REPORT_ERROR',
+            message: error.message,
+          });
+        }
+        continue;
+      }
+
+      perProvider.push(
+        buildAdsSummaryReport(providerId, performance.data ?? [], singleRequest, reportLevel)
+      );
+    }
+
+    if (perProvider.length === 0) {
+      return { ok: false, errors };
+    }
+
+    const report = buildCrossProviderReport(perProvider, request, reportLevel);
+    return {
+      ok: true,
+      data: { ...report, errors: errors.length ? errors : undefined },
     };
   }
 
