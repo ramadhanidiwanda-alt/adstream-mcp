@@ -10,6 +10,8 @@ export { getTikTokReport } from './tools/getTikTokReport.js';
 export type * from './tools/getTikTokReport.js';
 export { getGmvMaxReport } from './tools/getGmvMaxReport.js';
 export type * from './tools/getGmvMaxReport.js';
+export { normalizeGmvMaxRows } from './providers/tiktok/gmvMaxNormalizer.js';
+export type * from './providers/tiktok/gmvMaxNormalizer.js';
 export { getTikTokAdvertisers } from './tools/getTikTokAdvertisers.js';
 export type * from './tools/getTikTokAdvertisers.js';
 export { getTikTokCampaigns } from './tools/getTikTokCampaigns.js';
@@ -103,6 +105,8 @@ export {
 export type * from './broker/mcpTools.js';
 export type * from './broker/reportEngine.js';
 export { buildAdsSummaryReport } from './broker/reportEngine.js';
+export type * from './broker/commerceReportEngine.js';
+export { buildCommerceReport } from './broker/commerceReportEngine.js';
 export { ProviderRegistry } from './broker/providerRegistry.js';
 export { MetaAdsAdapter } from './providers/meta/MetaAdsAdapter.js';
 export { normalizeMetaInsight, normalizeMetaInsights } from './providers/meta/normalizer.js';

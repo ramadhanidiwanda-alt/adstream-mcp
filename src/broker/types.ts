@@ -261,6 +261,55 @@ export interface AdsMultiProviderReport {
   errors?: AdsProviderReportError[];
 }
 
+export type CommerceProviderId = 'tiktok_gmv' | 'shopee' | 'tokopedia' | 'lazada' | 'blibli';
+export type CommerceReportFormat = 'summary' | 'audit' | 'executive';
+
+export interface CommerceStoreIdentity {
+  id: string;
+  name?: string;
+  region?: string;
+}
+
+export interface CommerceProductIdentity {
+  id?: string;
+  name?: string;
+}
+
+export interface CommerceMetrics {
+  gmv: number;
+  orders: number;
+  units_sold?: number;
+  ad_spend?: number;
+  roas_commerce?: number;
+  aov?: number;
+}
+
+export interface CommerceRecord {
+  provider: CommerceProviderId;
+  account_id: string;
+  store: CommerceStoreIdentity;
+  product?: CommerceProductIdentity;
+  time: AdsTimeRange;
+  metrics: CommerceMetrics;
+  raw?: unknown;
+}
+
+export type CommerceReportTotals = CommerceMetrics;
+
+export interface CommerceReport {
+  provider: CommerceProviderId;
+  report_kind: 'commerce';
+  format: CommerceReportFormat;
+  date_range: {
+    since: string;
+    until: string;
+  };
+  totals: CommerceReportTotals;
+  findings: string[];
+  recommendations: string[];
+  disclaimer: string;
+}
+
 export interface CredentialContext {
   provider: AdsProviderId;
   accessToken?: string;
