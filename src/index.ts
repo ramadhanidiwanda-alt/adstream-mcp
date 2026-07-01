@@ -101,6 +101,8 @@ export {
   toAdsBrokerRequest,
 } from './broker/mcpTools.js';
 export type * from './broker/mcpTools.js';
+export type * from './broker/reportEngine.js';
+export { buildAdsSummaryReport } from './broker/reportEngine.js';
 export { ProviderRegistry } from './broker/providerRegistry.js';
 export { MetaAdsAdapter } from './providers/meta/MetaAdsAdapter.js';
 export { normalizeMetaInsight, normalizeMetaInsights } from './providers/meta/normalizer.js';
