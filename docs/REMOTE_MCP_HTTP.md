@@ -273,7 +273,7 @@ Check bearer guard:
 ```bash
 curl -i -X POST http://127.0.0.1:8787/mcp
 curl -i -X POST http://127.0.0.1:8787/mcp \
-  -H 'Authorization: Bearer local_test_token'
+  -H "Authorization: Bearer ${MCP_HTTP_BEARER_TOKEN}"
 ```
 
 ## Docker

@@ -89,6 +89,9 @@ Menjadi **the best Meta Ads toolkit** untuk AI agents dan developers — menggab
 **Goal:** Extend mutation coverage to adset and ad levels
 
 #### Features
+- [ ] **Safety Contract Prerequisite**
+  - [ ] Follow `docs/WRITE_SAFETY_CONTRACT.md` for every new mutation
+  - [ ] Prove dry-run, confirmation, permission, audit, and redaction behavior before exposing tools
 - [ ] **Write Operations**
   - [ ] Pause/enable ad sets + ads
   - [ ] Update ad set budgets
