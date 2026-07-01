@@ -93,7 +93,10 @@ export class AdsBroker {
       return this.notImplementedResponse('Cross-provider report generation is not implemented yet');
     }
 
-    const performance = await this.getAccountPerformance(request);
+    const reportLevel = request.params.level === 'campaign' ? 'campaign' : 'account';
+    const performance = reportLevel === 'campaign'
+      ? await this.getCampaignPerformance(request)
+      : await this.getAccountPerformance(request);
     if (!performance.ok) {
       return {
         ok: false,
@@ -105,7 +108,7 @@ export class AdsBroker {
     return {
       ok: true,
       provider: provider.provider,
-      data: buildAdsSummaryReport(provider.provider, performance.data ?? [], request),
+      data: buildAdsSummaryReport(provider.provider, performance.data ?? [], request, reportLevel),
     };
   }
 

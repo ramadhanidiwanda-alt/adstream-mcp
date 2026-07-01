@@ -58,6 +58,7 @@ function createBrokerStub(): AdsBroker {
         provider: 'meta',
         report_kind: 'ads',
         format: 'summary',
+        level: 'account',
         date_range: { since: '2026-05-01', until: '2026-05-07' },
         totals: { spend: 10, impressions: 100, clicks: 0 },
         findings: ['Analyzed 1 normalized ads performance row.'],

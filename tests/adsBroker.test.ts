@@ -263,4 +263,81 @@ describe('AdsBroker', () => {
     expect(response.data?.recommendations.length).toBeGreaterThan(0);
     expect(response.data?.disclaimer).toContain('suggestion');
   });
+
+  it('generates campaign-level reports when params.level is campaign', async () => {
+    let accountCalled = false;
+    let campaignCalled = false;
+    const adapter = createAdapter({
+      getAccountPerformance: async () => {
+        accountCalled = true;
+        return { ok: true, provider: 'meta', data: [] };
+      },
+      getCampaignPerformance: async () => {
+        campaignCalled = true;
+        return {
+          ok: true,
+          provider: 'meta',
+          data: [
+            createMetricRecord({
+              level: 'campaign',
+              identity: { account_id: 'act_123', campaign_id: 'cmp_scale', campaign_name: 'Scale Candidate' },
+              delivery: { spend: 200, impressions: 2000 },
+              clicks: { clicks: 100 },
+              commerce: { purchases: 10, purchase_value: 1000 },
+            }),
+          ],
+        };
+      },
+    });
+    const { broker } = createBroker(adapter);
+
+    const response = await broker.generateReport({ ...baseRequest, params: { level: 'campaign' } });
+
+    expect(response.ok).toBe(true);
+    expect(accountCalled).toBe(false);
+    expect(campaignCalled).toBe(true);
+    expect(response.data?.level).toBe('campaign');
+    expect(response.data?.totals.roas).toBe(5);
+  });
+
+  it('adds audit sections for audit format reports', async () => {
+    const adapter = createAdapter({
+      getCampaignPerformance: async () => ({
+        ok: true,
+        provider: 'meta',
+        data: [
+          createMetricRecord({
+            delivery: { spend: 100, impressions: 2000 },
+            clicks: { clicks: 40 },
+            commerce: { purchases: 1, purchase_value: 120 },
+          }),
+          createMetricRecord({
+            identity: { account_id: 'act_123', campaign_id: 'cmp_good' },
+            delivery: { spend: 50, impressions: 1000 },
+            clicks: { clicks: 60 },
+            commerce: { purchases: 4, purchase_value: 400 },
+          }),
+        ],
+      }),
+    });
+    const { broker } = createBroker(adapter);
+
+    const response = await broker.generateReport({
+      ...baseRequest,
+      params: { level: 'campaign', format: 'audit' },
+    });
+
+    expect(response.ok).toBe(true);
+    expect(response.data).toMatchObject({
+      format: 'audit',
+      scorecard: {
+        score: expect.any(Number),
+        rating: expect.any(String),
+      },
+    });
+    expect(response.data?.efficiency_findings.length).toBeGreaterThan(0);
+    expect(response.data?.risk_findings.length).toBeGreaterThan(0);
+    expect(response.data?.opportunity_findings.length).toBeGreaterThan(0);
+    expect(response.data?.next_actions.length).toBeGreaterThan(0);
+  });
 });
