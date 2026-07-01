@@ -166,6 +166,10 @@ export interface CampaignInsight {
   dma?: string;
   publisher_platform?: string;
   platform_position?: string;
+  product_id?: string;
+  product_name?: string;
+  product_set_id?: string;
+  catalog_segment_id?: string;
   spend: string;
   impressions: string;
   reach: string;

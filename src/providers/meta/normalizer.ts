@@ -8,6 +8,7 @@ export interface NormalizeMetaInsightOptions {
   accountId: string;
   since: string;
   until: string;
+  mode?: 'standard' | 'cpas';
   includeRaw?: boolean;
 }
 
@@ -55,6 +56,13 @@ export function normalizeMetaInsight(
     actions,
   };
 
+  if (options.mode === 'cpas') {
+    record.setup = {
+      ...record.setup,
+      buying_type: 'cpas',
+    };
+  }
+
   if (purchases !== undefined || purchaseValue !== undefined || purchaseRoas !== undefined) {
     record.commerce = {
       purchases,
@@ -70,12 +78,28 @@ export function normalizeMetaInsight(
   const country = 'country' in insight ? insight.country : undefined;
   const region = 'region' in insight ? insight.region : undefined;
   const dma = 'dma' in insight ? insight.dma : undefined;
+  const productId = 'product_id' in insight ? insight.product_id : undefined;
+  const productName = 'product_name' in insight ? insight.product_name : undefined;
+  const productSetId = 'product_set_id' in insight ? insight.product_set_id : undefined;
+  const catalogSegmentId = 'catalog_segment_id' in insight ? insight.catalog_segment_id : undefined;
 
-  if (country !== undefined || region !== undefined || dma !== undefined) {
+  if (
+    country !== undefined ||
+    region !== undefined ||
+    dma !== undefined ||
+    productId !== undefined ||
+    productName !== undefined ||
+    productSetId !== undefined ||
+    catalogSegmentId !== undefined
+  ) {
     record.dimensions = {
       country,
       region,
       dma,
+      product_id: productId,
+      product_name: productName,
+      product_set_id: productSetId,
+      catalog_segment_id: catalogSegmentId,
     };
   }
 
