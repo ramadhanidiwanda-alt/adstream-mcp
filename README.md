@@ -123,8 +123,8 @@ CUAN_INSIGHT_CONNECTION_KEY=<your-connection-key>
 Do not set a global connection key.
 Client must send `x-cuan-mcp-connection-key` per request.
 
-> Current v0.4.0 supports env-based Connection Key for local/single-tenant use.
-> Per-request Connection Key passthrough for hosted multi-user is planned.
+> Env-based Connection Key is for local/single-tenant use.
+> Hosted multi-user deployments should pass `x-cuan-mcp-connection-key` per request.
 
 ### Self-Hosted Setup
 
@@ -198,7 +198,7 @@ CUAN_INSIGHT_SUPABASE_ANON_KEY=<supabase-anon-key-if-required>
 - Provider token tidak pernah ditampilkan ke AI client
 - Key dapat di-revoke kapan saja dari UI
 
-> Current v0.4.0 uses env-based Connection Key. Per-request `x-cuan-mcp-connection-key` passthrough for hosted multi-user is planned for a future release.
+> Env-based Connection Key is for local/single-tenant use. Hosted multi-user deployments should pass `x-cuan-mcp-connection-key` per request.
 
 
 **Legacy: MCP Token Mode (default, backward compatible)**

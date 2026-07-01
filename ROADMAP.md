@@ -111,7 +111,7 @@ Menjadi **the best Meta Ads toolkit** untuk AI agents dan developers — menggab
 
 ## Planned 📅
 
-### v0.5.0 (Target: July 2026) - OAuth & Token Management
+### v0.7.0 (Target: August 2026) - OAuth & Token Management
 
 **Goal:** Simplify authentication for end users
 
@@ -147,7 +147,7 @@ Menjadi **the best Meta Ads toolkit** untuk AI agents dan developers — menggab
 
 ---
 
-### v0.6.0 (Target: August 2026) - Multi-Account Support
+### v0.8.0 (Target: September 2026) - Multi-Account Support
 
 **Goal:** Support agencies managing multiple ad accounts
 
@@ -195,7 +195,7 @@ Menjadi **the best Meta Ads toolkit** untuk AI agents dan developers — menggab
 
 ---
 
-### v0.7.0 (Target: September 2026) - Advanced Analysis
+### v0.9.0 (Target: October 2026) - Advanced Analysis
 
 **Goal:** Deeper insights and predictive analytics
 
@@ -235,7 +235,7 @@ Menjadi **the best Meta Ads toolkit** untuk AI agents dan developers — menggab
 
 ---
 
-### v0.8.0 (Target: October 2026) - Industry Templates
+### v1.0.0 (Target: November 2026) - Industry Templates
 
 **Goal:** Pre-built playbooks for common verticals
 
@@ -295,7 +295,7 @@ skills/meta-ads/playbooks/
 
 ---
 
-### v0.9.0 (Target: November 2026) - Integrations
+### v1.1.0 (Target: December 2026) - Integrations
 
 **Goal:** Connect with other tools in the marketing stack
 
@@ -424,12 +424,13 @@ skills/meta-ads/playbooks/
 
 | Feature | Impact | Complexity | Strategic | Priority |
 |---------|--------|------------|-----------|----------|
-| Write Operations | High | Medium | High | **P0** (v0.4) |
-| OAuth Flow | High | Medium | Medium | **P1** (v0.5) |
-| Multi-Account | Medium | Low | High | **P1** (v0.6) |
-| Predictive Analytics | Medium | High | Medium | **P2** (v0.7) |
-| Industry Templates | High | Low | Medium | **P2** (v0.8) |
-| Integrations | High | High | High | **P2** (v0.9) |
+| Campaign Write Operations | High | Medium | High | ✅ Done (v0.5.0) |
+| Adset & Ad Write Operations | High | Medium | High | **P0** (v0.6.0) |
+| OAuth Flow | High | Medium | Medium | **P1** (v0.7.0) |
+| Multi-Account | Medium | Low | High | **P1** (v0.8.0) |
+| Predictive Analytics | Medium | High | Medium | **P2** (v0.9.0) |
+| Industry Templates | High | Low | Medium | **P2** (v1.0.0) |
+| Integrations | High | High | High | **P2** (v1.1.0) |
 
 ---
 
@@ -474,13 +475,13 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
 ## Questions?
 
-- **"When will v0.4 be released?"** → Target June 2026, but depends on community contributions
+- **"What should we build next?"** → v0.6.0 adset/ad write operations with stronger safety guards
 - **"Can I request a feature?"** → Yes! Open an issue with `[Feature Request]` tag
 - **"Will v1.0 be free?"** → Yes, open source forever (MIT license)
 - **"Will there be a paid version?"** → Maybe enterprise features (SSO, SLA) in the future
 
 ---
 
-**Last Updated:** 2026-05-29  
+**Last Updated:** 2026-06-25  
 **Maintained By:** Project maintainers + community  
 **License:** MIT
