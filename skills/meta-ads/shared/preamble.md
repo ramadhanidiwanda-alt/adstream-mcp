@@ -79,12 +79,19 @@ Based on your MCP server implementation, these tools should be available:
 - `getAdsInsights` — Get insights for individual ads
 - `generateDailyReport` — Generate automated daily report
 
-### Reads vs. writes
+### Reads vs. guarded writes
 
-Your current implementation is **read-only**. All tools fetch data and analyze performance. There are no mutation operations (pause, budget changes, etc.).
+Read operations are the default path. The core analysis tools fetch data and summarize performance.
 
-When the user asks for write operations (pause campaign, change budget, etc.), explain:
+Campaign-level write operations may be available in broker mode on newer servers. Supported campaign mutations are pause, resume, budget update, and rename. These must always follow the safety workflow:
 
-> This skill is currently read-only. I can analyze your Meta Ads performance and provide recommendations, but I cannot make changes directly. You'll need to implement those changes in Meta Ads Manager.
+1. Clarify objective, scope, and mode first.
+2. Run a dry-run/preview before execution.
+3. Show the before/after diff and risk.
+4. Ask for explicit confirmation after the dry-run result.
+5. Execute only the exact confirmed operation.
+6. Never log or expose access tokens, provider tokens, connection keys, or authorization headers.
+
+Unsupported write operations — ad set/ad writes, targeting changes, creative upload, and campaign creation — should be handled as analysis or recommendation tasks. Explain the limitation and offer to prepare a safe implementation plan or Meta Ads Manager instructions.
 
 Config is loaded. Hand control back to the invoking skill.
