@@ -1,4 +1,4 @@
-# Project Status — Meta Ads Agent Skill
+# Project Status — Adstream MCP
 
 > **Updated:** 2026-06-25  
 > **Version:** v0.5.2  
@@ -24,12 +24,12 @@
 
 ## A. Project Overview
 
-**meta-ads-agent-skill** is an open-source MCP (Model Context Protocol) server for Meta Ads analysis. It connects MCP-compatible AI clients to Meta Marketing API data through a credential gateway.
+**adstream-mcp** is an open-source MCP (Model Context Protocol) connector hub for ads and commerce analytics. It currently connects MCP-compatible AI clients to Meta and partial TikTok data through a credential gateway, and is being expanded toward Google Ads plus Indonesian marketplace ads.
 
 ### Key Design Decisions
 
 - **Cuan Insight** is the credential authority. It stores and manages all Meta access tokens, user/workspace/plan data, and account mappings.
-- **meta-ads-agent-skill** is the MCP server. It does **not** store Meta tokens — credentials are resolved from Cuan Insight at runtime.
+- **adstream-mcp** is the MCP server. It does **not** store provider tokens — credentials are resolved from Cuan Insight at runtime.
 - The server supports **multi-user** and **multi-workspace** usage through remote credential resolution (Connection Key or OAuth Token modes).
 - Most tools remain read-oriented, but campaign-level write operations are now implemented behind explicit dry-run/confirmation and safety guards. Adset/ad write operations are next.
 - **Connection Key support** (Phase 17.5C): MCP server sends `x-cuan-mcp-connection-key` header when `CUAN_INSIGHT_AUTH_MODE=connection_key`.
@@ -43,9 +43,9 @@
 ```
 MCP Client (Claude Desktop, Cline, etc.)
   │
-  ├─ [Stdio] ──► meta-ads-agent-skill (MCP Server via stdio)
+  ├─ [Stdio] ──► adstream-mcp (MCP Server via stdio)
   │
-  ├─ [SSE] ───► meta-ads-agent-skill (MCP Server via SSE, Phase 16a)
+  ├─ [SSE] ───► adstream-mcp (MCP Server via SSE, Phase 16a)
   │                 │
   │                 ├─ [Remote Mode] ──► Cuan Insight mcp-resolve-credential
   │                 │                       │
@@ -60,7 +60,7 @@ MCP Client (Claude Desktop, Cline, etc.)
   │                                       ▼
   │                                   Normalized MCP Tool Response
   │
-  └─ [Streamable HTTP] ──► meta-ads-agent-skill (MCP Server via Streamable HTTP, Phase 16b)
+  └─ [Streamable HTTP] ──► adstream-mcp (MCP Server via Streamable HTTP, Phase 16b)
 ```
 
 ### Auth Modes (Phase 17.5C)

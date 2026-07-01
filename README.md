@@ -1,10 +1,10 @@
-# Meta Ads Agent Skill
+# Adstream MCP
 
-TypeScript library + AI skills for Meta Ads analysis. Built for both developers who want programmatic control and end users who want AI-powered insights.
+Open-source MCP connector hub for ads and commerce analytics. It started as a Meta Ads toolkit and is evolving into Cuan Insight's client-agnostic execution layer for Meta, TikTok, Google Ads, and Indonesian marketplace ads.
 
-[![GitHub](https://img.shields.io/github/license/ramadhanidiwanda-alt/meta-ads-agent-skill)](LICENSE)
-[![npm version](https://img.shields.io/npm/v/meta-ads-agent-skill)](https://www.npmjs.com/package/meta-ads-agent-skill)
-[![tests](https://img.shields.io/badge/tests-391%20passed-brightgreen)]()
+[![GitHub](https://img.shields.io/github/license/ramadhanidiwanda-alt/adstream-mcp)](LICENSE)
+[![npm version](https://img.shields.io/npm/v/adstream-mcp)](https://www.npmjs.com/package/adstream-mcp)
+[![tests](https://img.shields.io/badge/tests-429%20passed-brightgreen)]()
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)]()
 
 
@@ -66,7 +66,7 @@ AI: [finds inefficient spend, calculates savings]
 Programmatic access to Meta Ads data for building custom tools, dashboards, and automation.
 
 ```typescript
-import { MetaClient, getCampaignInsights, analyzeCampaignPerformance } from 'meta-ads-agent-skill';
+import { MetaClient, getCampaignInsights, analyzeCampaignPerformance } from 'adstream-mcp';
 
 const client = new MetaClient({
   accessToken: process.env.META_ACCESS_TOKEN,
@@ -161,9 +161,9 @@ Create `.mcp.json` in your project root (or add to existing):
 ```json
 {
   "mcpServers": {
-    "meta-ads-agent-skill": {
+    "adstream-mcp": {
       "command": "node",
-      "args": ["./node_modules/meta-ads-agent-skill/mcp-server/dist/index.js"],
+      "args": ["./node_modules/adstream-mcp/mcp-server/dist/index.js"],
       "env": {
         "META_ACCESS_TOKEN": "${META_ACCESS_TOKEN}",
         "META_AD_ACCOUNT_ID": "${META_AD_ACCOUNT_ID}"
@@ -233,7 +233,7 @@ The AI will read the skill files, call MCP tools, and provide natural language a
 ### Install
 
 ```bash
-npm install meta-ads-agent-skill
+npm install adstream-mcp
 ```
 
 ### Setup Environment
@@ -249,9 +249,9 @@ META_API_VERSION=v20.0
 ### Quick Start
 
 ```typescript
-import { loadConfig } from 'meta-ads-agent-skill/config';
-import { MetaClient } from 'meta-ads-agent-skill';
-import { getCampaigns, getCampaignInsights } from 'meta-ads-agent-skill/tools';
+import { loadConfig } from 'adstream-mcp/config';
+import { MetaClient } from 'adstream-mcp';
+import { getCampaigns, getCampaignInsights } from 'adstream-mcp/tools';
 
 // Load config from .env
 const config = loadConfig();
@@ -289,7 +289,7 @@ All tools are **read-only**. For remote credential resolution via Cuan Insight, 
 By default, insight tools return only the first page (up to 100 rows). To fetch all data across multiple pages, enable pagination:
 
 ```typescript
-import { getCampaignInsights } from 'meta-ads-agent-skill';
+import { getCampaignInsights } from 'adstream-mcp';
 
 const allInsights = await getCampaignInsights(client, {
   adAccountId: 'act_123456789',
@@ -393,7 +393,7 @@ See [Remote Mode](#configuration--remote-mode-with-cuan-insight) for full setup.
 ## Architecture
 
 ```
-meta-ads-agent-skill/
+adstream-mcp/
 ├── src/                          # TypeScript library
 │   ├── metaClient.ts            # API wrapper
 │   ├── config.ts                # Config loader
@@ -509,9 +509,9 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 ## Links
 
-- **GitHub:** https://github.com/ramadhanidiwanda-alt/meta-ads-agent-skill
-- **npm:** https://www.npmjs.com/package/meta-ads-agent-skill
-- **Issues:** https://github.com/ramadhanidiwanda-alt/meta-ads-agent-skill/issues
+- **GitHub:** https://github.com/ramadhanidiwanda-alt/adstream-mcp
+- **npm:** https://www.npmjs.com/package/adstream-mcp
+- **Issues:** https://github.com/ramadhanidiwanda-alt/adstream-mcp/issues
 - **Meta Marketing API:** https://developers.facebook.com/docs/marketing-api
 - **Docker MCP server setup:** [docs/DOCKER_MCP.md](docs/DOCKER_MCP.md)
 - **Connection Key docs:** [docs/CUAN_INSIGHT_CONNECTION_KEY_COMPATIBILITY.md](docs/CUAN_INSIGHT_CONNECTION_KEY_COMPATIBILITY.md)

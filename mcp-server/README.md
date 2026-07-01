@@ -1,25 +1,25 @@
-# Meta Ads MCP Server
+# Adstream MCP Server
 
-MCP (Model Context Protocol) server wrapper for Meta Ads Agent Skill. Enables MCP-compatible AI agents and clients to analyze Meta (Facebook) advertising campaigns. Claude Desktop is one supported client example.
+MCP (Model Context Protocol) server wrapper for Adstream MCP. Enables MCP-compatible AI agents and clients to analyze ads and commerce data, starting with Meta and TikTok. Claude Desktop is one supported client example.
 
 ## What is MCP?
 
-[Model Context Protocol](https://modelcontextprotocol.io) is an open protocol that standardizes how AI applications provide context to LLMs. This MCP server exposes Meta Ads analysis tools to any MCP-compatible client.
+[Model Context Protocol](https://modelcontextprotocol.io) is an open protocol that standardizes how AI applications provide context to LLMs. This MCP server exposes Adstream MCP tools to any MCP-compatible client.
 
 ## Features
 
-- **7 MCP Tools** - All Meta Ads tools exposed via MCP protocol
+- **Broker MCP Tools** - Stable `ads_*` tools plus legacy provider-specific tools exposed via MCP protocol
 - **Generic MCP Client Compatible** - Works with stdio-capable MCP clients; Claude Desktop is one example
 - **Codex Compatible** - Works with Codex CLI
 - **Auto-configured** - Uses environment variables for auth
-- **Read-only** - Safe for autonomous agents
+- **Safety-first writes** - Read tools plus guarded campaign-level writes where configured
 
 ## Installation
 
 ### Option 1: From Parent Package
 
 ```bash
-cd /Users/macbook/Projects/meta-ads-agent-skill
+cd /Users/macbook/Projects/adstream-mcp
 npm install
 npm run build
 
@@ -31,7 +31,7 @@ npm run build
 ### Option 2: Global Install
 
 ```bash
-npm install -g meta-ads-mcp-server
+npm install -g adstream-mcp-server
 ```
 
 ## Configuration
@@ -60,7 +60,7 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
     "meta-ads": {
       "command": "node",
       "args": [
-        "/Users/macbook/Projects/meta-ads-agent-skill/mcp-server/dist/index.js"
+        "/Users/macbook/Projects/adstream-mcp/mcp-server/dist/index.js"
       ],
       "env": {
         "META_ACCESS_TOKEN": "EAAxxxxxxxxxx",
@@ -83,7 +83,7 @@ Add to `~/.codex/config.json`:
     "meta-ads": {
       "command": "node",
       "args": [
-        "/Users/macbook/Projects/meta-ads-agent-skill/mcp-server/dist/index.js"
+        "/Users/macbook/Projects/adstream-mcp/mcp-server/dist/index.js"
       ]
     }
   }
@@ -326,8 +326,7 @@ echo $META_AD_ACCOUNT_ID
 └────────┬────────┘
          │ Function Calls
 ┌────────▼────────┐
-│ meta-ads-agent- │
-│     skill       │
+│  adstream-mcp   │
 └────────┬────────┘
          │ HTTP
 ┌────────▼────────┐
@@ -337,22 +336,23 @@ echo $META_AD_ACCOUNT_ID
 
 ## Security
 
-- ✅ Tokens loaded from environment (not hardcoded)
-- ✅ Read-only operations only
-- ✅ No write/delete capabilities
+- ✅ Tokens resolved at runtime (environment locally, Cuan Insight remotely)
+- ✅ Read tools plus guarded campaign-level writes where configured
+- ✅ Write operations require broker permission checks, confirmation, and audit
 - ✅ Runs locally (no external server)
 
 ## Limitations
 
-- Read-only (cannot modify campaigns)
+- Create operations are not supported yet
+- Write operations require explicit configuration and permissions
 - Requires valid Meta access token
 - Rate limited by Meta API (200 calls/hour)
 
 ## Support
 
-**Parent Package:** [meta-ads-agent-skill](https://github.com/ramadhanidiwanda-alt/meta-ads-agent-skill)  
+**Parent Package:** [adstream-mcp](https://github.com/ramadhanidiwanda-alt/adstream-mcp)  
 **MCP Protocol:** https://modelcontextprotocol.io  
-**Issues:** https://github.com/ramadhanidiwanda-alt/meta-ads-agent-skill/issues
+**Issues:** https://github.com/ramadhanidiwanda-alt/adstream-mcp/issues
 
 ## License
 

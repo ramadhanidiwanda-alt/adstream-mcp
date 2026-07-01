@@ -1,6 +1,6 @@
 # Panduan Keamanan
 
-> Security best practices untuk meta-ads-agent-skill
+> Security best practices untuk adstream-mcp
 
 **Versi:** 1.0 | **Terakhir Diupdate:** 2026-05-29
 

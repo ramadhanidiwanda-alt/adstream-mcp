@@ -82,7 +82,7 @@ Target platform akhir:
 | TikTok adapter | `getAccountPerformance`/`getPlacementPerformance` stub | TikTok belum setara Meta |
 | Create ads | Belum ada (hanya campaign-level mutate) | "Membuat iklan" belum didukung |
 | Commerce model | `AdsMetricRecord` fokus ads, belum commerce (GMV/order/SKU/live) | Marketplace belum ter-model |
-| Paket metadata | `package.json name` masih `meta-ads-agent-skill` | Perlu sinkron dengan brand `adstream-mcp` |
+| Paket metadata | `package.json` sudah memakai `adstream-mcp` | Perlu dipertahankan konsisten di semua docs dan examples |
 | Roadmap | `ROADMAP.md` tertinggal dari status aktual | Sinkronisasi perlu |
 | Tool surface | Campuran `ads_*`, `meta_*`, `tiktok_*` | Perlu strategi stable vs legacy |
 | RBAC | Hanya read/write policy dasar | Perlu RBAC minimal sebelum create ads |
@@ -165,11 +165,11 @@ Prinsip urutan (sesuai keputusan §0): **stabilkan fondasi → report engine →
 
 **Goal:** Repo jujur dengan dirinya sendiri dan siap ekspansi tanpa breaking.
 
-- [ ] Sinkronkan brand: update `package.json` `name`/`description`/`repository.url` ke `adstream-mcp`; sesuaikan README.
-- [ ] Sinkronkan `ROADMAP.md` dengan `docs/PROJECT_STATUS.md` (OAuth sudah ada, TikTok sudah ada).
-- [ ] Definisikan **Provider Capability Matrix** sebagai kode (`capabilities` per adapter dipakai broker untuk gating).
-- [ ] Tambah `docs/PROVIDER_ONBOARDING.md`: langkah baku menambah provider baru.
-- [ ] Tandai tool surface: `ads_*`/`commerce_*` = stable public; `meta_*`/`tiktok_*` = legacy/debug.
+- [x] Sinkronkan brand: update `package.json` `name`/`description`/`repository.url` ke `adstream-mcp`; sesuaikan README.
+- [x] Sinkronkan `ROADMAP.md` dengan `docs/PROJECT_STATUS.md` (OAuth sudah ada, TikTok sudah ada).
+- [x] Definisikan **Provider Capability Matrix** sebagai kode (`capabilities` per adapter dipakai broker untuk gating).
+- [x] Tambah `docs/PROVIDER_ONBOARDING.md`: langkah baku menambah provider baru.
+- [x] Tandai tool surface: `ads_*`/`commerce_*` = stable public; `meta_*`/`tiktok_*` = legacy/debug.
 
 **Exit:** build + test hijau; brand metadata konsisten; matrix capability dipakai broker; dokumen onboarding ada.
 

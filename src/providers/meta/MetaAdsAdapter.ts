@@ -19,10 +19,10 @@ import type {
   AdsBrokerResponse,
   AdsMetricRecord,
   AdsMutationResult,
-  AdsProviderCapabilities,
   AdsProviderAdapter,
   CredentialContext,
 } from '../../broker/types.js';
+import { ADS_PROVIDER_CAPABILITY_MATRIX } from '../../broker/types.js';
 import { redactErrorMessage } from '../../broker/credentials.js';
 import { assertLocationBreakdowns } from '../../utils/locationBreakdowns.js';
 import { normalizeMetaInsights } from './normalizer.js';
@@ -65,12 +65,7 @@ export interface MetaAdsAdapterOptions {
 export class MetaAdsAdapter implements AdsProviderAdapter {
   readonly id = 'meta' as const;
   readonly displayName = 'Meta Ads';
-  readonly capabilities: AdsProviderCapabilities = {
-    providers: ['meta'],
-    categories: ['accounts', 'campaigns', 'ad_groups', 'ads', 'creatives', 'insights', 'reports', 'diagnostics'],
-    operations: ['read', 'write'],
-    supportsRaw: false,
-  };
+  readonly capabilities = ADS_PROVIDER_CAPABILITY_MATRIX.meta;
 
   private readonly clientFactory: (config: MetaConfig) => MetaClient;
   private readonly tools: MetaAdsAdapterTools;

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  ADS_PROVIDER_CAPABILITY_MATRIX,
   ADS_TOOL_CATEGORIES,
   defaultDenyWritePermissionPolicy,
   isAdsProviderId,
@@ -32,6 +33,13 @@ describe('Ads MCP Broker rich types and contracts', () => {
       'diagnostics',
     ]);
     expect(ADS_TOOL_CATEGORIES.includes('billing' as never)).toBe(false);
+  });
+
+  it('exposes provider capability matrix as the adapter source of truth', () => {
+    expect(ADS_PROVIDER_CAPABILITY_MATRIX.meta.operations).toEqual(['read', 'write']);
+    expect(ADS_PROVIDER_CAPABILITY_MATRIX.tiktok.operations).toEqual(['read']);
+    expect(ADS_PROVIDER_CAPABILITY_MATRIX.meta.categories).toContain('reports');
+    expect(ADS_PROVIDER_CAPABILITY_MATRIX.tiktok.providers).toEqual(['tiktok']);
   });
 
   it('keeps write operation typed but denied by default', () => {
