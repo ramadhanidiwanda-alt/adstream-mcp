@@ -158,12 +158,6 @@ export function summarizeLocationInsights(options: SummarizeLocationOptions): Lo
   };
 }
 
-const DIMENSION_KEY_MAP: Record<LocationBreakdown, 'country' | 'region' | 'dma'> = {
-  country: 'country',
-  region: 'region',
-  dma: 'dma',
-};
-
 function computeMetrics(rows: LocationInsightRow[]): LocationMetrics {
   const spend = rows.reduce((s, r) => s + r.spend, 0);
   const impressions = rows.reduce((s, r) => s + r.impressions, 0);
@@ -179,10 +173,11 @@ function computeMetrics(rows: LocationInsightRow[]): LocationMetrics {
   };
 }
 
-function getFieldValue(row: LocationInsightRow, breakdown: LocationBreakdown): string {
-  const key = DIMENSION_KEY_MAP[breakdown];
-  return (row[key] as string | undefined) ?? '(unknown)';
-}
+const DIMENSION_KEY_MAP: Record<LocationBreakdown, 'country' | 'region' | 'dma'> = {
+  country: 'country',
+  region: 'region',
+  dma: 'dma',
+};
 
 export function summarizeNestedLocationInsights(
   options: SummarizeNestedLocationOptions
