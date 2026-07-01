@@ -1,6 +1,6 @@
 {
   "name": "meta-ads-agent-skill",
-  "version": "0.4.0",
+  "version": "0.5.2",
   "description": "TypeScript library + AI skills for Meta Ads analysis. Built for developers and end users.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -33,7 +33,7 @@
     "mcp",
     "claude",
     "typescript",
-    "read-only"
+    "approval-workflow"
   ],
   "author": "",
   "license": "MIT",

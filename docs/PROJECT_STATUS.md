@@ -1,8 +1,8 @@
 # Project Status — Meta Ads Agent Skill
 
-> **Updated:** 2026-06-04  
-> **Version:** v0.4.3  
-> **Last Phase:** Phase 20B.3 — Wire SupabaseOAuthStore to Cuan Insight OAuth Token Resolver
+> **Updated:** 2026-06-25  
+> **Version:** v0.5.2  
+> **Current Roadmap:** v0.6.0 — Write Operations for Adset & Ad
 
 ### Phase 17.5 Across Sub-phases
 | Phase | Summary | Key Changes | Status |
@@ -16,6 +16,9 @@
 | **Phase 20B.3** | Wire SupabaseOAuthStore to credential resolver | SupabaseOAuthStore real persistence, connectionKeyId instead of raw key, dual authType (connection_key / oauth_token), async Supabase HTTP client | ✅ Done (PR #31) |
 | **Phase 17.5G** | Release notes & tag v0.4.0 | RELEASE_NOTES.md, version bump, tag | ✅ Done |
 | **Phase 17.5E** | Docs & release readiness | Update README.md, CUAN_INSIGHT_CONNECTION_KEY_COMPATIBILITY.md, PROJECT_STATUS.md, REMOTE_MCP_HTTP.md | ✅ Done |
+| **v0.5.0** | Campaign write operations | `metaPost()`, pause/resume/update budget/rename campaign, dry-run approval workflow, audit entries, safety guard | ✅ Done |
+| **v0.5.1** | Campaign listing broker tool | `ads_list_campaigns`, Meta + TikTok provider adapters, remote broker campaign listing | ✅ Done |
+| **v0.5.2** | Account-level performance broker tool | `ads_get_account_performance`, `getAccountInsights()`, normalized account metrics, ROAS fallback | ✅ Done |
 
 ---
 
@@ -28,7 +31,7 @@
 - **Cuan Insight** is the credential authority. It stores and manages all Meta access tokens, user/workspace/plan data, and account mappings.
 - **meta-ads-agent-skill** is the MCP server. It does **not** store Meta tokens — credentials are resolved from Cuan Insight at runtime.
 - The server supports **multi-user** and **multi-workspace** usage through remote credential resolution (Connection Key or OAuth Token modes).
-- All tools are **read-only**. Write operations (pause, budget, create) are not implemented.
+- Most tools remain read-oriented, but campaign-level write operations are now implemented behind explicit dry-run/confirmation and safety guards. Adset/ad write operations are next.
 - **Connection Key support** (Phase 17.5C): MCP server sends `x-cuan-mcp-connection-key` header when `CUAN_INSIGHT_AUTH_MODE=connection_key`.
 
 ---
@@ -206,12 +209,12 @@ The MCP SDK is upgraded to `^1.29.0`, Streamable HTTP is implemented, and Phase 
 - **Live production verified:** 25 Meta ad accounts returned via Connection Key, revoked key rejected 401 (Phase 17.5F, PR #23).
 - Account-scoped tools require account connection in Cuan Insight UI (`ACCOUNT_NOT_CONNECTED`).
 
-- **Hosted multi-user limitation:** Current v0.4.0 supports env-based `CUAN_INSIGHT_CONNECTION_KEY` for local/single-tenant use only. Per-request `x-cuan-mcp-connection-key` header passthrough for hosted multi-user remote MCP is not yet implemented and is planned for a future release. Do not configure a shared global connection key for multi-user deployments.
+- **Hosted multi-user limitation:** Env-based `CUAN_INSIGHT_CONNECTION_KEY` is still for local/single-tenant deployments. Per-request `x-cuan-mcp-connection-key` header passthrough must be used for hosted multi-user remote MCP. Do not configure a shared global connection key for multi-user deployments.
 
 ### OAuth Connector Flow (Phase 19)
 
 - OAuth implementation uses **in-memory store by default** (backward compatible).
-- **Persistent store (Phase 20A)**: `MCP_OAUTH_STORE_DRIVER=supabase` supports persistence via Supabase. `SupabaseOAuthStore` is skeleton-only in 20A.1; full production wiring in Phase 20B.
+- **Persistent store (Phase 20B.4)**: `MCP_OAUTH_STORE_DRIVER=supabase` supports production-verified persistence via Supabase.
 - Auth codes and access tokens are lost on server restart when using default memory driver.
 - No refresh token support — re-authorize when access token expires.
 - Connection Key validation probes Cuan Insight; if resolver is unavailable, key is accepted as valid and errors surface at tool call time.
@@ -219,26 +222,29 @@ The MCP SDK is upgraded to `^1.29.0`, Streamable HTTP is implemented, and Phase 
 
 ### TikTok Provider Support
 
-- TikTok adapter is registered but returns `NOT_IMPLEMENTED` for all performance tools.
+- TikTok adapter supports campaign listing via `ads_list_campaigns`, but account performance still returns `NOT_IMPLEMENTED`.
 - Provider-level credential resolution for TikTok returns `PROVIDER_NOT_READY`.
 
 ### Write Operations
 
-All tools are read-only. Write operations (pause/resume campaigns, update budgets, create ads) are planned for v0.4.0.
+- Campaign-level write operations are implemented for pause, resume, budget update, and rename.
+- Write tools must preserve the existing safety model: dry-run first, explicit confirmation before execution, audit entry, no token leakage.
+- Adset/ad write operations, batch operations, rollback, and whitelist/blacklist guardrails are planned for v0.6.0.
+- Create operations remain out of scope.
 
 ---
 
 ## H. Next Steps
 
 1. ✅ **Full live smoke test** with real Cuan Insight Connection Key — done (Phase 17.5F, PR #23).
-2. ✅ **Release notes** created (`RELEASE_NOTES.md`, v0.4.0).
-| 3. ✅ **Phase 19 — OAuth Connection Key flow** — `/authorize`, `/token`, PKCE, Bearer support (this PR).
-| 4. ✅ **Phase 19.4 — Claude Native Connector Verification** — PKCE fix, DCR auto-register, token exchange, 25 Meta accounts, production debug disabled.
-| 5. ⏳ **Add CI live test** only if safe backend test environment is available.
-| 6. ⏳ **Add example MCP client config** with placeholders for `claude_desktop_config.json`.
-| 7. ⏳ **Continue periodic `npm audit` monitoring** (currently 0).
-| 8. ✅ **Phase 20A.1 — Persistent OAuth store foundation** — IOAuthStore interface, MemoryOAuthStore, SupabaseOAuthStore skeleton, factory, env config.
-| 9. ⏳ **Phase 20B — Supabase production wiring** — SQL migration, real REST API, connection key bridge.
+2. ✅ **Phase 19 — OAuth Connection Key flow** — `/authorize`, `/token`, PKCE, Bearer support.
+3. ✅ **Phase 20B.4 — Persistent OAuth Supabase Store production verification** — restart-safe OAuth token persistence verified.
+4. ✅ **v0.5.0 — Campaign write operations** — pause/resume/budget/rename with dry-run approval workflow.
+5. ✅ **v0.5.1 — Campaign listing broker tool** — `ads_list_campaigns` for Meta and TikTok adapter path.
+6. ✅ **v0.5.2 — Account-level performance broker tool** — `ads_get_account_performance` for Meta.
+7. ⏳ **v0.6.0 — Adset/ad write operations** — extend mutation coverage below campaign level.
+8. ⏳ **Safety guard expansion** — batch limits, rollback, whitelist, blacklist, and max-change rate limits.
+9. ⏳ **Release hygiene** — keep `package.json`, `CHANGELOG.md`, `ROADMAP.md`, tags, and project status synchronized.
 
 ---
 
