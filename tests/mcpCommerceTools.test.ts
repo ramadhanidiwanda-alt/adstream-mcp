@@ -113,4 +113,30 @@ describe('commerce MCP tools', () => {
     expect(response.ok).toBe(false);
     expect(response.errors).toEqual([{ code: 'UNSUPPORTED_COMMERCE_PROVIDER', message: 'Only provider "tiktok_gmv" is supported for commerce_get_performance today.' }]);
   });
+
+  it('returns structured warnings for empty GMV Max rows', async () => {
+    const response = parseToolResponse(await handleCommerceMcpToolCall('commerce_get_performance', {
+      provider: 'tiktok_gmv',
+      accountId: 'advertiser_1',
+      storeIds: ['store_1', 'store_2'],
+      since: '2026-05-01',
+      until: '2026-05-07',
+    }, {
+      fetchGmvMaxReport: async () => ({
+        list: [],
+        page_info: { page: 1, page_size: 100, total_number: 0, total_page: 0 },
+      }),
+    }));
+
+    expect(response.ok).toBe(true);
+    expect(response.data).toMatchObject({
+      records: [],
+      totals: { gmv: 0, orders: 0 },
+      metadata: {
+        store_ids: ['store_1', 'store_2'],
+        record_count: 0,
+      },
+      warnings: ['TikTok GMV Max returned no rows for the requested date range and stores.'],
+    });
+  });
 });
