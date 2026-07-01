@@ -6,7 +6,7 @@ async function main() {
   const server = createMetaAdsMcpServer();
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error('Meta Ads MCP Server running on stdio');
+  console.error('Adstream MCP Server running on stdio');
 }
 
 main().catch((error) => {

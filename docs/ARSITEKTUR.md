@@ -1,4 +1,4 @@
-# Arsitektur meta-ads-agent-skill
+# Arsitektur adstream-mcp
 
 > Deep dive tentang desain dan struktur project
 
@@ -7,7 +7,7 @@
 ## 🏗️ Struktur Project
 
 ```
-meta-ads-agent-skill/
+adstream-mcp/
 ├── src/                    # TypeScript library
 │   ├── index.ts           # Public API surface
 │   ├── metaClient.ts      # HTTP client (read-only)

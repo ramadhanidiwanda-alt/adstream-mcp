@@ -6,7 +6,7 @@ A remote HTTP server can be started via the `meta-ads-mcp-http` service with `MC
 ## Build
 
 ```bash
-docker build -f Dockerfile.mcp -t meta-ads-agent-skill:mcp .
+docker build -f Dockerfile.mcp -t adstream-mcp:mcp .
 ```
 
 ## Run (Stdio — Default)
@@ -21,7 +21,7 @@ cp .env.example .env
 Then run the stdio server container:
 
 ```bash
-docker run --rm --env-file .env meta-ads-agent-skill:mcp
+docker run --rm --env-file .env adstream-mcp:mcp
 ```
 
 ## Run (SSE Remote Transport)
@@ -35,7 +35,7 @@ docker run --rm \
   -e MCP_TRANSPORT=sse \
   -e MCP_HTTP_BEARER_TOKEN=<MCP_REMOTE_AUTH_TOKEN> \
   -p 127.0.0.1:8787:8787 \
-  meta-ads-agent-skill:mcp \
+  adstream-mcp:mcp \
   node mcp-server/dist/http.js
 ```
 
@@ -58,7 +58,7 @@ docker run --rm \
   -e MCP_TRANSPORT=streamable-http \
   -e MCP_HTTP_BEARER_TOKEN=<MCP_REMOTE_AUTH_TOKEN> \
   -p 127.0.0.1:8787:8787 \
-  meta-ads-agent-skill:mcp \
+  adstream-mcp:mcp \
   node mcp-server/dist/http.js
 ```
 
