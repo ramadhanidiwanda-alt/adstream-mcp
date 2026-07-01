@@ -22,7 +22,7 @@ Keputusan owner per 2026-07-01. Ini mengunci urutan Fase 3–6 dan menutup open 
 3. **Prioritas platform berikutnya** — Setelah report engine: **Google Ads dulu**, baru marketplace Indonesia (izin API marketplace lebih sulit/lambat).
 4. **Scope marketplace** — **Paralel**, kejar mana yang izin API-nya keluar lebih dulu (Shopee/Tokopedia/Lazada tidak diurutkan kaku).
 5. **Create ads** — Urutan provider: **Meta → TikTok → sisanya menyusul**.
-6. **Report** — **Dipisah**: `ads report` (objektif beragam: leads, awareness, traffic, sales) vs `commerce/GMV report` (selalu sales-oriented, mis. TikTok GMV Max & marketplace).
+6. **Report & data surface** — **Dipisah**: `ads report` boleh berisi ringkasan audit/rekomendasi, sedangkan `commerce/GMV` diprioritaskan sebagai **normalized data JSON** agar AI client yang membuat analisa, laporan, dan rekomendasi.
 7. **Multi-tenant RBAC** — **RBAC minimal disiapkan sebelum create ads** (read-only vs write-allowed per Connection Key + isolasi akun/tenant). RBAC lengkap (role custom, audit granular) di fase hardening.
 
 ---
@@ -35,7 +35,7 @@ Menjadi **satu MCP server open source** yang memungkinkan AI agent apa pun (Clau
 
 1. **Membaca** data performa iklan dan commerce di semua platform besar.
 2. **Menganalisa** performa lintas platform dengan metrik yang ternormalisasi.
-3. **Membuat laporan** (harian, mingguan, audit, executive; ads report dan commerce report terpisah).
+3. **Menyediakan data siap-analisa** untuk laporan harian/mingguan/audit/executive; MCP fokus pada JSON ternormalisasi, AI client fokus pada narasi.
 4. **Membuat & mengubah iklan** dengan approval workflow dan safety guard yang ketat.
 5. **Menjadi credential control plane** via Cuan Insight (token tidak pernah disimpan lokal).
 
@@ -133,7 +133,7 @@ Provider APIs (Meta Graph, TikTok Business, Google Ads, Marketplace APIs)
 
 - **`AdsProviderAdapter`** — interface adapter (baca/tulis/laporan) yang setiap provider implement.
 - **`AdsMetricRecord`** — schema metrik ternormalisasi lintas platform (ads).
-- **`CommerceRecord`** (NEW) — schema commerce ternormalisasi (order/GMV/SKU/live/voucher) untuk marketplace & GMV Max.
+- **`CommerceRecord`** (NEW) — schema commerce ternormalisasi (order/GMV/SKU/live/voucher) untuk marketplace & GMV Max; output utama commerce adalah JSON data, bukan narasi rekomendasi.
 - **`CredentialContext`** — kontrak kredensial dengan `source` dan `provider`.
 - **`AccessPolicy`** (NEW) — RBAC minimal: apakah kredensial boleh read/write/create + batas akun/tenant.
 - **Write/Create lifecycle** — sesuai `docs/WRITE_SAFETY_CONTRACT.md`.
@@ -148,7 +148,7 @@ Setiap adapter mengekspos `capabilities` sehingga broker dan agent tahu apa yang
 | read_performance | ✅ | ▶ | 🟡 | 🟡 | ▶ | ▶ | ▶ | ▶ |
 | placement_performance | ✅ | ▶ | ⬜ | ⬜ | ▶ | ▶ | ▶ | ▶ |
 | ads_report | ⬜ | ⬜ | ⬜ | n/a | ⬜ | ⬜ | ⬜ | ⬜ |
-| commerce_report | n/a | n/a | 🟡 | ▶ | n/a | ▶ | ▶ | ▶ |
+| commerce_data | n/a | n/a | ✅ | ✅ | n/a | ▶ | ▶ | ▶ |
 | write_campaign | ✅ | ▶ | ⬜ | ⬜ | ▶ | ▶ | ▶ | ▶ |
 | create_ad | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
 
@@ -204,11 +204,12 @@ Prinsip urutan (sesuai keputusan §0): **stabilkan fondasi → report engine →
 
 - [x] TikTok `getAccountPerformance` real (bukan stub).
 - [ ] TikTok `getPlacementPerformance`.
-- [x] Normalisasi GMV Max ke `CommerceRecord` (masuk commerce report, bukan ads report).
+- [x] Normalisasi GMV Max ke `CommerceRecord` (masuk `commerce_get_performance`, bukan ads report).
+- [x] Expose `commerce_get_performance` untuk TikTok GMV Max: records + totals + metadata + warnings, tanpa findings/recommendations naratif.
 - [ ] **Meta CPAS sebagai mode** di adapter Meta (catalog/partner ads), bukan provider terpisah — parameter mode + normalisasi tambahan.
 - [ ] Tests parity untuk TikTok read + CPAS smoke.
 
-**Exit:** TikTok read setara Meta; CPAS mode read jalan; GMV Max masuk commerce report.
+**Exit:** TikTok read setara Meta; CPAS mode read jalan; GMV Max tersedia sebagai normalized commerce JSON.
 
 ### Fase 4 — Google Ads Provider (Target: September–Oktober 2026)
 
@@ -248,10 +249,11 @@ Prinsip urutan (sesuai keputusan §0): **stabilkan fondasi → report engine →
 - [x] Definisikan `CommerceRecord` (GMV, orders, SKU, voucher, live, affiliate, store).
 - [ ] Adapter `shopee/`, `tokopedia/`, `lazada/` — read dulu, dikerjakan paralel sesuai ketersediaan izin API.
 - [ ] Credential mapping marketplace di Cuan Insight (per-shop, per-region).
-- [x] `CommerceReportEngine` foundation (terpisah dari ads report) — blend ads spend vs actual GMV.
+- [x] `CommerceReportEngine` foundation (terpisah dari ads report) — aggregation layer untuk GMV/order/spend, bukan narasi utama.
+- [x] `commerce_get_performance provider=tiktok_gmv` sebagai data connector ternormalisasi pertama.
 - [ ] Write/create marketplace ads = fase lanjutan setelah read stabil.
 
-**Exit:** minimal 1 marketplace read + commerce report jalan end-to-end.
+**Exit:** minimal 1 marketplace read + normalized commerce data jalan end-to-end.
 
 ### Fase 7 — Hardening & Production (Target: Q1–Q2 2027)
 
