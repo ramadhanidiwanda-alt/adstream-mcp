@@ -156,4 +156,42 @@ describe('normalizeMetaInsight', () => {
     expect(record.conversions?.conversion_value).toBe(300);
     expect(record.conversions?.roas).toBe(3);
   });
+
+  it('maps CPAS catalog dimensions and mode metadata', () => {
+    const insight = {
+      campaign_id: 'cmp_1',
+      campaign_name: 'CPAS Campaign',
+      product_id: 'sku_1',
+      product_name: 'Hero SKU',
+      product_set_id: 'set_1',
+      catalog_segment_id: 'segment_1',
+      spend: '100',
+      impressions: '1000',
+      reach: '900',
+      clicks: '100',
+      inline_link_clicks: '90',
+      ctr: '10',
+      cpc: '1',
+      cpm: '100',
+      actions: [{ action_type: 'purchase', value: '4' }],
+      action_values: [{ action_type: 'purchase', value: '400' }],
+    } satisfies CampaignInsight;
+
+    const record = normalizeMetaInsight(insight, {
+      level: 'campaign',
+      accountId: 'act_123',
+      since: '2026-05-01',
+      until: '2026-05-07',
+      mode: 'cpas',
+    });
+
+    expect(record.setup?.buying_type).toBe('cpas');
+    expect(record.dimensions).toMatchObject({
+      product_id: 'sku_1',
+      product_name: 'Hero SKU',
+      product_set_id: 'set_1',
+      catalog_segment_id: 'segment_1',
+    });
+    expect(record.commerce?.purchase_roas).toBe(4);
+  });
 });
