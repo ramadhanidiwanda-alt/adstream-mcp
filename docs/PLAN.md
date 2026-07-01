@@ -204,7 +204,7 @@ Prinsip urutan (sesuai keputusan §0): **stabilkan fondasi → report engine →
 
 - [x] TikTok `getAccountPerformance` real (bukan stub).
 - [ ] TikTok `getPlacementPerformance`.
-- [ ] Normalisasi GMV Max ke `CommerceRecord` (masuk commerce report, bukan ads report).
+- [x] Normalisasi GMV Max ke `CommerceRecord` (masuk commerce report, bukan ads report).
 - [ ] **Meta CPAS sebagai mode** di adapter Meta (catalog/partner ads), bukan provider terpisah — parameter mode + normalisasi tambahan.
 - [ ] Tests parity untuk TikTok read + CPAS smoke.
 
@@ -245,10 +245,10 @@ Prinsip urutan (sesuai keputusan §0): **stabilkan fondasi → report engine →
 
 **Goal:** Shopee/Tokopedia/Lazada Ads + commerce model. Paralel, kejar izin API yang keluar duluan.
 
-- [ ] Definisikan `CommerceRecord` (GMV, orders, SKU, voucher, live, affiliate, store).
+- [x] Definisikan `CommerceRecord` (GMV, orders, SKU, voucher, live, affiliate, store).
 - [ ] Adapter `shopee/`, `tokopedia/`, `lazada/` — read dulu, dikerjakan paralel sesuai ketersediaan izin API.
 - [ ] Credential mapping marketplace di Cuan Insight (per-shop, per-region).
-- [ ] `commerce_generate_report` (terpisah dari ads report) — blend ads spend vs actual GMV.
+- [x] `CommerceReportEngine` foundation (terpisah dari ads report) — blend ads spend vs actual GMV.
 - [ ] Write/create marketplace ads = fase lanjutan setelah read stabil.
 
 **Exit:** minimal 1 marketplace read + commerce report jalan end-to-end.
