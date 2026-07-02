@@ -30,6 +30,13 @@ export { getLocationInsights } from './tools/getLocationInsights.js';
 export type * from './tools/getLocationInsights.js';
 export { getMetaPlacementPerformance } from './tools/getMetaPlacementPerformance.js';
 export type * from './tools/getMetaPlacementPerformance.js';
+export { createEcommerceCampaignBundle } from './tools/createEcommerceCampaignBundle.js';
+export type {
+  EcommerceCampaignBundleOptions,
+  EcommerceCampaignBundlePreview,
+  EcommerceLaunchStatus,
+  MetaEcommerceCallToActionType,
+} from './tools/createEcommerceCampaignBundle.js';
 
 // --- Mutation Tools ---
 export { pauseCampaign } from './tools/pauseCampaign.js';
