@@ -91,13 +91,13 @@ describe('CredentialResolver', () => {
     expect(JSON.stringify(result)).not.toContain('meta-token-secret');
   });
 
-  it('rejects unsupported providers', async () => {
+  it('returns missing env credentials for supported Google provider without env', async () => {
     const resolver = new CredentialResolver({ mode: 'local' });
     const result = await resolver.resolve({ provider: 'google' });
 
     expect(result.ok).toBe(false);
     if (result.ok) throw new Error('Expected error result');
-    expect(result.error.message).toBe('Unsupported ads provider');
+    expect(result.error.code).toBe('MISSING_ENV_CREDENTIALS');
   });
 });
 

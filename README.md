@@ -4,7 +4,7 @@ Open-source MCP connector hub for ads and commerce analytics. It started as a Me
 
 [![GitHub](https://img.shields.io/github/license/ramadhanidiwanda-alt/adstream-mcp)](LICENSE)
 [![npm version](https://img.shields.io/npm/v/adstream-mcp)](https://www.npmjs.com/package/adstream-mcp)
-[![tests](https://img.shields.io/badge/tests-448%20passed-brightgreen)]()
+[![tests](https://img.shields.io/badge/tests-456%20passed-brightgreen)]()
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)]()
 
 
@@ -109,7 +109,7 @@ console.log(analysis.recommendations);
 ```
 
 **Features:**
-- Clean Meta Marketing API wrapper plus broker adapters for Meta and TikTok
+- Clean Meta Marketing API wrapper plus broker adapters for Meta, TikTok, and Google Ads
 - Stable `ads_*` MCP tools for account, campaign, adgroup/adset, ad, placement, and report data
 - Meta CPAS mode via `params.mode: "cpas"` with catalog/product metadata
 - TikTok regular performance plus TikTok GMV Max commerce data via `commerce_get_performance`

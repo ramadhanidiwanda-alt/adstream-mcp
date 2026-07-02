@@ -134,7 +134,11 @@ export class EnvCredentialProvider implements CredentialProvider {
       return unsupportedProviderResult();
     }
 
-    const credential = request.provider === 'meta' ? this.resolveMeta() : this.resolveTikTok();
+    const credential = request.provider === 'meta'
+      ? this.resolveMeta()
+      : request.provider === 'tiktok'
+        ? this.resolveTikTok()
+        : this.resolveGoogle();
 
     if (!credential.accessToken || !credential.accountId) {
       return {
@@ -166,6 +170,16 @@ export class EnvCredentialProvider implements CredentialProvider {
       accessToken: process.env.TIKTOK_ACCESS_TOKEN,
       accountId: process.env.TIKTOK_ADVERTISER_ID,
       apiVersion: process.env.TIKTOK_API_VERSION,
+      source: 'env',
+    };
+  }
+
+  private resolveGoogle(): CredentialContext {
+    return {
+      provider: 'google',
+      accessToken: process.env.GOOGLE_ADS_ACCESS_TOKEN,
+      accountId: process.env.GOOGLE_ADS_CUSTOMER_ID,
+      apiVersion: process.env.GOOGLE_ADS_API_VERSION,
       source: 'env',
     };
   }

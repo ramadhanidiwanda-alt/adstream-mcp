@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ProviderRegistry } from '../src/broker/providerRegistry.js';
 import { MetaAdsAdapter } from '../src/providers/meta/MetaAdsAdapter.js';
+import { GoogleAdsAdapter } from '../src/providers/google/GoogleAdsAdapter.js';
 import type { AdsProviderAdapter } from '../src/broker/types.js';
 
 function createTikTokStub(): AdsProviderAdapter {
@@ -22,18 +23,19 @@ function createTikTokStub(): AdsProviderAdapter {
 }
 
 describe('ProviderRegistry', () => {
-  it('accepts meta and tiktok provider ids only', () => {
+  it('accepts meta, tiktok, and google provider ids', () => {
     const registry = new ProviderRegistry();
     registry.register(new MetaAdsAdapter());
     registry.register(createTikTokStub());
+    registry.register(new GoogleAdsAdapter());
 
-    expect(registry.list().map((adapter) => adapter.id)).toEqual(['meta', 'tiktok']);
+    expect(registry.list().map((adapter) => adapter.id)).toEqual(['meta', 'tiktok', 'google']);
   });
 
   it('rejects unknown provider lookup', () => {
     const registry = new ProviderRegistry();
 
-    expect(() => registry.get('google')).toThrow('Unsupported ads provider');
+    expect(() => registry.get('shopee' as never)).toThrow('Unsupported ads provider');
   });
 
   it('rejects duplicate provider registration', () => {

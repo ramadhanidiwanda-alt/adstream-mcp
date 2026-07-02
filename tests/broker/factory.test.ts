@@ -10,12 +10,13 @@ import {
 import type { BrokerConfig } from '../../src/broker/config.js';
 
 describe('createDefaultProviderRegistry', () => {
-  it('creates a provider registry with Meta and TikTok adapters', () => {
+  it('creates a provider registry with Meta, TikTok, and Google adapters', () => {
     const registry = createDefaultProviderRegistry();
 
     expect(registry).toBeDefined();
     expect(registry.get('meta')).toBeDefined();
     expect(registry.get('tiktok')).toBeDefined();
+    expect(registry.get('google')).toBeDefined();
   });
 });
 

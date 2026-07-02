@@ -98,7 +98,7 @@ const baseRequest: AdsBrokerRequest = {
 describe('AdsBroker', () => {
   it('rejects unknown provider', async () => {
     const { broker } = createBroker();
-    const response = await broker.getCampaignPerformance({ ...baseRequest, provider: 'google' as never });
+    const response = await broker.getCampaignPerformance({ ...baseRequest, provider: 'shopee' as never });
 
     expect(response.ok).toBe(false);
     expect(response.errors?.[0].code).toBe('UNSUPPORTED_PROVIDER');
