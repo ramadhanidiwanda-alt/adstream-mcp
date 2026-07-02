@@ -183,7 +183,7 @@ describe('ads MCP broker tools', () => {
     } as unknown as AdsBroker;
 
     const response = parseToolResponse(
-      await handleAdsMcpToolCall(broker, 'ads_get_campaign_performance', { provider: 'google' })
+      await handleAdsMcpToolCall(broker, 'ads_get_campaign_performance', { provider: 'shopee' })
     );
 
     expect(response.ok).toBe(false);

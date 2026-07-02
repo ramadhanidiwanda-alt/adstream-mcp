@@ -57,13 +57,13 @@ type ToolArguments = {
 
 const adsBaseInputSchema = {
   provider: z
-    .enum(['meta', 'tiktok'])
+    .enum(['meta', 'tiktok', 'google'])
     .optional()
     .describe('Ads provider. Defaults to meta when omitted.'),
   providers: z
-    .array(z.enum(['meta', 'tiktok']))
+    .array(z.enum(['meta', 'tiktok', 'google']))
     .optional()
-    .describe('Future multi-provider reporting input. Multiple providers return NOT_IMPLEMENTED for now.'),
+    .describe('Multi-provider reporting input for supported read providers.'),
   accountId: z
     .string()
     .optional()

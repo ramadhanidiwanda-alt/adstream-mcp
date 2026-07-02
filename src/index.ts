@@ -123,6 +123,10 @@ export { TikTokAdsAdapter } from './providers/tiktok/TikTokAdsAdapter.js';
 export { normalizeTikTokInsight, normalizeTikTokInsights } from './providers/tiktok/normalizer.js';
 export type * from './providers/tiktok/TikTokAdsAdapter.js';
 export type * from './providers/tiktok/normalizer.js';
+export { GoogleAdsAdapter } from './providers/google/GoogleAdsAdapter.js';
+export { normalizeGoogleAdsRow, normalizeGoogleAdsRows } from './providers/google/normalizer.js';
+export type * from './providers/google/GoogleAdsAdapter.js';
+export type * from './providers/google/normalizer.js';
 
 export { RuleEngine } from './rules/engine.js';
 export type * from './rules/types.js';

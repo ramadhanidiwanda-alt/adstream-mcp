@@ -91,13 +91,13 @@ describe('CuanInsightCredentialProvider — success path', () => {
 });
 
 describe('CuanInsightCredentialProvider — provider safety', () => {
-  it('rejects providers outside meta/tiktok before calling the client', async () => {
+  it('rejects providers outside ads provider ids before calling the client', async () => {
     const resolve = vi.fn();
     const provider = new CuanInsightCredentialProvider(
       buildClient(resolve as never)
     );
 
-    const result = await provider.resolve({ provider: 'google' });
+    const result = await provider.resolve({ provider: 'shopee' });
 
     expect(result.ok).toBe(false);
     if (result.ok) throw new Error('Expected error result');

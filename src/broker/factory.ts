@@ -3,11 +3,13 @@ import { CredentialResolver } from './credentials.js';
 import { ProviderRegistry } from './providerRegistry.js';
 import { MetaAdsAdapter } from '../providers/meta/MetaAdsAdapter.js';
 import { TikTokAdsAdapter } from '../providers/tiktok/TikTokAdsAdapter.js';
+import { GoogleAdsAdapter } from '../providers/google/GoogleAdsAdapter.js';
 
 export function createDefaultProviderRegistry(): ProviderRegistry {
   const registry = new ProviderRegistry();
   registry.register(new MetaAdsAdapter());
   registry.register(new TikTokAdsAdapter());
+  registry.register(new GoogleAdsAdapter());
   return registry;
 }
 

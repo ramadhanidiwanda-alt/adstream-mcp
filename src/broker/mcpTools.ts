@@ -241,13 +241,13 @@ function createAdsInputSchema(required: string[]) {
     properties: {
       provider: {
         type: 'string',
-        enum: ['meta', 'tiktok'],
+        enum: ['meta', 'tiktok', 'google'],
         description: 'Ads provider. Defaults to meta when omitted.',
       },
       providers: {
         type: 'array',
-        items: { type: 'string', enum: ['meta', 'tiktok'] },
-        description: 'Future multi-provider reporting input. Multiple providers return NOT_IMPLEMENTED for now.',
+        items: { type: 'string', enum: ['meta', 'tiktok', 'google'] },
+        description: 'Multi-provider reporting input for supported read providers.',
       },
       accountId: {
         type: 'string',
