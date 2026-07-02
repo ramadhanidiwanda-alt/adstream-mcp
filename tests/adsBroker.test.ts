@@ -121,6 +121,53 @@ describe('AdsBroker', () => {
     expect(resolver.calls).toEqual([{ provider: 'meta', accountId: 'act_123', params: {} }]);
   });
 
+  it('denies read when credential is scoped to a different account', async () => {
+    let adapterCalled = false;
+    const adapter = createAdapter({
+      getCampaignPerformance: async () => {
+        adapterCalled = true;
+        return { ok: true, provider: 'meta', data: [] };
+      },
+    });
+    const resolver = new StubCredentialResolver({
+      ok: true,
+      credential: { ...createCredential(), allowedAccountIds: ['act_999'] },
+    });
+    const { broker } = createBroker(adapter, resolver);
+
+    const response = await broker.getCampaignPerformance(baseRequest);
+
+    expect(response.ok).toBe(false);
+    expect(response.errors?.[0].code).toBe('READ_NOT_ALLOWED');
+    expect(adapterCalled).toBe(false);
+  });
+
+  it('denies read when credential provider does not match request provider', async () => {
+    const resolver = new StubCredentialResolver({
+      ok: true,
+      credential: createCredential('tiktok'),
+    });
+    const { broker } = createBroker(createAdapter(), resolver);
+
+    const response = await broker.getCampaignPerformance(baseRequest);
+
+    expect(response.ok).toBe(false);
+    expect(response.errors?.[0].code).toBe('READ_NOT_ALLOWED');
+  });
+
+  it('denies read when credential scopes do not include ads read access', async () => {
+    const resolver = new StubCredentialResolver({
+      ok: true,
+      credential: { ...createCredential(), scopes: ['profile.read'] },
+    });
+    const { broker } = createBroker(createAdapter(), resolver);
+
+    const response = await broker.getCampaignPerformance(baseRequest);
+
+    expect(response.ok).toBe(false);
+    expect(response.errors?.[0].code).toBe('READ_NOT_ALLOWED');
+  });
+
   it('uses ProviderRegistry to find adapter', async () => {
     const registry = new ProviderRegistry();
     const broker = new AdsBroker({

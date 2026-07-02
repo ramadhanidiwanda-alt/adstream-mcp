@@ -4,7 +4,7 @@ Open-source MCP connector hub for ads and commerce analytics. It started as a Me
 
 [![GitHub](https://img.shields.io/github/license/ramadhanidiwanda-alt/adstream-mcp)](LICENSE)
 [![npm version](https://img.shields.io/npm/v/adstream-mcp)](https://www.npmjs.com/package/adstream-mcp)
-[![tests](https://img.shields.io/badge/tests-456%20passed-brightgreen)]()
+[![tests](https://img.shields.io/badge/tests-460%20passed-brightgreen)]()
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)]()
 
 

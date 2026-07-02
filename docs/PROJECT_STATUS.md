@@ -32,6 +32,7 @@
 - **adstream-mcp** is the MCP server. It does **not** store provider tokens — credentials are resolved from Cuan Insight at runtime.
 - The server supports **multi-user** and **multi-workspace** usage through remote credential resolution (Connection Key or OAuth Token modes).
 - Most tools remain read-oriented, but campaign-level write operations are now implemented behind explicit dry-run/confirmation and safety guards. Adset/ad write operations are next.
+- Broker permission policy now performs minimal credential-aware read gating for provider, account allow-list, and ads scopes while keeping writes denied by default unless explicitly configured.
 - **Connection Key support** (Phase 17.5C): MCP server sends `x-cuan-mcp-connection-key` header when `CUAN_INSIGHT_AUTH_MODE=connection_key`.
 
 ---
@@ -236,6 +237,7 @@ The MCP SDK is upgraded to `^1.29.0`, Streamable HTTP is implemented, and Phase 
 
 ### Write Operations
 
+- Minimal RBAC foundation is in place for read paths: credential provider must match the request provider, requested account must be allowed by `allowedAccountIds`/`accountId`, and scoped credentials must include ads read/write/admin scope.
 - Campaign-level write operations are implemented for pause, resume, budget update, and rename.
 - Write tools must preserve the existing safety model: dry-run first, explicit confirmation before execution, audit entry, no token leakage.
 - Adset/ad write operations, batch operations, rollback, and whitelist/blacklist guardrails are planned for v0.6.0.
@@ -253,9 +255,10 @@ The MCP SDK is upgraded to `^1.29.0`, Streamable HTTP is implemented, and Phase 
 6. ✅ **v0.5.2 — Account-level performance broker tool** — `ads_get_account_performance` for Meta and TikTok.
 7. ✅ **TikTok parity + Meta CPAS read mode** — TikTok regular placement/read parity, TikTok GMV Max commerce data, and Meta CPAS `params.mode="cpas"`.
 8. ✅ **Google Ads read-only provider foundation** — account/campaign/adgroup/ad performance normalizer, provider registration, and REST SearchStream client.
-9. ⏳ **v0.6.0 — Adset/ad write operations** — extend mutation coverage below campaign level.
-10. ⏳ **Safety guard expansion** — batch limits, rollback, whitelist, blacklist, and max-change rate limits.
-11. ⏳ **Release hygiene** — keep `package.json`, `CHANGELOG.md`, `ROADMAP.md`, tags, and project status synchronized.
+9. ✅ **RBAC minimal foundation** — provider/account/scope read gating plus default-deny write policy.
+10. ⏳ **v0.6.0 — Adset/ad write operations** — extend mutation coverage below campaign level.
+11. ⏳ **Safety guard expansion** — batch limits, rollback, whitelist, blacklist, and max-change rate limits.
+12. ⏳ **Release hygiene** — keep `package.json`, `CHANGELOG.md`, `ROADMAP.md`, tags, and project status synchronized.
 
 ---
 
