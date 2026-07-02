@@ -8,11 +8,18 @@ MCP (Model Context Protocol) server wrapper for Adstream MCP. Enables MCP-compat
 
 ## Features
 
-- **Broker MCP Tools** - Stable `ads_*` tools plus legacy provider-specific tools exposed via MCP protocol
+- **Broker MCP Tools** - Stable `ads_*` and `commerce_*` tools plus legacy provider-specific tools exposed via MCP protocol
 - **Generic MCP Client Compatible** - Works with stdio-capable MCP clients; Claude Desktop is one example
 - **Codex Compatible** - Works with Codex CLI
 - **Auto-configured** - Uses environment variables for auth
 - **Safety-first writes** - Read tools plus guarded campaign-level writes where configured
+- **Commerce data surface** - TikTok GMV Max returns normalized records, totals, metadata, and warnings for AI-side reporting
+
+## Current Stable Data Tools
+
+- `ads_get_*_performance` supports Meta, Meta CPAS mode via `params.mode: "cpas"`, and TikTok regular read paths.
+- `ads_get_placement_performance` supports Meta and TikTok placement analysis.
+- `commerce_get_performance` supports TikTok GMV Max via `provider: "tiktok_gmv"` and returns normalized JSON, not narrative recommendations.
 
 ## Installation
 

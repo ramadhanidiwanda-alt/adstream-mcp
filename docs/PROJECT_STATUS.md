@@ -24,7 +24,7 @@
 
 ## A. Project Overview
 
-**adstream-mcp** is an open-source MCP (Model Context Protocol) connector hub for ads and commerce analytics. It currently connects MCP-compatible AI clients to Meta and partial TikTok data through a credential gateway, and is being expanded toward Google Ads plus Indonesian marketplace ads.
+**adstream-mcp** is an open-source MCP (Model Context Protocol) connector hub for ads and commerce analytics. It currently connects MCP-compatible AI clients to Meta, Meta CPAS mode, TikTok regular ads, and TikTok GMV Max commerce data through local or Cuan Insight-backed credential flows, and is being expanded toward Google Ads plus Indonesian marketplace ads.
 
 ### Key Design Decisions
 
@@ -104,10 +104,10 @@ resolve credential with provider=meta, accountId=<selected>
 Cuan Insight validates account mapping and returns account-scoped token
   │
   ▼
-Call Meta /act_<id>/insights
+Call provider insights/report endpoint
   │
   ▼
-Return normalized performance data
+Return normalized ads or commerce performance data
 ```
 
 ---
@@ -223,8 +223,10 @@ The MCP SDK is upgraded to `^1.29.0`, Streamable HTTP is implemented, and Phase 
 ### TikTok Provider Support
 
 - TikTok adapter supports campaign listing via `ads_list_campaigns`.
-- Account performance is implemented via the integrated report endpoint using `data_level=AUCTION_ADVERTISER` and normalizes into account-level `AdsMetricRecord` rows.
-- Provider-level credential resolution for TikTok returns `PROVIDER_NOT_READY`.
+- TikTok regular read paths support account, campaign, adgroup, ad, and placement performance through normalized `AdsMetricRecord` rows.
+- TikTok placement performance uses report `placement_type` and maps it into normalized `dimensions.platform` / `dimensions.placement`.
+- TikTok GMV Max is exposed through `commerce_get_performance provider=tiktok_gmv` with normalized `CommerceRecord[]`, totals, metadata, and warnings.
+- Hosted provider credential availability still depends on Cuan Insight provider configuration and scopes.
 
 ### Write Operations
 
@@ -242,10 +244,12 @@ The MCP SDK is upgraded to `^1.29.0`, Streamable HTTP is implemented, and Phase 
 3. ✅ **Phase 20B.4 — Persistent OAuth Supabase Store production verification** — restart-safe OAuth token persistence verified.
 4. ✅ **v0.5.0 — Campaign write operations** — pause/resume/budget/rename with dry-run approval workflow.
 5. ✅ **v0.5.1 — Campaign listing broker tool** — `ads_list_campaigns` for Meta and TikTok adapter path.
-6. ✅ **v0.5.2 — Account-level performance broker tool** — `ads_get_account_performance` for Meta.
-7. ⏳ **v0.6.0 — Adset/ad write operations** — extend mutation coverage below campaign level.
-8. ⏳ **Safety guard expansion** — batch limits, rollback, whitelist, blacklist, and max-change rate limits.
-9. ⏳ **Release hygiene** — keep `package.json`, `CHANGELOG.md`, `ROADMAP.md`, tags, and project status synchronized.
+6. ✅ **v0.5.2 — Account-level performance broker tool** — `ads_get_account_performance` for Meta and TikTok.
+7. ✅ **TikTok parity + Meta CPAS read mode** — TikTok regular placement/read parity, TikTok GMV Max commerce data, and Meta CPAS `params.mode="cpas"`.
+8. ⏳ **Google Ads read-only provider** — account/campaign/adgroup/ad performance and normalizer.
+9. ⏳ **v0.6.0 — Adset/ad write operations** — extend mutation coverage below campaign level.
+10. ⏳ **Safety guard expansion** — batch limits, rollback, whitelist, blacklist, and max-change rate limits.
+11. ⏳ **Release hygiene** — keep `package.json`, `CHANGELOG.md`, `ROADMAP.md`, tags, and project status synchronized.
 
 ---
 
