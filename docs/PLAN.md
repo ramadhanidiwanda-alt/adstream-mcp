@@ -79,9 +79,9 @@ Target platform akhir:
 | Provider IDs | Hardcoded `meta`, `tiktok` (`src/broker/types.ts`) | Belum bisa Google/marketplace |
 | Report engine | `ads_generate_report` → `NOT_IMPLEMENTED` (`src/broker/AdsBroker.ts`) | Capability laporan belum ada |
 | Cross-provider | Multi-provider request → `NOT_IMPLEMENTED` | Belum ada laporan lintas platform |
-| TikTok adapter | `getPlacementPerformance` stub (account performance kini implemented) | TikTok belum sepenuhnya setara Meta |
+| TikTok adapter | account/campaign/adgroup/ad + placement performance implemented; GMV Max exposed via commerce data tool | TikTok regular + GMV read parity sudah masuk Fase 3 |
 | Create ads | Belum ada (hanya campaign-level mutate) | "Membuat iklan" belum didukung |
-| Commerce model | `AdsMetricRecord` fokus ads, belum commerce (GMV/order/SKU/live) | Marketplace belum ter-model |
+| Commerce model | `CommerceRecord` + `commerce_get_performance provider=tiktok_gmv` sudah ada | Marketplace Indonesia masih menunggu izin API |
 | Paket metadata | `package.json` sudah memakai `adstream-mcp` | Perlu dipertahankan konsisten di semua docs dan examples |
 | Roadmap | `ROADMAP.md` tertinggal dari status aktual | Sinkronisasi perlu |
 | Tool surface | Campuran `ads_*`, `meta_*`, `tiktok_*` | Perlu strategi stable vs legacy |
