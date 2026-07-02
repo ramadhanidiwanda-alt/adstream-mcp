@@ -82,6 +82,30 @@ const sinceUntilInputSchema = {
   until: z.string().describe('End date in YYYY-MM-DD format.'),
 };
 
+const ecommerceLaunchInputSchema = {
+  ...adsBaseInputSchema,
+  accountId: z.string().describe('Provider account id. Required for ecommerce campaign creation.'),
+  campaignName: z.string().describe('Campaign name. MVP uses OUTCOME_SALES.'),
+  adSetName: z.string().describe('Ad set name.'),
+  adName: z.string().describe('Ad name.'),
+  pageId: z.string().describe('Meta Page ID used in object_story_spec.'),
+  pixelId: z.string().describe('Meta Pixel ID for ecommerce conversion optimization.'),
+  destinationUrl: z.string().describe('Product or landing page URL.'),
+  dailyBudget: z.number().describe('Daily budget in account minor currency units.'),
+  countries: z.array(z.string()).describe('ISO country codes, e.g. ["ID"].'),
+  primaryText: z.string().describe('Primary ad text.'),
+  headline: z.string().describe('Ad headline.'),
+  description: z.string().optional().describe('Optional ad description.'),
+  imageHash: z.string().describe('Uploaded Meta image hash. Required for MVP static creative.'),
+  callToActionType: z.enum(['SHOP_NOW', 'LEARN_MORE', 'SIGN_UP', 'GET_OFFER']).optional(),
+  specialAdCategories: z.array(z.string()).optional().describe('Meta special ad categories.'),
+  ageMin: z.number().optional(),
+  ageMax: z.number().optional(),
+  publisherPlatforms: z.array(z.string()).optional(),
+  dryRun: z.boolean().optional().describe('Defaults to true. Set false only after preview.'),
+  confirmed: z.boolean().optional().describe('Must be true to execute after preview.'),
+};
+
 const legacyAdAccountId = z
   .string()
   .describe('Ad account ID (e.g., act_123456789)');
@@ -156,9 +180,12 @@ export function createMetaAdsMcpServer(
   for (const toolDefinition of ADS_MCP_TOOL_DEFINITIONS) {
     const hasSince = toolDefinition.inputSchema.required.includes('since');
     const hasCampaignId = toolDefinition.inputSchema.required.includes('campaignId');
+    const hasCampaignName = toolDefinition.inputSchema.required.includes('campaignName');
 
     let inputSchema: Record<string, z.ZodType<unknown>>;
-    if (hasCampaignId) {
+    if (hasCampaignName) {
+      inputSchema = ecommerceLaunchInputSchema;
+    } else if (hasCampaignId) {
       const base = hasSince ? sinceUntilInputSchema : adsBaseInputSchema;
       const requiresBudget = toolDefinition.inputSchema.required.includes('dailyBudget');
       const requiresNewName = toolDefinition.inputSchema.required.includes('newName');
