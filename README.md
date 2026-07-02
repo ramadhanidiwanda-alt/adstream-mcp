@@ -1,10 +1,10 @@
 # Adstream MCP
 
-Open-source MCP connector hub for ads and commerce analytics. It started as a Meta Ads toolkit and is evolving into Cuan Insight's client-agnostic execution layer for Meta, TikTok, Google Ads, and Indonesian marketplace ads.
+Open-source MCP connector hub for ads and commerce analytics. It started as a Meta Ads toolkit and is evolving into Cuan Insight's client-agnostic execution layer for Meta, Meta CPAS, TikTok regular, TikTok GMV Max, Google Ads, and Indonesian marketplace ads.
 
 [![GitHub](https://img.shields.io/github/license/ramadhanidiwanda-alt/adstream-mcp)](LICENSE)
 [![npm version](https://img.shields.io/npm/v/adstream-mcp)](https://www.npmjs.com/package/adstream-mcp)
-[![tests](https://img.shields.io/badge/tests-429%20passed-brightgreen)]()
+[![tests](https://img.shields.io/badge/tests-448%20passed-brightgreen)]()
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)]()
 
 
@@ -24,6 +24,32 @@ Example input:
 ```
 
 Returned metrics include spend, impressions, reach, clicks, link clicks, CTR, CPC, CPM, actions, purchase value, purchase ROAS, and leads when Meta provides them. If Meta omits `purchase_roas`, normalized output can calculate ROAS from `purchase_value / spend` when both values are available.
+
+## Meta CPAS and TikTok GMV Max
+
+Meta CPAS is not a separate provider. Use the regular Meta provider with `params.mode: "cpas"` to request catalog/product breakdowns and receive normalized catalog metadata.
+
+```json
+{
+  "provider": "meta",
+  "accountId": "act_123",
+  "since": "2026-05-01",
+  "until": "2026-05-07",
+  "params": { "mode": "cpas" }
+}
+```
+
+TikTok GMV Max uses the commerce data surface so AI clients can read structured JSON and write their own analysis/report narrative.
+
+```json
+{
+  "provider": "tiktok_gmv",
+  "accountId": "advertiser_123",
+  "storeIds": ["store_1"],
+  "since": "2026-05-01",
+  "until": "2026-05-07"
+}
+```
 
 
 ## Two Ways to Use This Project
@@ -83,9 +109,11 @@ console.log(analysis.recommendations);
 ```
 
 **Features:**
-- Clean Meta Marketing API wrapper
-- 6 read-only tools (campaigns, insights at all levels)
-- Performance analysis with recommendations
+- Clean Meta Marketing API wrapper plus broker adapters for Meta and TikTok
+- Stable `ads_*` MCP tools for account, campaign, adgroup/adset, ad, placement, and report data
+- Meta CPAS mode via `params.mode: "cpas"` with catalog/product metadata
+- TikTok regular performance plus TikTok GMV Max commerce data via `commerce_get_performance`
+- Performance analysis with recommendations where appropriate; commerce tools return normalized JSON for AI-side analysis
 - Flexible rule engine (26 pre-built templates)
 - TypeScript types for everything
 - MCP server included

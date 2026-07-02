@@ -411,8 +411,9 @@ Mapping guidance:
 ## 12. Implementation Plan
 
 Current implementation status: Phases 1-5 have an implemented foundation in this repository.
-This includes rich types and contracts, `CredentialResolver`, `ProviderRegistry`, `MetaAdsAdapter` wrapper, `AdsBroker`, MVP `ads_*` MCP tools, and `TikTokAdsAdapter` skeleton/mock.
-TikTok support is currently skeleton/mock only: there is no real TikTok Business API call and no TikTok OAuth implementation in this MCP repository yet.
+This includes rich types and contracts, `CredentialResolver`, `ProviderRegistry`, `MetaAdsAdapter` wrapper, `AdsBroker`, stable `ads_*` MCP tools, `commerce_get_performance`, Meta CPAS mode, and a real TikTok read adapter for account/campaign/adgroup/ad/placement performance plus GMV Max commerce normalization.
+
+Historical note: early versions described TikTok as skeleton/mock only. That is no longer accurate for read paths; TikTok OAuth and provider credential rollout may still depend on the hosting credential gateway.
 
 ### Phase 0 — Audit
 
@@ -460,13 +461,12 @@ TikTok support is currently skeleton/mock only: there is no real TikTok Business
 - Keep existing Meta tools until deprecation strategy is defined.
 - Ensure remote credential access goes through CredentialResolver.
 
-### Phase 5 — TikTok Adapter Skeleton/Mock
+### Phase 5 — TikTok Adapter Read Integration
 
-- Add `TikTokAdsAdapter` skeleton.
+- Add `TikTokAdsAdapter` with contract-safe fallback behavior.
 - Add mock response mapping for contract tests.
-- Do not hardcode TikTok logic directly into the MCP server.
-- Defer real TikTok Business API integration until contracts and tests are stable.
-- Current status: implemented as skeleton/mock only; no real TikTok API calls are made.
+- Keep TikTok logic inside the provider adapter and raw/debug TikTok tools, not hardcoded into generic broker routing.
+- Current status: read integration is implemented for account, campaign, adgroup, ad, placement, campaign listing, and GMV Max commerce normalization. Write/create remains out of scope for this phase.
 
 ### Phase 6 — Tests
 
@@ -476,7 +476,7 @@ TikTok support is currently skeleton/mock only: there is no real TikTok Business
 - Add token redaction tests.
 - Add MCP tool contract tests.
 - Add Meta adapter regression tests.
-- Add TikTok adapter mock tests.
+- Add TikTok adapter mock and real-client-shape tests.
 - Add tests that reject non-ads and unsupported providers.
 
 ### Phase 7 — Docs
