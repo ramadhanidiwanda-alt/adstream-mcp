@@ -186,7 +186,7 @@ export class AdsBroker {
       return this.errorResponse(provider.provider, credential.error.code, credential.error.message);
     }
 
-    if (!this.permissionPolicy.canRead(credential.credential)) {
+    if (!this.permissionPolicy.canRead(credential.credential, request)) {
       return this.errorResponse(provider.provider, 'READ_NOT_ALLOWED', 'Read operation is not allowed');
     }
 
@@ -245,7 +245,7 @@ export class AdsBroker {
       return this.errorResponse(provider.provider, credential.error.code, credential.error.message);
     }
 
-    if (!this.permissionPolicy.canWrite(credential.credential)) {
+    if (!this.permissionPolicy.canWrite(credential.credential, request)) {
       return this.errorResponse(provider.provider, 'WRITE_NOT_ALLOWED', 'Write operation is not allowed by the current permission policy');
     }
 

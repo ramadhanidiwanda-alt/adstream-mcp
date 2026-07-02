@@ -61,7 +61,7 @@ Target platform akhir:
 
 ## 2. Kondisi Saat Ini (Baseline Audit)
 
-> Ringkasan dari audit 2026-07-01. Build sukses, 429 tests passing (33 files).
+> Ringkasan dari audit 2026-07-02. Build sukses, 460 tests passing (38 files) setelah RBAC minimal foundation.
 
 ### 2.1 Sudah Kuat
 
@@ -69,23 +69,23 @@ Target platform akhir:
 - **Generic MCP tools** `ads_*`: accounts, campaigns, performance (account/campaign/adset/ad/creative/placement), write (pause/resume/budget/rename) (`src/broker/mcpTools.ts`).
 - **Credential authority = Cuan Insight**: local & remote mode, Connection Key, OAuth store (memory + Supabase) (`docs/PROJECT_STATUS.md`).
 - **Transport**: stdio, SSE, Streamable HTTP dengan bearer/OAuth gating (`mcp-server/src/http.ts`).
-- **Safety**: redaction (`redactErrorMessage`, `redactTokenLikeValues`), strip `raw`, write permission policy, `docs/WRITE_SAFETY_CONTRACT.md`.
-- **Providers**: Meta (read + campaign write), TikTok (campaign list, report, GMV Max, location) — partial.
+- **Safety**: redaction (`redactErrorMessage`, `redactTokenLikeValues`), strip `raw`, credential-aware permission policy, `docs/WRITE_SAFETY_CONTRACT.md`.
+- **Providers**: Meta (read + campaign write, CPAS mode), TikTok (regular read + GMV Max commerce), Google Ads (read foundation).
 
 ### 2.2 Gap Utama
 
 | Area | Kondisi | Dampak |
 |---|---|---|
-| Provider IDs | Hardcoded `meta`, `tiktok` (`src/broker/types.ts`) | Belum bisa Google/marketplace |
-| Report engine | `ads_generate_report` → `NOT_IMPLEMENTED` (`src/broker/AdsBroker.ts`) | Capability laporan belum ada |
-| Cross-provider | Multi-provider request → `NOT_IMPLEMENTED` | Belum ada laporan lintas platform |
+| Provider IDs | `meta`, `tiktok`, `google` sudah masuk broker/provider registry | Marketplace belum masuk sampai izin API tersedia |
+| Report engine | `ads_generate_report` sudah menghasilkan summary/audit account/campaign | Perlu reuse rule engine lama agar rekomendasi makin kaya |
+| Cross-provider | Cross-provider report sudah mendukung partial failure dan mixed currency warning | Perlu perluasan fixture/path Google |
 | TikTok adapter | account/campaign/adgroup/ad + placement performance implemented; GMV Max exposed via commerce data tool | TikTok regular + GMV read parity sudah masuk Fase 3 |
 | Create ads | Belum ada (hanya campaign-level mutate) | "Membuat iklan" belum didukung |
 | Commerce model | `CommerceRecord` + `commerce_get_performance provider=tiktok_gmv` sudah ada | Marketplace Indonesia masih menunggu izin API |
 | Paket metadata | `package.json` sudah memakai `adstream-mcp` | Perlu dipertahankan konsisten di semua docs dan examples |
 | Roadmap | `ROADMAP.md` tertinggal dari status aktual | Sinkronisasi perlu |
 | Tool surface | Campuran `ads_*`, `meta_*`, `tiktok_*` | Perlu strategi stable vs legacy |
-| RBAC | Hanya read/write policy dasar | Perlu RBAC minimal sebelum create ads |
+| RBAC | RBAC minimal awal: provider/account/scope read gating + default deny write | Perlu write/create scope policy lebih granular sebelum create ads |
 
 ### 2.3 Prinsip yang Dipertahankan
 
@@ -229,9 +229,11 @@ Prinsip urutan (sesuai keputusan §0): **stabilkan fondasi → report engine →
 **Goal:** Adset/ad write + create ads (Meta→TikTok), dengan RBAC minimal terpasang lebih dulu.
 
 - [ ] **RBAC minimal (prasyarat sebelum create):**
-  - [ ] `AccessPolicy` per kredensial: read-only vs write-allowed vs create-allowed.
-  - [ ] Isolasi akun/tenant: kredensial hanya boleh menyentuh akun yang dipetakan di Cuan Insight.
-  - [ ] Gating di broker sebelum eksekusi write/create; error aman (`WRITE_NOT_ALLOWED`/`CREATE_NOT_ALLOWED`).
+  - [x] Credential-aware read gating: provider harus cocok, akun harus masuk `allowedAccountIds`/`accountId`, scope harus memuat `ads.read`/`ads.write`/`ads.admin` jika scopes dikirim.
+  - [x] Default deny write tetap aktif (`WRITE_NOT_ALLOWED`) sampai policy write eksplisit dikonfigurasi.
+  - [ ] `AccessPolicy` create/write granular: read-only vs write-allowed vs create-allowed per Connection Key.
+  - [ ] Isolasi tenant penuh dari Cuan Insight: org/workspace/provider/account/scope mapping eksplisit.
+  - [ ] Gating create di broker sebelum eksekusi; error aman (`CREATE_NOT_ALLOWED`).
 - [ ] Adset/ad: pause/resume/budget/rename (lanjutan ROADMAP v0.6.0) sesuai `WRITE_SAFETY_CONTRACT`.
 - [ ] Batch ops + rollback + rate limit + whitelist/blacklist.
 - [ ] **Create ads** (fase paling sensitif, urutan Meta → TikTok):
