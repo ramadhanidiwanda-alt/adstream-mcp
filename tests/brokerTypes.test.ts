@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   ADS_PROVIDER_CAPABILITY_MATRIX,
   ADS_TOOL_CATEGORIES,
+  credentialAllowsRequestAccount,
+  credentialAllowsRequestProvider,
+  credentialHasAnyScope,
   defaultDenyWritePermissionPolicy,
   isAdsProviderId,
   isReadOperation,
@@ -12,6 +15,7 @@ describe('Ads MCP Broker rich types and contracts', () => {
   it('accepts only supported provider ids', () => {
     expect(isAdsProviderId('meta')).toBe(true);
     expect(isAdsProviderId('tiktok')).toBe(true);
+    expect(isAdsProviderId('google')).toBe(true);
   });
 
   it('rejects unsupported provider ids', () => {
@@ -38,8 +42,10 @@ describe('Ads MCP Broker rich types and contracts', () => {
   it('exposes provider capability matrix as the adapter source of truth', () => {
     expect(ADS_PROVIDER_CAPABILITY_MATRIX.meta.operations).toEqual(['read', 'write']);
     expect(ADS_PROVIDER_CAPABILITY_MATRIX.tiktok.operations).toEqual(['read']);
+    expect(ADS_PROVIDER_CAPABILITY_MATRIX.google.operations).toEqual(['read']);
     expect(ADS_PROVIDER_CAPABILITY_MATRIX.meta.categories).toContain('reports');
     expect(ADS_PROVIDER_CAPABILITY_MATRIX.tiktok.providers).toEqual(['tiktok']);
+    expect(ADS_PROVIDER_CAPABILITY_MATRIX.google.providers).toEqual(['google']);
   });
 
   it('keeps write operation typed but denied by default', () => {
@@ -50,6 +56,23 @@ describe('Ads MCP Broker rich types and contracts', () => {
     expect(defaultDenyWritePermissionPolicy.canRead(credential)).toBe(true);
     expect(defaultDenyWritePermissionPolicy.canWrite(credential)).toBe(false);
     expect(defaultDenyWritePermissionPolicy.requireConfirmation(credential)).toBe(true);
+  });
+
+  it('checks credential account, provider, and scope constraints when provided', () => {
+    const credential = {
+      provider: 'meta' as AdsProviderId,
+      accountId: 'act_123',
+      allowedAccountIds: ['act_123'],
+      scopes: ['ads.read'],
+      source: 'test' as const,
+    };
+
+    expect(credentialAllowsRequestProvider(credential, { provider: 'meta', params: {} })).toBe(true);
+    expect(credentialAllowsRequestProvider(credential, { provider: 'tiktok', params: {} })).toBe(false);
+    expect(credentialAllowsRequestAccount(credential, { accountId: 'act_123', params: {} })).toBe(true);
+    expect(credentialAllowsRequestAccount(credential, { accountId: 'act_999', params: {} })).toBe(false);
+    expect(credentialHasAnyScope(credential, ['ads.read'])).toBe(true);
+    expect(credentialHasAnyScope(credential, ['ads.write'])).toBe(false);
   });
 
   it('accepts a valid Meta AdsMetricRecord sample', () => {

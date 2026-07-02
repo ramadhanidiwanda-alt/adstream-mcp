@@ -321,6 +321,10 @@ export interface CredentialContext {
   accessToken?: string;
   accountId?: string;
   apiVersion?: string;
+  /** Optional OAuth/API scopes returned by the credential control plane. */
+  scopes?: string[];
+  /** Optional account allow-list for organization/workspace-scoped connection keys. */
+  allowedAccountIds?: string[];
   source: 'env' | 'cuan_insight' | 'request' | 'test';
 }
 
@@ -424,9 +428,34 @@ export interface AdsToolDefinition {
 }
 
 export interface PermissionPolicy {
-  canRead(context: CredentialContext): boolean;
-  canWrite(context: CredentialContext): boolean;
-  requireConfirmation(context: CredentialContext): boolean;
+  canRead(context: CredentialContext, request?: AdsBrokerRequest): boolean;
+  canWrite(context: CredentialContext, request?: AdsBrokerRequest): boolean;
+  requireConfirmation(context: CredentialContext, request?: AdsBrokerRequest): boolean;
+}
+
+export function credentialAllowsRequestAccount(
+  context: CredentialContext,
+  request?: AdsBrokerRequest
+): boolean {
+  if (!request?.accountId) return true;
+
+  const allowedAccountIds = context.allowedAccountIds ?? (context.accountId ? [context.accountId] : []);
+  if (allowedAccountIds.length === 0) return true;
+
+  return allowedAccountIds.includes(request.accountId);
+}
+
+export function credentialAllowsRequestProvider(
+  context: CredentialContext,
+  request?: AdsBrokerRequest
+): boolean {
+  if (!request?.provider) return true;
+  return context.provider === request.provider;
+}
+
+export function credentialHasAnyScope(context: CredentialContext, scopes: string[]): boolean {
+  if (!context.scopes || context.scopes.length === 0) return true;
+  return scopes.some((scope) => context.scopes?.includes(scope));
 }
 
 export function isAdsProviderId(value: unknown): value is AdsProviderId {
@@ -438,7 +467,11 @@ export function isReadOperation(value: unknown): value is 'read' {
 }
 
 export const defaultDenyWritePermissionPolicy: PermissionPolicy = {
-  canRead: () => true,
+  canRead: (context, request) => (
+    credentialAllowsRequestProvider(context, request)
+    && credentialAllowsRequestAccount(context, request)
+    && credentialHasAnyScope(context, ['ads.read', 'ads.write', 'ads.admin'])
+  ),
   canWrite: () => false,
   requireConfirmation: () => true,
 };
