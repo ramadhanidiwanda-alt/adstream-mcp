@@ -226,6 +226,12 @@ The MCP SDK is upgraded to `^1.29.0`, Streamable HTTP is implemented, and Phase 
 - TikTok regular read paths support account, campaign, adgroup, ad, and placement performance through normalized `AdsMetricRecord` rows.
 - TikTok placement performance uses report `placement_type` and maps it into normalized `dimensions.platform` / `dimensions.placement`.
 - TikTok GMV Max is exposed through `commerce_get_performance provider=tiktok_gmv` with normalized `CommerceRecord[]`, totals, metadata, and warnings.
+
+### Google Ads Provider Support
+
+- Google Ads provider id, capability matrix entry, provider registry registration, and MCP schemas are implemented.
+- Google Ads read paths normalize account, campaign, adgroup, and ad rows into `AdsMetricRecord`.
+- Google Ads REST client uses OAuth access token + developer token for `googleAds:searchStream`.
 - Hosted provider credential availability still depends on Cuan Insight provider configuration and scopes.
 
 ### Write Operations
@@ -246,7 +252,7 @@ The MCP SDK is upgraded to `^1.29.0`, Streamable HTTP is implemented, and Phase 
 5. ✅ **v0.5.1 — Campaign listing broker tool** — `ads_list_campaigns` for Meta and TikTok adapter path.
 6. ✅ **v0.5.2 — Account-level performance broker tool** — `ads_get_account_performance` for Meta and TikTok.
 7. ✅ **TikTok parity + Meta CPAS read mode** — TikTok regular placement/read parity, TikTok GMV Max commerce data, and Meta CPAS `params.mode="cpas"`.
-8. ⏳ **Google Ads read-only provider** — account/campaign/adgroup/ad performance and normalizer.
+8. ✅ **Google Ads read-only provider foundation** — account/campaign/adgroup/ad performance normalizer, provider registration, and REST SearchStream client.
 9. ⏳ **v0.6.0 — Adset/ad write operations** — extend mutation coverage below campaign level.
 10. ⏳ **Safety guard expansion** — batch limits, rollback, whitelist, blacklist, and max-change rate limits.
 11. ⏳ **Release hygiene** — keep `package.json`, `CHANGELOG.md`, `ROADMAP.md`, tags, and project status synchronized.

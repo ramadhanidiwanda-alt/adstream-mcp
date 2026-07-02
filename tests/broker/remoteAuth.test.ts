@@ -262,6 +262,22 @@ describe('buildCuanInsightCredentialRequestFromRemoteContext', () => {
     }
   });
 
+  it('should build request for google provider', () => {
+    const result = buildCuanInsightCredentialRequestFromRemoteContext(
+      'google',
+      validContext,
+      '1234567890'
+    );
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.request.provider).toBe('google');
+      expect(result.request.accountId).toBe('1234567890');
+      expect(result.request.requestedScopes).toEqual(['read']);
+    }
+  });
+
+
   it('should build request without account ID', () => {
     const result = buildCuanInsightCredentialRequestFromRemoteContext(
       'meta',
@@ -334,7 +350,7 @@ describe('buildCuanInsightCredentialRequestFromRemoteContext', () => {
 
   it('should reject unsupported provider', () => {
     const result = buildCuanInsightCredentialRequestFromRemoteContext(
-      'google',
+      'shopee',
       validContext,
       'act_123456789'
     );
@@ -343,7 +359,7 @@ describe('buildCuanInsightCredentialRequestFromRemoteContext', () => {
     if (!result.ok) {
       expect(result.error.code).toBe('UNSUPPORTED_PROVIDER');
       expect(result.error.message).toContain('meta');
-      expect(result.error.message).toContain('tiktok');
+      expect(result.error.message).toContain('google');
     }
   });
 

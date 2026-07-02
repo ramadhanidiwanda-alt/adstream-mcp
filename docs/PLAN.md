@@ -144,8 +144,8 @@ Setiap adapter mengekspos `capabilities` sehingga broker dan agent tahu apa yang
 
 | Capability | meta | meta_cpas* | tiktok | tiktok_gmv | google | shopee | tokopedia | lazada |
 |---|---|---|---|---|---|---|---|---|
-| list_accounts | ✅ | ✅ | ✅ | ▶ | ▶ | ▶ | ▶ | ▶ |
-| read_performance | ✅ | ✅ | ✅ | ✅ | ▶ | ▶ | ▶ | ▶ |
+| list_accounts | ✅ | ✅ | ✅ | ▶ | ✅ | ▶ | ▶ | ▶ |
+| read_performance | ✅ | ✅ | ✅ | ✅ | ✅ | ▶ | ▶ | ▶ |
 | placement_performance | ✅ | ✅ | ✅ | n/a | ▶ | ▶ | ▶ | ▶ |
 | ads_report | ⬜ | ⬜ | ⬜ | n/a | ⬜ | ⬜ | ⬜ | ⬜ |
 | commerce_data | n/a | n/a | ✅ | ✅ | n/a | ▶ | ▶ | ▶ |
@@ -216,13 +216,13 @@ Prinsip urutan (sesuai keputusan §0): **stabilkan fondasi → report engine →
 
 **Goal:** Provider ads besar ketiga (didahulukan sebelum marketplace).
 
-- [ ] `src/providers/google/` adapter (read: account/campaign/adgroup/ad).
-- [ ] Google Ads auth via Cuan Insight (OAuth + developer token) — resolusi kredensial, bukan simpan lokal.
-- [ ] Normalizer Google → `AdsMetricRecord`.
-- [ ] Register di provider registry + capability matrix.
-- [ ] Tests: normalizer + adapter (mock).
+- [x] `src/providers/google/` adapter foundation (read: account/campaign/adgroup/ad).
+- [x] Google Ads REST client supports OAuth access token + developer token inputs; hosted Cuan Insight credential rollout tetap bergantung konfigurasi provider.
+- [x] Normalizer Google → `AdsMetricRecord`.
+- [x] Register di provider registry + capability matrix.
+- [x] Tests: normalizer + adapter + factory + MCP schema.
 
-**Exit:** `ads_get_*_performance provider=google` jalan; masuk cross-provider report.
+**Exit:** `ads_get_*_performance provider=google` tersedia untuk client-injected/credential-backed Google Ads client; production credential rollout perlu konfigurasi Cuan Insight Google scopes/developer token.
 
 ### Fase 5 — RBAC Minimal + Write Ekspansi + Create (Target: Oktober–November 2026)
 
