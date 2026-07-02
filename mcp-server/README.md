@@ -17,7 +17,7 @@ MCP (Model Context Protocol) server wrapper for Adstream MCP. Enables MCP-compat
 
 ## Current Stable Data Tools
 
-- `ads_get_*_performance` supports Meta, Meta CPAS mode via `params.mode: "cpas"`, and TikTok regular read paths.
+- `ads_get_*_performance` supports Meta, Meta CPAS mode via `params.mode: "cpas"`, TikTok regular read paths, and Google Ads read paths when credentials/client are configured.
 - `ads_get_placement_performance` supports Meta and TikTok placement analysis.
 - `commerce_get_performance` supports TikTok GMV Max via `provider: "tiktok_gmv"` and returns normalized JSON, not narrative recommendations.
 

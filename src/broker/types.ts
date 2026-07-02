@@ -1,4 +1,4 @@
-export const ADS_PROVIDER_IDS = ['meta', 'tiktok'] as const;
+export const ADS_PROVIDER_IDS = ['meta', 'tiktok', 'google'] as const;
 export type AdsProviderId = (typeof ADS_PROVIDER_IDS)[number];
 
 export const ADS_ENTITY_LEVELS = ['account', 'campaign', 'adset', 'adgroup', 'ad', 'creative'] as const;
@@ -383,6 +383,12 @@ export const ADS_PROVIDER_CAPABILITY_MATRIX = {
   tiktok: {
     providers: ['tiktok'],
     categories: ['accounts', 'campaigns', 'ad_groups', 'ads', 'creatives', 'insights', 'reports', 'diagnostics'],
+    operations: ['read'],
+    supportsRaw: false,
+  },
+  google: {
+    providers: ['google'],
+    categories: ['accounts', 'campaigns', 'ad_groups', 'ads', 'insights', 'reports', 'diagnostics'],
     operations: ['read'],
     supportsRaw: false,
   },

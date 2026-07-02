@@ -15,7 +15,7 @@ describe('Ads MCP Broker rich types and contracts', () => {
   });
 
   it('rejects unsupported provider ids', () => {
-    expect(isAdsProviderId('google')).toBe(false);
+    expect(isAdsProviderId('shopee')).toBe(false);
     expect(isAdsProviderId('snap')).toBe(false);
     expect(isAdsProviderId('')).toBe(false);
     expect(isAdsProviderId(undefined)).toBe(false);

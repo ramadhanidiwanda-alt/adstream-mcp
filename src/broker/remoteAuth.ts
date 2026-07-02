@@ -137,13 +137,13 @@ export function parseRemoteMcpAuthHeaders(
  * the Cuan Insight credential client.
  *
  * Security rules:
- * - Provider must be 'meta' or 'tiktok'
+ * - Provider must be a supported ads provider ID
  * - Requested scopes are always ['read'] in this phase
  * - Caller token comes from Authorization header
  * - Workspace ID comes from X-Cuan-Workspace-Id header if present
  * - Account ID is optional and comes from tool parameters
  *
- * @param provider - Ads provider ID ('meta' or 'tiktok')
+ * @param provider - Ads provider ID
  * @param context - Parsed remote MCP request context
  * @param accountId - Optional provider account ID
  * @param params - Optional tool-specific parameters
@@ -161,7 +161,7 @@ export function buildCuanInsightCredentialRequestFromRemoteContext(
       ok: false,
       error: {
         code: 'UNSUPPORTED_PROVIDER',
-        message: 'Provider must be "meta" or "tiktok"',
+        message: 'Provider must be one of: meta, tiktok, google',
       },
     };
   }
