@@ -14,6 +14,8 @@ import { pauseCampaign as pauseCampaignTool } from '../../tools/pauseCampaign.js
 import { resumeCampaign as resumeCampaignTool } from '../../tools/resumeCampaign.js';
 import { updateCampaignBudget as updateCampaignBudgetTool } from '../../tools/updateCampaignBudget.js';
 import { renameCampaign as renameCampaignTool } from '../../tools/renameCampaign.js';
+import { createEcommerceCampaignBundle as createEcommerceCampaignBundleTool } from '../../tools/createEcommerceCampaignBundle.js';
+import type { EcommerceCampaignBundlePayload as MetaEcommerceCampaignBundlePayload, EcommerceCampaignBundleResult } from '../../tools/createEcommerceCampaignBundle.js';
 import type {
   AdsBrokerRequest,
   AdsBrokerResponse,
@@ -21,6 +23,7 @@ import type {
   AdsMutationResult,
   AdsProviderAdapter,
   CredentialContext,
+  EcommerceCampaignBundlePayload,
 } from '../../broker/types.js';
 import { ADS_PROVIDER_CAPABILITY_MATRIX } from '../../broker/types.js';
 import { redactErrorMessage } from '../../broker/credentials.js';
@@ -55,6 +58,11 @@ export interface MetaAdsAdapterTools {
   resumeCampaign(client: MetaClient, campaignId: string): Promise<MutationResult>;
   updateCampaignBudget(client: MetaClient, campaignId: string, dailyBudget: number): Promise<MutationResult>;
   renameCampaign(client: MetaClient, campaignId: string, newName: string): Promise<MutationResult>;
+  createEcommerceCampaignBundle(
+    client: MetaClient,
+    payload: MetaEcommerceCampaignBundlePayload,
+    options?: { dryRun?: boolean; confirmed?: boolean; maxRetries?: number }
+  ): Promise<EcommerceCampaignBundleResult>;
 }
 
 export interface MetaAdsAdapterOptions {
@@ -84,6 +92,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       resumeCampaign: resumeCampaignTool,
       updateCampaignBudget: updateCampaignBudgetTool,
       renameCampaign: renameCampaignTool,
+      createEcommerceCampaignBundle: createEcommerceCampaignBundleTool,
       ...options.tools,
     };
   }
@@ -504,6 +513,79 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
     } catch (error) {
       return this.writeErrorResponse(error);
     }
+  }
+
+  async createEcommerceCampaignBundle(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<EcommerceCampaignBundleResult>> {
+    const context = this.getCredentialContext(request);
+    if (!context.ok) return context.response;
+
+    const payload = this.getEcommerceCampaignBundlePayload(request, context.credential);
+    if (!payload.ok) return payload.response;
+
+    try {
+      const client = this.createClient(context.credential);
+      const result = await this.tools.createEcommerceCampaignBundle(client, payload.payload, {
+        dryRun: request.params.dryRun !== false,
+        confirmed: request.params.confirmed === true,
+      });
+      return { ok: result.status !== 'failed', provider: 'meta', data: result };
+    } catch (error) {
+      return this.writeErrorResponse(error);
+    }
+  }
+
+  private getEcommerceCampaignBundlePayload(
+    request: AdsBrokerRequest,
+    credential: CredentialContext
+  ):
+    | { ok: true; payload: MetaEcommerceCampaignBundlePayload }
+    | { ok: false; response: AdsBrokerResponse<never> } {
+    const params = request.params as Partial<EcommerceCampaignBundlePayload>;
+    const adAccountId = request.accountId ?? credential.accountId;
+
+    if (!adAccountId) {
+      return {
+        ok: false,
+        response: {
+          ok: false,
+          provider: 'meta',
+          errors: [{ provider: 'meta', code: 'MISSING_ACCOUNT_ID', message: 'accountId is required' }],
+        },
+      };
+    }
+
+    return {
+      ok: true,
+      payload: {
+        adAccountId,
+        campaignName: String(params.campaignName ?? ''),
+        adSetName: String(params.adSetName ?? ''),
+        adName: String(params.adName ?? ''),
+        pageId: String(params.pageId ?? ''),
+        pixelId: String(params.pixelId ?? ''),
+        destinationUrl: String(params.destinationUrl ?? ''),
+        dailyBudget: Number(params.dailyBudget),
+        currency: typeof params.currency === 'string' ? params.currency : undefined,
+        countries: Array.isArray(params.countries) ? params.countries.filter((country): country is string => typeof country === 'string') : [],
+        primaryText: String(params.primaryText ?? ''),
+        headline: String(params.headline ?? ''),
+        description: typeof params.description === 'string' ? params.description : undefined,
+        imageHash: typeof params.imageHash === 'string' ? params.imageHash : undefined,
+        videoId: typeof params.videoId === 'string' ? params.videoId : undefined,
+        callToActionType: params.callToActionType,
+        specialAdCategories: Array.isArray(params.specialAdCategories)
+          ? params.specialAdCategories.filter((category): category is string => typeof category === 'string')
+          : undefined,
+        ageMin: typeof params.ageMin === 'number' ? params.ageMin : undefined,
+        ageMax: typeof params.ageMax === 'number' ? params.ageMax : undefined,
+        publisherPlatforms: Array.isArray(params.publisherPlatforms)
+          ? params.publisherPlatforms.filter((platform): platform is string => typeof platform === 'string')
+          : undefined,
+        instagramUserId: typeof params.instagramUserId === 'string' ? params.instagramUserId : undefined,
+      },
+    };
   }
 
   private getEntityId(request: AdsBrokerRequest): string | undefined {

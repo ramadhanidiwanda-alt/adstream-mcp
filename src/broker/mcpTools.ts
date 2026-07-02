@@ -13,11 +13,11 @@ export const ADS_MCP_TOOL_NAMES = [
   'ads_get_creative_performance',
   'ads_get_placement_performance',
   'ads_generate_report',
-  // --- Write operations ---
   'ads_pause_campaign',
   'ads_resume_campaign',
   'ads_update_campaign_budget',
   'ads_rename_campaign',
+  'ads_create_ecommerce_campaign_bundle',
 ] as const;
 
 export type AdsMcpToolName = (typeof ADS_MCP_TOOL_NAMES)[number];
@@ -68,7 +68,6 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
     description: 'Generate an ads report through the AdsBroker',
     inputSchema: createAdsInputSchema(['since', 'until']),
   },
-  // --- Write operations ---
   {
     name: 'ads_pause_campaign',
     description: 'Pause a campaign. Returns success/error. Use with caution — campaign will stop spending.',
@@ -88,6 +87,11 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
     name: 'ads_rename_campaign',
     description: 'Rename a campaign. Returns success/error.',
     inputSchema: createWriteInputSchema(['campaignId', 'newName']),
+  },
+  {
+    name: 'ads_create_ecommerce_campaign_bundle',
+    description: 'Create a PAUSED Meta ecommerce sales campaign bundle (campaign, ad set, creative, ad) after dry-run preview and explicit confirmation.',
+    inputSchema: createEcommerceLaunchInputSchema(),
   },
 ] as const;
 
@@ -133,7 +137,6 @@ function stripRawFromResponse<T>(value: T): T {
 }
 
 export function toAdsBrokerRequest(args: Record<string, unknown>, connectionKey?: string): AdsBrokerRequest {
-  // Extract oauth auth context if present (set by createServer.ts from extra.authInfo)
   const oauthAuthContext = (args._oauthAuthContext as AdsBrokerRequest['oauthAuthContext']) ?? undefined;
 
   return {
@@ -142,10 +145,21 @@ export function toAdsBrokerRequest(args: Record<string, unknown>, connectionKey?
     accountId: typeof args.accountId === 'string' ? args.accountId : undefined,
     since: typeof args.since === 'string' ? args.since : undefined,
     until: typeof args.until === 'string' ? args.until : undefined,
-    params: isPlainObject(args.params) ? args.params : {},
+    params: extractParams(args),
     connectionKey,
     oauthAuthContext,
   };
+}
+
+function extractParams(args: Record<string, unknown>): Record<string, unknown> {
+  const params = isPlainObject(args.params) ? { ...args.params } : {};
+  const reserved = new Set(['provider', 'providers', 'accountId', 'since', 'until', 'params', '_oauthAuthContext']);
+
+  for (const [key, value] of Object.entries(args)) {
+    if (!reserved.has(key)) params[key] = value;
+  }
+
+  return params;
 }
 
 function callBrokerMethod(
@@ -172,7 +186,6 @@ function callBrokerMethod(
       return broker.getPlacementPerformance(request);
     case 'ads_generate_report':
       return broker.generateReport(request);
-    // --- Write operations ---
     case 'ads_pause_campaign':
       return broker.pauseCampaign(request);
     case 'ads_resume_campaign':
@@ -181,6 +194,8 @@ function callBrokerMethod(
       return broker.updateCampaignBudget(request);
     case 'ads_rename_campaign':
       return broker.renameCampaign(request);
+    case 'ads_create_ecommerce_campaign_bundle':
+      return broker.createEcommerceCampaignBundle(request);
   }
 }
 
@@ -208,6 +223,37 @@ function createWriteInputSchema(required: string[]) {
       ...writeProperties,
     },
     required,
+  };
+}
+
+function createEcommerceLaunchInputSchema() {
+  const schema = createAdsInputSchema([]);
+
+  return {
+    type: 'object',
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      campaignName: { type: 'string', description: 'Campaign name. MVP uses OUTCOME_SALES.' },
+      adSetName: { type: 'string', description: 'Ad set name.' },
+      adName: { type: 'string', description: 'Ad name.' },
+      pageId: { type: 'string', description: 'Meta Page ID used in object_story_spec.' },
+      pixelId: { type: 'string', description: 'Meta Pixel ID for ecommerce conversion optimization.' },
+      destinationUrl: { type: 'string', description: 'Product or landing page URL.' },
+      dailyBudget: { type: 'number', description: 'Daily budget in account minor currency units.' },
+      countries: { type: 'array', items: { type: 'string' }, description: 'ISO country codes, e.g. ["ID"].' },
+      primaryText: { type: 'string', description: 'Primary ad text.' },
+      headline: { type: 'string', description: 'Ad headline.' },
+      description: { type: 'string', description: 'Optional ad description.' },
+      imageHash: { type: 'string', description: 'Uploaded Meta image hash. Required for MVP static creative.' },
+      callToActionType: { type: 'string', enum: ['SHOP_NOW', 'LEARN_MORE', 'SIGN_UP', 'GET_OFFER'] },
+      specialAdCategories: { type: 'array', items: { type: 'string' }, description: 'Meta special ad categories. Defaults to [] only when not applicable.' },
+      ageMin: { type: 'number' },
+      ageMax: { type: 'number' },
+      publisherPlatforms: { type: 'array', items: { type: 'string' } },
+      dryRun: { type: 'boolean', description: 'Defaults to true. Set false only after preview.' },
+      confirmed: { type: 'boolean', description: 'Must be true to execute after preview.' },
+    },
+    required: ['accountId', 'campaignName', 'adSetName', 'adName', 'pageId', 'pixelId', 'destinationUrl', 'dailyBudget', 'countries', 'primaryText', 'headline', 'imageHash'],
   };
 }
 

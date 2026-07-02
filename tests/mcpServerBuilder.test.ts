@@ -132,7 +132,7 @@ describe('MCP server builder', () => {
   it('keeps the expected MCP tool count', async () => {
     const response = await listRegisteredTools();
 
-    expect(response.tools).toHaveLength(27);
+    expect(response.tools).toHaveLength(28);
   });
 
   it('keeps full tool order stable for stdio and future transports', async () => {

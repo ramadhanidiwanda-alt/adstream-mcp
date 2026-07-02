@@ -3,6 +3,7 @@ import type {
   AdsBrokerResponse,
   AdsMetricRecord,
   AdsMutationResult,
+  EcommerceCampaignBundleResult,
   AdsProviderAdapter,
 } from '../../broker/types.js';
 import { ADS_PROVIDER_CAPABILITY_MATRIX } from '../../broker/types.js';
@@ -334,6 +335,10 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
   }
 
   async renameCampaign(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>> {
+    return this.writeNotImplemented();
+  }
+
+  async createEcommerceCampaignBundle(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<EcommerceCampaignBundleResult>> {
     return this.writeNotImplemented();
   }
 

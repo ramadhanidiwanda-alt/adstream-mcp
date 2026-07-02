@@ -91,6 +91,7 @@ describe('ads MCP broker tools', () => {
       'ads_resume_campaign',
       'ads_update_campaign_budget',
       'ads_rename_campaign',
+      'ads_create_ecommerce_campaign_bundle',
     ]);
     expect(legacyToolNames).toContain('meta_get_campaign_insights');
     expect(legacyToolNames).toContain('meta_get_ads_insights');
@@ -138,6 +139,42 @@ describe('ads MCP broker tools', () => {
 
     expect(parseToolResponse(response).ok).toBe(true);
     expect(receivedRequest).toMatchObject({ provider: 'meta', accountId: 'act_123', params: { limit: 10 } });
+  });
+
+  it('routes ads_create_ecommerce_campaign_bundle through AdsBroker with top-level params', async () => {
+    let receivedRequest: AdsBrokerRequest | undefined;
+    const broker = {
+      ...createBrokerStub(),
+      createEcommerceCampaignBundle: async (request: AdsBrokerRequest) => {
+        receivedRequest = request;
+        return {
+          ok: true,
+          provider: 'meta' as const,
+          data: {
+            operation: 'create_ecommerce_campaign_bundle' as const,
+            status: 'dry_run' as const,
+            executed: false,
+            preview: { campaign: {}, adSet: {}, creative: {}, ad: {} },
+            warnings: [],
+          },
+        };
+      },
+    } as unknown as AdsBroker;
+
+    const response = await handleAdsMcpToolCall(broker, 'ads_create_ecommerce_campaign_bundle', {
+      provider: 'meta',
+      accountId: 'act_123',
+      campaignName: 'Sales Campaign',
+      dailyBudget: 150000,
+      dryRun: true,
+    });
+
+    expect(parseToolResponse(response).ok).toBe(true);
+    expect(receivedRequest).toMatchObject({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: { campaignName: 'Sales Campaign', dailyBudget: 150000, dryRun: true },
+    });
   });
 
   it('routes adset/adgroup and ad performance through AdsBroker', async () => {

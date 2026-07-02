@@ -370,6 +370,52 @@ export interface AdsMutationResult {
   error?: string;
 }
 
+export interface EcommerceCampaignBundlePayload {
+  campaignName: string;
+  adSetName: string;
+  adName: string;
+  pageId: string;
+  pixelId: string;
+  destinationUrl: string;
+  dailyBudget: number;
+  currency?: string;
+  countries: string[];
+  primaryText: string;
+  headline: string;
+  description?: string;
+  imageHash?: string;
+  videoId?: string;
+  callToActionType?: 'SHOP_NOW' | 'LEARN_MORE' | 'SIGN_UP' | 'GET_OFFER';
+  specialAdCategories?: string[];
+  ageMin?: number;
+  ageMax?: number;
+  publisherPlatforms?: string[];
+  instagramUserId?: string;
+  dryRun?: boolean;
+  confirmed?: boolean;
+}
+
+export interface EcommerceCampaignBundleResult {
+  operation: 'create_ecommerce_campaign_bundle';
+  status: 'dry_run' | 'pending_confirmation' | 'executed' | 'failed';
+  executed: boolean;
+  preview: {
+    campaign: Record<string, unknown>;
+    adSet: Record<string, unknown>;
+    creative: Record<string, unknown>;
+    ad: Record<string, unknown>;
+  };
+  ids?: {
+    campaignId?: string;
+    adSetId?: string;
+    creativeId?: string;
+    adId?: string;
+  };
+  responses?: Record<string, Record<string, unknown> | undefined>;
+  error?: string;
+  warnings: string[];
+}
+
 export interface AdsProviderCapabilities {
   providers: AdsProviderId[];
   categories: AdsToolCategory[];
@@ -415,6 +461,7 @@ export interface AdsProviderAdapter {
   resumeCampaign(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>>;
   updateCampaignBudget(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>>;
   renameCampaign(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>>;
+  createEcommerceCampaignBundle(request: AdsBrokerRequest): Promise<AdsBrokerResponse<EcommerceCampaignBundleResult>>;
 }
 
 export interface AdsToolDefinition {

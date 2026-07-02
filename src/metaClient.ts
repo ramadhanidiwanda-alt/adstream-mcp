@@ -117,7 +117,10 @@ export class MetaClient {
         const body = new URLSearchParams();
         for (const [key, value] of Object.entries(params)) {
           if (value !== undefined && value !== null) {
-            body.append(key, String(value));
+            body.append(
+              key,
+              typeof value === 'object' ? JSON.stringify(value) : String(value)
+            );
           }
         }
 

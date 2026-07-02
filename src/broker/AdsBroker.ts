@@ -3,6 +3,7 @@ import type {
   AdsBrokerResponse,
   AdsMetricRecord,
   AdsMutationResult,
+  EcommerceCampaignBundleResult,
   AdsReport,
   AdsMultiProviderReport,
   AdsProviderReportError,
@@ -38,7 +39,8 @@ type AdapterWriteMethod =
   | 'pauseCampaign'
   | 'resumeCampaign'
   | 'updateCampaignBudget'
-  | 'renameCampaign';
+  | 'renameCampaign'
+  | 'createEcommerceCampaignBundle';
 
 export class AdsBroker {
   private readonly providerRegistry: ProviderRegistry;
@@ -207,25 +209,31 @@ export class AdsBroker {
   }
 
   pauseCampaign(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>> {
-    return this.executeWrite(request, 'pauseCampaign');
+    return this.executeWrite<AdsMutationResult>(request, 'pauseCampaign');
   }
 
   resumeCampaign(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>> {
-    return this.executeWrite(request, 'resumeCampaign');
+    return this.executeWrite<AdsMutationResult>(request, 'resumeCampaign');
   }
 
   updateCampaignBudget(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>> {
-    return this.executeWrite(request, 'updateCampaignBudget');
+    return this.executeWrite<AdsMutationResult>(request, 'updateCampaignBudget');
   }
 
   renameCampaign(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>> {
-    return this.executeWrite(request, 'renameCampaign');
+    return this.executeWrite<AdsMutationResult>(request, 'renameCampaign');
   }
 
-  private async executeWrite(
+  createEcommerceCampaignBundle(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<EcommerceCampaignBundleResult>> {
+    return this.executeWrite<EcommerceCampaignBundleResult>(request, 'createEcommerceCampaignBundle');
+  }
+
+  private async executeWrite<TData extends AdsMutationResult | EcommerceCampaignBundleResult>(
     request: AdsBrokerRequest,
     method: AdapterWriteMethod
-  ): Promise<AdsBrokerResponse<AdsMutationResult>> {
+  ): Promise<AdsBrokerResponse<TData>> {
     const provider = this.resolveProviderId(request);
     if (!provider.ok) return provider.response;
 
@@ -255,7 +263,7 @@ export class AdsBroker {
     try {
       const adapterRequest = this.withCredential(request, provider.provider, credential.credential);
       const response = await adapter.adapter[method](adapterRequest);
-      return this.sanitizeResponse(response as AdsBrokerResponse<AdsMutationResult>);
+      return this.sanitizeResponse(response as AdsBrokerResponse<TData>);
     } catch (error) {
       return this.errorResponse(
         provider.provider,
