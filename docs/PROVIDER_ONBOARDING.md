@@ -95,7 +95,7 @@ Current source of truth: `ADS_PROVIDER_CAPABILITY_MATRIX` in `src/broker/types.t
 Ads reporting and commerce reporting are separate by design:
 
 - **Ads report** — lead, awareness, traffic, sales, and other campaign objectives.
-- **Commerce/GMV report** — GMV, orders, SKU/store performance, TikTok GMV Max, and marketplace sales ads.
+- **Commerce/GMV data surface** — normalized JSON for GMV, orders, SKU/store performance, TikTok GMV Max, and marketplace sales ads. The MCP returns records/totals/metadata/warnings; the AI client writes the narrative report.
 
 Do not force commerce-only metrics into ads report semantics unless the metric has a clear ads equivalent.
 
