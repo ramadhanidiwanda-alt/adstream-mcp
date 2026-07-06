@@ -156,6 +156,14 @@ export interface AccountInsight {
   actions?: Action[];
   action_values?: ActionValue[];
   purchase_roas?: Array<{ action_type: string; value: string }>;
+  video_play_actions?: ActionValue[];
+  video_thruplay_watched_actions?: ActionValue[];
+  video_30_sec_watched_actions?: ActionValue[];
+  video_p25_watched_actions?: ActionValue[];
+  video_p50_watched_actions?: ActionValue[];
+  video_p75_watched_actions?: ActionValue[];
+  video_p100_watched_actions?: ActionValue[];
+  video_avg_time_watched_actions?: ActionValue[];
 }
 
 export interface CampaignInsight {
@@ -181,6 +189,17 @@ export interface CampaignInsight {
   actions?: Action[];
   action_values?: ActionValue[];
   purchase_roas?: Array<{ action_type: string; value: string }>;
+  // Video action metrics — returned as action arrays from Meta
+  video_play_actions?: ActionValue[];
+  video_thruplay_watched_actions?: ActionValue[];
+  video_30_sec_watched_actions?: ActionValue[];
+  video_p25_watched_actions?: ActionValue[];
+  video_p50_watched_actions?: ActionValue[];
+  video_p75_watched_actions?: ActionValue[];
+  video_p100_watched_actions?: ActionValue[];
+  video_avg_time_watched_actions?: ActionValue[];
+  // Creative ID available at ad-level
+  creative_id?: string;
 }
 
 export type PlacementRecommendation = 'scale' | 'monitor' | 'reduce' | 'insufficient_data';
