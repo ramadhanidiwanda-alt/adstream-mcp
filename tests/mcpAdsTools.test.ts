@@ -51,6 +51,19 @@ function createBrokerStub(): AdsBroker {
       errors: [{ provider: 'meta', code: 'NOT_IMPLEMENTED', message: 'not implemented' }],
     }),
     getPlacementPerformance: response,
+    getContentMatrix: async () => ({
+      ok: true,
+      provider: 'meta',
+      data: {
+        provider: 'meta',
+        report_kind: 'content_matrix',
+        date_range: { since: '2026-05-01', until: '2026-05-07' },
+        group_by: 'campaign',
+        sort: { metric: 'spend', direction: 'desc' },
+        groups: [],
+        coverage: { rows: 0, groups: 0, has_creative_assets: false, notes: [] },
+      },
+    }),
     generateReport: async () => ({
       ok: true,
       provider: 'meta',
@@ -86,6 +99,7 @@ describe('ads MCP broker tools', () => {
       'ads_get_ad_performance',
       'ads_get_creative_performance',
       'ads_get_placement_performance',
+      'ads_content_matrix',
       'ads_generate_report',
       'ads_pause_campaign',
       'ads_resume_campaign',
@@ -195,6 +209,47 @@ describe('ads MCP broker tools', () => {
     await handleAdsMcpToolCall(broker, 'ads_get_ad_performance', {});
 
     expect(calls).toEqual(['adgroup', 'ad']);
+  });
+
+  it('routes ads_content_matrix through AdsBroker with matrix params', async () => {
+    let receivedRequest: AdsBrokerRequest | undefined;
+    const broker = {
+      ...createBrokerStub(),
+      getContentMatrix: async (request: AdsBrokerRequest) => {
+        receivedRequest = request;
+        return {
+          ok: true,
+          provider: 'meta' as const,
+          data: {
+            provider: 'meta' as const,
+            report_kind: 'content_matrix' as const,
+            date_range: { since: '2026-05-01', until: '2026-05-07' },
+            group_by: 'campaign' as const,
+            sort: { metric: 'spend', direction: 'desc' as const },
+            groups: [],
+            coverage: { rows: 0, groups: 0, has_creative_assets: false, notes: [] },
+          },
+        };
+      },
+    } as unknown as AdsBroker;
+
+    const response = await handleAdsMcpToolCall(broker, 'ads_content_matrix', {
+      provider: 'meta',
+      accountId: 'act_123',
+      since: '2026-05-01',
+      until: '2026-05-07',
+      groupBy: 'campaign',
+      sortBy: 'purchase_roas',
+      topLimit: 3,
+      bottomLimit: 3,
+    });
+
+    expect(parseToolResponse(response).ok).toBe(true);
+    expect(receivedRequest).toMatchObject({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: { groupBy: 'campaign', sortBy: 'purchase_roas', topLimit: 3, bottomLimit: 3 },
+    });
   });
 
   it('returns safe NOT_IMPLEMENTED for creative performance and routes report generation', async () => {

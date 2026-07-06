@@ -1,6 +1,9 @@
 import type {
   AdsBrokerRequest,
   AdsBrokerResponse,
+  AdsContentMatrix,
+  AdsContentMatrixGroupBy,
+  AdsContentMatrixSortDirection,
   AdsMetricRecord,
   AdsMutationResult,
   EcommerceCampaignBundleResult,
@@ -17,6 +20,7 @@ import type { CredentialResolverContract } from './credentials.js';
 import { redactErrorMessage, redactTokenLikeValues } from './credentials.js';
 import type { ProviderRegistry } from './providerRegistry.js';
 import { buildAdsSummaryReport, buildCrossProviderReport } from './reportEngine.js';
+import { buildAdsContentMatrix } from './contentMatrix.js';
 
 export interface AdsBrokerOptions {
   providerRegistry: ProviderRegistry;
@@ -87,6 +91,37 @@ export class AdsBroker {
 
   getPlacementPerformance(request: AdsBrokerRequest): Promise<AdsBrokerResponse> {
     return this.executeRead(request, 'getPlacementPerformance');
+  }
+
+  async getContentMatrix(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsContentMatrix>> {
+    const provider = this.resolveProviderId(request);
+    if (!provider.ok) return provider.response;
+
+    const performance = await this.getAdPerformance(request);
+    if (!performance.ok) {
+      return {
+        ok: false,
+        provider: performance.provider,
+        errors: performance.errors,
+      };
+    }
+
+    return {
+      ok: true,
+      provider: provider.provider,
+      data: buildAdsContentMatrix(performance.data ?? [], {
+        provider: provider.provider,
+        since: request.since ?? '',
+        until: request.until ?? '',
+        groupBy: parseGroupBy(request.params.groupBy),
+        sortBy: typeof request.params.sortBy === 'string' ? request.params.sortBy : undefined,
+        sortDirection: parseSortDirection(request.params.sortDirection),
+        topLimit: typeof request.params.topLimit === 'number' ? request.params.topLimit : undefined,
+        bottomLimit: typeof request.params.bottomLimit === 'number' ? request.params.bottomLimit : undefined,
+        includeAllRows: request.params.includeAllRows === true,
+        comparisonMode: request.params.comparisonMode === 'none' ? 'none' : 'previous_period',
+      }),
+    };
   }
 
   async generateReport(
@@ -355,6 +390,14 @@ export class AdsBroker {
   private notImplementedResponse(message: string, provider?: AdsProviderId): AdsBrokerResponse<never> {
     return this.errorResponse(provider, 'NOT_IMPLEMENTED', message);
   }
+}
+
+function parseGroupBy(value: unknown): AdsContentMatrixGroupBy | undefined {
+  return value === 'campaign' || value === 'adset' ? value : undefined;
+}
+
+function parseSortDirection(value: unknown): AdsContentMatrixSortDirection | undefined {
+  return value === 'asc' || value === 'desc' ? value : undefined;
 }
 
 function stripRawFromResponse<T>(value: T): T {
