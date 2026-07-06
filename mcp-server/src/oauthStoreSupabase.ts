@@ -8,6 +8,9 @@ import {
   type OAuthStoreConfig,
   type OAuthResolvedToken,
   type RedeemAuthCodeResult,
+  type RedeemRefreshTokenResult,
+  type CreateAccessTokenParams,
+  type RefreshTokenRecord,
   type AuthorizationCodeRecord,
 } from './oauthStore.js';
 
@@ -118,6 +121,10 @@ export class SupabaseOAuthStore implements IOAuthStore {
   private serviceRoleKey: string;
   private authCodeTtlMs: number;
   private accessTokenTtlMs: number;
+  private refreshTokenTtlMs: number;
+
+  /** In-memory cache for refresh tokens (sync redeem; persisted best-effort) */
+  private refreshTokens: Map<string, RefreshTokenRecord> = new Map();
 
   /** In-memory cache for registered DCR clients (sync access) */
   private registeredClients: Map<string, RegisteredClient>;
@@ -142,6 +149,7 @@ export class SupabaseOAuthStore implements IOAuthStore {
   ) {
     this.authCodeTtlMs = config.authCodeTtlMs ?? 300_000;
     this.accessTokenTtlMs = config.accessTokenTtlMs ?? 86_400_000;
+    this.refreshTokenTtlMs = config.refreshTokenTtlMs ?? 2_592_000_000;
     this.supabaseUrl = config.supabaseUrl;
     this.serviceRoleKey = config.serviceRoleKey;
     this.registeredClients = new Map();
@@ -557,6 +565,153 @@ export class SupabaseOAuthStore implements IOAuthStore {
     return true;
   }
 
+  // ── Refresh Token ────────────────────────────────────────────────────
+
+  createRefreshToken(
+    params: CreateAccessTokenParams
+  ): { refreshToken: string; expiresIn: number } {
+    const refreshToken = randomToken();
+    const tokenHash = sha256Hex(refreshToken);
+
+    if (!params.connectionKeyId && !params.connectionKey) {
+      throw new Error(
+        'SupabaseOAuthStore.createRefreshToken requires connectionKeyId or connectionKey'
+      );
+    }
+
+    const expiresAtMs = Date.now() + this.refreshTokenTtlMs;
+
+    // Cache in-memory for sync redeem this session.
+    this.refreshTokens.set(tokenHash, {
+      tokenHash,
+      connectionKey: params.connectionKey ?? '',
+      connectionKeyId: params.connectionKeyId,
+      scope: params.scope,
+      clientId: params.clientId,
+      resource: params.resource,
+      expiresAt: expiresAtMs,
+    });
+
+    // Persist best-effort (only if connectionKeyId available, mirroring access tokens).
+    if (params.connectionKeyId) {
+      this.supabaseQueryAsync('mcp_oauth_refresh_tokens', 'POST', {
+        token_hash: tokenHash,
+        client_id: params.clientId,
+        scope: params.scope,
+        resource: params.resource ?? null,
+        connection_key_id: params.connectionKeyId,
+        expires_at: new Date(expiresAtMs).toISOString(),
+      });
+    }
+
+    return {
+      refreshToken,
+      expiresIn: Math.floor(this.refreshTokenTtlMs / 1000),
+    };
+  }
+
+  redeemRefreshToken(
+    refreshToken: string,
+    clientId: string
+  ): RedeemRefreshTokenResult | undefined {
+    const tokenHash = sha256Hex(refreshToken);
+    const record = this.refreshTokens.get(tokenHash);
+
+    if (!record) {
+      // Cache-miss (fresh replica / post-restart). Kick off background hydrate
+      // so a client that retries the refresh grant succeeds without a real
+      // re-auth. Return undefined for this call.
+      this.hydrateRefreshTokenByHashAsync(tokenHash);
+      return undefined;
+    }
+
+    if (Date.now() > record.expiresAt) {
+      this.refreshTokens.delete(tokenHash);
+      return undefined;
+    }
+
+    if (record.clientId !== clientId) return undefined;
+
+    // Rotation: single-use. Drop cache + mark revoked in Supabase.
+    this.refreshTokens.delete(tokenHash);
+    this.supabaseQueryAsync(
+      'mcp_oauth_refresh_tokens',
+      'PATCH',
+      { revoked_at: new Date().toISOString() },
+      [{ key: 'token_hash', op: 'eq', value: tokenHash }]
+    );
+
+    return {
+      connectionKey: record.connectionKey || undefined,
+      connectionKeyId: record.connectionKeyId,
+      scope: record.scope,
+      resource: record.resource,
+      clientId: record.clientId,
+    };
+  }
+
+  revokeRefreshToken(refreshToken: string): boolean {
+    const tokenHash = sha256Hex(refreshToken);
+    this.refreshTokens.delete(tokenHash);
+    this.supabaseQueryAsync(
+      'mcp_oauth_refresh_tokens',
+      'PATCH',
+      { revoked_at: new Date().toISOString() },
+      [{ key: 'token_hash', op: 'eq', value: tokenHash }]
+    );
+    return true;
+  }
+
+  /**
+   * Best-effort background hydrate of a single refresh token by token_hash.
+   * Populates the in-memory cache so the next redeem attempt can succeed.
+   */
+  private hydrateRefreshTokenByHashAsync(tokenHash: string): void {
+    if (this.inflightHydrations.has(`rt:${tokenHash}`)) return;
+    this.inflightHydrations.add(`rt:${tokenHash}`);
+
+    void (async () => {
+      try {
+        const rows = (await this.supabaseQueryAsync(
+          'mcp_oauth_refresh_tokens',
+          'GET',
+          undefined,
+          [
+            { key: 'token_hash', op: 'eq', value: tokenHash },
+            { key: 'revoked_at', op: 'is', value: 'null' },
+          ]
+        )) as Array<Record<string, unknown>> | undefined;
+
+        const row = Array.isArray(rows) ? rows[0] : undefined;
+        if (!row) return;
+
+        const expiresAt = new Date(row.expires_at as string).getTime();
+        if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) return;
+
+        const connectionKeyId = row.connection_key_id as string | undefined;
+        if (!connectionKeyId) return;
+
+        this.refreshTokens.set(tokenHash, {
+          tokenHash,
+          connectionKey: '',
+          connectionKeyId,
+          scope: (row.scope as string) ?? '',
+          clientId: (row.client_id as string) ?? '',
+          resource: row.resource as string | undefined,
+          expiresAt,
+        });
+      } catch (error) {
+        this.warnLog('hydrate_refresh_token_by_hash.error', {
+          token_hash_prefix: tokenHash.slice(0, 8),
+          error_name: error instanceof Error ? error.name : typeof error,
+          error_message: error instanceof Error ? error.message : String(error),
+        });
+      } finally {
+        this.inflightHydrations.delete(`rt:${tokenHash}`);
+      }
+    })();
+  }
+
   // ── DCR ─────────────────────────────────────────────────────────────
 
   registerClient(params: {
@@ -740,6 +895,7 @@ export class SupabaseOAuthStore implements IOAuthStore {
   public async loadPersistedData(): Promise<void> {
     let clientCount = 0;
     let tokenCount = 0;
+    let refreshCount = 0;
     try {
       // 1. Load registered clients
       const clientRows = (await this.supabaseQueryAsync('mcp_oauth_clients', 'GET', undefined, [
@@ -799,6 +955,37 @@ export class SupabaseOAuthStore implements IOAuthStore {
           }
         }
       }
+
+      // 3. Load active refresh tokens
+      const refreshRows = (await this.supabaseQueryAsync(
+        'mcp_oauth_refresh_tokens',
+        'GET',
+        undefined,
+        [{ key: 'revoked_at', op: 'is', value: 'null' }]
+      )) as Array<Record<string, unknown>> | undefined;
+
+      if (refreshRows && Array.isArray(refreshRows)) {
+        const now = Date.now();
+        for (const row of refreshRows) {
+          const tokenHash = row.token_hash as string;
+          const expiresAt = new Date(row.expires_at as string).getTime();
+          if (!tokenHash || !Number.isFinite(expiresAt) || expiresAt <= now) continue;
+
+          const connectionKeyId = row.connection_key_id as string | undefined;
+          if (!connectionKeyId) continue;
+
+          this.refreshTokens.set(tokenHash, {
+            tokenHash,
+            connectionKey: '',
+            connectionKeyId,
+            scope: (row.scope as string) ?? '',
+            clientId: (row.client_id as string) ?? '',
+            resource: row.resource as string | undefined,
+            expiresAt,
+          });
+          refreshCount++;
+        }
+      }
     } catch (error) {
       // Do NOT fail silently: a failed rehydrate means every previously
       // issued token looks invalid until re-fetched on-the-fly, which
@@ -806,6 +993,7 @@ export class SupabaseOAuthStore implements IOAuthStore {
       this.warnLog('load_persisted_data.error', {
         clients_loaded: clientCount,
         tokens_loaded: tokenCount,
+        refresh_tokens_loaded: refreshCount,
         error_name: error instanceof Error ? error.name : typeof error,
         error_message: error instanceof Error ? error.message : String(error),
       });
@@ -814,6 +1002,7 @@ export class SupabaseOAuthStore implements IOAuthStore {
     this.debugLog('load_persisted_data', {
       clients_loaded: clientCount,
       tokens_loaded: tokenCount,
+      refresh_tokens_loaded: refreshCount,
     });
   }
 
