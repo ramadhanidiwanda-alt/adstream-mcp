@@ -53,6 +53,7 @@ interface MetaCreativeRecord {
   image_url?: string;
   image_hash?: string;
   video_id?: string;
+  source?: string;
   object_type?: string;
   object_story_spec?: {
     link_data?: {
@@ -214,7 +215,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
         data: MetaCreativeRecord[];
         paging?: { cursors?: { after?: string } };
       }>(`/act_${accountId}/adcreatives`, {
-        fields: 'id,name,title,body,thumbnail_url,image_url,image_hash,video_id,object_type,object_story_spec',
+        fields: 'id,name,title,body,thumbnail_url,image_url,image_hash,video_id,source,object_type,object_story_spec',
         limit: typeof request.params.limit === 'number' ? request.params.limit : 100,
         after: typeof request.params.cursor === 'string' ? request.params.cursor : undefined,
       });
@@ -259,6 +260,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
         creative_url: creative.image_url,
         thumbnail_url: creative.thumbnail_url,
         video_id: creative.video_id,
+        video_source_url: creative.source,
         image_hash: creative.image_hash,
         headline: creative.title,
         primary_text: creative.body,

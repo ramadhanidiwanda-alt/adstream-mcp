@@ -128,6 +128,7 @@ export interface AdsCreativeMetadata {
   creative_url?: string;
   thumbnail_url?: string;
   video_id?: string;
+  video_source_url?: string;
   image_hash?: string;
   headline?: string;
   primary_text?: string;
