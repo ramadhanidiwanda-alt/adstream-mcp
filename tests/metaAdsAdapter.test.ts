@@ -318,7 +318,7 @@ describe('MetaAdsAdapter', () => {
     let capturedParams: Record<string, unknown> | undefined;
     const adapter = new MetaAdsAdapter({
       clientFactory: () => ({
-        metaGet: async (path: string, params: Record<string, unknown>) => {
+        metaGetObject: async (path: string, params: Record<string, unknown>) => {
           capturedPath = path;
           capturedParams = params;
           return {
