@@ -313,6 +313,57 @@ describe('MetaAdsAdapter', () => {
     });
   });
 
+  it('fetches one Meta creative asset by creativeId from the creative node endpoint', async () => {
+    let capturedPath: string | undefined;
+    let capturedParams: Record<string, unknown> | undefined;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: () => ({
+        metaGet: async (path: string, params: Record<string, unknown>) => {
+          capturedPath = path;
+          capturedParams = params;
+          return {
+            id: '1031745992699354',
+            name: '11/06 Pro Sold Out Lagi',
+            title: 'Sold Out Lagi',
+            body: 'Back in stock soon',
+            thumbnail_url: 'https://example.test/thumb.jpg',
+            video_id: 'video_1',
+            object_story_spec: {
+              video_data: {
+                call_to_action: { type: 'SHOP_NOW', value: { link: 'https://example.test/product' } },
+              },
+            },
+          };
+        },
+      }) as never,
+    });
+
+    const response = await adapter.getCreativePerformance({
+      provider: 'meta',
+      params: { creativeId: '1031745992699354' },
+      credentials: { provider: 'meta', accessToken: 'secret-token', accountId: 'act_123', source: 'test' },
+    });
+
+    expect(capturedPath).toBe('/1031745992699354');
+    expect(capturedParams).toMatchObject({ fields: expect.stringContaining('video_id') });
+    expect(response.ok).toBe(true);
+    expect(response.meta).toMatchObject({ nextCursor: null });
+    expect(response.data?.[0]).toMatchObject({
+      provider: 'meta',
+      level: 'creative',
+      identity: { account_id: 'act_123', creative_id: '1031745992699354', creative_name: '11/06 Pro Sold Out Lagi' },
+      creative: {
+        creative_type: 'video',
+        thumbnail_url: 'https://example.test/thumb.jpg',
+        video_id: 'video_1',
+        headline: 'Sold Out Lagi',
+        primary_text: 'Back in stock soon',
+        call_to_action: 'SHOP_NOW',
+        destination_url: 'https://example.test/product',
+      },
+    });
+  });
+
   it('requires Meta credentials before fetching creative assets', async () => {
     const adapter = new MetaAdsAdapter();
     const response = await adapter.getCreativePerformance({ params: {} });
