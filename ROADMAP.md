@@ -1,7 +1,7 @@
 # Roadmap: adstream-mcp
 
-**Current Version:** v0.5.2
-**Last Updated:** 2026-07-01
+**Current Version:** v0.6.0
+**Last Updated:** 2026-07-06
 
 ---
 

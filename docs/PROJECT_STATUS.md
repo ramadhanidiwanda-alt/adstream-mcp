@@ -1,8 +1,8 @@
 # Project Status — Adstream MCP
 
-> **Updated:** 2026-06-25  
-> **Version:** v0.5.2  
-> **Current Roadmap:** v0.6.0 — Write Operations for Adset & Ad
+> **Updated:** 2026-07-06  
+> **Version:** v0.6.0  
+> **Current Roadmap:** v0.6.0 — Canonical MCP Connector API
 
 ### Phase 17.5 Across Sub-phases
 | Phase | Summary | Key Changes | Status |
@@ -19,6 +19,7 @@
 | **v0.5.0** | Campaign write operations | `metaPost()`, pause/resume/update budget/rename campaign, dry-run approval workflow, audit entries, safety guard | ✅ Done |
 | **v0.5.1** | Campaign listing broker tool | `ads_list_campaigns`, Meta + TikTok provider adapters, remote broker campaign listing | ✅ Done |
 | **v0.5.2** | Account-level performance broker tool | `ads_get_account_performance`, `getAccountInsights()`, normalized account metrics, ROAS fallback | ✅ Done |
+| **v0.6.0** | Canonical MCP connector API | `ads_get_performance`, `ads_get_creatives`, `ads_get_change_history`, `ads_get_capabilities`, canonical envelopes, cursor propagation, connector docs | ✅ Done |
 
 ---
 

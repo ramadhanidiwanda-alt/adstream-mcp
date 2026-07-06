@@ -1,5 +1,28 @@
 # Release Notes
 
+## v0.6.0 — Canonical MCP Connector API
+
+**Date:** 2026-07-06
+
+### Added
+- `ads_get_performance` canonical read tool with a standard performance envelope and metric/warning metadata.
+- `ads_get_creatives` canonical creative read tool backed by Meta ad creative asset fetching.
+- `ads_get_change_history` canonical change-history tool backed by Meta account activities, with structured `NOT_IMPLEMENTED` for other providers.
+- `ads_get_capabilities` canonical discovery tool combining static metadata, metric catalogs, and registered adapter capabilities.
+- Canonical pagination cursor propagation across Meta, TikTok, TikTok GMV Max commerce, and Google adapters.
+- Standard commerce envelope for `commerce_get_performance` while keeping existing fields.
+- New architecture, MCP API design, and legacy migration docs plus a canonical migration example.
+
+### Why
+- Aligns the repository with its connector/data-access-layer vision: the MCP layer provides structured data while AI and skills provide reasoning.
+- Keeps the public tool surface small and provider-agnostic while retaining legacy compatibility.
+
+### Compatible
+- Fully backward compatible. No public MCP tools were removed.
+- Legacy provider-specific and level-specific tools remain registered with migration guidance.
+
+---
+
 ## v0.5.2 — Account-Level Performance Broker Tool
 
 **Date:** 2026-06-25
