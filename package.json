@@ -1,6 +1,6 @@
 {
   "name": "adstream-mcp",
-  "version": "0.5.2",
+  "version": "0.6.0",
   "description": "Open-source MCP connector hub for ads and commerce analytics, powered by Cuan Insight credentials.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
