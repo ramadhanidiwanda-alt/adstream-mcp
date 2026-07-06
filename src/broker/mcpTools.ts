@@ -127,7 +127,7 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
   {
     name: 'ads_get_video_source',
     description: 'Get the raw video source URL (MP4), embed HTML, and thumbnail for a Meta video ID. Calls GET /{video_id}?fields=source,embed_html,picture.',
-    inputSchema: createAdsInputSchema(['videoId']),
+    inputSchema: createAdsInputSchema([]),
   },
 ] as const;
 
