@@ -205,6 +205,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
     if (!context.ok) return context.response;
 
     const accountId = request.accountId ?? context.credential.accountId;
+    const creativeId = typeof request.params.creativeId === 'string' ? request.params.creativeId : undefined;
     if (!accountId) {
       return {
         ok: false,
@@ -214,11 +215,25 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
     }
 
     try {
-      const response = await this.createClient(context.credential).metaGet<{
+      const client = this.createClient(context.credential);
+      const fields = 'id,name,title,body,thumbnail_url,image_url,image_hash,video_id,source,object_type,object_story_spec';
+
+      if (creativeId) {
+        const creative = await client.metaGet<MetaCreativeRecord>(`/${creativeId}`, { fields });
+
+        return {
+          ok: true,
+          provider: 'meta',
+          data: [this.normalizeCreative(accountId, creative, request)],
+          meta: { nextCursor: null },
+        };
+      }
+
+      const response = await client.metaGet<{
         data: MetaCreativeRecord[];
         paging?: { cursors?: { after?: string } };
       }>(`/act_${accountId}/adcreatives`, {
-        fields: 'id,name,title,body,thumbnail_url,image_url,image_hash,video_id,source,object_type,object_story_spec',
+        fields,
         limit: typeof request.params.limit === 'number' ? request.params.limit : 100,
         after: typeof request.params.cursor === 'string' ? request.params.cursor : undefined,
       });
