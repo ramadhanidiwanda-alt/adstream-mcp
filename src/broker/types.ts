@@ -604,6 +604,12 @@ export const ADS_PROVIDER_CAPABILITY_MATRIX = {
   },
 } as const satisfies Record<AdsProviderId, AdsProviderCapabilities>;
 
+export interface AdCreativeMappingResult {
+  ad_id: string;
+  ad_name?: string;
+  creative_id?: string;
+}
+
 export interface VideoSourceResult {
   provider: AdsProviderId;
   video_id: string;
@@ -626,6 +632,7 @@ export interface AdsProviderAdapter {
   getPlacementPerformance(request: AdsBrokerRequest): Promise<AdsBrokerResponse>;
   getChangeHistory(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsChangeHistoryEnvelope>>;
   getVideoSource(request: AdsBrokerRequest): Promise<AdsBrokerResponse<VideoSourceResult>>;
+  getAdCreativeMapping(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdCreativeMappingResult[]>>;
   // --- Write Operations ---
   pauseCampaign(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>>;
   resumeCampaign(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>>;

@@ -7,6 +7,7 @@ import type {
   EcommerceCampaignBundleResult,
   AdsProviderAdapter,
   VideoSourceResult,
+  AdCreativeMappingResult,
 } from '../../broker/types.js';
 import { ADS_PROVIDER_CAPABILITY_MATRIX } from '../../broker/types.js';
 import { redactErrorMessage } from '../../broker/credentials.js';
@@ -134,6 +135,10 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
 
   async getVideoSource(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<VideoSourceResult>> {
     return Promise.resolve(this.notImplemented('TikTok video source is not implemented yet') as unknown as AdsBrokerResponse<VideoSourceResult>);
+  }
+
+  async getAdCreativeMapping(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdCreativeMappingResult[]>> {
+    return Promise.resolve(this.notImplemented('TikTok ad→creative mapping is not implemented yet') as unknown as AdsBrokerResponse<AdCreativeMappingResult[]>);
   }
 
   private async getPlacementPerformanceForRequest(

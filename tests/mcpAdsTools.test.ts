@@ -132,6 +132,7 @@ describe('ads MCP broker tools', () => {
       'ads_rename_campaign',
       'ads_create_ecommerce_campaign_bundle',
       'ads_get_video_source',
+      'ads_get_ad_creative_mapping',
     ]);
     expect(legacyToolNames).toContain('meta_get_campaign_insights');
     expect(legacyToolNames).toContain('meta_get_ads_insights');

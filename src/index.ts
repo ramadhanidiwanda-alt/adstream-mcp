@@ -72,6 +72,7 @@ export type * from './types.js';
 export type * from './types.js';
 export {
   VideoSourceResult,
+  AdCreativeMappingResult,
   ADS_PROVIDER_IDS,
   ADS_ENTITY_LEVELS,
   ADS_OPERATION_KINDS,
