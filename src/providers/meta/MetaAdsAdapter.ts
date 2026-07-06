@@ -44,6 +44,27 @@ interface MetaActivityRecord {
   extra_data?: unknown;
 }
 
+interface MetaCreativeRecord {
+  id?: string;
+  name?: string;
+  title?: string;
+  body?: string;
+  thumbnail_url?: string;
+  image_url?: string;
+  image_hash?: string;
+  video_id?: string;
+  object_type?: string;
+  object_story_spec?: {
+    link_data?: {
+      link?: string;
+      call_to_action?: { type?: string; value?: { link?: string } };
+    };
+    video_data?: {
+      call_to_action?: { type?: string; value?: { link?: string } };
+    };
+  };
+}
+
 export interface MetaAdsAdapterTools {
   getAdAccounts(client: MetaClient, options?: { limit?: number }): Promise<AdAccount[]>;
   getCampaigns(client: MetaClient, options: { adAccountId: string; limit?: number }): Promise<Campaign[]>;
@@ -175,17 +196,76 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
     return this.getPerformance(request, 'ad');
   }
 
-  async getCreativePerformance(): Promise<AdsBrokerResponse<AdsMetricRecord[]>> {
+  async getCreativePerformance(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMetricRecord[]>> {
+    const context = this.getCredentialContext(request);
+    if (!context.ok) return context.response;
+
+    const accountId = request.accountId ?? context.credential.accountId;
+    if (!accountId) {
+      return {
+        ok: false,
+        provider: 'meta',
+        errors: [{ provider: 'meta', code: 'MISSING_ACCOUNT_ID', message: 'accountId is required for Meta creative assets' }],
+      };
+    }
+
+    try {
+      const response = await this.createClient(context.credential).metaGet<{
+        data: MetaCreativeRecord[];
+        paging?: { cursors?: { after?: string } };
+      }>(`/act_${accountId}/adcreatives`, {
+        fields: 'id,name,title,body,thumbnail_url,image_url,image_hash,video_id,object_type,object_story_spec',
+        limit: typeof request.params.limit === 'number' ? request.params.limit : 100,
+        after: typeof request.params.cursor === 'string' ? request.params.cursor : undefined,
+      });
+
+      return {
+        ok: true,
+        provider: 'meta',
+        data: (response.data ?? []).map((creative) => this.normalizeCreative(accountId, creative, request)),
+        meta: { nextCursor: response.paging?.cursors?.after ?? null },
+      };
+    } catch (error) {
+      return this.errorResponse(error);
+    }
+  }
+
+  private normalizeCreative(
+    accountId: string,
+    creative: MetaCreativeRecord,
+    request: AdsBrokerRequest
+  ): AdsMetricRecord {
+    const callToAction = creative.object_story_spec?.link_data?.call_to_action ?? creative.object_story_spec?.video_data?.call_to_action;
+    const destinationUrl = creative.object_story_spec?.link_data?.link ?? callToAction?.value?.link;
+
     return {
-      ok: false,
       provider: 'meta',
-      errors: [
-        {
-          provider: 'meta',
-          code: 'NOT_IMPLEMENTED',
-          message: 'Meta creative performance is not implemented in the MVP adapter yet',
-        },
-      ],
+      level: 'creative',
+      identity: {
+        account_id: accountId,
+        creative_id: creative.id,
+        creative_name: creative.name,
+      },
+      time: {
+        date_start: request.since ?? '',
+        date_stop: request.until ?? '',
+      },
+      delivery: {
+        spend: 0,
+        impressions: 0,
+      },
+      creative: {
+        creative_type: inferMetaCreativeType(creative),
+        creative_url: creative.image_url,
+        thumbnail_url: creative.thumbnail_url,
+        video_id: creative.video_id,
+        image_hash: creative.image_hash,
+        headline: creative.title,
+        primary_text: creative.body,
+        call_to_action: callToAction?.type,
+        destination_url: destinationUrl,
+      },
+      raw: request.params.includeRaw === true ? creative : undefined,
     };
   }
 
@@ -701,4 +781,10 @@ function parseIdParam(value: unknown): string | string[] | undefined {
   if (typeof value === 'string') return value;
   if (Array.isArray(value) && value.every((item) => typeof item === 'string')) return value;
   return undefined;
+}
+
+function inferMetaCreativeType(creative: MetaCreativeRecord): string | undefined {
+  if (creative.video_id || creative.object_story_spec?.video_data) return 'video';
+  if (creative.object_story_spec?.link_data) return 'link';
+  return creative.object_type;
 }
