@@ -26,6 +26,7 @@ import type {
   AdsProviderAdapter,
   CredentialContext,
   EcommerceCampaignBundlePayload,
+  VideoSourceResult,
 } from '../../broker/types.js';
 import { ADS_PROVIDER_CAPABILITY_MATRIX } from '../../broker/types.js';
 import { redactErrorMessage } from '../../broker/credentials.js';
@@ -693,6 +694,112 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       return { ok: result.status !== 'failed', provider: 'meta', data: result };
     } catch (error) {
       return this.writeErrorResponse(error);
+    }
+  }
+
+  async getVideoSource(request: AdsBrokerRequest): Promise<AdsBrokerResponse<VideoSourceResult>> {
+    const context = this.getCredentialContext(request);
+    if (!context.ok) return context.response;
+
+    const videoId = typeof request.params.videoId === 'string' ? request.params.videoId : undefined;
+    if (!videoId) {
+      return {
+        ok: false,
+        provider: 'meta',
+        errors: [{ provider: 'meta', code: 'MISSING_VIDEO_ID', message: 'videoId is required in request.params' }],
+      };
+    }
+
+    const accountId = request.accountId ?? context.credential.accountId;
+    if (!accountId) {
+      return {
+        ok: false,
+        provider: 'meta',
+        errors: [{ provider: 'meta', code: 'MISSING_ACCOUNT_ID', message: 'accountId is required to fetch video source' }],
+      };
+    }
+
+    try {
+      const client = this.createClient(context.credential);
+
+      // Step 1: Try direct video node first (source, embed_html, picture)
+      let sourceUrl: string | undefined;
+      let embedHtml: string | undefined;
+      let thumbnailUrl: string | undefined;
+
+      try {
+        const directResponse = await client.metaGet<{
+          id?: string;
+          source?: string;
+          embed_html?: string;
+          picture?: string;
+        }>(`/${videoId}`, {
+          fields: 'source,embed_html,picture',
+        });
+
+        sourceUrl = directResponse.source;
+        embedHtml = directResponse.embed_html;
+        thumbnailUrl = directResponse.picture;
+      } catch {
+        // Direct node failed (likely permission), fall through to batch
+      }
+
+      if (!sourceUrl) {
+        // Step 2: Fallback to batch /advideos endpoint (works with ads_read scope)
+        try {
+          const batchResponse = await client.metaGet<{
+            data: Array<{
+              id?: string;
+              source?: string;
+              embed_html?: string;
+              thumbnails?: { uri?: string };
+            }>;
+          }>(`/act_${accountId}/advideos`, {
+            fields: 'id,source,embed_html,thumbnails',
+            limit: 200,
+          });
+
+          const matchedVideo = (batchResponse.data ?? []).find((v) => v.id === videoId);
+
+          if (matchedVideo?.source) {
+            sourceUrl = matchedVideo.source;
+            embedHtml = matchedVideo.embed_html;
+            thumbnailUrl = matchedVideo.thumbnails?.uri;
+          }
+        } catch {
+          // Batch also failed, fall through to Step 3
+        }
+      }
+
+      if (!sourceUrl) {
+        // Step 3: Return fallback Facebook Watch URL
+        return {
+          ok: true,
+          provider: 'meta',
+          data: {
+            provider: 'meta',
+            video_id: videoId,
+            source_url: `https://www.facebook.com/watch/?v=${videoId}`,
+          },
+          meta: {
+            warning: 'Direct video source URL not available from Meta API. Fallback to Facebook Watch URL.',
+          },
+        };
+      }
+
+      return {
+        ok: true,
+        provider: 'meta',
+        data: {
+          provider: 'meta',
+          video_id: videoId,
+          source_url: sourceUrl,
+          embed_html: embedHtml,
+          thumbnail_url: thumbnailUrl,
+        },
+      };
+    } catch (error) {
+      return this.errorResponse(error);
     }
   }
 

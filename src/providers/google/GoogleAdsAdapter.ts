@@ -6,6 +6,7 @@ import type {
   AdsMutationResult,
   EcommerceCampaignBundleResult,
   AdsProviderAdapter,
+  VideoSourceResult,
 } from '../../broker/types.js';
 import { ADS_PROVIDER_CAPABILITY_MATRIX } from '../../broker/types.js';
 import { redactErrorMessage } from '../../broker/credentials.js';
@@ -81,6 +82,10 @@ export class GoogleAdsAdapter implements AdsProviderAdapter {
 
   async getChangeHistory(): Promise<AdsBrokerResponse<AdsChangeHistoryEnvelope>> {
     return this.notImplemented('Google change history is not implemented yet');
+  }
+
+  async getVideoSource(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<VideoSourceResult>> {
+    return Promise.resolve(this.notImplemented('Google video source is not implemented yet') as unknown as AdsBrokerResponse<VideoSourceResult>);
   }
 
   async pauseCampaign(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>> {

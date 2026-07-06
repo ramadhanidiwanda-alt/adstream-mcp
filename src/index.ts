@@ -69,8 +69,9 @@ export {
 } from './utils/locationBreakdowns.js';
 
 export type * from './types.js';
-export type * from './broker/types.js';
+export type * from './types.js';
 export {
+  VideoSourceResult,
   ADS_PROVIDER_IDS,
   ADS_ENTITY_LEVELS,
   ADS_OPERATION_KINDS,
