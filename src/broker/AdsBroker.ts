@@ -16,6 +16,7 @@ import type {
   CredentialContext,
   PermissionPolicy,
   VideoSourceResult,
+  AdCreativeMappingResult,
 } from './types.js';
 import { defaultDenyWritePermissionPolicy, isAdsProviderId } from './types.js';
 import type { CredentialResolverContract } from './credentials.js';
@@ -41,7 +42,8 @@ type AdapterMethod =
   | 'getCreativePerformance'
   | 'getPlacementPerformance'
   | 'getChangeHistory'
-  | 'getVideoSource';
+  | 'getVideoSource'
+  | 'getAdCreativeMapping';
 
 type AdapterWriteMethod =
   | 'pauseCampaign'
@@ -103,6 +105,10 @@ export class AdsBroker {
 
   getVideoSource(request: AdsBrokerRequest): Promise<AdsBrokerResponse<VideoSourceResult>> {
     return this.executeRead(request, 'getVideoSource');
+  }
+
+  getAdCreativeMapping(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdCreativeMappingResult[]>> {
+    return this.executeRead(request, 'getAdCreativeMapping');
   }
 
   getCapabilities(request: AdsBrokerRequest): AdsBrokerResponse<Record<string, unknown>> {
