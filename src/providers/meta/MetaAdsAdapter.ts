@@ -294,7 +294,10 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
         ok: true,
         provider: 'meta',
         data,
-        meta: validation.options.mode === 'cpas' ? { mode: 'cpas' } : undefined,
+        meta: {
+          ...(validation.options.mode === 'cpas' ? { mode: 'cpas' } : {}),
+          nextCursor: insights.paging?.cursors?.after ?? null,
+        },
       };
     } catch (error) {
       return this.errorResponse(error);
@@ -304,8 +307,8 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
   private fetchInsights(
     client: MetaClient,
     level: 'account' | 'campaign' | 'adset' | 'ad',
-    options: { adAccountId: string; since: string; until: string; limit?: number; breakdowns?: Array<LocationBreakdown | 'product_id'>; mode?: 'standard' | 'cpas' }
-  ): Promise<Array<AccountInsight | CampaignInsight | AdsetInsight | AdInsight>> {
+    options: { adAccountId: string; since: string; until: string; limit?: number; cursor?: string; breakdowns?: Array<LocationBreakdown | 'product_id'>; mode?: 'standard' | 'cpas' }
+  ): Promise<Array<AccountInsight | CampaignInsight | AdsetInsight | AdInsight> & { paging?: { cursors?: { after?: string } } }> {
     if (level === 'account') return this.tools.getAccountInsights(client, options);
     if (level === 'campaign') return this.tools.getCampaignInsights(client, options);
     if (level === 'adset') return this.tools.getAdsetInsights(client, options);
@@ -339,12 +342,13 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
     request: AdsBrokerRequest,
     credential: CredentialContext
   ):
-    | { ok: true; options: { adAccountId: string; since: string; until: string; limit?: number; breakdowns?: Array<LocationBreakdown | 'product_id'>; mode?: 'standard' | 'cpas' } }
+    | { ok: true; options: { adAccountId: string; since: string; until: string; limit?: number; cursor?: string; breakdowns?: Array<LocationBreakdown | 'product_id'>; mode?: 'standard' | 'cpas' } }
     | { ok: false; response: AdsBrokerResponse<never> } {
     const adAccountId = request.accountId ?? credential.accountId;
     const since = request.since;
     const until = request.until;
     const limit = typeof request.params.limit === 'number' ? request.params.limit : undefined;
+    const cursor = typeof request.params.cursor === 'string' ? request.params.cursor : undefined;
     const mode = request.params.mode === 'cpas' ? 'cpas' : undefined;
     let breakdowns: Array<LocationBreakdown | 'product_id'> | undefined;
 
@@ -388,7 +392,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       };
     }
 
-    return { ok: true, options: { adAccountId, since, until, limit, breakdowns, mode } };
+    return { ok: true, options: { adAccountId, since, until, limit, cursor, breakdowns, mode } };
   }
 
   private getPlacementPerformanceOptions(

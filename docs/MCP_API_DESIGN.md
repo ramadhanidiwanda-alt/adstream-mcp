@@ -99,7 +99,7 @@ Add attribution and data-source metadata when providers expose it. If SKU, sales
 ## Pagination
 
 - `cursor` is opaque and provider-neutral.
-- `paging.nextCursor` is `null` when there are no additional rows. Meta change history passes through Meta cursor values; TikTok GMV Max commerce uses the next page number as an opaque cursor.
+- `paging.nextCursor` is `null` when there are no additional rows. Meta ads performance and change history pass through Meta cursor values; TikTok ads and GMV Max commerce use the next page number as an opaque cursor; Google currently reports `null` because the current SearchStream path returns the requested result stream without a follow-up cursor.
 - Tools should avoid exposing provider-native paging tokens unless wrapped in the opaque cursor.
 - `limit` should be documented per tool and bounded to safe provider/API limits.
 

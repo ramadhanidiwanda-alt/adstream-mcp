@@ -9,13 +9,16 @@ export interface GetCampaignInsightsOptions
   since: string;
   until: string;
   limit?: number;
+  cursor?: string;
 }
+
+export type CampaignInsightPage = CampaignInsight[] & { paging?: { cursors?: { after?: string } } };
 
 export async function getCampaignInsights(
   client: MetaClient,
   options: GetCampaignInsightsOptions
 ): Promise<CampaignInsight[]> {
-  const { since, until, limit = 100, breakdowns, paginate = false, maxPages, pageDelay } = options;
+  const { since, until, limit = 100, breakdowns, paginate = false, maxPages, pageDelay, cursor } = options;
   const adAccountId = normalizeAccountId(options.adAccountId);
 
   const fields = [
@@ -40,7 +43,7 @@ export async function getCampaignInsights(
     pageDelay,
   };
 
-  const response = await client.metaGet<{ data: CampaignInsight[] }>(
+  const response = await client.metaGet<{ data: CampaignInsight[]; paging?: { cursors?: { after?: string } } }>(
     `/act_${adAccountId}/insights`,
     {
       level: 'campaign',
@@ -48,9 +51,10 @@ export async function getCampaignInsights(
       time_range: JSON.stringify({ since, until }),
       breakdowns: breakdowns?.join(','),
       limit,
+      after: cursor,
     },
     metaOptions
   );
 
-  return response.data || [];
+  return Object.assign(response.data || [], { paging: response.paging }) as CampaignInsightPage;
 }

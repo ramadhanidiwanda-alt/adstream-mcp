@@ -87,4 +87,5 @@ The MCP server still exposes older provider-specific tools. Keep them compatible
 6. Move report examples into skills documentation. Started in `skills/README.md` and shared provider preambles.
 7. Add `ads_get_change_history` as the canonical history path. Done with Meta account activities fetching and structured unsupported-provider fallback.
 8. Add compatibility tests that prove legacy tools still call the same underlying data paths.
-9. Only remove legacy tools in a major version after user approval and release notes.
+9. Propagate canonical pagination cursors through adapters. Done for Meta ads performance/change history, TikTok ads performance, TikTok GMV Max commerce, and explicit Google `null` cursor metadata.
+10. Only remove legacy tools in a major version after user approval and release notes.

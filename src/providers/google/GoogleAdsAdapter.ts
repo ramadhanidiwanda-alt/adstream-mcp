@@ -123,6 +123,7 @@ export class GoogleAdsAdapter implements AdsProviderAdapter {
           since: validation.since,
           until: validation.until,
         }),
+        meta: { nextCursor: null },
       };
     } catch (error) {
       return this.errorResponse(error);

@@ -9,13 +9,16 @@ export interface GetAdsetInsightsOptions
   since: string;
   until: string;
   limit?: number;
+  cursor?: string;
 }
+
+export type AdsetInsightPage = AdsetInsight[] & { paging?: { cursors?: { after?: string } } };
 
 export async function getAdsetInsights(
   client: MetaClient,
   options: GetAdsetInsightsOptions
 ): Promise<AdsetInsight[]> {
-  const { since, until, limit = 100, breakdowns, paginate = false, maxPages, pageDelay } = options;
+  const { since, until, limit = 100, breakdowns, paginate = false, maxPages, pageDelay, cursor } = options;
   const adAccountId = normalizeAccountId(options.adAccountId);
 
   const fields = [
@@ -42,13 +45,14 @@ export async function getAdsetInsights(
     pageDelay,
   };
 
-  const response = await client.metaGet<{ data: AdsetInsight[] }>(`/act_${adAccountId}/insights`, {
+  const response = await client.metaGet<{ data: AdsetInsight[]; paging?: { cursors?: { after?: string } } }>(`/act_${adAccountId}/insights`, {
     level: 'adset',
     fields: fields.join(','),
     time_range: JSON.stringify({ since, until }),
     breakdowns: breakdowns?.join(','),
     limit,
+    after: cursor,
   }, metaOptions);
 
-  return response.data || [];
+  return Object.assign(response.data || [], { paging: response.paging }) as AdsetInsightPage;
 }

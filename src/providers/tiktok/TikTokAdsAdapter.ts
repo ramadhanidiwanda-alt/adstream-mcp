@@ -241,6 +241,8 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
           dataLevel,
           startDate: request.since,
           endDate: request.until,
+          page: parsePage(request.params.page) ?? parsePage(request.params.cursor),
+          pageSize: parsePage(request.params.pageSize),
         });
 
         const records: TikTokInsightRecord[] = report.list.map((row) => ({
@@ -270,6 +272,7 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
             since: request.since,
             until: request.until,
           }),
+          meta: { nextCursor: getTikTokNextCursor(report.page_info) },
         };
       } catch (error) {
         return this.errorResponse(error);
@@ -360,4 +363,16 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
       ],
     };
   }
+}
+
+function parsePage(value: unknown): number | undefined {
+  if (typeof value === 'number') return value;
+  if (typeof value !== 'string') return undefined;
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function getTikTokNextCursor(pageInfo: { page: number; total_page: number } | undefined): string | null {
+  if (!pageInfo || pageInfo.page >= pageInfo.total_page) return null;
+  return String(pageInfo.page + 1);
 }

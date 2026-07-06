@@ -158,6 +158,33 @@ describe('MetaAdsAdapter', () => {
     expect(response.data?.[0].raw).toBeUndefined();
   });
 
+  it('passes cursor to Meta insights and exposes nextCursor metadata', async () => {
+    let receivedOptions: Record<string, unknown> | undefined;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        getCampaignInsights: async (_client, options) => {
+          receivedOptions = options as unknown as Record<string, unknown>;
+          return Object.assign([
+            { campaign_id: 'cmp_1', spend: '10', impressions: '100', clicks: '5' },
+          ], { paging: { cursors: { after: 'next_cursor' } } });
+        },
+      },
+    });
+
+    const response = await adapter.getCampaignPerformance({
+      provider: 'meta',
+      accountId: 'act_123',
+      since: '2026-05-01',
+      until: '2026-05-07',
+      params: { cursor: 'prev_cursor' },
+      credentials: { provider: 'meta', accessToken: 'secret-token', accountId: 'act_123', source: 'test' },
+    });
+
+    expect(receivedOptions).toMatchObject({ cursor: 'prev_cursor' });
+    expect(response.meta).toMatchObject({ nextCursor: 'next_cursor' });
+  });
+
   it('enables CPAS mode as Meta campaign performance parameters', async () => {
     let receivedOptions: Record<string, unknown> | undefined;
     const adapter = new MetaAdsAdapter({
