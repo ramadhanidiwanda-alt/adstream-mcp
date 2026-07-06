@@ -1,3 +1,5 @@
+import { getAdCreativeMapping } from '../../tools/getAdCreativeMapping.js';
+import type { AdCreativeMappingResult } from '../../broker/types.js';
 import { MetaClient } from '../../metaClient.js';
 import { getAdAccounts } from '../../tools/getAdAccounts.js';
 import { getAccountInsights } from '../../tools/getAccountInsights.js';
@@ -797,6 +799,42 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
           embed_html: embedHtml,
           thumbnail_url: thumbnailUrl,
         },
+      };
+    } catch (error) {
+      return this.errorResponse(error);
+    }
+  }
+
+  async getAdCreativeMapping(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdCreativeMappingResult[]>> {
+    const context = this.getCredentialContext(request);
+    if (!context.ok) return context.response;
+
+    const accountId = request.accountId ?? context.credential.accountId;
+    if (!accountId) {
+      return {
+        ok: false,
+        provider: 'meta',
+        errors: [{ provider: 'meta', code: 'MISSING_ACCOUNT_ID', message: 'accountId is required to fetch ad→creative mapping' }],
+      };
+    }
+
+    try {
+      const client = this.createClient(context.credential);
+      const adIds = Array.isArray(request.params.adIds) ? request.params.adIds.map(String) : undefined;
+      const result = await getAdCreativeMapping(client, {
+        adAccountId: accountId,
+        adIds,
+        limit: typeof request.params.limit === 'number' ? request.params.limit : 100,
+        cursor: typeof request.params.cursor === 'string' ? request.params.cursor : undefined,
+      });
+
+      // Extract paging from the array augmentation
+      const page = result as AdCreativeMappingResult[] & { paging?: { cursors?: { after?: string } } };
+      return {
+        ok: true,
+        provider: 'meta',
+        data: page,
+        meta: { nextCursor: page.paging?.cursors?.after ?? null },
       };
     } catch (error) {
       return this.errorResponse(error);

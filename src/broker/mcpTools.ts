@@ -24,6 +24,7 @@ export const ADS_MCP_TOOL_NAMES = [
   'ads_rename_campaign',
   'ads_create_ecommerce_campaign_bundle',
   'ads_get_video_source',
+  'ads_get_ad_creative_mapping',
 ] as const;
 
 export type AdsMcpToolName = (typeof ADS_MCP_TOOL_NAMES)[number];
@@ -127,6 +128,11 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
   {
     name: 'ads_get_video_source',
     description: 'Get the raw video source URL (MP4), embed HTML, and thumbnail for a Meta video ID. Calls GET /{video_id}?fields=source,embed_html,picture.',
+    inputSchema: createAdsInputSchema([]),
+  },
+  {
+    name: 'ads_get_ad_creative_mapping',
+    description: 'Get the creative_id for each ad in an account. Calls GET /act_{id}/ads?fields=id,name,creative{{id}}. Use this to link ad performance data (from ads_get_ad_performance) with creative assets (from ads_get_creative_performance). Accepts optional adIds[] param to filter specific ads.',
     inputSchema: createAdsInputSchema([]),
   },
 ] as const;
@@ -249,6 +255,8 @@ function callBrokerMethod(
       return broker.createEcommerceCampaignBundle(request);
     case 'ads_get_video_source':
       return broker.getVideoSource(request);
+    case 'ads_get_ad_creative_mapping':
+      return broker.getAdCreativeMapping(request);
   }
 }
 
