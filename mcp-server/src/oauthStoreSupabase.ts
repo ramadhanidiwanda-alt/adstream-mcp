@@ -137,7 +137,9 @@ export class SupabaseOAuthStore implements IOAuthStore {
   /** Debug logging enabled via MCP_OAUTH_DEBUG or MCP_SUPABASE_STORE_DEBUG */
   private debugEnabled: boolean;
 
-  constructor(config: OAuthStoreConfig & { supabaseUrl: string; serviceRoleKey: string; fetch?: typeof fetch }) {
+  constructor(
+    config: OAuthStoreConfig & { supabaseUrl: string; serviceRoleKey: string; fetch?: typeof fetch }
+  ) {
     this.authCodeTtlMs = config.authCodeTtlMs ?? 300_000;
     this.accessTokenTtlMs = config.accessTokenTtlMs ?? 86_400_000;
     this.supabaseUrl = config.supabaseUrl;
@@ -148,8 +150,7 @@ export class SupabaseOAuthStore implements IOAuthStore {
     this.tokenResolveCache = new Map();
     this.fetchImpl = config.fetch ?? fetch;
     this.debugEnabled = !!(
-      process.env.MCP_OAUTH_DEBUG === 'true' ||
-      process.env.MCP_SUPABASE_STORE_DEBUG === 'true'
+      process.env.MCP_OAUTH_DEBUG === 'true' || process.env.MCP_SUPABASE_STORE_DEBUG === 'true'
     );
 
     // loadPersistedData() is called explicitly by startHttpMcpServer()
@@ -169,6 +170,19 @@ export class SupabaseOAuthStore implements IOAuthStore {
     if (!this.debugEnabled) return;
     console.log(`[OAUTH_STORE] ${operation}`, JSON.stringify(data));
   }
+
+  /**
+   * Log an important warning that is ALWAYS emitted (not gated by debug flags).
+   * Used for failures that would otherwise be swallowed silently and cause
+   * hard-to-diagnose "reauth required" loops. Payload must never contain
+   * secrets — pass only counts, hashes-prefixes, and error names/messages.
+   */
+  private warnLog(operation: string, data: Record<string, unknown>): void {
+    console.warn(`[OAUTH_STORE][WARN] ${operation}`, JSON.stringify(data));
+  }
+
+  /** Token hashes currently being hydrated from Supabase (dedupe background fetches). */
+  private inflightHydrations = new Set<string>();
 
   // ── Auth Code ───────────────────────────────────────────────────────
 
@@ -198,7 +212,7 @@ export class SupabaseOAuthStore implements IOAuthStore {
       if (!params.connectionKey) {
         throw new Error(
           'SupabaseOAuthStore requires connectionKeyId. ' +
-          'Raw connection key should not be stored in supabase mode.'
+            'Raw connection key should not be stored in supabase mode.'
         );
       }
     }
@@ -232,21 +246,17 @@ export class SupabaseOAuthStore implements IOAuthStore {
 
     // Persist to Supabase (fire-and-forget, only if connectionKeyId available)
     if (effectiveConnectionKeyId) {
-      this.supabaseQueryAsync(
-        'mcp_oauth_auth_codes',
-        'POST',
-        {
-          code_hash: codeHash,
-          client_id: params.clientId,
-          redirect_uri: params.redirectUri,
-          code_challenge: params.codeChallenge,
-          code_challenge_method: 'S256',
-          scope: params.scope,
-          resource: params.resource ?? null,
-          connection_key_id: effectiveConnectionKeyId,
-          expires_at: expiresAt,
-        }
-      );
+      this.supabaseQueryAsync('mcp_oauth_auth_codes', 'POST', {
+        code_hash: codeHash,
+        client_id: params.clientId,
+        redirect_uri: params.redirectUri,
+        code_challenge: params.codeChallenge,
+        code_challenge_method: 'S256',
+        scope: params.scope,
+        resource: params.resource ?? null,
+        connection_key_id: effectiveConnectionKeyId,
+        expires_at: expiresAt,
+      });
     }
 
     return { code };
@@ -317,15 +327,10 @@ export class SupabaseOAuthStore implements IOAuthStore {
   }): Promise<RedeemAuthCodeResult | undefined> {
     const codeHash = sha256Hex(params.code);
 
-    const rows = await this.supabaseQueryAsync(
-      'mcp_oauth_auth_codes',
-      'GET',
-      undefined,
-      [
-        { key: 'code_hash', op: 'eq', value: codeHash },
-        { key: 'used_at', op: 'is', value: 'null' },
-      ]
-    ) as SupabaseAuthCodeRow[];
+    const rows = (await this.supabaseQueryAsync('mcp_oauth_auth_codes', 'GET', undefined, [
+      { key: 'code_hash', op: 'eq', value: codeHash },
+      { key: 'used_at', op: 'is', value: 'null' },
+    ])) as SupabaseAuthCodeRow[];
 
     if (!rows || rows.length === 0) return undefined;
 
@@ -333,12 +338,9 @@ export class SupabaseOAuthStore implements IOAuthStore {
 
     // Check expiry
     if (new Date(record.expires_at) <= new Date()) {
-      await this.supabaseQueryAsync(
-        'mcp_oauth_auth_codes',
-        'DELETE',
-        undefined,
-        [{ key: 'code_hash', op: 'eq', value: codeHash }]
-      );
+      await this.supabaseQueryAsync('mcp_oauth_auth_codes', 'DELETE', undefined, [
+        { key: 'code_hash', op: 'eq', value: codeHash },
+      ]);
       return undefined;
     }
 
@@ -389,7 +391,7 @@ export class SupabaseOAuthStore implements IOAuthStore {
     if (!params.connectionKeyId && !params.connectionKey) {
       throw new Error(
         'SupabaseOAuthStore.createAccessToken requires connectionKeyId ' +
-        'or connectionKey fallback'
+          'or connectionKey fallback'
       );
     }
 
@@ -397,7 +399,8 @@ export class SupabaseOAuthStore implements IOAuthStore {
       this.debugLog('create_access_token', {
         has_connection_key_id: false,
         has_connection_key: !!params.connectionKey,
-        warning: 'connection_key_reference_missing — access token will not be persisted in Supabase',
+        warning:
+          'connection_key_reference_missing — access token will not be persisted in Supabase',
         client_id_prefix: params.clientId.slice(0, 8),
       });
     }
@@ -426,26 +429,20 @@ export class SupabaseOAuthStore implements IOAuthStore {
     // only persisted tokens (with connectionKeyId) are reloaded.
     if (effectiveConnectionKeyId) {
       const expiresAt = new Date(Date.now() + this.accessTokenTtlMs).toISOString();
-      this.supabaseQueryAsync(
-        'mcp_oauth_access_tokens',
-        'POST',
-        {
-          token_hash: tokenHash,
-          client_id: params.clientId,
-          scope: params.scope,
-          resource: params.resource ?? null,
-          connection_key_id: effectiveConnectionKeyId,
-          expires_at: expiresAt,
-        }
-      );
+      this.supabaseQueryAsync('mcp_oauth_access_tokens', 'POST', {
+        token_hash: tokenHash,
+        client_id: params.clientId,
+        scope: params.scope,
+        resource: params.resource ?? null,
+        connection_key_id: effectiveConnectionKeyId,
+        expires_at: expiresAt,
+      });
     }
 
     return { accessToken, expiresIn: Math.floor(this.accessTokenTtlMs / 1000) };
   }
 
-  resolveAccessToken(
-    accessToken: string
-  ): OAuthResolvedToken | undefined {
+  resolveAccessToken(accessToken: string): OAuthResolvedToken | undefined {
     const tokenHash = sha256Hex(accessToken);
 
     // Check in-memory cache first (sync path)
@@ -457,7 +454,17 @@ export class SupabaseOAuthStore implements IOAuthStore {
 
     // Check connectionKeyId cache
     const connectionKeyId = this.connectionKeyIdCache.get(tokenHash);
-    if (!connectionKeyId) return undefined;
+    if (!connectionKeyId) {
+      // Total cache-miss. This is the common cause of a spurious
+      // "reauth required": the token IS valid in Supabase, but this
+      // process (fresh replica or post-restart before/without full
+      // rehydrate) has never seen it. resolveAccessToken must stay
+      // synchronous per IOAuthStore, so we cannot await here. Instead we
+      // kick off a background hydrate keyed by token_hash so the NEXT
+      // request for this token succeeds without a real re-auth.
+      this.hydrateTokenByHashAsync(tokenHash);
+      return undefined;
+    }
 
     // Build resolve result from cached connectionKeyId
     return {
@@ -467,6 +474,69 @@ export class SupabaseOAuthStore implements IOAuthStore {
       scope: '',
       connectionKeyId,
     };
+  }
+
+  /**
+   * Fetch a single non-revoked, non-expired access token row from Supabase by
+   * its token_hash and populate the in-memory caches. Best-effort and
+   * deduplicated per token_hash. Never throws to the caller.
+   */
+  private hydrateTokenByHashAsync(tokenHash: string): void {
+    if (this.inflightHydrations.has(tokenHash)) return;
+    this.inflightHydrations.add(tokenHash);
+
+    void (async () => {
+      try {
+        const rows = (await this.supabaseQueryAsync('mcp_oauth_access_tokens', 'GET', undefined, [
+          { key: 'token_hash', op: 'eq', value: tokenHash },
+          { key: 'revoked_at', op: 'is', value: 'null' },
+        ])) as Array<Record<string, unknown>> | undefined;
+
+        const row = Array.isArray(rows) ? rows[0] : undefined;
+        if (!row) {
+          this.debugLog('hydrate_token_by_hash.miss', {
+            token_hash_prefix: tokenHash.slice(0, 8),
+          });
+          return;
+        }
+
+        const expiresAt = new Date(row.expires_at as string).getTime();
+        if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
+          this.debugLog('hydrate_token_by_hash.expired', {
+            token_hash_prefix: tokenHash.slice(0, 8),
+          });
+          return;
+        }
+
+        const connectionKeyId = row.connection_key_id as string | undefined;
+        if (!connectionKeyId) {
+          // Without a connectionKeyId the token cannot be resolved to a
+          // provider credential; nothing to cache.
+          return;
+        }
+
+        this.connectionKeyIdCache.set(tokenHash, connectionKeyId);
+        this.tokenResolveCache.set(tokenHash, {
+          authType: 'oauth_token',
+          accessTokenHash: tokenHash,
+          clientId: (row.client_id as string) ?? '',
+          scope: (row.scope as string) ?? '',
+          resource: row.resource as string | undefined,
+          connectionKeyId,
+        });
+        this.debugLog('hydrate_token_by_hash.ok', {
+          token_hash_prefix: tokenHash.slice(0, 8),
+        });
+      } catch (error) {
+        this.warnLog('hydrate_token_by_hash.error', {
+          token_hash_prefix: tokenHash.slice(0, 8),
+          error_name: error instanceof Error ? error.name : typeof error,
+          error_message: error instanceof Error ? error.message : String(error),
+        });
+      } finally {
+        this.inflightHydrations.delete(tokenHash);
+      }
+    })();
   }
 
   revokeAccessToken(accessToken: string): boolean {
@@ -513,19 +583,15 @@ export class SupabaseOAuthStore implements IOAuthStore {
     });
 
     // Persist to Supabase (fire-and-forget)
-    this.supabaseQueryAsync(
-      'mcp_oauth_clients',
-      'POST',
-      {
-        client_id: clientId,
-        client_name: params.clientName ?? null,
-        redirect_uris: params.redirectUris,
-        grant_types: params.grantTypes ?? ['authorization_code'],
-        response_types: params.responseTypes ?? ['code'],
-        token_endpoint_auth_method: params.tokenEndpointAuthMethod ?? 'none',
-        scope: params.scope ?? 'mcp read write',
-      }
-    );
+    this.supabaseQueryAsync('mcp_oauth_clients', 'POST', {
+      client_id: clientId,
+      client_name: params.clientName ?? null,
+      redirect_uris: params.redirectUris,
+      grant_types: params.grantTypes ?? ['authorization_code'],
+      response_types: params.responseTypes ?? ['code'],
+      token_endpoint_auth_method: params.tokenEndpointAuthMethod ?? 'none',
+      scope: params.scope ?? 'mcp read write',
+    });
 
     return { clientId, clientIdIssuedAt: now };
   }
@@ -597,7 +663,7 @@ export class SupabaseOAuthStore implements IOAuthStore {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${params.cuanInsightSupabaseAnonKey}`,
+        Authorization: `Bearer ${params.cuanInsightSupabaseAnonKey}`,
       },
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(10000),
@@ -620,12 +686,9 @@ export class SupabaseOAuthStore implements IOAuthStore {
 
   private cleanupExpiredAsync(): void {
     const now = new Date().toISOString();
-    this.supabaseQueryAsync(
-      'mcp_oauth_auth_codes',
-      'DELETE',
-      undefined,
-      [{ key: 'expires_at', op: 'lt', value: now }]
-    );
+    this.supabaseQueryAsync('mcp_oauth_auth_codes', 'DELETE', undefined, [
+      { key: 'expires_at', op: 'lt', value: now },
+    ]);
   }
 
   getStats(): StoreStats {
@@ -679,12 +742,9 @@ export class SupabaseOAuthStore implements IOAuthStore {
     let tokenCount = 0;
     try {
       // 1. Load registered clients
-      const clientRows = await this.supabaseQueryAsync(
-        'mcp_oauth_clients',
-        'GET',
-        undefined,
-        [{ key: 'revoked_at', op: 'is', value: 'null' }]
-      ) as Array<Record<string, unknown>> | undefined;
+      const clientRows = (await this.supabaseQueryAsync('mcp_oauth_clients', 'GET', undefined, [
+        { key: 'revoked_at', op: 'is', value: 'null' },
+      ])) as Array<Record<string, unknown>> | undefined;
 
       if (clientRows && Array.isArray(clientRows)) {
         for (const row of clientRows) {
@@ -696,7 +756,10 @@ export class SupabaseOAuthStore implements IOAuthStore {
               clientName: row.client_name != null ? String(row.client_name) : undefined,
               grantTypes: (row.grant_types ?? ['authorization_code']) as string[],
               responseTypes: (row.response_types ?? ['code']) as string[],
-              tokenEndpointAuthMethod: row.token_endpoint_auth_method != null ? String(row.token_endpoint_auth_method) : 'none',
+              tokenEndpointAuthMethod:
+                row.token_endpoint_auth_method != null
+                  ? String(row.token_endpoint_auth_method)
+                  : 'none',
               scope: row.scope != null ? String(row.scope) : 'mcp read write',
               issuedAt: Math.floor(new Date(row.created_at as string).getTime() / 1000),
             });
@@ -706,14 +769,12 @@ export class SupabaseOAuthStore implements IOAuthStore {
       }
 
       // 2. Load active access tokens
-      const tokenRows = await this.supabaseQueryAsync(
+      const tokenRows = (await this.supabaseQueryAsync(
         'mcp_oauth_access_tokens',
         'GET',
         undefined,
-        [
-          { key: 'revoked_at', op: 'is', value: 'null' },
-        ]
-      ) as Array<Record<string, unknown>> | undefined;
+        [{ key: 'revoked_at', op: 'is', value: 'null' }]
+      )) as Array<Record<string, unknown>> | undefined;
 
       if (tokenRows && Array.isArray(tokenRows)) {
         const now = Date.now();
@@ -729,8 +790,8 @@ export class SupabaseOAuthStore implements IOAuthStore {
             this.tokenResolveCache.set(tokenHash, {
               authType: 'oauth_token',
               accessTokenHash: tokenHash,
-              clientId: row.client_id as string ?? '',
-              scope: row.scope as string ?? '',
+              clientId: (row.client_id as string) ?? '',
+              scope: (row.scope as string) ?? '',
               resource: row.resource as string | undefined,
               connectionKeyId,
             });
@@ -738,10 +799,22 @@ export class SupabaseOAuthStore implements IOAuthStore {
           }
         }
       }
-    } catch {
-      // Silently fail — caches will be populated on-the-fly
+    } catch (error) {
+      // Do NOT fail silently: a failed rehydrate means every previously
+      // issued token looks invalid until re-fetched on-the-fly, which
+      // surfaces to users as spurious "reauth required". Surface it.
+      this.warnLog('load_persisted_data.error', {
+        clients_loaded: clientCount,
+        tokens_loaded: tokenCount,
+        error_name: error instanceof Error ? error.name : typeof error,
+        error_message: error instanceof Error ? error.message : String(error),
+      });
+      return;
     }
-    this.debugLog('load_persisted_data', { clients_loaded: clientCount, tokens_loaded: tokenCount });
+    this.debugLog('load_persisted_data', {
+      clients_loaded: clientCount,
+      tokens_loaded: tokenCount,
+    });
   }
 
   private async supabaseQueryAsync(
@@ -762,8 +835,8 @@ export class SupabaseOAuthStore implements IOAuthStore {
 
     // Add Prefer header for insert/update operations
     const headers: Record<string, string> = {
-      'apikey': this.serviceRoleKey,
-      'Authorization': `Bearer ${this.serviceRoleKey}`,
+      apikey: this.serviceRoleKey,
+      Authorization: `Bearer ${this.serviceRoleKey}`,
       'Content-Type': 'application/json',
     };
 
@@ -786,11 +859,11 @@ export class SupabaseOAuthStore implements IOAuthStore {
       if (!response.ok) {
         // Log error safely — never leak secrets
         const hasConnectionKeyId = payload
-          ? ('connection_key_id' in payload && !!payload.connection_key_id)
+          ? 'connection_key_id' in payload && !!payload.connection_key_id
           : undefined;
         let safeMessage = `HTTP ${response.status}`;
         try {
-          const errorBody = await response.text() as string | undefined;
+          const errorBody = (await response.text()) as string | undefined;
           if (errorBody) {
             const parsed = JSON.parse(errorBody) as Record<string, unknown>;
             safeMessage = (parsed.message as string) || safeMessage;
@@ -798,13 +871,22 @@ export class SupabaseOAuthStore implements IOAuthStore {
         } catch {
           // Can't parse error body — use default message
         }
-        this.debugLog('supabase_request_failed', {
+        // A failed write (POST/PATCH/DELETE) means a token/client/auth-code
+        // was NOT persisted, which later manifests as a spurious "reauth
+        // required" after restart or on another replica. Surface those at
+        // warn level; GET failures stay at debug (they self-heal via retry).
+        const logPayload = {
           table,
           operation: method,
           status: response.status,
           message: safeMessage,
           hasConnectionKeyId,
-        });
+        };
+        if (method === 'GET') {
+          this.debugLog('supabase_request_failed', logPayload);
+        } else {
+          this.warnLog('supabase_request_failed', logPayload);
+        }
         return method === 'GET' ? [] : null;
       }
 
@@ -813,8 +895,20 @@ export class SupabaseOAuthStore implements IOAuthStore {
       }
 
       return null;
-    } catch {
-      // Network error — silently fail
+    } catch (error) {
+      // Network error / timeout. Silent failure here previously caused
+      // un-persisted tokens and unexplained reauth. Surface writes at warn.
+      const logPayload = {
+        table,
+        operation: method,
+        error_name: error instanceof Error ? error.name : typeof error,
+        error_message: error instanceof Error ? error.message : String(error),
+      };
+      if (method === 'GET') {
+        this.debugLog('supabase_request_error', logPayload);
+      } else {
+        this.warnLog('supabase_request_error', logPayload);
+      }
       return method === 'GET' ? [] : null;
     }
   }
