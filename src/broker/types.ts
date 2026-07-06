@@ -267,6 +267,97 @@ export interface AdsMultiProviderReport {
   errors?: AdsProviderReportError[];
 }
 
+export type AdsContentMatrixGroupBy = 'campaign' | 'adset';
+export type AdsContentMatrixSortDirection = 'asc' | 'desc';
+export type AdsContentMatrixComparisonMode = 'previous_period' | 'none';
+
+export interface AdsContentMatrixMetric {
+  key: string;
+  value: number | null;
+  unit: 'currency' | 'count' | 'percentage' | 'ratio' | 'seconds';
+  source: 'observed' | 'calculated';
+  numerator?: number | null;
+  denominator?: number | null;
+  formula?: string;
+  available: boolean;
+}
+
+export interface AdsContentMatrixComparison {
+  key: string;
+  current: number | null;
+  previous: number | null;
+  absolute_change: number | null;
+  percentage_change: number | null;
+}
+
+export interface AdsContentMatrixDataQuality {
+  has_spend: boolean;
+  has_impressions: boolean;
+  has_clicks: boolean;
+  has_conversion: boolean;
+  has_creative_asset: boolean;
+  notes: string[];
+}
+
+export interface AdsContentMatrixRow {
+  provider: AdsProviderId;
+  account_id: string;
+  campaign_id?: string;
+  campaign_name?: string;
+  adset_or_adgroup_id?: string;
+  adset_or_adgroup_name?: string;
+  ad_id?: string;
+  ad_name?: string;
+  creative_id?: string;
+  creative_name?: string;
+  content: AdsCreativeMetadata;
+  metrics: AdsContentMatrixMetric[];
+  comparison?: AdsContentMatrixComparison[];
+  data_quality: AdsContentMatrixDataQuality;
+}
+
+export interface AdsContentMatrixGroup {
+  group_by: AdsContentMatrixGroupBy;
+  group_id: string;
+  group_name?: string;
+  campaign_id?: string;
+  campaign_name?: string;
+  adset_or_adgroup_id?: string;
+  adset_or_adgroup_name?: string;
+  summary_metrics: AdsContentMatrixMetric[];
+  top_rows: AdsContentMatrixRow[];
+  bottom_rows: AdsContentMatrixRow[];
+  rows?: AdsContentMatrixRow[];
+}
+
+export interface AdsContentMatrix {
+  provider: AdsProviderId;
+  report_kind: 'content_matrix';
+  date_range: {
+    since: string;
+    until: string;
+  };
+  comparison?: {
+    mode: AdsContentMatrixComparisonMode;
+    date_range?: {
+      since: string;
+      until: string;
+    };
+  };
+  group_by: AdsContentMatrixGroupBy;
+  sort: {
+    metric: string;
+    direction: AdsContentMatrixSortDirection;
+  };
+  groups: AdsContentMatrixGroup[];
+  coverage: {
+    rows: number;
+    groups: number;
+    has_creative_assets: boolean;
+    notes: string[];
+  };
+}
+
 export type CommerceProviderId = 'tiktok_gmv' | 'shopee' | 'tokopedia' | 'lazada' | 'blibli';
 export type CommerceReportFormat = 'summary' | 'audit' | 'executive';
 
