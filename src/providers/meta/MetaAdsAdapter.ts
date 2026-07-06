@@ -216,10 +216,10 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
 
     try {
       const client = this.createClient(context.credential);
-      const fields = 'id,name,title,body,thumbnail_url,image_url,image_hash,video_id,source,object_type,object_story_spec';
+      const fields = 'id,name,title,body,thumbnail_url,image_url,image_hash,video_id,object_type,object_story_spec';
 
       if (creativeId) {
-        const creative = await client.metaGet<MetaCreativeRecord>(`/${creativeId}`, { fields });
+        const creative = await client.metaGetObject<MetaCreativeRecord>(`/${creativeId}`, { fields });
 
         return {
           ok: true,
@@ -745,7 +745,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       let thumbnailUrl: string | undefined;
 
       try {
-        const directResponse = await client.metaGet<{
+        const directResponse = await client.metaGetObject<{
           id?: string;
           source?: string;
           embed_html?: string;
