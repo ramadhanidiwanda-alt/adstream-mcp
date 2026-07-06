@@ -7,13 +7,16 @@ export interface GetAccountInsightsOptions extends PaginationOptions {
   since: string;
   until: string;
   limit?: number;
+  cursor?: string;
 }
+
+export type AccountInsightPage = AccountInsight[] & { paging?: { cursors?: { after?: string } } };
 
 export async function getAccountInsights(
   client: MetaClient,
   options: GetAccountInsightsOptions
 ): Promise<AccountInsight[]> {
-  const { since, until, limit = 100, paginate = false, maxPages, pageDelay } = options;
+  const { since, until, limit = 100, paginate = false, maxPages, pageDelay, cursor } = options;
   const adAccountId = normalizeAccountId(options.adAccountId);
 
   const fields = [
@@ -38,16 +41,17 @@ export async function getAccountInsights(
     pageDelay,
   };
 
-  const response = await client.metaGet<{ data: AccountInsight[] }>(
+  const response = await client.metaGet<{ data: AccountInsight[]; paging?: { cursors?: { after?: string } } }>(
     `/act_${adAccountId}/insights`,
     {
       level: 'account',
       fields: fields.join(','),
       time_range: JSON.stringify({ since, until }),
       limit,
+      after: cursor,
     },
     metaOptions
   );
 
-  return response.data || [];
+  return Object.assign(response.data || [], { paging: response.paging }) as AccountInsightPage;
 }

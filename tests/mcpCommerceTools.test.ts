@@ -80,6 +80,14 @@ describe('commerce MCP tools', () => {
     expect(response.ok).toBe(true);
     expect(response.provider).toBe('tiktok_gmv');
     expect(response.data).toMatchObject({
+      provider: 'tiktok_gmv',
+      account: { id: 'advertiser_1' },
+      dateRange: { since: '2026-05-01', until: '2026-05-07' },
+      rows: expect.any(Array),
+      paging: { nextCursor: null },
+      dataFreshness: { retrievedAt: expect.any(String) },
+      capabilities: expect.any(Object),
+      unsupportedMetrics: [],
       totals: { gmv: 1500, orders: 15, units_sold: 20, ad_spend: 300, roas_commerce: 5, aov: 100 },
       metadata: {
         date_range: { since: '2026-05-01', until: '2026-05-07' },
@@ -89,6 +97,7 @@ describe('commerce MCP tools', () => {
       warnings: [],
     });
     expect((response.data as { records: unknown[] }).records).toHaveLength(2);
+    expect((response.data as { rows: unknown[] }).rows).toHaveLength(2);
     expect((response.data as { records: unknown[] }).records[0]).toMatchObject({
       provider: 'tiktok_gmv',
       account_id: 'advertiser_1',
@@ -130,6 +139,7 @@ describe('commerce MCP tools', () => {
 
     expect(response.ok).toBe(true);
     expect(response.data).toMatchObject({
+      rows: [],
       records: [],
       totals: { gmv: 0, orders: 0 },
       metadata: {
@@ -138,5 +148,28 @@ describe('commerce MCP tools', () => {
       },
       warnings: ['TikTok GMV Max returned no rows for the requested date range and stores.'],
     });
+  });
+
+  it('uses cursor as next GMV Max page and returns opaque nextCursor', async () => {
+    let capturedOptions: Record<string, unknown> | undefined;
+    const response = parseToolResponse(await handleCommerceMcpToolCall('commerce_get_performance', {
+      provider: 'tiktok_gmv',
+      accountId: 'advertiser_1',
+      storeIds: ['store_1'],
+      since: '2026-05-01',
+      until: '2026-05-07',
+      cursor: '2',
+    }, {
+      fetchGmvMaxReport: async (options) => {
+        capturedOptions = options as unknown as Record<string, unknown>;
+        return {
+          list: [],
+          page_info: { page: 2, page_size: 100, total_number: 250, total_page: 3 },
+        };
+      },
+    }));
+
+    expect(capturedOptions).toMatchObject({ page: 2 });
+    expect(response.data).toMatchObject({ paging: { nextCursor: '3' } });
   });
 });

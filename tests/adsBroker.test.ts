@@ -66,10 +66,27 @@ function createAdapter(overrides: Partial<AdsProviderAdapter> = {}): AdsProvider
       operations: ['read'],
     },
     listAccounts: async () => ({ ok: true, provider: 'meta', data: [] }),
+    listCampaigns: async () => ({ ok: true, provider: 'meta', data: [] }),
+    getAccountPerformance: response,
     getCampaignPerformance: response,
     getAdsetOrAdgroupPerformance: response,
     getAdPerformance: response,
     getCreativePerformance: response,
+    getPlacementPerformance: response,
+    getChangeHistory: async () => ({
+      ok: true,
+      provider: 'meta',
+      data: {
+        provider: 'meta',
+        account: { id: 'act_123' },
+        dateRange: { since: '2026-05-01', until: '2026-05-07' },
+        rows: [],
+        paging: { nextCursor: null },
+        warnings: [],
+        dataFreshness: { retrievedAt: new Date().toISOString() },
+        capabilities: {},
+      },
+    }),
     ...overrides,
   };
 }

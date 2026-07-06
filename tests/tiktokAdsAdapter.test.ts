@@ -117,6 +117,33 @@ describe('TikTokAdsAdapter', () => {
     expect(response.data?.[0].conversions?.conversion_value).toBe(3000);
   });
 
+  it('passes cursor as TikTok report page and exposes nextCursor metadata', async () => {
+    let capturedParams: Record<string, unknown> | undefined;
+    const adapter = new TikTokAdsAdapter({
+      client: {
+        get: async (_path: string, params: Record<string, unknown> = {}) => {
+          capturedParams = params;
+          return {
+            list: [],
+            page_info: { page: 2, page_size: 100, total_number: 250, total_page: 3 },
+          };
+        },
+      },
+    });
+
+    const response = await adapter.getCampaignPerformance({
+      provider: 'tiktok',
+      accountId: 'advertiser_123',
+      since: '2026-05-01',
+      until: '2026-05-07',
+      params: { cursor: '2' },
+      credentials: { provider: 'tiktok', accessToken: 'secret-token', accountId: 'advertiser_123', source: 'test' },
+    });
+
+    expect(capturedParams).toMatchObject({ page: 2 });
+    expect(response.meta).toMatchObject({ nextCursor: '3' });
+  });
+
   it('fetches placement performance via TikTok API client', async () => {
     let capturedParams: Record<string, unknown> | undefined;
     const adapter = new TikTokAdsAdapter({

@@ -87,6 +87,7 @@ describe('GoogleAdsAdapter', () => {
     expect(client.calls[0]?.query).toContain('FROM campaign');
     expect(client.calls[0]?.query).toContain("segments.date BETWEEN '2026-05-01' AND '2026-05-07'");
     expect(response.data?.[0]).toMatchObject({ provider: 'google', level: 'campaign', delivery: { spend: 10 } });
+    expect(response.meta).toMatchObject({ nextCursor: null });
   });
 
   it('returns missing params errors before querying', async () => {

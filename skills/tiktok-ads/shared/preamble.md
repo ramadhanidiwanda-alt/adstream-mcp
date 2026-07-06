@@ -4,14 +4,24 @@ Every tiktok-ads skill reads this before doing anything else. Handles MCP detect
 
 ## Step 1: Detect MCP availability
 
-Check if the TikTok MCP server is connected by listing available tools. Look for tool names starting with `tiktok_`:
+Check if an Adstream/TikTok MCP server is connected by listing available tools. Prefer canonical Adstream tools first:
+
+If any of these canonical tools are found:
+- `ads_get_capabilities`
+- `ads_list_accounts`
+- `ads_get_performance`
+- `commerce_get_performance`
+
+Then MCP is active. Use `provider: "tiktok"` for TikTok Ads requests. Skip to Step 2.
+
+If canonical tools are unavailable, fall back to legacy TikTok tools starting with `tiktok_`:
 
 If any of these tools are found:
 - `tiktok_list_advertisers`
 - `tiktok_get_report`
 - `tiktok_get_gmv_max_report`
 
-Then MCP is active. Skip to Step 2.
+Then MCP is active in legacy mode. Skip to Step 2.
 
 If none are found, explain to the user:
 > "To analyze TikTok Ads, you need to connect the TikTok MCP server. Go to your MCP client settings and add the TikTok Ads MCP server configuration."
@@ -31,7 +41,7 @@ If `TIKTOK_ADVERTISER_ID` is not set:
 
 ## Step 3: Select advertiser
 
-Call `tiktok_list_advertisers` to get all accessible accounts.
+Call `ads_list_accounts` with `provider: "tiktok"` to get all accessible accounts. If only legacy tools are available, call `tiktok_list_advertisers` instead.
 
 If only one account is found, auto-select it.
 If multiple accounts, let the user choose:
@@ -56,9 +66,12 @@ Data files are stored in:
 
 | Tool | What It Does |
 |---|---|
-| `tiktok_list_advertisers` | List all accessible advertiser accounts |
-| `tiktok_get_report` | Fetch campaign/adgroup/ad-level performance report |
-| `tiktok_get_gmv_max_report` | Fetch GMV Max (Shop Ads) performance report |
+| `ads_get_capabilities` | Discover supported TikTok levels, metrics, breakdowns, warnings, and limitations |
+| `ads_list_accounts` | List accessible advertiser accounts with `provider: "tiktok"` |
+| `ads_get_performance` | Fetch campaign/adgroup/ad-level performance with `provider: "tiktok"` |
+| `commerce_get_performance` | Fetch commerce/GMV Max performance when available |
+
+Legacy tools such as `tiktok_list_advertisers`, `tiktok_get_report`, and `tiktok_get_gmv_max_report` may still exist for compatibility. Use them only when canonical tools are unavailable.
 
 ## Common report dimensions
 

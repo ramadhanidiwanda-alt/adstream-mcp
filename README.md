@@ -1,280 +1,72 @@
-# Adstream MCP
+# adstream-mcp
 
-Open-source MCP connector hub for ads and commerce analytics. It started as a Meta Ads toolkit and is evolving into Cuan Insight's client-agnostic execution layer for Meta, Meta CPAS, TikTok regular, TikTok GMV Max, Google Ads, and Indonesian marketplace ads.
+Open-source MCP connector and data access layer for ads and commerce analytics, powered by Cuan Insight credentials.
 
-[![GitHub](https://img.shields.io/github/license/ramadhanidiwanda-alt/adstream-mcp)](LICENSE)
-[![npm version](https://img.shields.io/npm/v/adstream-mcp)](https://www.npmjs.com/package/adstream-mcp)
-[![tests](https://img.shields.io/badge/tests-460%20passed-brightgreen)]()
-[![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)]()
+`adstream-mcp` connects AI clients to provider data from Meta, TikTok, Google, and commerce/marketplace sources through small, generic, reusable tools. The project is intentionally not a central recommendation engine, benchmark engine, or automated audit product.
 
-
-## Account-Level Performance Tool
-
-`ads_get_account_performance` fetches Meta ad account totals directly from Meta Insights using `level=account`. Use this for portfolio summaries, executive reports, and account-level analysis where totals should not be derived by summing campaign rows.
-
-Example input:
-
-```json
-{
-  "provider": "meta",
-  "accountId": "act_662014947775593",
-  "since": "2026-01-01",
-  "until": "2026-06-24"
-}
+```text
+MCP = data access and safe provider actions
+Skills / prompts = how to fetch, compare, and interpret data
+AI = analysis, report narrative, recommendations, and brand context
 ```
 
-Returned metrics include spend, impressions, reach, clicks, link clicks, CTR, CPC, CPM, actions, purchase value, purchase ROAS, and leads when Meta provides them. If Meta omits `purchase_roas`, normalized output can calculate ROAS from `purchase_value / spend` when both values are available.
+## Positioning
 
-## Meta CPAS and TikTok GMV Max
+The core product boundary is:
 
-Meta CPAS is not a separate provider. Use the regular Meta provider with `params.mode: "cpas"` to request catalog/product breakdowns and receive normalized catalog metadata.
+- **MCP core:** provider-agnostic tools, input validation, normalized data envelopes, pagination, warnings, capability metadata, and safe action lifecycle.
+- **Provider adapters:** Meta/TikTok/Google/native API mapping behind a consistent public contract.
+- **Cuan Insight credential layer:** organization/workspace-scoped credential resolution without exposing tokens to the AI client.
+- **Library utilities:** TypeScript helpers used by the broker, adapters, examples, and tests.
+- **AI skills:** markdown instructions and heuristics that teach an AI how to produce audits, weekly reports, comparisons, and recommendations from generic data tools.
+- **Optional write tools:** scoped mutation tools that remain separate from read-only analytics and require explicit safety checks.
 
-```json
-{
-  "provider": "meta",
-  "accountId": "act_123",
-  "since": "2026-05-01",
-  "until": "2026-05-07",
-  "params": { "mode": "cpas" }
-}
-```
+MCP provides structured data. AI and skills provide reasoning.
 
-TikTok GMV Max uses the commerce data surface so AI clients can read structured JSON and write their own analysis/report narrative.
+## Target MCP Tool Surface
 
-```json
-{
-  "provider": "tiktok_gmv",
-  "accountId": "advertiser_123",
-  "storeIds": ["store_1"],
-  "since": "2026-05-01",
-  "until": "2026-05-07"
-}
-```
+The intended public API should stay small:
 
+| Tool | Purpose |
+|---|---|
+| `ads_list_accounts` | List accessible ads accounts |
+| `ads_list_campaigns` | List campaign identity/status metadata |
+| `ads_get_performance` | Fetch normalized ads performance rows across levels |
+| `ads_get_creatives` | Fetch creative metadata and creative metrics |
+| `ads_get_change_history` | Fetch provider change history when available |
+| `ads_get_capabilities` | Discover supported providers, metrics, breakdowns, levels, and writes |
+| `commerce_get_performance` | Fetch commerce/SKU/product/order performance when available |
 
-## Two Ways to Use This Project
+Optional write tools are separate from analytics:
 
-### 🤖 For End Users: AI Skills (Zero Code)
+- `ads_pause_campaign`
+- `ads_resume_campaign`
+- `ads_update_campaign_budget`
+- `ads_rename_campaign`
 
-Ask your AI agent in natural language:
+Legacy and provider-specific tools remain available for compatibility, but new report-specific tools should be avoided. Daily reports, weekly reports, creative audits, KPI scoring, and recommendations should be implemented as AI/skill workflows over the same canonical data tools.
 
-```
-You: Audit my Meta ads
-AI: [analyzes account, provides scorecard and recommendations]
+`ads_get_performance`, `ads_get_creatives`, `ads_get_change_history`, and `ads_get_capabilities` are available as non-breaking canonical entry points. Existing level-specific and provider-specific tools remain for compatibility during migration.
 
-You: How are my campaigns doing?
-AI: [shows performance, identifies issues, suggests actions]
+## Design Principles
 
-You: Where am I wasting money?
-AI: [finds inefficient spend, calculates savings]
-```
+1. Less is more: fewer tools, stronger schemas.
+2. One data need should have one main tool path.
+3. Public MCP inputs should use canonical names such as `provider`, `accountId`, `since`, `until`, `level`, `metrics`, `dimensions`, `breakdowns`, `filters`, `limit`, and `cursor`.
+4. Provider-native terms belong inside adapters unless explicitly documented as extensions.
+5. Responses should include structured rows, metadata, pagination, warnings, data freshness, unsupported metrics, and provider capabilities.
+6. Missing commerce, SKU, attribution, or conversion mapping data must be stated clearly instead of inferred.
+7. Write operations are opt-in, scoped, and governed by `docs/WRITE_SAFETY_CONTRACT.md`.
 
-**Features:**
-- Natural language interface
-- Comprehensive account audits
-- Daily performance reports
-- Creative fatigue detection
-- Profitability analysis (ROAS, break-even, headroom)
-- Personalized recommendations based on your business context
+## Documentation Map
 
-**Setup:** Configure MCP server (see [Skills Setup](#skills-setup))
+- `docs/ARCHITECTURE.md` explains the MCP, broker, adapter, skill, AI client, and Cuan Insight boundaries.
+- `docs/MCP_API_DESIGN.md` defines the target tool surface and canonical input/output contracts.
+- `docs/LEGACY_AND_MIGRATION.md` inventories current tools and maps them toward canonical replacements.
+- `docs/WRITE_SAFETY_CONTRACT.md` defines required safety behavior for mutations.
+- `skills/README.md` explains how skills should sit above MCP data tools.
 
-**MCP client setup:** See [`docs/MCP_CLIENT_SETUP.md`](docs/MCP_CLIENT_SETUP.md) for generic stdio client and Docker setup.
-
-**Open-source setup guide:** See [`docs/SELF_HOSTING.md`](docs/SELF_HOSTING.md) to choose between Cuan Insight connection keys, local Docker stdio, remote HTTP, and OpenAI Responses API.
-
-**Learn more:** See [`skills/README.md`](skills/README.md)
-
----
-
-### 💻 For Developers: TypeScript Library
-
-Programmatic access to Meta Ads data for building custom tools, dashboards, and automation.
-
-```typescript
-import { MetaClient, getCampaignInsights, analyzeCampaignPerformance } from 'adstream-mcp';
-
-const client = new MetaClient({
-  accessToken: process.env.META_ACCESS_TOKEN,
-  apiVersion: 'v20.0'
-});
-
-const insights = await getCampaignInsights(client, {
-  adAccountId: 'act_123456789',
-  datePreset: 'last_30d'
-});
-
-const analysis = await analyzeCampaignPerformance(insights);
-console.log(analysis.recommendations);
-```
-
-**Features:**
-- Clean Meta Marketing API wrapper plus broker adapters for Meta, TikTok, and Google Ads
-- Stable `ads_*` MCP tools for account, campaign, adgroup/adset, ad, placement, and report data
-- Meta CPAS mode via `params.mode: "cpas"` with catalog/product metadata
-- TikTok regular performance plus TikTok GMV Max commerce data via `commerce_get_performance`
-- Performance analysis with recommendations where appropriate; commerce tools return normalized JSON for AI-side analysis
-- Flexible rule engine (26 pre-built templates)
-- TypeScript types for everything
-- MCP server included
-
-**Setup:** See [Library Installation](#library-installation)
-
----
-
-## What's Included
-
-| Component | Purpose | For |
-|-----------|---------|-----|
-| **TypeScript Library** (`src/`) | Programmatic API access | Developers |
-| **AI Skills** (`skills/`) | Natural language analysis | End users |
-| **MCP Server** (`mcp-server/`) | Bridge between AI and library | Both |
-| **Rule Engine** (`src/rules/`) | Custom performance rules | Developers |
-| **Examples** (`examples/`) | Code samples | Developers |
-
----
-
-## Skills Setup
-
-
-### Recommended Hosted Setup
-
-Use Cuan Insight UI to create a Connection Key.
-
-**For local stdio / single-tenant:**
-```env
-CUAN_INSIGHT_AUTH_MODE=connection_key
-CUAN_INSIGHT_CONNECTION_KEY=<your-connection-key>
-```
-
-**For hosted multi-user Streamable HTTP:**
-Do not set a global connection key.
-Client must send `x-cuan-mcp-connection-key` per request.
-
-> Env-based Connection Key is for local/single-tenant use.
-> Hosted multi-user deployments should pass `x-cuan-mcp-connection-key` per request.
-
-### Self-Hosted Setup
-
-Developer may self-host the MCP server.
-They can either:
-
-1. Still use Cuan Insight credential resolver with their own Connection Key, or
-2. Extend/configure provider-token handling themselves if they want to bypass Cuan Insight.
-
-For provider-token mode, set:
-```env
-BROKER_RUNTIME_MODE=local
-META_ACCESS_TOKEN=<your-meta-access-token>
-META_AD_ACCOUNT_ID=act_123456789
-```
-
-### xe2x9axa0xefxb8x8f Warning
-
-A Connection Key gives access to ad data available to the organization in Cuan Insight.
-Do not commit it.
-Do not share it.
-For hosted multi-user servers, never configure one shared global key.
-
-### Prerequisites
-
-1. **AI Agent** — Any MCP-compatible agent or client; Claude Desktop is one example
-2. **Meta Access Token** — See [Authentication](#authentication)
-3. **Ad Account ID** — Your Meta ad account ID (format: `act_123456789`)
-
-### Configuration — Local Mode
-
-Create `.mcp.json` in your project root (or add to existing):
-
-```json
-{
-  "mcpServers": {
-    "adstream-mcp": {
-      "command": "node",
-      "args": ["./node_modules/adstream-mcp/mcp-server/dist/index.js"],
-      "env": {
-        "META_ACCESS_TOKEN": "${META_ACCESS_TOKEN}",
-        "META_AD_ACCOUNT_ID": "${META_AD_ACCOUNT_ID}"
-      }
-    }
-  }
-}
-```
-
-Or set environment variables:
-```bash
-export META_ACCESS_TOKEN="your_token_here"
-export META_AD_ACCOUNT_ID="act_123456789"
-```
-
-### Configuration — Remote Mode with Cuan Insight
-
-For hosted deployments using Cuan Insight as credential control plane:
-
-**Recommended: Connection Key Mode**
-
-```env
-BROKER_RUNTIME_MODE=remote
-CUAN_INSIGHT_AUTH_MODE=connection_key
-CUAN_INSIGHT_CONNECTION_KEY=<key-from-cuan-insight-ui>
-CUAN_INSIGHT_API_BASE_URL=https://your-cuan-insight-domain/functions/v1
-CUAN_INSIGHT_SUPABASE_ANON_KEY=<supabase-anon-key-if-required>
-```
-
-- Key dibuat dari **Cuan Insight UI > AI/MCP Connectors**
-- MCP server mengirim header `x-cuan-mcp-connection-key`
-- Provider token tidak pernah ditampilkan ke AI client
-- Key dapat di-revoke kapan saja dari UI
-
-> Env-based Connection Key is for local/single-tenant use. Hosted multi-user deployments should pass `x-cuan-mcp-connection-key` per request.
-
-
-**Legacy: MCP Token Mode (default, backward compatible)**
-
-```env
-BROKER_RUNTIME_MODE=remote
-CUAN_INSIGHT_AUTH_MODE=mcp_token
-CUAN_INSIGHT_MCP_TOKEN=<mcp-token>
-CUAN_INSIGHT_API_BASE_URL=https://your-cuan-insight-domain/functions/v1
-CUAN_INSIGHT_SUPABASE_ANON_KEY=<supabase-anon-key-if-required>
-```
-
-See [`docs/CUAN_INSIGHT_CONNECTION_KEY_COMPATIBILITY.md`](docs/CUAN_INSIGHT_CONNECTION_KEY_COMPATIBILITY.md) for full auth mode documentation.
-
-### Usage
-
-Ask your AI agent:
-
-- **"Audit my Meta ads"** → Comprehensive account analysis
-- **"How are my campaigns doing?"** → Performance overview
-- **"Show me yesterday's performance"** → Daily report
-- **"Where am I wasting money?"** → Find inefficiencies
-- **"What should I scale?"** → Scaling opportunities
-- **"Analyze campaign [name]"** → Specific campaign deep-dive
-
-The AI will read the skill files, call MCP tools, and provide natural language analysis with specific recommendations.
-
----
-
-## Library Installation
-
-### Install
-
-```bash
-npm install adstream-mcp
-```
-
-### Setup Environment
-
-Create `.env` file:
-
-```env
-META_ACCESS_TOKEN=your_access_token_here
-META_AD_ACCOUNT_ID=act_123456789
-META_API_VERSION=v20.0
-```
-
-### Quick Start
+## Quick Start
 
 ```typescript
 import { loadConfig } from 'adstream-mcp/config';
@@ -301,16 +93,18 @@ console.log(`Found ${campaigns.length} campaigns`);
 console.log(`Total spend: $${insights.reduce((sum, i) => sum + i.spend, 0)}`);
 ```
 
-### Available Tools
+### Current Library Utilities
 
-- `getAdAccounts()` — List all ad accounts
-- `getCampaigns()` — Fetch campaigns with filters
-- `getCampaignInsights()` — Campaign-level performance metrics
-- `getAdsetInsights()` — Ad set performance metrics
-- `getAdsInsights()` — Individual ad metrics
-- `generateDailyReport()` — Comprehensive daily analysis
+The TypeScript library still exports legacy Meta-focused helpers for compatibility:
 
-All tools are **read-only**. For remote credential resolution via Cuan Insight, see [Remote Mode](#configuration--remote-mode-with-cuan-insight).
+- `getAdAccounts()` — List Meta ad accounts
+- `getCampaigns()` — Fetch campaign metadata
+- `getCampaignInsights()` — Fetch campaign-level performance metrics
+- `getAdsetInsights()` — Fetch ad set performance metrics
+- `getAdsInsights()` — Fetch individual ad metrics
+- `generateDailyReport()` — Legacy report utility; prefer AI/skill workflows over canonical performance data for new work
+
+The target MCP surface is documented in `docs/MCP_API_DESIGN.md`. Optional write tools exist separately and are governed by `docs/WRITE_SAFETY_CONTRACT.md`. For remote credential resolution via Cuan Insight, see [Remote Mode](#configuration--remote-mode-with-cuan-insight).
 
 ### Pagination
 
@@ -346,14 +140,9 @@ Available options for all insight tools (`getCampaignInsights`, `getAdsetInsight
 
 ## Rule Engine
 
-26 pre-built rule templates for automatic performance analysis:
+The repository includes legacy rule templates and analysis utilities. Treat these as library utilities or skill references, not the direction for new MCP core APIs. New recommendation, benchmark, scoring, or report workflows should live in skills/AI prompts that call canonical data tools.
 
-- **E-Commerce** (6 rules) — ROAS, purchases, conversion optimization
-- **Lead Generation** (6 rules) — Lead optimization
-- **Brand Awareness** (6 rules) — Reach optimization
-- **General Performance** (8 rules) — Universal rules
-
-See [`src/rules/templates/`](src/rules/templates/) for details.
+See `docs/LEGACY_AND_MIGRATION.md` for the migration classification.
 
 ---
 
@@ -398,23 +187,19 @@ See [Remote Mode](#configuration--remote-mode-with-cuan-insight) for full setup.
 
 ## Use Cases
 
-### For End Users (Skills)
+### For AI Clients and Skills
 
-- Daily performance monitoring
-- Account health audits
-- Creative fatigue detection
-- Budget optimization
-- Profitability analysis
-- Competitive benchmarking
+- Fetch normalized ads and commerce data
+- Compare periods and entities
+- Inspect warnings, unsupported metrics, and data freshness
+- Build narrative reports and recommendations outside MCP core
 
-### For Developers (Library)
+### For Developers
 
-- Custom dashboards
-- Automated reporting
-- Performance alerts
-- Budget forecasting
-- Multi-account management
-- CI/CD integration
+- Build custom dashboards on provider data
+- Integrate normalized ads/commerce metrics into internal systems
+- Self-host an MCP server with scoped credentials
+- Add provider adapters behind canonical contracts
 
 ---
 
@@ -426,16 +211,16 @@ adstream-mcp/
 │   ├── metaClient.ts            # API wrapper
 │   ├── config.ts                # Config loader
 │   ├── types.ts                 # TypeScript types
-│   ├── tools/                   # 6 API functions
-│   ├── analysis/                # Analysis logic
-│   ├── rules/                   # Rule engine + templates
+│   ├── tools/                   # Legacy library helpers and write utilities
+│   ├── analysis/                # Legacy/internal analysis utilities
+│   ├── rules/                   # Legacy/internal rule templates
 │   ├── broker/                  # Credential broker (multi-provider)
 │   │   ├── cuanInsightClient.ts # Cuan Insight HTTP client
 │   │   ├── credentials.ts       # Credential resolver + redaction
 │   │   ├── config.ts            # Broker config + env parsing
 │   │   └── factory.ts           # Broker factory
 │   └── utils/                   # Helpers
-├── skills/                       # AI agent skills
+├── skills/                       # AI instruction/heuristic layer
 │   └── meta-ads/
 │       ├── audit/SKILL.md       # Audit skill
 │       ├── manage/SKILL.md      # Management skill
@@ -455,10 +240,11 @@ adstream-mcp/
 
 See [`examples/`](examples/) directory:
 
-- `daily-report.ts` — Generate daily performance report
-- `campaign-audit.ts` — Audit specific campaigns
-- `rule-engine-demo.ts` — Use rule engine
-- `rule-templates-demo.ts` — Use pre-built templates
+- `daily-report.ts` — Legacy report utility example
+- `campaign-audit.ts` — Legacy campaign audit example
+- `canonical-migration.ts` — Canonical `ads_get_performance` migration example
+- `rule-engine-demo.ts` — Legacy rule engine example
+- `rule-templates-demo.ts` — Legacy rule template example
 
 Run examples:
 ```bash
