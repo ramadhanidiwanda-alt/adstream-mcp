@@ -48,8 +48,12 @@ export const COMMERCE_MCP_TOOL_DEFINITIONS = [
         },
         params: {
           type: 'object',
-          description: 'Optional provider-safe parameters such as page, pageSize, filtering, and sorting.',
-        },
+        description: 'Optional provider-safe parameters such as page, pageSize, filtering, and sorting.',
+      },
+      cursor: {
+        type: 'string',
+        description: 'Opaque pagination cursor. For TikTok GMV Max this maps to the next page number.',
+      },
       },
       required: ['provider', 'accountId', 'storeIds', 'since', 'until'],
     },
@@ -57,6 +61,15 @@ export const COMMERCE_MCP_TOOL_DEFINITIONS = [
 ] as const;
 
 export interface CommercePerformanceData {
+  provider: CommerceProviderId;
+  account: {
+    id: string;
+  };
+  dateRange: {
+    since: string;
+    until: string;
+  };
+  rows: CommerceRecord[];
   records: CommerceRecord[];
   totals: CommerceMetrics;
   metadata: {
@@ -71,7 +84,15 @@ export interface CommercePerformanceData {
     record_count: number;
     page_info?: GmvMaxReportResult['page_info'];
   };
+  paging: {
+    nextCursor: string | null;
+  };
   warnings: string[];
+  dataFreshness: {
+    retrievedAt: string;
+  };
+  capabilities: Record<string, unknown>;
+  unsupportedMetrics: string[];
 }
 
 export interface CommerceMcpResponse<TData = CommercePerformanceData> {
@@ -173,7 +194,7 @@ async function getCommercePerformance(
     metrics: request.value.metrics,
     startDate: request.value.since,
     endDate: request.value.until,
-    page: parseNumber(request.value.params.page),
+    page: parseNumber(request.value.params.page) ?? parseNumber(request.value.params.cursor),
     pageSize: parseNumber(request.value.params.pageSize),
     filtering: isPlainObject(request.value.params.filtering) ? request.value.params.filtering : undefined,
     sortField: typeof request.value.params.sortField === 'string' ? request.value.params.sortField : undefined,
@@ -194,6 +215,10 @@ async function getCommercePerformance(
     ok: true,
     provider: 'tiktok_gmv',
     data: {
+      provider: 'tiktok_gmv',
+      account: { id: request.value.accountId },
+      dateRange: { since: request.value.since, until: request.value.until },
+      rows: records,
       records,
       totals: calculateCommerceTotals(records),
       metadata: {
@@ -205,10 +230,26 @@ async function getCommercePerformance(
         record_count: records.length,
         page_info: report.page_info,
       },
+      paging: { nextCursor: getCommerceNextCursor(report.page_info) },
       warnings: buildCommerceWarnings(records),
+      dataFreshness: { retrievedAt: new Date().toISOString() },
+      capabilities: {
+        provider: 'tiktok_gmv',
+        dimensions: ['store_id', 'product_id', 'product_name'],
+        metrics: ['gmv', 'orders', 'units_sold', 'spend', 'roas_commerce', 'aov'],
+        source: 'tiktok_gmv_max',
+      },
+      unsupportedMetrics: request.value.metrics.filter((metric) => !SUPPORTED_COMMERCE_METRICS.has(metric)),
     },
   };
 }
+
+function getCommerceNextCursor(pageInfo: GmvMaxReportResult['page_info'] | undefined): string | null {
+  if (!pageInfo || pageInfo.page >= pageInfo.total_page) return null;
+  return String(pageInfo.page + 1);
+}
+
+const SUPPORTED_COMMERCE_METRICS = new Set(['gmv', 'orders', 'units_sold', 'spend', 'roas_commerce', 'aov']);
 
 function buildCommerceWarnings(records: CommerceRecord[]): string[] {
   if (records.length === 0) {
@@ -243,6 +284,11 @@ function parseCommercePerformanceRequest(args: Record<string, unknown>):
     return { ok: false, error: { code: 'MISSING_DATE_RANGE', message: 'since and until are required.' } };
   }
 
+  const params = isPlainObject(args.params) ? { ...args.params } : {};
+  if (typeof args.cursor === 'string') {
+    params.cursor = args.cursor;
+  }
+
   return {
     ok: true,
     value: {
@@ -253,7 +299,7 @@ function parseCommercePerformanceRequest(args: Record<string, unknown>):
       until: args.until,
       dimensions: parseStringArray(args.dimensions, ['store_id', 'product_id', 'product_name']),
       metrics: parseStringArray(args.metrics, ['gmv', 'orders', 'units_sold', 'spend']),
-      params: isPlainObject(args.params) ? args.params : {},
+      params,
     },
   };
 }
@@ -290,7 +336,10 @@ function parseStringArray(value: unknown, fallback: string[]): string[] {
 }
 
 function parseNumber(value: unknown): number | undefined {
-  return typeof value === 'number' ? value : undefined;
+  if (typeof value === 'number') return value;
+  if (typeof value !== 'string') return undefined;
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) ? parsed : undefined;
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {

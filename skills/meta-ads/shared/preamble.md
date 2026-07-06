@@ -37,12 +37,12 @@ Continue to Step 2 (MCP detection always runs).
 
 Always verify that a Meta Ads MCP server is available.
 
-1. Check for Meta Ads MCP tools. The MCP server may be exposed under several different tool-name prefixes:
+1. Check for Adstream/Meta Ads MCP tools. Prefer canonical Adstream tools when available. The MCP server may be exposed under several different tool-name prefixes:
    - `mcp__meta_ads_agent_skill__*` — Your custom MCP server
    - `mcp__meta_ads__*` — Generic Meta Ads MCP
    - Any other prefix matching `mcp__.*meta.*ads__` 
 
-   **How to detect:** scan your available tool list for any tool whose name contains `getCampaigns` or `getInsights` AND whose prefix references Meta. Take everything before the tool name as the detected prefix.
+   **How to detect:** scan your available tool list for canonical tools such as `ads_get_performance`, `ads_get_capabilities`, or `ads_list_campaigns`. If those are not present, fall back to legacy Meta tool names whose prefix references Meta.
 
 2. If no MCP server exists, guide the user:
 
@@ -68,16 +68,18 @@ Use whichever MCP server prefix was detected in Step 2:
 
 Always call tools under the exact prefix detected in Step 2 — do not hardcode any prefix.
 
-### Available tools (from your library)
+### Preferred canonical tools
 
-Based on your MCP server implementation, these tools should be available:
+Use these generic Adstream MCP tools first when they are available:
 
-- `getAdAccounts` — List all ad accounts
-- `getCampaigns` — Get campaigns for an ad account
-- `getCampaignInsights` — Get insights for campaigns
-- `getAdsetInsights` — Get insights for ad sets
-- `getAdsInsights` — Get insights for individual ads
-- `generateDailyReport` — Generate automated daily report
+- `ads_get_capabilities` — Discover available providers, levels, metrics, breakdowns, warnings, and optional writes.
+- `ads_list_accounts` — List all accessible ad accounts.
+- `ads_list_campaigns` — Get campaigns for an ad account.
+- `ads_get_performance` — Get normalized performance rows using `provider: "meta"`, `accountId`, `since`, `until`, `level`, `metrics`, `dimensions`, `breakdowns`, `filters`, `limit`, and `cursor`.
+- `ads_get_creatives` — Get creative-level metadata and metrics when supported.
+- `commerce_get_performance` — Get commerce/SKU/product performance when available.
+
+Legacy tools such as `getCampaignInsights`, `getAdsetInsights`, `getAdsInsights`, or `generateDailyReport` may still exist for compatibility. Use them only when canonical tools are unavailable. Do not request new MCP report tools for daily reports, weekly reports, audits, or recommendations; build those narratives in the AI response from canonical data.
 
 ### Reads vs. guarded writes
 

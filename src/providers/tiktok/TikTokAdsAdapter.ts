@@ -1,6 +1,7 @@
 import type {
   AdsBrokerRequest,
   AdsBrokerResponse,
+  AdsChangeHistoryEnvelope,
   AdsMetricRecord,
   AdsMutationResult,
   EcommerceCampaignBundleResult,
@@ -124,6 +125,10 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
 
   async getPlacementPerformance(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMetricRecord[]>> {
     return this.getPlacementPerformanceForRequest(request);
+  }
+
+  async getChangeHistory(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsChangeHistoryEnvelope>> {
+    return this.notImplemented('TikTok change history is not implemented yet');
   }
 
   private async getPlacementPerformanceForRequest(
@@ -292,7 +297,7 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
     return this.notImplemented();
   }
 
-  private notImplemented(): AdsBrokerResponse<never> {
+  private notImplemented(message = 'TikTok Ads adapter requires a client or mock data to be configured'): AdsBrokerResponse<never> {
     return {
       ok: false,
       provider: 'tiktok',
@@ -300,7 +305,7 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
         {
           provider: 'tiktok',
           code: 'NOT_IMPLEMENTED',
-          message: 'TikTok Ads adapter requires a client or mock data to be configured',
+          message,
         },
       ],
     };

@@ -19,6 +19,8 @@ import type { EcommerceCampaignBundlePayload as MetaEcommerceCampaignBundlePaylo
 import type {
   AdsBrokerRequest,
   AdsBrokerResponse,
+  AdsChangeHistoryEnvelope,
+  AdsChangeHistoryRecord,
   AdsMetricRecord,
   AdsMutationResult,
   AdsProviderAdapter,
@@ -29,6 +31,18 @@ import { ADS_PROVIDER_CAPABILITY_MATRIX } from '../../broker/types.js';
 import { redactErrorMessage } from '../../broker/credentials.js';
 import { assertLocationBreakdowns } from '../../utils/locationBreakdowns.js';
 import { normalizeMetaInsights } from './normalizer.js';
+
+interface MetaActivityRecord {
+  event_time?: string;
+  event_type?: string;
+  translated_event_type?: string;
+  object_id?: string;
+  object_name?: string;
+  object_type?: string;
+  actor_id?: string;
+  actor_name?: string;
+  extra_data?: unknown;
+}
 
 export interface MetaAdsAdapterTools {
   getAdAccounts(client: MetaClient, options?: { limit?: number }): Promise<AdAccount[]>;
@@ -190,6 +204,66 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
         validation.options
       );
       return { ok: true, provider: 'meta', data };
+    } catch (error) {
+      return this.errorResponse(error);
+    }
+  }
+
+  async getChangeHistory(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsChangeHistoryEnvelope>> {
+    const context = this.getCredentialContext(request);
+    if (!context.ok) return context.response;
+
+    const accountId = request.accountId ?? context.credential.accountId;
+    if (!accountId) {
+      return {
+        ok: false,
+        provider: 'meta',
+        errors: [{ provider: 'meta', code: 'MISSING_ACCOUNT_ID', message: 'accountId is required for Meta change history' }],
+      };
+    }
+
+    try {
+      const response = await this.createClient(context.credential).metaGet<{
+        data: MetaActivityRecord[];
+        paging?: { cursors?: { after?: string } };
+      }>(`/act_${accountId}/activities`, {
+        fields: 'event_time,event_type,translated_event_type,object_id,object_name,object_type,actor_id,actor_name,extra_data',
+        since: request.since,
+        until: request.until,
+        limit: typeof request.params.limit === 'number' ? request.params.limit : 100,
+        after: typeof request.params.cursor === 'string' ? request.params.cursor : undefined,
+      });
+
+      const rows = (response.data ?? []).map((activity): AdsChangeHistoryRecord => ({
+        provider: 'meta',
+        account_id: accountId,
+        event_time: activity.event_time,
+        event_type: activity.event_type,
+        translated_event_type: activity.translated_event_type,
+        object_id: activity.object_id,
+        object_name: activity.object_name,
+        object_type: activity.object_type,
+        actor_id: activity.actor_id,
+        actor_name: activity.actor_name,
+        raw: request.params.includeRaw === true ? activity : undefined,
+      }));
+
+      return {
+        ok: true,
+        provider: 'meta',
+        data: {
+          provider: 'meta',
+          account: { id: accountId },
+          dateRange: { since: request.since, until: request.until },
+          rows,
+          paging: { nextCursor: response.paging?.cursors?.after ?? null },
+          warnings: rows.length === 0
+            ? [{ code: 'NO_CHANGE_HISTORY_ROWS', message: 'Meta returned no change history rows for the requested range.', severity: 'info' }]
+            : [],
+          dataFreshness: { retrievedAt: new Date().toISOString() },
+          capabilities: this.capabilities as unknown as Record<string, unknown>,
+        },
+      };
     } catch (error) {
       return this.errorResponse(error);
     }

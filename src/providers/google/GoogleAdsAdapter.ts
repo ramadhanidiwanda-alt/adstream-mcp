@@ -1,6 +1,7 @@
 import type {
   AdsBrokerRequest,
   AdsBrokerResponse,
+  AdsChangeHistoryEnvelope,
   AdsMetricRecord,
   AdsMutationResult,
   EcommerceCampaignBundleResult,
@@ -76,6 +77,10 @@ export class GoogleAdsAdapter implements AdsProviderAdapter {
 
   async getPlacementPerformance(): Promise<AdsBrokerResponse> {
     return this.notImplemented('Google placement performance is not implemented yet');
+  }
+
+  async getChangeHistory(): Promise<AdsBrokerResponse<AdsChangeHistoryEnvelope>> {
+    return this.notImplemented('Google change history is not implemented yet');
   }
 
   async pauseCampaign(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>> {

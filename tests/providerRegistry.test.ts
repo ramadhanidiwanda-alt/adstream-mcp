@@ -15,10 +15,14 @@ function createTikTokStub(): AdsProviderAdapter {
       operations: ['read'],
     },
     listAccounts: response,
+    listCampaigns: response,
+    getAccountPerformance: response,
     getCampaignPerformance: response,
     getAdsetOrAdgroupPerformance: response,
     getAdPerformance: response,
     getCreativePerformance: response,
+    getPlacementPerformance: response,
+    getChangeHistory: response,
   };
 }
 

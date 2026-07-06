@@ -15,6 +15,58 @@ describe('MetaAdsAdapter', () => {
     expect(typeof adapter.getAdPerformance).toBe('function');
     expect(typeof adapter.getCreativePerformance).toBe('function');
     expect(typeof adapter.getPlacementPerformance).toBe('function');
+    expect(typeof adapter.getChangeHistory).toBe('function');
+  });
+
+  it('fetches Meta account activities and normalizes change history envelope', async () => {
+    let capturedPath: string | undefined;
+    let capturedParams: Record<string, unknown> | undefined;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: () => ({
+        metaGet: async (path: string, params: Record<string, unknown>) => {
+          capturedPath = path;
+          capturedParams = params;
+          return {
+            data: [{
+              event_time: '2026-05-02T01:02:03+0000',
+              event_type: 'campaign_name_change',
+              translated_event_type: 'Campaign name changed',
+              object_id: 'cmp_1',
+              object_name: 'Campaign 1',
+              object_type: 'CAMPAIGN',
+              actor_id: 'user_1',
+              actor_name: 'Media Buyer',
+            }],
+            paging: { cursors: { after: 'next_cursor' } },
+          };
+        },
+      }) as never,
+    });
+
+    const response = await adapter.getChangeHistory({
+      provider: 'meta',
+      accountId: 'act_123',
+      since: '2026-05-01',
+      until: '2026-05-07',
+      params: { limit: 50, cursor: 'prev_cursor' },
+      credentials: {
+        provider: 'meta',
+        accessToken: 'secret-token',
+        accountId: 'act_123',
+        source: 'test',
+      },
+    });
+
+    expect(capturedPath).toBe('/act_act_123/activities');
+    expect(capturedParams).toMatchObject({ limit: 50, after: 'prev_cursor' });
+    expect(response.ok).toBe(true);
+    expect(response.data).toMatchObject({
+      provider: 'meta',
+      account: { id: 'act_123' },
+      paging: { nextCursor: 'next_cursor' },
+      rows: [expect.objectContaining({ object_id: 'cmp_1', actor_name: 'Media Buyer' })],
+    });
+    expect(JSON.stringify(response)).not.toContain('secret-token');
   });
 
 

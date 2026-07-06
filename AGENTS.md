@@ -510,3 +510,17 @@ Jika ada ambiguity:
 **Maintained by:** Project owner  
 **Scope:** Entire repository  
 **Last Updated:** 2026-05-29
+
+## MCP Tool Design Decision Rules
+
+Before adding any new public MCP tool, ask:
+
+1. Is this truly a new provider capability, or only a report/analysis workflow that AI/skills should perform?
+2. Can the need be satisfied by `ads_get_performance` with the right `level`, `dimensions`, `breakdowns`, `filters`, `metrics`, `limit`, and `cursor`?
+3. Can `ads_get_capabilities` expose the provider limitation instead of creating a provider-specific tool?
+4. Does provider-native complexity belong in an adapter behind the canonical public schema?
+5. Does the operation mutate provider state and therefore belong in the separate opt-in write surface?
+
+Do not create a new public tool if the need can be met by `ads_get_performance` with explicit canonical parameters. Do not add MCP-core tools for daily reports, weekly reports, creative audits, recommendations, KPI scoring, or top/bottom rankings; implement those as AI/skill workflows over data tools.
+
+New public analytics inputs should prefer these names: `provider`, `accountId`, `since`, `until`, `level`, `metrics`, `dimensions`, `breakdowns`, `filters`, `sortBy`, `sortDirection`, `limit`, and `cursor`. Provider-native names such as `adAccountId`, `advertiserId`, `startDate`, and `endDate` may remain in legacy APIs or internal adapters, but should not be introduced as the default public MCP contract.
