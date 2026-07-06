@@ -6,6 +6,7 @@ import type {
   AdsMutationResult,
   EcommerceCampaignBundleResult,
   AdsProviderAdapter,
+  VideoSourceResult,
 } from '../../broker/types.js';
 import { ADS_PROVIDER_CAPABILITY_MATRIX } from '../../broker/types.js';
 import { redactErrorMessage } from '../../broker/credentials.js';
@@ -129,6 +130,10 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
 
   async getChangeHistory(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsChangeHistoryEnvelope>> {
     return this.notImplemented('TikTok change history is not implemented yet');
+  }
+
+  async getVideoSource(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<VideoSourceResult>> {
+    return Promise.resolve(this.notImplemented('TikTok video source is not implemented yet') as unknown as AdsBrokerResponse<VideoSourceResult>);
   }
 
   private async getPlacementPerformanceForRequest(

@@ -23,6 +23,7 @@ export const ADS_MCP_TOOL_NAMES = [
   'ads_update_campaign_budget',
   'ads_rename_campaign',
   'ads_create_ecommerce_campaign_bundle',
+  'ads_get_video_source',
 ] as const;
 
 export type AdsMcpToolName = (typeof ADS_MCP_TOOL_NAMES)[number];
@@ -122,6 +123,11 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
     name: 'ads_create_ecommerce_campaign_bundle',
     description: 'Create a PAUSED Meta ecommerce sales campaign bundle (campaign, ad set, creative, ad) after dry-run preview and explicit confirmation.',
     inputSchema: createEcommerceLaunchInputSchema(),
+  },
+  {
+    name: 'ads_get_video_source',
+    description: 'Get the raw video source URL (MP4), embed HTML, and thumbnail for a Meta video ID. Calls GET /{video_id}?fields=source,embed_html,picture.',
+    inputSchema: createAdsInputSchema([]),
   },
 ] as const;
 
@@ -241,6 +247,8 @@ function callBrokerMethod(
       return broker.renameCampaign(request);
     case 'ads_create_ecommerce_campaign_bundle':
       return broker.createEcommerceCampaignBundle(request);
+    case 'ads_get_video_source':
+      return broker.getVideoSource(request);
   }
 }
 

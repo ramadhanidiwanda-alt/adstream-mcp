@@ -1,8 +1,8 @@
 import type {
   AdsBrokerRequest,
   AdsBrokerResponse,
-  AdsContentMatrix,
   AdsChangeHistoryEnvelope,
+  AdsContentMatrix,
   AdsContentMatrixGroupBy,
   AdsContentMatrixSortDirection,
   AdsMetricRecord,
@@ -15,6 +15,7 @@ import type {
   AdsProviderId,
   CredentialContext,
   PermissionPolicy,
+  VideoSourceResult,
 } from './types.js';
 import { defaultDenyWritePermissionPolicy, isAdsProviderId } from './types.js';
 import type { CredentialResolverContract } from './credentials.js';
@@ -39,7 +40,8 @@ type AdapterMethod =
   | 'getAdPerformance'
   | 'getCreativePerformance'
   | 'getPlacementPerformance'
-  | 'getChangeHistory';
+  | 'getChangeHistory'
+  | 'getVideoSource';
 
 type AdapterWriteMethod =
   | 'pauseCampaign'
@@ -97,6 +99,10 @@ export class AdsBroker {
 
   getChangeHistory(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsChangeHistoryEnvelope>> {
     return this.executeRead(request, 'getChangeHistory');
+  }
+
+  getVideoSource(request: AdsBrokerRequest): Promise<AdsBrokerResponse<VideoSourceResult>> {
+    return this.executeRead(request, 'getVideoSource');
   }
 
   getCapabilities(request: AdsBrokerRequest): AdsBrokerResponse<Record<string, unknown>> {
