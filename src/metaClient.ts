@@ -102,6 +102,60 @@ export class MetaClient {
     return { data: allData } as T;
   }
 
+  async metaGetObject<T = Record<string, unknown>>(
+    path: string,
+    params: Record<string, any> = {},
+    maxRetries: number = 3
+  ): Promise<T> {
+    let lastError: Error | null = null;
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      const url = this.buildUrl(path, params);
+
+      try {
+        const response = await fetch(url);
+        const rateLimit = this.parseRateLimitHeaders(response.headers);
+        if (rateLimit) {
+          this.lastRateLimit = rateLimit;
+        }
+
+        const data = await response.json();
+
+        if (!response.ok || isMetaErrorResponse(data)) {
+          if (isMetaErrorResponse(data)) {
+            const error = new MetaApiError(data.error);
+            if (response.status === 429 && attempt < maxRetries) {
+              const backoff = Math.pow(2, attempt) * 1000;
+              await this.sleep(backoff);
+              lastError = error;
+              continue;
+            }
+
+            throw error;
+          }
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        return data as T;
+      } catch (error) {
+        if (error instanceof MetaApiError) {
+          throw error;
+        }
+
+        if (attempt < maxRetries) {
+          const backoff = Math.pow(2, attempt) * 500;
+          await this.sleep(backoff);
+          lastError = error instanceof Error ? error : new Error(String(error));
+          continue;
+        }
+
+        throw error;
+      }
+    }
+
+    throw lastError ?? new Error('Meta API object request failed');
+  }
+
   /** POST to Meta Graph API. Used for mutations (pause, update, rename). */
   async metaPost<T = Record<string, unknown>>(
     path: string,
