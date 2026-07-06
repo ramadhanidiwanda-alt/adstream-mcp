@@ -17,7 +17,7 @@ This document inventories the current tool surface and maps it toward the smalle
 | `ads_list_accounts` | Keep | Canonical |
 | `ads_list_campaigns` | Keep | Canonical |
 | `ads_get_performance` | Keep | Canonical wrapper over level-specific broker methods |
-| `ads_get_creatives` | Keep | Canonical wrapper over creative performance; can expand to richer creative assets later |
+| `ads_get_creatives` | Keep | Canonical creative asset path; Meta fetches ad creative metadata/assets, other providers can expand later |
 | `ads_get_change_history` | Keep | Canonical change-history envelope backed by Meta account activities; other providers return structured `NOT_IMPLEMENTED` |
 | `ads_get_capabilities` | Keep | Canonical static discovery surface; provider-specific discovery can be expanded later |
 | `ads_get_account_performance` | Migrate | Legacy alias for `ads_get_performance` with `level: "account"` |
@@ -82,7 +82,7 @@ The MCP server still exposes older provider-specific tools. Keep them compatible
 1. Document canonical contracts and legacy mapping.
 2. Add `ads_get_capabilities` so clients can discover supported metrics/levels. Done as canonical metadata plus registered adapter capability discovery.
 3. Add `ads_get_performance` as a non-breaking wrapper around existing broker methods. Done for `account`, `campaign`, `adset`, `adgroup`, `ad`, and `creative` levels with a standard response envelope.
-4. Add `ads_get_creatives` as the canonical creative read path. Done as a creative-level wrapper; richer asset fetches can be added behind this tool later.
+4. Add `ads_get_creatives` as the canonical creative read path. Done with Meta ad creative metadata/assets behind the existing canonical envelope.
 5. Keep old level-specific tools as aliases with deprecation notes. Done in MCP tool descriptions.
 6. Move report examples into skills documentation. Started in `skills/README.md` and shared provider preambles.
 7. Add `ads_get_change_history` as the canonical history path. Done with Meta account activities fetching and structured unsupported-provider fallback.

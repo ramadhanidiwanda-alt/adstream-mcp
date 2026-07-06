@@ -185,6 +185,68 @@ describe('MetaAdsAdapter', () => {
     expect(response.meta).toMatchObject({ nextCursor: 'next_cursor' });
   });
 
+  it('fetches Meta creative assets and maps them to creative records', async () => {
+    let capturedPath: string | undefined;
+    let capturedParams: Record<string, unknown> | undefined;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: () => ({
+        metaGet: async (path: string, params: Record<string, unknown>) => {
+          capturedPath = path;
+          capturedParams = params;
+          return {
+            data: [{
+              id: 'creative_1',
+              name: 'Hero Creative',
+              title: 'Shop Now',
+              body: 'Best seller this week',
+              thumbnail_url: 'https://example.test/thumb.jpg',
+              image_url: 'https://example.test/image.jpg',
+              image_hash: 'hash_1',
+              object_story_spec: {
+                link_data: {
+                  link: 'https://example.test/product',
+                  call_to_action: { type: 'SHOP_NOW' },
+                },
+              },
+            }],
+            paging: { cursors: { after: 'creative_cursor' } },
+          };
+        },
+      }) as never,
+    });
+
+    const response = await adapter.getCreativePerformance({
+      provider: 'meta',
+      accountId: 'act_123',
+      since: '2026-05-01',
+      until: '2026-05-07',
+      params: { limit: 25, cursor: 'prev_cursor' },
+      credentials: { provider: 'meta', accessToken: 'secret-token', accountId: 'act_123', source: 'test' },
+    });
+
+    expect(capturedPath).toBe('/act_act_123/adcreatives');
+    expect(capturedParams).toMatchObject({ limit: 25, after: 'prev_cursor' });
+    expect(response.ok).toBe(true);
+    expect(response.meta).toMatchObject({ nextCursor: 'creative_cursor' });
+    expect(response.data?.[0]).toMatchObject({
+      provider: 'meta',
+      level: 'creative',
+      identity: { account_id: 'act_123', creative_id: 'creative_1', creative_name: 'Hero Creative' },
+      creative: {
+        creative_type: 'link',
+        creative_url: 'https://example.test/image.jpg',
+        thumbnail_url: 'https://example.test/thumb.jpg',
+        image_hash: 'hash_1',
+        headline: 'Shop Now',
+        primary_text: 'Best seller this week',
+        call_to_action: 'SHOP_NOW',
+        destination_url: 'https://example.test/product',
+      },
+      delivery: { spend: 0, impressions: 0 },
+    });
+    expect(JSON.stringify(response)).not.toContain('secret-token');
+  });
+
   it('enables CPAS mode as Meta campaign performance parameters', async () => {
     let receivedOptions: Record<string, unknown> | undefined;
     const adapter = new MetaAdsAdapter({
@@ -251,12 +313,12 @@ describe('MetaAdsAdapter', () => {
     });
   });
 
-  it('returns safe not-implemented response for creative performance', async () => {
+  it('requires Meta credentials before fetching creative assets', async () => {
     const adapter = new MetaAdsAdapter();
     const response = await adapter.getCreativePerformance({ params: {} });
 
     expect(response.ok).toBe(false);
-    expect(response.errors?.[0].code).toBe('NOT_IMPLEMENTED');
+    expect(response.errors?.[0].code).toBe('MISSING_META_CREDENTIALS');
   });
 
   it('forwards placement filter params to Meta placement tool', async () => {
