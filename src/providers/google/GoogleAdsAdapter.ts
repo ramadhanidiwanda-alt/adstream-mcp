@@ -1,6 +1,7 @@
 import type {
   AdsBrokerRequest,
   AdsBrokerResponse,
+  AdsChangeHistoryEnvelope,
   AdsMetricRecord,
   AdsMutationResult,
   EcommerceCampaignBundleResult,
@@ -78,6 +79,10 @@ export class GoogleAdsAdapter implements AdsProviderAdapter {
     return this.notImplemented('Google placement performance is not implemented yet');
   }
 
+  async getChangeHistory(): Promise<AdsBrokerResponse<AdsChangeHistoryEnvelope>> {
+    return this.notImplemented('Google change history is not implemented yet');
+  }
+
   async pauseCampaign(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>> {
     return this.writeNotImplemented();
   }
@@ -118,6 +123,7 @@ export class GoogleAdsAdapter implements AdsProviderAdapter {
           since: validation.since,
           until: validation.until,
         }),
+        meta: { nextCursor: null },
       };
     } catch (error) {
       return this.errorResponse(error);

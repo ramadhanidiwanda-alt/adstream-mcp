@@ -50,6 +50,27 @@ function createBrokerStub(): AdsBroker {
       provider: 'meta',
       errors: [{ provider: 'meta', code: 'NOT_IMPLEMENTED', message: 'not implemented' }],
     }),
+    getCapabilities: () => ({
+      ok: true,
+      provider: 'meta',
+      data: {
+        registeredProviders: [{ id: 'meta', displayName: 'Meta Ads Stub' }],
+      },
+    }),
+    getChangeHistory: async () => ({
+      ok: true,
+      provider: 'meta',
+      data: {
+        provider: 'meta',
+        account: { id: 'act_123' },
+        dateRange: { since: '2026-05-01', until: '2026-05-07' },
+        rows: [],
+        paging: { nextCursor: null },
+        warnings: [],
+        dataFreshness: { retrievedAt: new Date().toISOString() },
+        capabilities: {},
+      },
+    }),
     getPlacementPerformance: response,
     getContentMatrix: async () => ({
       ok: true,
@@ -93,6 +114,10 @@ describe('ads MCP broker tools', () => {
     expect(adsToolNames).toEqual([
       'ads_list_accounts',
       'ads_list_campaigns',
+      'ads_get_performance',
+      'ads_get_creatives',
+      'ads_get_change_history',
+      'ads_get_capabilities',
       'ads_get_account_performance',
       'ads_get_campaign_performance',
       'ads_get_adset_or_adgroup_performance',
@@ -109,6 +134,168 @@ describe('ads MCP broker tools', () => {
     ]);
     expect(legacyToolNames).toContain('meta_get_campaign_insights');
     expect(legacyToolNames).toContain('meta_get_ads_insights');
+  });
+
+
+  it('routes canonical ads_get_performance by level without removing legacy tools', async () => {
+    let receivedRequest: AdsBrokerRequest | undefined;
+    const broker = {
+      ...createBrokerStub(),
+      getCampaignPerformance: async (request: AdsBrokerRequest) => {
+        receivedRequest = request;
+        return { ok: true, provider: 'meta' as const, data: [createRecord()] };
+      },
+    } as unknown as AdsBroker;
+
+    const response = await handleAdsMcpToolCall(broker, 'ads_get_performance', {
+      provider: 'meta',
+      accountId: 'act_123',
+      since: '2026-05-01',
+      until: '2026-05-07',
+      level: 'campaign',
+      metrics: ['spend', 'impressions'],
+      dimensions: ['campaign'],
+      breakdowns: ['date'],
+      filters: [{ field: 'campaign.status', operator: 'eq', value: 'ACTIVE' }],
+      sortBy: 'spend',
+      sortDirection: 'desc',
+      limit: 25,
+      cursor: 'opaque-cursor',
+    });
+
+    const parsed = parseToolResponse(response);
+    expect(parsed.ok).toBe(true);
+    expect(parsed.data).toMatchObject({
+      provider: 'meta',
+      account: { id: 'act_123' },
+      dateRange: { since: '2026-05-01', until: '2026-05-07' },
+      level: 'campaign',
+      metrics: ['spend', 'impressions'],
+      dimensions: ['campaign'],
+      rows: expect.any(Array),
+      paging: { nextCursor: null },
+      warnings: expect.any(Array),
+      dataFreshness: { retrievedAt: expect.any(String) },
+      capabilities: expect.any(Object),
+      unsupportedMetrics: [],
+    });
+    expect(receivedRequest).toMatchObject({
+      provider: 'meta',
+      accountId: 'act_123',
+      since: '2026-05-01',
+      until: '2026-05-07',
+      params: {
+        level: 'campaign',
+        metrics: ['spend', 'impressions'],
+        dimensions: ['campaign'],
+        breakdowns: ['date'],
+        filters: [{ field: 'campaign.status', operator: 'eq', value: 'ACTIVE' }],
+        sortBy: 'spend',
+        sortDirection: 'desc',
+        limit: 25,
+        cursor: 'opaque-cursor',
+      },
+    });
+  });
+
+  it('returns unsupported metrics and warnings in canonical performance envelope', async () => {
+    const broker = {
+      ...createBrokerStub(),
+      getCampaignPerformance: async () => ({
+        ok: true,
+        provider: 'meta' as const,
+        data: [createRecord()],
+      }),
+    } as unknown as AdsBroker;
+
+    const response = await handleAdsMcpToolCall(broker, 'ads_get_performance', {
+      provider: 'meta',
+      accountId: 'act_123',
+      since: '2026-05-01',
+      until: '2026-05-07',
+      metrics: ['spend', 'made_up_metric'],
+    });
+
+    const parsed = parseToolResponse(response);
+    expect(parsed.data).toMatchObject({
+      unsupportedMetrics: ['made_up_metric'],
+      warnings: expect.arrayContaining([
+        expect.objectContaining({ code: 'UNSUPPORTED_METRIC', field: 'metrics.made_up_metric' }),
+      ]),
+    });
+  });
+
+  it('routes ads_get_creatives to creative performance with canonical creative envelope', async () => {
+    let receivedRequest: AdsBrokerRequest | undefined;
+    const broker = {
+      ...createBrokerStub(),
+      getCreativePerformance: async (request: AdsBrokerRequest) => {
+        receivedRequest = request;
+        return { ok: true, provider: 'meta' as const, data: [createRecord()] };
+      },
+    } as unknown as AdsBroker;
+
+    const response = await handleAdsMcpToolCall(broker, 'ads_get_creatives', {
+      provider: 'meta',
+      accountId: 'act_123',
+      since: '2026-05-01',
+      until: '2026-05-07',
+      limit: 10,
+    });
+
+    expect(parseToolResponse(response).data).toMatchObject({ level: 'creative' });
+    expect(receivedRequest).toMatchObject({ params: { level: 'creative', limit: 10 } });
+  });
+
+  it('returns canonical change history response for Meta and structured fallback for other providers', async () => {
+    const metaResponse = parseToolResponse(await handleAdsMcpToolCall(createBrokerStub(), 'ads_get_change_history', {
+      provider: 'meta',
+      accountId: 'act_123',
+      since: '2026-05-01',
+      until: '2026-05-07',
+    }));
+
+    expect(metaResponse).toMatchObject({ ok: true, provider: 'meta' });
+    expect(metaResponse.data).toMatchObject({
+      provider: 'meta',
+      account: { id: 'act_123' },
+      dateRange: { since: '2026-05-01', until: '2026-05-07' },
+      rows: expect.any(Array),
+      paging: { nextCursor: null },
+      dataFreshness: { retrievedAt: expect.any(String) },
+    });
+
+    const tiktokResponse = parseToolResponse(await handleAdsMcpToolCall(createBrokerStub(), 'ads_get_change_history', {
+      provider: 'tiktok',
+      accountId: 'advertiser_1',
+    }));
+
+    expect(tiktokResponse).toMatchObject({
+      ok: false,
+      provider: 'tiktok',
+      errors: [expect.objectContaining({ code: 'NOT_IMPLEMENTED' })],
+    });
+  });
+
+  it('returns canonical capabilities without requiring provider credentials', async () => {
+    const broker = createBrokerStub();
+
+    const response = await handleAdsMcpToolCall(broker, 'ads_get_capabilities', {
+      provider: 'meta',
+    });
+
+    const parsed = parseToolResponse(response);
+    expect(parsed).toMatchObject({ ok: true, provider: 'meta' });
+    expect(parsed.data).toMatchObject({
+      canonicalTools: expect.arrayContaining(['ads_get_performance', 'ads_get_creatives', 'ads_get_capabilities']),
+      registeredProviders: expect.arrayContaining([expect.objectContaining({ id: 'meta' })]),
+      metricCatalog: expect.objectContaining({
+        common: expect.arrayContaining(['spend', 'impressions', 'clicks']),
+        byProvider: expect.objectContaining({ meta: expect.arrayContaining(['purchase_roas']) }),
+      }),
+      read: expect.objectContaining({ levels: expect.arrayContaining(['account', 'campaign', 'ad']) }),
+      writes: expect.objectContaining({ optionalTools: expect.arrayContaining(['ads_pause_campaign']) }),
+    });
   });
 
 

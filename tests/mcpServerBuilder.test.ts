@@ -66,6 +66,7 @@ function createBrokerStub(): AdsBroker {
     getAdsetOrAdgroupPerformance: async () => ({ ok: true, provider: 'meta', data: [] }),
     getAdPerformance: async () => ({ ok: true, provider: 'meta', data: [] }),
     getCreativePerformance: async () => ({ ok: true, provider: 'meta', data: [] }),
+    getCapabilities: () => ({ ok: true, provider: 'meta', data: { registeredProviders: [] } }),
     generateReport: async () => ({ ok: true, provider: 'meta', data: [] }),
   } as unknown as AdsBroker;
 }
@@ -132,7 +133,7 @@ describe('MCP server builder', () => {
   it('keeps the expected MCP tool count', async () => {
     const response = await listRegisteredTools();
 
-    expect(response.tools).toHaveLength(28);
+    expect(response.tools).toHaveLength(33);
   });
 
   it('keeps full tool order stable for stdio and future transports', async () => {

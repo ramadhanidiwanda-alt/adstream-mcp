@@ -2,6 +2,7 @@ import type {
   AdsBrokerRequest,
   AdsBrokerResponse,
   AdsContentMatrix,
+  AdsChangeHistoryEnvelope,
   AdsContentMatrixGroupBy,
   AdsContentMatrixSortDirection,
   AdsMetricRecord,
@@ -37,7 +38,8 @@ type AdapterMethod =
   | 'getAdsetOrAdgroupPerformance'
   | 'getAdPerformance'
   | 'getCreativePerformance'
-  | 'getPlacementPerformance';
+  | 'getPlacementPerformance'
+  | 'getChangeHistory';
 
 type AdapterWriteMethod =
   | 'pauseCampaign'
@@ -91,6 +93,33 @@ export class AdsBroker {
 
   getPlacementPerformance(request: AdsBrokerRequest): Promise<AdsBrokerResponse> {
     return this.executeRead(request, 'getPlacementPerformance');
+  }
+
+  getChangeHistory(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsChangeHistoryEnvelope>> {
+    return this.executeRead(request, 'getChangeHistory');
+  }
+
+  getCapabilities(request: AdsBrokerRequest): AdsBrokerResponse<Record<string, unknown>> {
+    const requestedProvider = request.provider;
+    const adapters = this.providerRegistry
+      .list()
+      .filter((adapter) => !requestedProvider || adapter.id === requestedProvider);
+
+    if (requestedProvider && adapters.length === 0) {
+      return this.errorResponse(requestedProvider, 'PROVIDER_NOT_REGISTERED', 'Provider adapter is not registered');
+    }
+
+    return {
+      ok: true,
+      provider: requestedProvider,
+      data: {
+        registeredProviders: adapters.map((adapter) => ({
+          id: adapter.id,
+          displayName: adapter.displayName,
+          capabilities: adapter.capabilities,
+        })),
+      },
+    };
   }
 
   async getContentMatrix(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsContentMatrix>> {

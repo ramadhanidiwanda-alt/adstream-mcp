@@ -453,6 +453,74 @@ export interface AdsBrokerResponse<TData = AdsMetricRecord[] | unknown> {
   meta?: Record<string, unknown>;
 }
 
+export interface AdsCanonicalWarning {
+  code: string;
+  message: string;
+  field?: string;
+  severity: 'info' | 'warning';
+}
+
+export interface AdsPerformanceEnvelope {
+  provider: AdsProviderId;
+  account: {
+    id?: string;
+    name?: string;
+  };
+  dateRange: {
+    since?: string;
+    until?: string;
+    timezone?: string;
+  };
+  currency?: string;
+  level: AdsEntityLevel;
+  dimensions: string[];
+  metrics: string[];
+  rows: AdsMetricRecord[];
+  paging: {
+    nextCursor: string | null;
+  };
+  warnings: AdsCanonicalWarning[];
+  dataFreshness: {
+    retrievedAt: string;
+  };
+  capabilities: Record<string, unknown>;
+  unsupportedMetrics: string[];
+}
+
+export interface AdsChangeHistoryRecord {
+  provider: AdsProviderId;
+  account_id?: string;
+  event_time?: string;
+  event_type?: string;
+  translated_event_type?: string;
+  object_id?: string;
+  object_name?: string;
+  object_type?: string;
+  actor_id?: string;
+  actor_name?: string;
+  raw?: unknown;
+}
+
+export interface AdsChangeHistoryEnvelope {
+  provider: AdsProviderId;
+  account: {
+    id?: string;
+  };
+  dateRange: {
+    since?: string;
+    until?: string;
+  };
+  rows: AdsChangeHistoryRecord[];
+  paging: {
+    nextCursor: string | null;
+  };
+  warnings: AdsCanonicalWarning[];
+  dataFreshness: {
+    retrievedAt: string;
+  };
+  capabilities: Record<string, unknown>;
+}
+
 export interface AdsMutationResult {
   success: boolean;
   id: string;
@@ -547,6 +615,7 @@ export interface AdsProviderAdapter {
   getAdPerformance(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMetricRecord[]>>;
   getCreativePerformance(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMetricRecord[]>>;
   getPlacementPerformance(request: AdsBrokerRequest): Promise<AdsBrokerResponse>;
+  getChangeHistory(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsChangeHistoryEnvelope>>;
   // --- Write Operations ---
   pauseCampaign(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>>;
   resumeCampaign(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>>;

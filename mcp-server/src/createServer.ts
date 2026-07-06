@@ -82,6 +82,28 @@ const sinceUntilInputSchema = {
   until: z.string().describe('End date in YYYY-MM-DD format.'),
 };
 
+const adsPerformanceInputSchema = {
+  ...sinceUntilInputSchema,
+  level: z
+    .enum(['account', 'campaign', 'adset', 'adgroup', 'ad', 'creative'])
+    .optional()
+    .describe('Normalized entity level. Defaults to campaign when omitted.'),
+  metrics: z.array(z.string()).optional().describe('Normalized metric names to request when supported.'),
+  dimensions: z.array(z.string()).optional().describe('Normalized dimensions to include in rows.'),
+  breakdowns: z
+    .array(z.string())
+    .optional()
+    .describe('Provider-supported breakdowns such as date, country, platform, or placement.'),
+  filters: z
+    .array(z.record(z.unknown()))
+    .optional()
+    .describe('Explicit filters over normalized or provider-supported fields.'),
+  sortBy: z.string().optional().describe('Metric or dimension used for sorting.'),
+  sortDirection: z.enum(['asc', 'desc']).optional().describe('Sort direction.'),
+  limit: z.number().optional().describe('Maximum number of rows to return.'),
+  cursor: z.string().optional().describe('Opaque pagination cursor from a previous response.'),
+};
+
 const ecommerceLaunchInputSchema = {
   ...adsBaseInputSchema,
   accountId: z.string().describe('Provider account id. Required for ecommerce campaign creation.'),
@@ -183,7 +205,9 @@ export function createMetaAdsMcpServer(
     const hasCampaignName = toolDefinition.inputSchema.required.includes('campaignName');
 
     let inputSchema: Record<string, z.ZodType<unknown>>;
-    if (hasCampaignName) {
+    if (toolDefinition.name === 'ads_get_performance' || toolDefinition.name === 'ads_get_creatives') {
+      inputSchema = adsPerformanceInputSchema;
+    } else if (hasCampaignName) {
       inputSchema = ecommerceLaunchInputSchema;
     } else if (hasCampaignId) {
       const base = hasSince ? sinceUntilInputSchema : adsBaseInputSchema;

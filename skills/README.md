@@ -1,184 +1,79 @@
-# Meta Ads Skills for AI Agents
+# Adstream Skills
 
-This directory contains markdown-based skills that AI agents can read and execute. These skills provide a simpler, more AI-native way to interact with Meta Ads compared to the TypeScript library.
+Skills are instruction and heuristic layers for AI agents. They are not the MCP core contract.
 
-## What are Skills?
+The core rule is:
 
-Skills are markdown files that contain:
-- **Instructions** for AI agents on how to perform tasks
-- **Heuristics** for interpreting data and making decisions
-- **Benchmarks** for comparing performance
-- **Decision trees** for common scenarios
-
-AI agents read these files and execute the logic themselves, rather than calling hard-coded functions.
-
-## Available Skills
-
-### `/meta-ads-audit`
-
-**Purpose:** Comprehensive account audit and business context setup
-
-**When to use:**
-- First time analyzing a Meta Ads account
-- Setting up business context (AOV, profit margin, brand voice)
-- Quarterly health checks
-- When business context is >90 days old
-
-**What it does:**
-- Pulls campaign, ad set, and ad performance data
-- Scores account health across 5 dimensions
-- Identifies top 3 optimization opportunities
-- Saves business context and personas for future analysis
-- Creates account baseline for anomaly detection
-
-**Output:** Detailed audit report with scorecard and actionable recommendations
-
-### `/meta-ads-manage`
-
-**Purpose:** Ongoing performance analysis and recommendations
-
-**When to use:**
-- Daily/weekly performance checks
-- "How are my campaigns doing?"
-- "Where am I wasting money?"
-- "What should I scale?"
-- Specific campaign analysis
-
-**What it does:**
-- Analyzes campaign performance
-- Detects creative fatigue
-- Identifies wasted spend
-- Recommends scaling opportunities
-- Provides daily performance reports
-
-**Output:** Natural language analysis with specific, dollar-denominated recommendations
-
-## How to Use
-
-### For AI Agents (Claude, etc.)
-
-1. Read `meta-ads/shared/preamble.md` first (handles setup)
-2. Read the appropriate skill file (`audit/SKILL.md` or `manage/SKILL.md`)
-3. Follow the instructions step-by-step
-4. Call MCP tools as needed
-5. Generate output according to the skill's format
-
-### For End Users
-
-Simply ask your AI agent:
-- "Audit my Meta ads" → triggers `/meta-ads-audit`
-- "How are my campaigns doing?" → triggers `/meta-ads-manage`
-- "Show me yesterday's performance" → triggers daily report
-
-## Architecture
-
-```
-skills/meta-ads/
-├── audit/
-│   └── SKILL.md              # Audit skill (comprehensive analysis)
-├── manage/
-│   └── SKILL.md              # Management skill (ongoing analysis)
-└── shared/
-    ├── preamble.md           # Setup logic (MCP detection, config)
-    ├── meta-math.md          # Formulas and benchmarks
-    └── references/
-        ├── analysis-heuristics.md    # Decision trees
-        └── creative-fatigue.md       # Fatigue diagnosis
+```text
+MCP provides data; AI and skills provide reasoning.
 ```
 
-## Data Persistence
+A skill may teach an AI how to audit performance, build a weekly report, compare periods, identify top/bottom creative, or explain limitations. It should do that by calling generic data tools such as `ads_get_performance`, `ads_get_creatives`, and `commerce_get_performance`, not by requiring new report-specific MCP tools.
 
-Skills persist data to `{data_dir}` (either `.meta-ads/` locally or `~/.meta-ads/` globally):
+## Boundary
 
-- **business-context.json** — Business info, AOV, profit margin, brand voice
-- **personas.json** — Customer personas derived from data
-- **account-baseline.json** — Rolling averages for anomaly detection
+| Layer | Responsibility |
+|---|---|
+| MCP core | Data access, normalized schemas, pagination, warnings, capabilities, safe writes |
+| Skills | Step-by-step analysis workflow, formulas, interpretation guidance, caveats |
+| AI client | User-specific reasoning, narrative, recommendation wording, brand context |
 
-This allows AI agents to "remember" context across sessions and provide more accurate, personalized recommendations.
+Do not use skills as a reason to move recommendation logic into MCP core. If a workflow can be expressed as instructions over canonical data tools, keep it in skills.
 
-## Comparison: Skills vs Library
+## Current Skill Families
 
-| Aspect | Skills (this folder) | Library (src/) |
-|--------|---------------------|----------------|
-| Target user | End users (marketers) | Developers |
-| Interface | Natural language | TypeScript API |
-| Setup | Zero code | npm install + coding |
-| Logic | AI interprets markdown | Hard-coded functions |
-| Updates | Edit markdown | Edit code, rebuild, republish |
-| Flexibility | AI adapts to context | Fixed behavior |
-| Maintenance | Low (just markdown) | High (code + tests) |
+- `meta-ads/` — Meta Ads audit, management, launch, and shared references.
+- `tiktok-ads/` — TikTok Ads audit instructions and shared references.
 
-## MCP Server Requirement
+These skills may still reference legacy provider-specific tools. As canonical tools mature, prefer generic tool calls in new or updated skill instructions.
 
-Skills require an MCP server that provides Meta Ads tools. Options:
+## Example: Weekly Report Skill Pattern
 
-1. **Your built-in MCP server** (see `mcp-server/`)
-2. **NotFair's hosted MCP** (https://notfair.co/api/mcp/meta_ads)
-3. **Custom MCP server** (any server with Meta Ads tools)
+A weekly report skill should call canonical data tools and let the AI synthesize the report:
 
-Skills auto-detect which MCP server is available and adapt accordingly.
+1. Call `ads_list_accounts` if the account is not known.
+2. Call `ads_get_performance` for the current period with `level: "campaign"`.
+3. Call `ads_get_performance` for the comparison period with the same `metrics`, `dimensions`, and `filters`.
+4. Optionally call `ads_get_performance` with `level: "ad"` or `level: "creative"` to inspect top/bottom creatives.
+5. Optionally call `commerce_get_performance` when SKU/product/order data is available.
+6. Read `warnings`, `unsupportedMetrics`, `capabilities`, and `dataFreshness` before making claims.
+7. Produce narrative, insights, caveats, and recommendations in the AI response.
 
-## Extending Skills
+Example canonical request shape:
 
-To add new skills:
-
-1. Create a new folder under `skills/meta-ads/`
-2. Add a `SKILL.md` file with frontmatter:
-   ```markdown
-   ---
-   name: skill-name
-   description: What this skill does
-   argument-hint: "<what user should provide>"
-   ---
-   ```
-3. Write step-by-step instructions for AI agents
-4. Reference shared resources (`../shared/preamble.md`, `../shared/meta-math.md`)
-5. Test with your AI agent
-
-## Philosophy
-
-**Skills are instructions, not code.**
-
-Instead of writing:
-```typescript
-if (insight.ctr < 1.0) {
-  recommendations.push('Low CTR detected');
+```json
+{
+  "provider": "meta",
+  "accountId": "act_123",
+  "since": "2026-06-29",
+  "until": "2026-07-05",
+  "level": "campaign",
+  "metrics": ["spend", "impressions", "clicks", "purchases", "purchase_value"],
+  "dimensions": ["campaign"],
+  "breakdowns": ["date"],
+  "limit": 100
 }
 ```
 
-Write:
-```markdown
-When link CTR is below industry benchmark:
-- E-commerce: < 0.8% is poor
-- Lead gen: < 1.0% is poor
-- Recommend creative refresh
-```
+The skill should not request a dedicated `weekly_report`, `creative_audit`, `recommendation`, `kpi_score`, or `top_bottom_content` MCP tool. Those are AI workflows over data.
 
-The AI agent reads the markdown and executes the logic contextually.
+## Extending Skills
 
-## Benefits
+When adding or updating a skill:
 
-1. **Easier to maintain** — Edit markdown, not code
-2. **Faster to iterate** — No compile/build/deploy cycle
-3. **More flexible** — AI adapts to edge cases
-4. **Better for end users** — Natural language interface
-5. **Context-aware** — AI uses business context automatically
+1. Prefer canonical tools from `docs/MCP_API_DESIGN.md`.
+2. State required inputs, comparison windows, metrics, and caveats explicitly.
+3. Tell the AI to inspect warnings and unsupported metrics before interpreting data.
+4. Keep brand-specific assumptions in the skill or user context, not MCP core.
+5. Avoid instructions that require hidden write actions; writes must follow `docs/WRITE_SAFETY_CONTRACT.md`.
 
-## Limitations
+## Skills vs Library
 
-1. **Requires AI agent** — Can't run standalone
-2. **Less deterministic** — AI interpretation may vary
-3. **Harder to test** — No unit tests for markdown
-4. **Depends on MCP server** — Needs external tool provider
+| Aspect | Skills | MCP / library |
+|---|---|---|
+| Interface | Natural language instructions | TypeScript and MCP tool contracts |
+| Owns | Workflow, heuristics, interpretation | Data access, schemas, adapters, safety |
+| Changes | Markdown iteration | Code, tests, releases |
+| Output | AI-authored narrative | Structured provider data |
 
-## Next Steps
-
-- Add more reference guides (audience strategy, campaign structure)
-- Add seasonal playbooks (Q4, holidays, etc.)
-- Add industry-specific templates (e-commerce, lead gen, B2B)
-- Add creative testing frameworks
-- Add budget forecasting tools
-
-## Questions?
-
-See `AGENTS.md` in the project root for coding conventions and project context.
+See `docs/ARCHITECTURE.md`, `docs/MCP_API_DESIGN.md`, and `docs/LEGACY_AND_MIGRATION.md` for the target architecture and migration path.
