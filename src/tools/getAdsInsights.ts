@@ -47,7 +47,6 @@ export async function getAdsInsights(
     'video_p75_watched_actions',
     'video_p100_watched_actions',
     'video_avg_time_watched_actions',
-    'creative_id',
   ];
 
   const metaOptions: MetaGetOptions = {
