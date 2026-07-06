@@ -604,6 +604,14 @@ export const ADS_PROVIDER_CAPABILITY_MATRIX = {
   },
 } as const satisfies Record<AdsProviderId, AdsProviderCapabilities>;
 
+export interface VideoSourceResult {
+  provider: AdsProviderId;
+  video_id: string;
+  source_url?: string;
+  embed_html?: string;
+  thumbnail_url?: string;
+}
+
 export interface AdsProviderAdapter {
   id: AdsProviderId;
   displayName: string;
@@ -617,6 +625,7 @@ export interface AdsProviderAdapter {
   getCreativePerformance(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMetricRecord[]>>;
   getPlacementPerformance(request: AdsBrokerRequest): Promise<AdsBrokerResponse>;
   getChangeHistory(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsChangeHistoryEnvelope>>;
+  getVideoSource(request: AdsBrokerRequest): Promise<AdsBrokerResponse<VideoSourceResult>>;
   // --- Write Operations ---
   pauseCampaign(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>>;
   resumeCampaign(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>>;
