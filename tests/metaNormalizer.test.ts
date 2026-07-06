@@ -194,4 +194,96 @@ describe('normalizeMetaInsight', () => {
     });
     expect(record.commerce?.purchase_roas).toBe(4);
   });
+
+  it('extracts video metrics from video action fields', () => {
+    const insight: CampaignInsight = {
+      campaign_id: 'cmp_1',
+      campaign_name: 'Video Campaign',
+      spend: '500',
+      impressions: '50000',
+      reach: '30000',
+      clicks: '500',
+      inline_link_clicks: '400',
+      ctr: '1',
+      cpc: '1',
+      cpm: '10',
+      video_play_actions: [{ action_type: 'video_view', value: '15000' }],
+      video_thruplay_watched_actions: [{ action_type: 'video_thruplay_watched', value: '8000' }],
+      video_p25_watched_actions: [{ action_type: 'video_p25_watched', value: '12000' }],
+      video_p50_watched_actions: [{ action_type: 'video_p50_watched', value: '9000' }],
+      video_p75_watched_actions: [{ action_type: 'video_p75_watched', value: '6000' }],
+      video_p100_watched_actions: [{ action_type: 'video_p100_watched', value: '3000' }],
+      video_avg_time_watched_actions: [{ action_type: 'video_avg_time_watched', value: '12.5' }],
+    };
+
+    const record = normalizeMetaInsight(insight, {
+      level: 'campaign',
+      accountId: 'act_123',
+      since: '2026-05-01',
+      until: '2026-05-07',
+    });
+
+    expect(record.video).toBeDefined();
+    expect(record.video?.video_views).toBe(15000);
+    expect(record.video?.watched_25_percent).toBe(12000);
+    expect(record.video?.watched_50_percent).toBe(9000);
+    expect(record.video?.watched_75_percent).toBe(6000);
+    expect(record.video?.watched_100_percent).toBe(3000);
+    expect(record.video?.average_watch_time).toBe(12.5);
+    expect(record.video?.video_view_rate).toBe(0.3);
+  });
+
+  it('maps creative_id from ad-level insights', () => {
+    const insight = {
+      campaign_id: 'cmp_1',
+      campaign_name: 'Campaign',
+      adset_id: 'adset_1',
+      adset_name: 'Adset',
+      ad_id: 'ad_1',
+      ad_name: 'Hero Ad',
+      creative_id: 'creative_1',
+      spend: '50',
+      impressions: '500',
+      reach: '400',
+      clicks: '25',
+      inline_link_clicks: '20',
+      ctr: '5',
+      cpc: '2',
+      cpm: '100',
+    } satisfies CampaignInsight & { ad_id: string; ad_name: string; adset_id: string; adset_name: string; creative_id: string };
+
+    const record = normalizeMetaInsight(insight, {
+      level: 'ad',
+      accountId: 'act_123',
+      since: '2026-05-01',
+      until: '2026-05-07',
+    });
+
+    expect(record.identity.creative_id).toBe('creative_1');
+    expect(record.identity.ad_id).toBe('ad_1');
+  });
+
+  it('omits video when no video action data is present', () => {
+    const insight: CampaignInsight = {
+      campaign_id: 'cmp_1',
+      campaign_name: 'No Video',
+      spend: '10',
+      impressions: '100',
+      reach: '80',
+      clicks: '5',
+      inline_link_clicks: '4',
+      ctr: '5',
+      cpc: '2',
+      cpm: '100',
+    };
+
+    const record = normalizeMetaInsight(insight, {
+      level: 'campaign',
+      accountId: 'act_123',
+      since: '2026-05-01',
+      until: '2026-05-07',
+    });
+
+    expect(record.video).toBeUndefined();
+  });
 });

@@ -1,5 +1,5 @@
 import type { AccountInsight, AdInsight, AdsetInsight, CampaignInsight } from '../../types.js';
-import type { AdsEntityLevel, AdsMetricRecord, AdsActionMetric } from '../../broker/types.js';
+import type { AdsEntityLevel, AdsMetricRecord, AdsActionMetric, AdsVideoMetrics } from '../../broker/types.js';
 
 export type MetaInsightRecord = AccountInsight | CampaignInsight | AdsetInsight | AdInsight;
 
@@ -23,6 +23,7 @@ export function normalizeMetaInsight(
   const purchaseRoasFromMeta = firstNumericValue(insight.purchase_roas);
   const spend = toNumber(insight.spend);
   const purchaseRoas = purchaseRoasFromMeta ?? calculateRoas(findActionValueFromValues(insight.action_values, 'purchase'), spend);
+  const videoActions = normalizeVideoActions(insight as MetaInsightRecord);
 
   const record: AdsMetricRecord = {
     provider: 'meta',
@@ -54,7 +55,13 @@ export function normalizeMetaInsight(
       cpc: optionalNumber(insight.cpc),
     },
     actions,
+    video: videoActions,
   };
+
+  // Map creative_id from ad-level insights
+  if ('creative_id' in insight && insight.creative_id) {
+    record.identity.creative_id = insight.creative_id;
+  }
 
   if (options.mode === 'cpas') {
     record.setup = {
@@ -133,6 +140,38 @@ function normalizeActions(actions: MetaInsightRecord['actions']): AdsActionMetri
     action_type: action.action_type,
     value: toNumber(action.value),
   }));
+}
+
+function normalizeVideoActions(insight: MetaInsightRecord): AdsVideoMetrics | undefined {
+  const impressions = toNumber(insight.impressions);
+  const views = findActionValueByArray(insight.video_play_actions);
+  const thruplay = findActionValueByArray(insight.video_thruplay_watched_actions);
+  const watched25 = findActionValueByArray(insight.video_p25_watched_actions);
+  const watched50 = findActionValueByArray(insight.video_p50_watched_actions);
+  const watched75 = findActionValueByArray(insight.video_p75_watched_actions);
+  const watched100 = findActionValueByArray(insight.video_p100_watched_actions);
+  const avgWatchTime = findActionValueByArray(insight.video_avg_time_watched_actions);
+
+  if (views === undefined && thruplay === undefined && avgWatchTime === undefined) {
+    return undefined;
+  }
+
+  return {
+    video_views: views,
+    ...(thruplay !== undefined ? { watched_25_percent: thruplay } : {}),
+    ...(watched25 !== undefined ? { watched_25_percent: watched25 } : {}),
+    ...(watched50 !== undefined ? { watched_50_percent: watched50 } : {}),
+    ...(watched75 !== undefined ? { watched_75_percent: watched75 } : {}),
+    ...(watched100 !== undefined ? { watched_100_percent: watched100 } : {}),
+    ...(avgWatchTime !== undefined ? { average_watch_time: avgWatchTime } : {}),
+    ...(views !== undefined && impressions > 0 ? { video_view_rate: views / impressions } : {}),
+  };
+}
+
+function findActionValueByArray(values: Array<{ value: string }> | undefined): number | undefined {
+  if (!values || values.length === 0) return undefined;
+  const val = values[0]?.value;
+  return optionalNumber(val);
 }
 
 function findActionValue(actions: AdsActionMetric[], actionType: string): number | undefined {
