@@ -36,6 +36,19 @@ export interface AccessTokenRecord {
   resource?: string;
 }
 
+export interface RefreshTokenRecord {
+  /** SHA-256 hash of the refresh token */
+  tokenHash: string;
+  /** Connection key (memory mode). Supabase mode stores connectionKeyId instead. */
+  connectionKey: string;
+  /** Cuan Insight connection key ID (supabase mode). */
+  connectionKeyId?: string;
+  scope: string;
+  clientId: string;
+  resource?: string;
+  expiresAt: number; // Unix timestamp ms
+}
+
 export interface RegisteredClient {
   clientId: string;
   redirectUris: string[];
@@ -52,6 +65,8 @@ export interface OAuthStoreConfig {
   authCodeTtlMs?: number;
   /** TTL for access tokens in ms (default: 24 hours) */
   accessTokenTtlMs?: number;
+  /** TTL for refresh tokens in ms (default: 30 days) */
+  refreshTokenTtlMs?: number;
 }
 
 export interface StoreStats {
@@ -116,6 +131,15 @@ export interface RedeemAuthCodeResult {
   resource?: string;
 }
 
+/** Result of redeeming a refresh token — used to mint a fresh access token. */
+export interface RedeemRefreshTokenResult {
+  connectionKey?: string;
+  connectionKeyId?: string;
+  scope: string;
+  resource?: string;
+  clientId: string;
+}
+
 // ── IOAuthStore interface ─────────────────────────────────────────────────
 
 /**
@@ -151,6 +175,21 @@ export interface IOAuthStore {
 
   /** Revoke an access token. */
   revokeAccessToken(accessToken: string): boolean;
+
+  // ── Refresh Token ──────────────────────────────────────────────────────
+
+  /** Issue a refresh token bound to a connection key/id. Returns raw token once. */
+  createRefreshToken(params: CreateAccessTokenParams): { refreshToken: string; expiresIn: number };
+
+  /**
+   * Redeem (and rotate) a refresh token. Returns the binding needed to mint a
+   * new access token, or undefined if the token is unknown/expired/revoked.
+   * Implementations SHOULD rotate: the redeemed token is single-use.
+   */
+  redeemRefreshToken(refreshToken: string, clientId: string): RedeemRefreshTokenResult | undefined;
+
+  /** Revoke a refresh token. */
+  revokeRefreshToken(refreshToken: string): boolean;
 
   // ── DCR ────────────────────────────────────────────────────────────────
 
@@ -220,16 +259,20 @@ export function base64UrlDecode(input: string): string {
 export class MemoryOAuthStore implements IOAuthStore {
   private authCodes: Map<string, AuthorizationCodeRecord>;
   private accessTokens: Map<string, AccessTokenRecord>;
+  private refreshTokens: Map<string, RefreshTokenRecord>;
   private registeredClients: Map<string, RegisteredClient>;
   private authCodeTtlMs: number;
   private accessTokenTtlMs: number;
+  private refreshTokenTtlMs: number;
 
   constructor(config?: OAuthStoreConfig) {
     this.authCodes = new Map();
     this.accessTokens = new Map();
+    this.refreshTokens = new Map();
     this.registeredClients = new Map();
     this.authCodeTtlMs = config?.authCodeTtlMs ?? 300_000; // 5 min default
     this.accessTokenTtlMs = config?.accessTokenTtlMs ?? 86_400_000; // 24h default
+    this.refreshTokenTtlMs = config?.refreshTokenTtlMs ?? 2_592_000_000; // 30d default
   }
 
   // ── Auth Code ───────────────────────────────────────────────────────
@@ -391,6 +434,69 @@ export class MemoryOAuthStore implements IOAuthStore {
     return true;
   }
 
+  // ── Refresh Token ───────────────────────────────────────────────────
+
+  createRefreshToken(
+    params: CreateAccessTokenParams
+  ): { refreshToken: string; expiresIn: number } {
+    const refreshToken = randomToken();
+    const tokenHash = sha256Hex(refreshToken);
+
+    this.cleanupExpired();
+
+    this.refreshTokens.set(tokenHash, {
+      tokenHash,
+      connectionKey: params.connectionKey ?? '',
+      connectionKeyId: params.connectionKeyId,
+      scope: params.scope,
+      clientId: params.clientId,
+      resource: params.resource,
+      expiresAt: Date.now() + this.refreshTokenTtlMs,
+    });
+
+    return {
+      refreshToken,
+      expiresIn: Math.floor(this.refreshTokenTtlMs / 1000),
+    };
+  }
+
+  redeemRefreshToken(
+    refreshToken: string,
+    clientId: string
+  ): RedeemRefreshTokenResult | undefined {
+    const tokenHash = sha256Hex(refreshToken);
+    const record = this.refreshTokens.get(tokenHash);
+
+    if (!record) return undefined;
+
+    // Expiry
+    if (Date.now() > record.expiresAt) {
+      this.refreshTokens.delete(tokenHash);
+      return undefined;
+    }
+
+    // Client binding must match
+    if (record.clientId !== clientId) return undefined;
+
+    // Rotation: refresh tokens are single-use.
+    this.refreshTokens.delete(tokenHash);
+
+    return {
+      connectionKey: record.connectionKey || undefined,
+      connectionKeyId: record.connectionKeyId,
+      scope: record.scope,
+      resource: record.resource,
+      clientId: record.clientId,
+    };
+  }
+
+  revokeRefreshToken(refreshToken: string): boolean {
+    const tokenHash = sha256Hex(refreshToken);
+    if (!this.refreshTokens.has(tokenHash)) return false;
+    this.refreshTokens.delete(tokenHash);
+    return true;
+  }
+
   // ── DCR ─────────────────────────────────────────────────────────────
 
   registerClient(params: {
@@ -440,6 +546,12 @@ export class MemoryOAuthStore implements IOAuthStore {
     for (const [hash, record] of this.accessTokens) {
       if (now > record.expiresAt) {
         this.accessTokens.delete(hash);
+      }
+    }
+
+    for (const [hash, record] of this.refreshTokens) {
+      if (now > record.expiresAt) {
+        this.refreshTokens.delete(hash);
       }
     }
   }
@@ -500,6 +612,7 @@ export function createOAuthStoreFromEnv(
   const config: OAuthStoreConfig = {
     authCodeTtlMs: (Number(env.MCP_OAUTH_AUTH_CODE_TTL_SECONDS) || 300) * 1000,
     accessTokenTtlMs: (Number(env.MCP_OAUTH_ACCESS_TOKEN_TTL_SECONDS) || 86400) * 1000,
+    refreshTokenTtlMs: (Number(env.MCP_OAUTH_REFRESH_TOKEN_TTL_SECONDS) || 2592000) * 1000,
   };
 
   switch (driver) {

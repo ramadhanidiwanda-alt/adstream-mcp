@@ -361,7 +361,7 @@ function handleWellKnownAuthorizationServer(
     token_endpoint: `${issuer}/token`,
     registration_endpoint: `${issuer}/register`,
     response_types_supported: ['code'],
-    grant_types_supported: ['authorization_code'],
+    grant_types_supported: ['authorization_code', 'refresh_token'],
     code_challenge_methods_supported: ['S256'],
     scopes_supported: ['mcp', 'read', 'write'],
     token_endpoint_auth_methods_supported: ['none'],
@@ -622,6 +622,7 @@ async function handlePostToken(
   const redirectUri = params.get('redirect_uri');
   const clientId = params.get('client_id');
   const codeVerifier = params.get('code_verifier');
+  const refreshTokenParam = params.get('refresh_token');
 
   oauthDebug('token.post.start', {
     client_id_prefix: clientId?.slice(0, 8) ?? 'none',
@@ -632,11 +633,27 @@ async function handlePostToken(
   }, env);
 
   // Validate
-  if (grantType !== 'authorization_code') {
+  if (grantType !== 'authorization_code' && grantType !== 'refresh_token') {
     writeJson(res, 400, { error: 'unsupported_grant_type' });
     return;
   }
 
+  const store = getOAuthStore(env);
+
+  // ── refresh_token grant ──
+  if (grantType === 'refresh_token') {
+    await handleRefreshTokenGrant(
+      res,
+      env,
+      store,
+      allowedClientIds,
+      clientId,
+      refreshTokenParam,
+    );
+    return;
+  }
+
+  // ── authorization_code grant ──
   if (!code || !redirectUri || !clientId || !codeVerifier) {
     writeJson(res, 400, {
       error: 'invalid_request',
@@ -646,7 +663,6 @@ async function handlePostToken(
   }
 
   // Validate client_id against allowlist (if configured) including DCR
-  const store = getOAuthStore(env);
   if (!isClientIdAllowed(clientId, allowedClientIds, store)) {
     oauthDebug('token.post.client_invalid', {
       client_id_prefix: clientId?.slice(0, 8) ?? 'none',
@@ -691,11 +707,28 @@ async function handlePostToken(
     resource: redeemed.resource,
   });
 
+  // Issue a refresh token so clients can renew access without a full re-auth.
+  // Best-effort: if the store cannot mint one (e.g. missing binding), omit it
+  // rather than failing the whole token exchange.
+  let refreshToken: string | undefined;
+  try {
+    refreshToken = store.createRefreshToken({
+      connectionKey: redeemed.connectionKey,
+      connectionKeyId: redeemed.connectionKeyId,
+      scope: redeemed.scope,
+      clientId,
+      resource: redeemed.resource,
+    }).refreshToken;
+  } catch {
+    refreshToken = undefined;
+  }
+
   oauthDebug('token.post.issued', {
     client_id_prefix: clientId?.slice(0, 8) ?? 'none',
     token_type: 'Bearer',
     expires_in: expiresIn,
     scope: redeemed.scope,
+    has_refresh_token: !!refreshToken,
   }, env);
 
   writeJson(res, 200, {
@@ -703,6 +736,85 @@ async function handlePostToken(
     token_type: 'Bearer',
     expires_in: expiresIn,
     scope: redeemed.scope,
+    ...(refreshToken ? { refresh_token: refreshToken } : {}),
+  });
+}
+
+/**
+ * Handle the OAuth 2.0 refresh_token grant (RFC 6749 §6).
+ *
+ * Exchanges a valid, non-expired, client-bound refresh token for a new access
+ * token and a rotated refresh token. Rotation makes each refresh token
+ * single-use, limiting replay if one leaks.
+ */
+async function handleRefreshTokenGrant(
+  res: ServerResponse,
+  env: NodeJS.ProcessEnv,
+  store: IOAuthStore,
+  allowedClientIds: string[] | undefined,
+  clientId: string | null,
+  refreshTokenParam: string | null,
+): Promise<void> {
+  if (!clientId || !refreshTokenParam) {
+    writeJson(res, 400, {
+      error: 'invalid_request',
+      error_description: 'Missing required parameters: client_id, refresh_token',
+    });
+    return;
+  }
+
+  if (!isClientIdAllowed(clientId, allowedClientIds, store)) {
+    writeJson(res, 400, { error: 'invalid_client', error_description: 'Client ID tidak dikenal.' });
+    return;
+  }
+
+  const redeemed = store.redeemRefreshToken(refreshTokenParam, clientId);
+  if (!redeemed) {
+    oauthDebug('token.post.refresh_invalid', {
+      client_id_prefix: clientId.slice(0, 8),
+    }, env);
+    writeJson(res, 400, {
+      error: 'invalid_grant',
+      error_description: 'Refresh token is invalid, expired, revoked, or already used.',
+    });
+    return;
+  }
+
+  const { accessToken, expiresIn } = store.createAccessToken({
+    connectionKey: redeemed.connectionKey,
+    connectionKeyId: redeemed.connectionKeyId,
+    scope: redeemed.scope,
+    clientId,
+    resource: redeemed.resource,
+  });
+
+  let refreshToken: string | undefined;
+  try {
+    refreshToken = store.createRefreshToken({
+      connectionKey: redeemed.connectionKey,
+      connectionKeyId: redeemed.connectionKeyId,
+      scope: redeemed.scope,
+      clientId,
+      resource: redeemed.resource,
+    }).refreshToken;
+  } catch {
+    refreshToken = undefined;
+  }
+
+  oauthDebug('token.post.refreshed', {
+    client_id_prefix: clientId.slice(0, 8),
+    token_type: 'Bearer',
+    expires_in: expiresIn,
+    scope: redeemed.scope,
+    has_refresh_token: !!refreshToken,
+  }, env);
+
+  writeJson(res, 200, {
+    access_token: accessToken,
+    token_type: 'Bearer',
+    expires_in: expiresIn,
+    scope: redeemed.scope,
+    ...(refreshToken ? { refresh_token: refreshToken } : {}),
   });
 }
 
