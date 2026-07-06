@@ -12,6 +12,7 @@ export const ADS_MCP_TOOL_NAMES = [
   'ads_get_ad_performance',
   'ads_get_creative_performance',
   'ads_get_placement_performance',
+  'ads_content_matrix',
   'ads_generate_report',
   'ads_pause_campaign',
   'ads_resume_campaign',
@@ -61,6 +62,11 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
   {
     name: 'ads_get_placement_performance',
     description: 'Fetch platform and placement performance through the AdsBroker',
+    inputSchema: createAdsInputSchema(['since', 'until']),
+  },
+  {
+    name: 'ads_content_matrix',
+    description: 'Return data-only ad/creative performance matrix grouped by campaign or adset',
     inputSchema: createAdsInputSchema(['since', 'until']),
   },
   {
@@ -184,6 +190,8 @@ function callBrokerMethod(
       return broker.getCreativePerformance(request);
     case 'ads_get_placement_performance':
       return broker.getPlacementPerformance(request);
+    case 'ads_content_matrix':
+      return broker.getContentMatrix(request);
     case 'ads_generate_report':
       return broker.generateReport(request);
     case 'ads_pause_campaign':
