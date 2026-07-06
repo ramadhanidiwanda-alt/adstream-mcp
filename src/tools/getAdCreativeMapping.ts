@@ -25,7 +25,7 @@ interface MetaAdWithCreative {
 
 /**
  * Fetch ad → creative_id mapping from Meta Ads API.
- * Uses `/act_{id}/ads?fields=id,name,creative{{id}}` — a metadata endpoint,
+ * Uses `/act_{id}/ads?fields=id,name,creative{id}` — a metadata endpoint,
  * NOT the insights endpoint, so it doesn't need `creative_id` at level=ad.
  */
 export async function getAdCreativeMapping(
@@ -35,7 +35,7 @@ export async function getAdCreativeMapping(
   const { adIds, limit = 100, cursor } = options;
   const adAccountId = normalizeAccountId(options.adAccountId);
 
-  const fields = 'id,name,creative{{id}}';
+  const fields = 'id,name,creative{id}';
   const params: Record<string, string | number> = {
     fields,
     limit,
