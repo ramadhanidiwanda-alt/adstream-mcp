@@ -2,7 +2,7 @@
 
 > **Status Dokumen:** v2 (living document)
 > **Terakhir Diupdate:** 2026-07-01
-> **Versi Repo Saat Ini:** v0.5.2
+> **Versi Repo Saat Ini:** v0.6.0
 > **Repo:** `adstream-mcp` (github.com/ramadhanidiwanda-alt/adstream-mcp)
 > **Pemilik:** Project owner + maintainers
 > **Scope:** Seluruh repository

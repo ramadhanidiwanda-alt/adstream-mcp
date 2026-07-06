@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-07-06
+
+### Added — Canonical MCP Connector API
+
+- **`ads_get_performance`** — canonical read tool that returns a standard performance envelope (`provider`, `account`, `dateRange`, `currency`, `level`, `dimensions`, `metrics`, `rows`, `paging`, `warnings`, `dataFreshness`, `capabilities`, `unsupportedMetrics`). Routes to existing level-specific broker methods.
+- **`ads_get_creatives`** — canonical creative read tool backed by Meta `/act_{id}/adcreatives` asset fetching; returns creative metadata in the canonical envelope.
+- **`ads_get_change_history`** — canonical change-history tool backed by Meta account activities; unsupported providers return structured `NOT_IMPLEMENTED`.
+- **`ads_get_capabilities`** — canonical discovery tool combining static metadata, metric catalogs, and registered provider adapter capabilities.
+- Canonical pagination cursors propagated through adapters: Meta ads/creatives/change history pass Meta cursors, TikTok ads and GMV Max commerce use next-page cursors, Google reports explicit `null`.
+- Standard commerce envelope for **`commerce_get_performance`** alongside existing `records`/`totals`/`metadata` fields.
+- New docs: `docs/ARCHITECTURE.md`, `docs/MCP_API_DESIGN.md`, `docs/LEGACY_AND_MIGRATION.md`; canonical migration example `examples/canonical-migration.ts`.
+
+### Changed
+
+- Repositioned README, skills, and MCP server README around the connector/data-access-layer vision (MCP provides data; AI/skills provide reasoning).
+- Legacy provider-specific and level-specific tools now carry deprecation/migration guidance in their descriptions.
+
+### Backward Compatible
+
+- No public MCP tools were removed; legacy `meta_*`, `tiktok_*`, and level-specific tools remain registered.
+- `commerce_get_performance` keeps existing response fields.
+
 ## [0.5.2] - 2026-06-25
 
 ### Added — Account-Level Performance Broker Tool
