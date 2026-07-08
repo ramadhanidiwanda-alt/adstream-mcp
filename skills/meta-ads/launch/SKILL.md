@@ -31,7 +31,9 @@ Ask one question at a time until all required fields are known:
 4. Pixel ID and confirmation that Purchase event is installed
 5. Daily budget in account minor units or clear currency amount to convert manually
 6. Target country/countries
-7. Creative asset reference, currently an uploaded Meta `imageHash`
+7. Creative asset — can be:
+   - An uploaded Meta `imageHash` or `videoId` (existing)
+   - A **local file path** (`imageFilePath` or `videoFilePath`) — the tool auto-uploads before creating the creative
 8. Primary text and headline
 9. Special ad category applicability
 
@@ -62,3 +64,32 @@ Saya approve untuk membuat campaign bundle PAUSED ini di account <accountId>.
 ```
 
 If the confirmation is vague, ask again. Execute only the exact previewed bundle.
+
+## Creative-to-Campaign Workflow (Local File)
+
+When the user has a local creative file (image/video) instead of a pre-uploaded hash:
+
+**Step 1 — Upload creative (if file path is provided)**
+
+Use `ads_upload_image` or `ads_upload_video`:
+
+```text
+- Image: ads_upload_image with filePath="/path/to/image.jpg"
+- Video: ads_upload_video with filePath="/path/to/video.mp4"
+```
+
+Supported formats:
+- Images: `.jpg`, `.jpeg`, `.png` (max 30 MB)
+- Videos: `.mp4`, `.mov`, `.avi`, `.wmv` (max 1 GB)
+
+**Step 2 — Use filePath directly in bundle creation**
+
+Instead of uploading separately, you can pass `imageFilePath` or `videoFilePath` directly to `ads_create_ecommerce_campaign_bundle` — the tool will auto-upload before creating the creative.
+
+**Step 3 — Verify**
+
+After execution, confirm the `image_hash` or `video_id` was returned and the campaign bundle was created with PAUSED status.
+
+**Local vs Remote MCP:**
+- **Local (stdio):** File path refers to the machine running the MCP server (your laptop).
+- **Remote (HTTP/SSE):** File path refers to the server machine. Place files in `/data/uploads/` directory (mounted volume).
