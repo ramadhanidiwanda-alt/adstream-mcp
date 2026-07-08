@@ -77,7 +77,7 @@ Claude klik Connect
 → user paste Connection Key dari Cuan Insight UI
 → server validasi Connection Key ke Cuan Insight resolver
 → jika valid, server buat authorization code (PKCE S256)
-→ redirect balik ke Claude redirect_uri dengan ?code=...&state=...
+→ redirect balik ke client redirect_uri dengan ?code=...&state=... (&return_to=... jika dikirim)
 → Claude call POST /token dengan code + code_verifier
 → server validasi PKCE
 → server issue access token (Bearer, 24h TTL)
@@ -85,6 +85,13 @@ Claude klik Connect
 → MCP server resolve token → connection context
 → tools/call berjalan
 ```
+
+Optional `return_to` context:
+
+- Clients that start OAuth from a nested connector/settings page may add `return_to=<absolute https URL>` to `GET /authorize`.
+- The server preserves `return_to` through the authorize form and appends it to the OAuth callback redirect.
+- `redirect_uri` remains the registered OAuth callback; do not replace it with the origin page.
+- The client callback should validate/allowlist `return_to`, complete token exchange, then navigate back to that URL.
 
 ### Auth Modes
 
@@ -300,6 +307,7 @@ works, but it does not expose the host port publicly.
 - Do not print tokens, connection keys, or provider tokens.
 - Do not expose HTTP mode publicly without HTTPS, reverse proxy, and auth.
 - **OAuth flow (Phase 19)**: Connection Key entered via `/authorize` form is validated against Cuan Insight but never stored in HTML, logs, or redirect URLs.
+- **OAuth return context**: Optional `return_to` must be an absolute `https:` URL. Client callbacks should still apply their own host/path allowlist before navigating.
 - **Access tokens** from `/token` are stored as SHA-256 hashes; raw tokens are returned only once at creation.
 - **Authorization codes** are single-use, short-lived (5 min TTL), and PKCE-protected.
 - Connection key redaction covers `x-cuan-mcp-connection-key`, `connectionKey`, `connection_key`, `connection-key`.
