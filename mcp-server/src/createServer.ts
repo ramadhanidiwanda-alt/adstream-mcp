@@ -206,6 +206,7 @@ export function createMetaAdsMcpServer(
     const hasCampaignId = toolDefinition.inputSchema.required.includes('campaignId');
     const hasCampaignName = toolDefinition.inputSchema.required.includes('campaignName');
     const hasFilePath = toolDefinition.inputSchema.required.includes('filePath');
+    const hasCreativeId = toolDefinition.inputSchema.required.includes('creativeId');
 
     let inputSchema: Record<string, z.ZodType<unknown>>;
     if (toolDefinition.name === 'ads_get_performance' || toolDefinition.name === 'ads_get_creatives') {
@@ -233,6 +234,26 @@ export function createMetaAdsMcpServer(
         filePath: z.string().describe('Absolute path to the local file to upload. Example: /Users/name/Downloads/ad-image.jpg'),
         title: z.string().optional().describe('Optional title for video uploads.'),
         description: z.string().optional().describe('Optional description for video uploads.'),
+      };
+    } else if (hasCreativeId) {
+      inputSchema = {
+        ...adsBaseInputSchema,
+        creativeId: z.string().describe('The creative ID to generate a preview for.'),
+        adFormat: z
+          .enum([
+            'DESKTOP_FEED',
+            'MOBILE_FEED',
+            'INSTAGRAM_FEED',
+            'INSTAGRAM_EXPLORE',
+            'INSTAGRAM_REELS',
+            'INSTAGRAM_STORIES',
+            'FACEBOOK_STORIES',
+            'MESSENGER_INBOX',
+            'MARKETPLACE',
+            'REWARDS_PLATFORM',
+            'FACEBOOK_REELS',
+          ])
+          .describe('The ad format/platform to preview on.'),
       };
     } else if (hasSince) {
       inputSchema = sinceUntilInputSchema;

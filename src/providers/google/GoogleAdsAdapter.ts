@@ -11,6 +11,9 @@ import type {
   ImageUploadResult,
   VideoUploadResult,
   AccountInfoResult,
+  AdImageResult,
+  AdVideoResult,
+  AdPreviewResult,
 } from '../../broker/types.js';
 import { ADS_PROVIDER_CAPABILITY_MATRIX } from '../../broker/types.js';
 import { redactErrorMessage } from '../../broker/credentials.js';
@@ -126,6 +129,18 @@ export class GoogleAdsAdapter implements AdsProviderAdapter {
 
   async getAccountInfo(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<AccountInfoResult>> {
     return this.notImplemented('Google Ads account info is not implemented yet');
+  }
+
+  async listAdImages(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdImageResult[]>> {
+    return Promise.resolve(this.notImplemented('Google Ads image library is not implemented yet') as unknown as AdsBrokerResponse<AdImageResult[]>);
+  }
+
+  async listAdVideos(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdVideoResult[]>> {
+    return Promise.resolve(this.notImplemented('Google Ads video library is not implemented yet') as unknown as AdsBrokerResponse<AdVideoResult[]>);
+  }
+
+  async getAdPreview(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdPreviewResult[]>> {
+    return Promise.resolve(this.notImplemented('Google Ads ad preview is not implemented yet') as unknown as AdsBrokerResponse<AdPreviewResult[]>);
   }
 
   private async getPerformance(

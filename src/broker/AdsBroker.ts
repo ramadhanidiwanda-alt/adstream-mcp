@@ -20,6 +20,9 @@ import type {
   ImageUploadResult,
   VideoUploadResult,
   AccountInfoResult,
+  AdImageResult,
+  AdVideoResult,
+  AdPreviewResult,
 } from './types.js';
 import { defaultDenyWritePermissionPolicy, isAdsProviderId } from './types.js';
 import type { CredentialResolverContract } from './credentials.js';
@@ -47,7 +50,10 @@ type AdapterMethod =
   | 'getChangeHistory'
   | 'getVideoSource'
   | 'getAdCreativeMapping'
-  | 'getAccountInfo';
+  | 'getAccountInfo'
+  | 'listAdImages'
+  | 'listAdVideos'
+  | 'getAdPreview';
 
 type AdapterWriteMethod =
   | 'pauseCampaign'
@@ -119,6 +125,18 @@ export class AdsBroker {
 
   getAccountInfo(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AccountInfoResult>> {
     return this.executeRead(request, 'getAccountInfo');
+  }
+
+  listAdImages(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdImageResult[]>> {
+    return this.executeRead(request, 'listAdImages');
+  }
+
+  listAdVideos(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdVideoResult[]>> {
+    return this.executeRead(request, 'listAdVideos');
+  }
+
+  getAdPreview(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdPreviewResult[]>> {
+    return this.executeRead(request, 'getAdPreview');
   }
 
   getCapabilities(request: AdsBrokerRequest): AdsBrokerResponse<Record<string, unknown>> {

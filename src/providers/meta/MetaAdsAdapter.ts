@@ -23,6 +23,9 @@ import type { UploadVideoResult } from '../../tools/uploadVideo.js';
 import { uploadImage as uploadImageTool } from '../../tools/uploadImage.js';
 import { uploadVideo as uploadVideoTool } from '../../tools/uploadVideo.js';
 import { getAccountInfo } from '../../tools/getAccountInfo.js';
+import { listAdImages } from '../../tools/listAdImages.js';
+import { listAdVideos } from '../../tools/listAdVideos.js';
+import { getAdPreview } from '../../tools/getAdPreview.js';
 import type {
   AdsBrokerRequest,
   AdsBrokerResponse,
@@ -37,6 +40,9 @@ import type {
   ImageUploadResult,
   VideoUploadResult,
   AccountInfoResult,
+  AdImageResult,
+  AdVideoResult,
+  AdPreviewResult,
 } from '../../broker/types.js';
 import { ADS_PROVIDER_CAPABILITY_MATRIX } from '../../broker/types.js';
 import { redactErrorMessage } from '../../broker/credentials.js';
@@ -118,6 +124,18 @@ export interface MetaAdsAdapterTools {
     client: MetaClient,
     options: { adAccountId: string; filePath: string; title?: string; description?: string; maxRetries?: number }
   ): Promise<UploadVideoResult>;
+  listAdImages(
+    client: MetaClient,
+    options: { adAccountId: string }
+  ): Promise<AdImageResult[]>;
+  listAdVideos(
+    client: MetaClient,
+    options: { adAccountId: string; limit?: number; cursor?: string }
+  ): Promise<AdVideoResult[]>;
+  getAdPreview(
+    client: MetaClient,
+    options: { creativeId: string; adFormat: string }
+  ): Promise<AdPreviewResult[]>;
 }
 
 export interface MetaAdsAdapterOptions {
@@ -150,6 +168,9 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       createEcommerceCampaignBundle: createEcommerceCampaignBundleTool,
       uploadImage: uploadImageTool,
       uploadVideo: uploadVideoTool,
+      listAdImages,
+      listAdVideos,
+      getAdPreview,
       ...options.tools,
     };
   }
@@ -954,6 +975,82 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
     try {
       const client = this.createClient(context.credential);
       const result = await getAccountInfo(client, { adAccountId });
+      return { ok: true, provider: 'meta', data: result };
+    } catch (error) {
+      return this.errorResponse(error);
+    }
+  }
+
+  async listAdImages(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdImageResult[]>> {
+    const context = this.getCredentialContext(request);
+    if (!context.ok) return context.response;
+
+    const adAccountId = request.accountId ?? context.credential.accountId;
+    if (!adAccountId) {
+      return {
+        ok: false,
+        provider: 'meta',
+        errors: [{ provider: 'meta', code: 'MISSING_ACCOUNT_ID', message: 'Meta account ID is required to list ad images' }],
+      };
+    }
+
+    try {
+      const client = this.createClient(context.credential);
+      const result = await this.tools.listAdImages(client, { adAccountId });
+      return { ok: true, provider: 'meta', data: result };
+    } catch (error) {
+      return this.errorResponse(error);
+    }
+  }
+
+  async listAdVideos(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdVideoResult[]>> {
+    const context = this.getCredentialContext(request);
+    if (!context.ok) return context.response;
+
+    const adAccountId = request.accountId ?? context.credential.accountId;
+    if (!adAccountId) {
+      return {
+        ok: false,
+        provider: 'meta',
+        errors: [{ provider: 'meta', code: 'MISSING_ACCOUNT_ID', message: 'Meta account ID is required to list ad videos' }],
+      };
+    }
+
+    try {
+      const client = this.createClient(context.credential);
+      const result = await this.tools.listAdVideos(client, {
+        adAccountId,
+        limit: typeof request.params.limit === 'number' ? request.params.limit : undefined,
+        cursor: typeof request.params.cursor === 'string' ? request.params.cursor : undefined,
+      });
+      return { ok: true, provider: 'meta', data: result };
+    } catch (error) {
+      return this.errorResponse(error);
+    }
+  }
+
+  async getAdPreview(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdPreviewResult[]>> {
+    const context = this.getCredentialContext(request);
+    if (!context.ok) return context.response;
+
+    const creativeId = typeof request.params.creativeId === 'string' ? request.params.creativeId : undefined;
+    const adFormat = typeof request.params.adFormat === 'string' ? request.params.adFormat : undefined;
+
+    if (!creativeId || !adFormat) {
+      return {
+        ok: false,
+        provider: 'meta',
+        errors: [{
+          provider: 'meta',
+          code: 'MISSING_REQUIRED_PARAMS',
+          message: 'Meta ad preview requires creativeId and adFormat in request.params',
+        }],
+      };
+    }
+
+    try {
+      const client = this.createClient(context.credential);
+      const result = await this.tools.getAdPreview(client, { creativeId, adFormat });
       return { ok: true, provider: 'meta', data: result };
     } catch (error) {
       return this.errorResponse(error);

@@ -28,6 +28,9 @@ export const ADS_MCP_TOOL_NAMES = [
   'ads_upload_image',
   'ads_upload_video',
   'ads_get_account_info',
+  'ads_list_adimages',
+  'ads_list_advideos',
+  'ads_get_ad_preview',
 ] as const;
 
 export type AdsMcpToolName = (typeof ADS_MCP_TOOL_NAMES)[number];
@@ -152,6 +155,21 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
     name: 'ads_get_account_info',
     description: 'Get detailed information about a Meta Ads account. Returns account name, currency, timezone, balance, spending limit, amount spent, account status, and business info.',
     inputSchema: createAdsInputSchema([]),
+  },
+  {
+    name: 'ads_list_adimages',
+    description: 'List images from the Meta Ads Image Library. Returns image hash, URL, dimensions, name, and creatives count. Calls GET /act_{id}/adimages.',
+    inputSchema: createAdsInputSchema([]),
+  },
+  {
+    name: 'ads_list_advideos',
+    description: 'List videos from the Meta Ads Video Library (paginated). Returns video ID, title, source URL, status, file size, and thumbnail. Calls GET /act_{id}/advideos. Supports params: limit, cursor.',
+    inputSchema: createAdsInputSchema([]),
+  },
+  {
+    name: 'ads_get_ad_preview',
+    description: 'Get a preview URL for a Meta ad creative in a specific ad format. Returns preview URL, platform, and ad format. Calls GET /{creative_id}/previews. Required params: creativeId, adFormat (enum: DESKTOP_FEED, MOBILE_FEED, INSTAGRAM_FEED, INSTAGRAM_EXPLORE, INSTAGRAM_REELS, INSTAGRAM_STORIES, FACEBOOK_STORIES, MESSENGER_INBOX, MARKETPLACE, REWARDS_PLATFORM, FACEBOOK_REELS).',
+    inputSchema: createPreviewInputSchema(),
   },
 ] as const;
 
@@ -281,6 +299,12 @@ function callBrokerMethod(
       return broker.uploadVideo(request);
     case 'ads_get_account_info':
       return broker.getAccountInfo(request);
+    case 'ads_list_adimages':
+      return broker.listAdImages(request);
+    case 'ads_list_advideos':
+      return broker.listAdVideos(request);
+    case 'ads_get_ad_preview':
+      return broker.getAdPreview(request);
   }
 }
 
@@ -614,6 +638,39 @@ function createUploadInputSchema(required: string[]) {
       },
     },
     required,
+  };
+}
+
+function createPreviewInputSchema() {
+  const schema = createAdsInputSchema([]);
+
+  return {
+    type: 'object',
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      creativeId: {
+        type: 'string',
+        description: 'The creative ID to generate a preview for.',
+      },
+      adFormat: {
+        type: 'string',
+        enum: [
+          'DESKTOP_FEED',
+          'MOBILE_FEED',
+          'INSTAGRAM_FEED',
+          'INSTAGRAM_EXPLORE',
+          'INSTAGRAM_REELS',
+          'INSTAGRAM_STORIES',
+          'FACEBOOK_STORIES',
+          'MESSENGER_INBOX',
+          'MARKETPLACE',
+          'REWARDS_PLATFORM',
+          'FACEBOOK_REELS',
+        ],
+        description: 'The ad format/platform to preview on.',
+      },
+    },
+    required: ['creativeId', 'adFormat'],
   };
 }
 
