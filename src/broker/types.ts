@@ -654,6 +654,32 @@ export interface AccountInfoResult {
   disable_reason?: number;
 }
 
+export interface AdImageResult {
+  hash: string;
+  url: string;
+  width: number;
+  height: number;
+  name?: string;
+  creatives_count?: number;
+}
+
+export interface AdVideoResult {
+  id: string;
+  title?: string;
+  source?: string;
+  status?: string;
+  file_size?: number;
+  created_time?: string;
+  thumbnail?: string;
+}
+
+export interface AdPreviewResult {
+  preview_url: string;
+  platform: string;
+  ad_format: string;
+  body?: string;
+}
+
 export interface AdsProviderAdapter {
   id: AdsProviderId;
   displayName: string;
@@ -678,6 +704,9 @@ export interface AdsProviderAdapter {
   uploadImage(request: AdsBrokerRequest): Promise<AdsBrokerResponse<ImageUploadResult>>;
   uploadVideo(request: AdsBrokerRequest): Promise<AdsBrokerResponse<VideoUploadResult>>;
   getAccountInfo(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AccountInfoResult>>;
+  listAdImages(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdImageResult[]>>;
+  listAdVideos(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdVideoResult[]>>;
+  getAdPreview(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdPreviewResult[]>>;
 }
 
 export interface AdsToolDefinition {

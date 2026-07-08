@@ -46,6 +46,13 @@ export type { UploadVideoOptions, UploadVideoResult } from './tools/uploadVideo.
 export { getAccountInfo } from './tools/getAccountInfo.js';
 export type { GetAccountInfoOptions } from './tools/getAccountInfo.js';
 
+export { listAdImages } from './tools/listAdImages.js';
+export type { ListAdImagesOptions } from './tools/listAdImages.js';
+export { listAdVideos } from './tools/listAdVideos.js';
+export type { ListAdVideosOptions } from './tools/listAdVideos.js';
+export { getAdPreview } from './tools/getAdPreview.js';
+export type { GetAdPreviewOptions, AdPreviewFormat } from './tools/getAdPreview.js';
+
 // --- Mutation Tools ---
 export { pauseCampaign } from './tools/pauseCampaign.js';
 export type * from './tools/pauseCampaign.js';
@@ -81,6 +88,9 @@ export type * from './types.js';
 export {
   VideoSourceResult,
   AdCreativeMappingResult,
+  AdImageResult,
+  AdVideoResult,
+  AdPreviewResult,
   ADS_PROVIDER_IDS,
   ADS_ENTITY_LEVELS,
   ADS_OPERATION_KINDS,
