@@ -8,6 +8,8 @@ import type {
   AdsProviderAdapter,
   VideoSourceResult,
   AdCreativeMappingResult,
+  ImageUploadResult,
+  VideoUploadResult,
 } from '../../broker/types.js';
 import { ADS_PROVIDER_CAPABILITY_MATRIX } from '../../broker/types.js';
 import { redactErrorMessage } from '../../broker/credentials.js';
@@ -111,6 +113,14 @@ export class GoogleAdsAdapter implements AdsProviderAdapter {
 
   async createEcommerceCampaignBundle(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<EcommerceCampaignBundleResult>> {
     return this.notImplemented('Google Ads ecommerce launch bundle is not implemented yet');
+  }
+
+  async uploadImage(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<ImageUploadResult>> {
+    return this.notImplemented('Google Ads image upload is not implemented yet');
+  }
+
+  async uploadVideo(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<VideoUploadResult>> {
+    return this.notImplemented('Google Ads video upload is not implemented yet');
   }
 
   private async getPerformance(
