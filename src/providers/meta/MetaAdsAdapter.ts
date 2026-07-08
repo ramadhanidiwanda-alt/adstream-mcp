@@ -22,6 +22,7 @@ import type { UploadImageResult } from '../../tools/uploadImage.js';
 import type { UploadVideoResult } from '../../tools/uploadVideo.js';
 import { uploadImage as uploadImageTool } from '../../tools/uploadImage.js';
 import { uploadVideo as uploadVideoTool } from '../../tools/uploadVideo.js';
+import { getAccountInfo } from '../../tools/getAccountInfo.js';
 import type {
   AdsBrokerRequest,
   AdsBrokerResponse,
@@ -35,6 +36,7 @@ import type {
   VideoSourceResult,
   ImageUploadResult,
   VideoUploadResult,
+  AccountInfoResult,
 } from '../../broker/types.js';
 import { ADS_PROVIDER_CAPABILITY_MATRIX } from '../../broker/types.js';
 import { redactErrorMessage } from '../../broker/credentials.js';
@@ -931,6 +933,28 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
         data: page,
         meta: { nextCursor: page.paging?.cursors?.after ?? null },
       };
+    } catch (error) {
+      return this.errorResponse(error);
+    }
+  }
+
+  async getAccountInfo(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AccountInfoResult>> {
+    const context = this.getCredentialContext(request);
+    if (!context.ok) return context.response;
+
+    const adAccountId = request.accountId ?? context.credential.accountId;
+    if (!adAccountId) {
+      return {
+        ok: false,
+        provider: 'meta',
+        errors: [{ provider: 'meta', code: 'MISSING_ACCOUNT_ID', message: 'Meta account ID is required' }],
+      };
+    }
+
+    try {
+      const client = this.createClient(context.credential);
+      const result = await getAccountInfo(client, { adAccountId });
+      return { ok: true, provider: 'meta', data: result };
     } catch (error) {
       return this.errorResponse(error);
     }

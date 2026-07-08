@@ -10,6 +10,7 @@ import type {
   AdCreativeMappingResult,
   ImageUploadResult,
   VideoUploadResult,
+  AccountInfoResult,
 } from '../../broker/types.js';
 import { ADS_PROVIDER_CAPABILITY_MATRIX } from '../../broker/types.js';
 import { redactErrorMessage } from '../../broker/credentials.js';
@@ -367,6 +368,10 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
   }
 
   async uploadVideo(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<VideoUploadResult>> {
+    return this.writeNotImplemented();
+  }
+
+  async getAccountInfo(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<AccountInfoResult>> {
     return this.writeNotImplemented();
   }
 

@@ -43,6 +43,9 @@ export type { UploadImageOptions, UploadImageResult } from './tools/uploadImage.
 export { uploadVideo } from './tools/uploadVideo.js';
 export type { UploadVideoOptions, UploadVideoResult } from './tools/uploadVideo.js';
 
+export { getAccountInfo } from './tools/getAccountInfo.js';
+export type { GetAccountInfoOptions } from './tools/getAccountInfo.js';
+
 // --- Mutation Tools ---
 export { pauseCampaign } from './tools/pauseCampaign.js';
 export type * from './tools/pauseCampaign.js';

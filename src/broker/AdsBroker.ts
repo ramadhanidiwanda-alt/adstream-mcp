@@ -19,6 +19,7 @@ import type {
   AdCreativeMappingResult,
   ImageUploadResult,
   VideoUploadResult,
+  AccountInfoResult,
 } from './types.js';
 import { defaultDenyWritePermissionPolicy, isAdsProviderId } from './types.js';
 import type { CredentialResolverContract } from './credentials.js';
@@ -45,7 +46,8 @@ type AdapterMethod =
   | 'getPlacementPerformance'
   | 'getChangeHistory'
   | 'getVideoSource'
-  | 'getAdCreativeMapping';
+  | 'getAdCreativeMapping'
+  | 'getAccountInfo';
 
 type AdapterWriteMethod =
   | 'pauseCampaign'
@@ -113,6 +115,10 @@ export class AdsBroker {
 
   getAdCreativeMapping(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdCreativeMappingResult[]>> {
     return this.executeRead(request, 'getAdCreativeMapping');
+  }
+
+  getAccountInfo(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AccountInfoResult>> {
+    return this.executeRead(request, 'getAccountInfo');
   }
 
   getCapabilities(request: AdsBrokerRequest): AdsBrokerResponse<Record<string, unknown>> {
