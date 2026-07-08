@@ -27,6 +27,7 @@ export const ADS_MCP_TOOL_NAMES = [
   'ads_get_ad_creative_mapping',
   'ads_upload_image',
   'ads_upload_video',
+  'ads_get_account_info',
 ] as const;
 
 export type AdsMcpToolName = (typeof ADS_MCP_TOOL_NAMES)[number];
@@ -146,6 +147,11 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
     name: 'ads_upload_video',
     description: 'Upload a local video file to the Meta Ads Video Library. Returns video_id for use in creative creation. Supported formats: .mp4, .mov, .avi, .wmv. Max file size: 1 GB. Video processing is async.',
     inputSchema: createUploadInputSchema(['filePath']),
+  },
+  {
+    name: 'ads_get_account_info',
+    description: 'Get detailed information about a Meta Ads account. Returns account name, currency, timezone, balance, spending limit, amount spent, account status, and business info.',
+    inputSchema: createAdsInputSchema([]),
   },
 ] as const;
 
@@ -273,6 +279,8 @@ function callBrokerMethod(
       return broker.uploadImage(request);
     case 'ads_upload_video':
       return broker.uploadVideo(request);
+    case 'ads_get_account_info':
+      return broker.getAccountInfo(request);
   }
 }
 
