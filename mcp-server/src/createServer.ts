@@ -118,7 +118,9 @@ const ecommerceLaunchInputSchema = {
   primaryText: z.string().describe('Primary ad text.'),
   headline: z.string().describe('Ad headline.'),
   description: z.string().optional().describe('Optional ad description.'),
-  imageHash: z.string().describe('Uploaded Meta image hash. Required for MVP static creative.'),
+  imageHash: z.string().optional().describe('Uploaded Meta image hash. Required for static creative unless imageFilePath is provided.'),
+  imageFilePath: z.string().optional().describe('Local image file path. Alternative to imageHash — auto-uploads before creative creation.'),
+  videoFilePath: z.string().optional().describe('Local video file path. Alternative to videoId — auto-uploads before creative creation.'),
   callToActionType: z.enum(['SHOP_NOW', 'LEARN_MORE', 'SIGN_UP', 'GET_OFFER']).optional(),
   specialAdCategories: z.array(z.string()).optional().describe('Meta special ad categories.'),
   ageMin: z.number().optional(),
@@ -203,6 +205,7 @@ export function createMetaAdsMcpServer(
     const hasSince = toolDefinition.inputSchema.required.includes('since');
     const hasCampaignId = toolDefinition.inputSchema.required.includes('campaignId');
     const hasCampaignName = toolDefinition.inputSchema.required.includes('campaignName');
+    const hasFilePath = toolDefinition.inputSchema.required.includes('filePath');
 
     let inputSchema: Record<string, z.ZodType<unknown>>;
     if (toolDefinition.name === 'ads_get_performance' || toolDefinition.name === 'ads_get_creatives') {
@@ -223,6 +226,13 @@ export function createMetaAdsMcpServer(
         newName: requiresNewName
           ? z.string().describe('New campaign name')
           : z.string().optional().describe('New campaign name'),
+      };
+    } else if (hasFilePath) {
+      inputSchema = {
+        ...adsBaseInputSchema,
+        filePath: z.string().describe('Absolute path to the local file to upload. Example: /Users/name/Downloads/ad-image.jpg'),
+        title: z.string().optional().describe('Optional title for video uploads.'),
+        description: z.string().optional().describe('Optional description for video uploads.'),
       };
     } else if (hasSince) {
       inputSchema = sinceUntilInputSchema;

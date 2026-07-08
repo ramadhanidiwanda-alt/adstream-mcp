@@ -155,6 +155,17 @@ Before adding adset/ad write operations, the implementation must prove:
 - Unsupported write operations fail closed.
 - Tests cover dry run, execution, missing params, permission denial, and sanitized errors.
 
+## Media Upload Operations
+
+Media upload (`ads_upload_image`, `ads_upload_video`) are write operations with a modified lifecycle:
+
+- **No dry-run preview:** File content cannot be meaningfully previewed. Validation (file exists, type, size) is done inline.
+- **Direct execution:** Upload executes on confirmed call; no separate dry-run step.
+- **File validation:** Checks file existence, type (jpg/png for images, mp4/mov/avi/wmv for videos), and size limits (30MB images, 1GB videos) before hitting Meta API.
+- **Error handling:** File validation errors return immediately without API call. Meta API errors include descriptive messages.
+- **No audit entry:** Upload operations return the result directly; standalone uploads do not create audit log entries.
+- **Bundle integration:** When used via `createEcommerceCampaignBundle.imageFilePath`/`videoFilePath`, upload happens at execution time (after dry-run preview + confirmation of the bundle).
+
 ## Recommended v0.6.0 Sequence
 
 1. Add adset/ad pause and resume direct tools.

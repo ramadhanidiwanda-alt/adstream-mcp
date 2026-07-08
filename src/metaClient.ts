@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+import pathModule from 'node:path';
 import type { MetaConfig } from './types.js';
 import type { MetaPaginatedResponse, PaginationOptions, RateLimitInfo } from './types.js';
 import { MetaApiError, isMetaErrorResponse } from './utils/metaError.js';
@@ -222,6 +224,86 @@ export class MetaClient {
     }
 
     throw lastError ?? new Error('Meta API POST request failed');
+  }
+
+  /** POST multipart/form-data to Meta Graph API. Used for file uploads (images, videos). */
+  async metaUploadMultipart<T = Record<string, unknown>>(
+    path: string,
+    filePath: string,
+    fieldName: string,
+    additionalFields?: Record<string, string>,
+    maxRetries: number = 3
+  ): Promise<T> {
+    // Validate file exists
+    if (!fs.existsSync(filePath)) {
+      throw new Error(`File not found: ${filePath}`);
+    }
+
+    const stat = fs.statSync(filePath);
+    if (!stat.isFile()) {
+      throw new Error(`Path is not a file: ${filePath}`);
+    }
+
+    const fileName = pathModule.basename(filePath);
+    const fileBuffer = fs.readFileSync(filePath);
+    const fileBlob = new Blob([fileBuffer]);
+
+    let lastError: Error | null = null;
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      const url = `${this.baseUrl}${path}?access_token=${this.accessToken}`;
+
+      try {
+        const formData = new FormData();
+        formData.append(fieldName, fileBlob, fileName);
+
+        if (additionalFields) {
+          for (const [key, value] of Object.entries(additionalFields)) {
+            formData.append(key, value);
+          }
+        }
+
+        const response = await fetch(url, {
+          method: 'POST',
+          body: formData,
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || isMetaErrorResponse(data)) {
+          if (isMetaErrorResponse(data)) {
+            const error = new MetaApiError(data.error);
+
+            if (response.status === 429 && attempt < maxRetries) {
+              const backoff = Math.pow(2, attempt) * 1000;
+              await this.sleep(backoff);
+              lastError = error;
+              continue;
+            }
+
+            throw error;
+          }
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        return data as T;
+      } catch (error) {
+        if (error instanceof MetaApiError) {
+          throw error;
+        }
+
+        if (attempt < maxRetries) {
+          const backoff = Math.pow(2, attempt) * 500;
+          await this.sleep(backoff);
+          lastError = error instanceof Error ? error : new Error(String(error));
+          continue;
+        }
+
+        throw error;
+      }
+    }
+
+    throw lastError ?? new Error('Meta API multipart upload request failed');
   }
 
   private extractAfterCursor(nextUrl: string): string | undefined {

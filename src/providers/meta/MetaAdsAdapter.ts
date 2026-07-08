@@ -18,6 +18,10 @@ import { updateCampaignBudget as updateCampaignBudgetTool } from '../../tools/up
 import { renameCampaign as renameCampaignTool } from '../../tools/renameCampaign.js';
 import { createEcommerceCampaignBundle as createEcommerceCampaignBundleTool } from '../../tools/createEcommerceCampaignBundle.js';
 import type { EcommerceCampaignBundlePayload as MetaEcommerceCampaignBundlePayload, EcommerceCampaignBundleResult } from '../../tools/createEcommerceCampaignBundle.js';
+import type { UploadImageResult } from '../../tools/uploadImage.js';
+import type { UploadVideoResult } from '../../tools/uploadVideo.js';
+import { uploadImage as uploadImageTool } from '../../tools/uploadImage.js';
+import { uploadVideo as uploadVideoTool } from '../../tools/uploadVideo.js';
 import type {
   AdsBrokerRequest,
   AdsBrokerResponse,
@@ -29,6 +33,8 @@ import type {
   CredentialContext,
   EcommerceCampaignBundlePayload,
   VideoSourceResult,
+  ImageUploadResult,
+  VideoUploadResult,
 } from '../../broker/types.js';
 import { ADS_PROVIDER_CAPABILITY_MATRIX } from '../../broker/types.js';
 import { redactErrorMessage } from '../../broker/credentials.js';
@@ -102,6 +108,14 @@ export interface MetaAdsAdapterTools {
     payload: MetaEcommerceCampaignBundlePayload,
     options?: { dryRun?: boolean; confirmed?: boolean; maxRetries?: number }
   ): Promise<EcommerceCampaignBundleResult>;
+  uploadImage(
+    client: MetaClient,
+    options: { adAccountId: string; filePath: string; maxRetries?: number }
+  ): Promise<UploadImageResult>;
+  uploadVideo(
+    client: MetaClient,
+    options: { adAccountId: string; filePath: string; title?: string; description?: string; maxRetries?: number }
+  ): Promise<UploadVideoResult>;
 }
 
 export interface MetaAdsAdapterOptions {
@@ -132,6 +146,8 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       updateCampaignBudget: updateCampaignBudgetTool,
       renameCampaign: renameCampaignTool,
       createEcommerceCampaignBundle: createEcommerceCampaignBundleTool,
+      uploadImage: uploadImageTool,
+      uploadVideo: uploadVideoTool,
       ...options.tools,
     };
   }
@@ -708,6 +724,70 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
         dryRun: request.params.dryRun !== false,
         confirmed: request.params.confirmed === true,
       });
+      return { ok: result.status !== 'failed', provider: 'meta', data: result };
+    } catch (error) {
+      return this.writeErrorResponse(error);
+    }
+  }
+
+  async uploadImage(request: AdsBrokerRequest): Promise<AdsBrokerResponse<ImageUploadResult>> {
+    const context = this.getCredentialContext(request);
+    if (!context.ok) return context.response;
+
+    const adAccountId = request.accountId ?? context.credential.accountId;
+    const filePath = typeof request.params.filePath === 'string' ? request.params.filePath : undefined;
+    if (!adAccountId || !filePath) {
+      return {
+        ok: false,
+        provider: 'meta',
+        errors: [{
+          provider: 'meta',
+          code: 'MISSING_REQUIRED_PARAMS',
+          message: 'Meta image upload requires accountId and filePath',
+        }],
+      };
+    }
+
+    try {
+      const result = await this.tools.uploadImage(
+        this.createClient(context.credential),
+        { adAccountId, filePath, maxRetries: typeof request.params.maxRetries === 'number' ? request.params.maxRetries : 3 }
+      );
+      return { ok: result.status === 'executed', provider: 'meta', data: result };
+    } catch (error) {
+      return this.writeErrorResponse(error);
+    }
+  }
+
+  async uploadVideo(request: AdsBrokerRequest): Promise<AdsBrokerResponse<VideoUploadResult>> {
+    const context = this.getCredentialContext(request);
+    if (!context.ok) return context.response;
+
+    const adAccountId = request.accountId ?? context.credential.accountId;
+    const filePath = typeof request.params.filePath === 'string' ? request.params.filePath : undefined;
+    if (!adAccountId || !filePath) {
+      return {
+        ok: false,
+        provider: 'meta',
+        errors: [{
+          provider: 'meta',
+          code: 'MISSING_REQUIRED_PARAMS',
+          message: 'Meta video upload requires accountId and filePath',
+        }],
+      };
+    }
+
+    try {
+      const result = await this.tools.uploadVideo(
+        this.createClient(context.credential),
+        {
+          adAccountId,
+          filePath,
+          title: typeof request.params.title === 'string' ? request.params.title : undefined,
+          description: typeof request.params.description === 'string' ? request.params.description : undefined,
+          maxRetries: typeof request.params.maxRetries === 'number' ? request.params.maxRetries : 3,
+        }
+      );
       return { ok: result.status !== 'failed', provider: 'meta', data: result };
     } catch (error) {
       return this.writeErrorResponse(error);

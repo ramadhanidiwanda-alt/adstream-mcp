@@ -25,6 +25,8 @@ export const ADS_MCP_TOOL_NAMES = [
   'ads_create_ecommerce_campaign_bundle',
   'ads_get_video_source',
   'ads_get_ad_creative_mapping',
+  'ads_upload_image',
+  'ads_upload_video',
 ] as const;
 
 export type AdsMcpToolName = (typeof ADS_MCP_TOOL_NAMES)[number];
@@ -134,6 +136,16 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
     name: 'ads_get_ad_creative_mapping',
     description: 'Get the creative_id for each ad in an account. Calls GET /act_{id}/ads?fields=id,name,creative{{id}}. Use this to link ad performance data (from ads_get_ad_performance) with creative assets (from ads_get_creative_performance). Accepts optional adIds[] param to filter specific ads.',
     inputSchema: createAdsInputSchema([]),
+  },
+  {
+    name: 'ads_upload_image',
+    description: 'Upload a local image file to the Meta Ads Image Library. Returns image_hash for use in creative creation. Supported formats: .jpg, .jpeg, .png. Max file size: 30 MB.',
+    inputSchema: createUploadInputSchema(['filePath']),
+  },
+  {
+    name: 'ads_upload_video',
+    description: 'Upload a local video file to the Meta Ads Video Library. Returns video_id for use in creative creation. Supported formats: .mp4, .mov, .avi, .wmv. Max file size: 1 GB. Video processing is async.',
+    inputSchema: createUploadInputSchema(['filePath']),
   },
 ] as const;
 
@@ -257,6 +269,10 @@ function callBrokerMethod(
       return broker.getVideoSource(request);
     case 'ads_get_ad_creative_mapping':
       return broker.getAdCreativeMapping(request);
+    case 'ads_upload_image':
+      return broker.uploadImage(request);
+    case 'ads_upload_video':
+      return broker.uploadVideo(request);
   }
 }
 
@@ -569,6 +585,30 @@ function createWriteInputSchema(required: string[]) {
   };
 }
 
+function createUploadInputSchema(required: string[]) {
+  const schema = createAdsInputSchema([]);
+
+  return {
+    type: 'object',
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      filePath: {
+        type: 'string',
+        description: 'Absolute path to the local file to upload. Example: /Users/name/Downloads/ad-image.jpg',
+      },
+      title: {
+        type: 'string',
+        description: 'Optional title for video uploads.',
+      },
+      description: {
+        type: 'string',
+        description: 'Optional description for video uploads.',
+      },
+    },
+    required,
+  };
+}
+
 function createEcommerceLaunchInputSchema() {
   const schema = createAdsInputSchema([]);
 
@@ -587,7 +627,9 @@ function createEcommerceLaunchInputSchema() {
       primaryText: { type: 'string', description: 'Primary ad text.' },
       headline: { type: 'string', description: 'Ad headline.' },
       description: { type: 'string', description: 'Optional ad description.' },
-      imageHash: { type: 'string', description: 'Uploaded Meta image hash. Required for MVP static creative.' },
+      imageHash: { type: 'string', description: 'Uploaded Meta image hash. Required for static creative unless imageFilePath is provided.' },
+      imageFilePath: { type: 'string', description: 'Local image file path. Alternative to imageHash — auto-uploads before creative creation.' },
+      videoFilePath: { type: 'string', description: 'Local video file path. Alternative to videoId — auto-uploads before creative creation.' },
       callToActionType: { type: 'string', enum: ['SHOP_NOW', 'LEARN_MORE', 'SIGN_UP', 'GET_OFFER'] },
       specialAdCategories: { type: 'array', items: { type: 'string' }, description: 'Meta special ad categories. Defaults to [] only when not applicable.' },
       ageMin: { type: 'number' },
@@ -596,7 +638,7 @@ function createEcommerceLaunchInputSchema() {
       dryRun: { type: 'boolean', description: 'Defaults to true. Set false only after preview.' },
       confirmed: { type: 'boolean', description: 'Must be true to execute after preview.' },
     },
-    required: ['accountId', 'campaignName', 'adSetName', 'adName', 'pageId', 'pixelId', 'destinationUrl', 'dailyBudget', 'countries', 'primaryText', 'headline', 'imageHash'],
+    required: ['accountId', 'campaignName', 'adSetName', 'adName', 'pageId', 'pixelId', 'destinationUrl', 'dailyBudget', 'countries', 'primaryText', 'headline'],
   };
 }
 
