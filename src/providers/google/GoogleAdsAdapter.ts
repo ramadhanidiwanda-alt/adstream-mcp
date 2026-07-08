@@ -10,6 +10,7 @@ import type {
   AdCreativeMappingResult,
   ImageUploadResult,
   VideoUploadResult,
+  AccountInfoResult,
 } from '../../broker/types.js';
 import { ADS_PROVIDER_CAPABILITY_MATRIX } from '../../broker/types.js';
 import { redactErrorMessage } from '../../broker/credentials.js';
@@ -121,6 +122,10 @@ export class GoogleAdsAdapter implements AdsProviderAdapter {
 
   async uploadVideo(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<VideoUploadResult>> {
     return this.notImplemented('Google Ads video upload is not implemented yet');
+  }
+
+  async getAccountInfo(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<AccountInfoResult>> {
+    return this.notImplemented('Google Ads account info is not implemented yet');
   }
 
   private async getPerformance(
