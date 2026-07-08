@@ -135,6 +135,7 @@ describe('ads MCP broker tools', () => {
       'ads_get_ad_creative_mapping',
       'ads_upload_image',
       'ads_upload_video',
+      'ads_get_account_info',
     ]);
     expect(legacyToolNames).toContain('meta_get_campaign_insights');
     expect(legacyToolNames).toContain('meta_get_ads_insights');

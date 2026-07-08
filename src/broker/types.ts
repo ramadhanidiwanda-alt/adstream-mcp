@@ -636,6 +636,24 @@ export interface VideoUploadResult {
   warnings?: string[];
 }
 
+export interface AccountInfoResult {
+  id: string;
+  name: string;
+  currency: string;
+  timezone_name: string;
+  timezone_offset: number;
+  account_status: number;
+  account_status_label: string;
+  balance: number;
+  amount_spent: number;
+  spending_limit: number | null;
+  business_name?: string;
+  business_city?: string;
+  business_country?: string;
+  min_daily_budget?: number;
+  disable_reason?: number;
+}
+
 export interface AdsProviderAdapter {
   id: AdsProviderId;
   displayName: string;
@@ -659,6 +677,7 @@ export interface AdsProviderAdapter {
   createEcommerceCampaignBundle(request: AdsBrokerRequest): Promise<AdsBrokerResponse<EcommerceCampaignBundleResult>>;
   uploadImage(request: AdsBrokerRequest): Promise<AdsBrokerResponse<ImageUploadResult>>;
   uploadVideo(request: AdsBrokerRequest): Promise<AdsBrokerResponse<VideoUploadResult>>;
+  getAccountInfo(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AccountInfoResult>>;
 }
 
 export interface AdsToolDefinition {
