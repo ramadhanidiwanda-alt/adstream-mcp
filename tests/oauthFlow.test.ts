@@ -396,6 +396,43 @@ describe('GET /authorize endpoint', () => {
     expect(html).not.toContain('secret');
   });
 
+  it('renders return_to as hidden context when provided', async () => {
+    const challenge = pkceChallenge(randomString());
+    const returnTo = 'https://chatgpt.com/apps#settings/Connectors?connector=asdk_app_123&show-settings-behind-connector-link=true';
+    const params = new URLSearchParams({
+      response_type: 'code', client_id: 'test-client',
+      redirect_uri: 'https://claude.ai/api/mcp/auth_callback',
+      code_challenge: challenge, code_challenge_method: 'S256',
+      state: 'test-state-123', scope: 'mcp read',
+      return_to: returnTo,
+    });
+
+    const res = await fetch(`http://127.0.0.1:${ctx.port}/authorize?${params}`);
+    const html = await res.text();
+
+    expect(res.status).toBe(200);
+    expect(html).toContain('name="return_to"');
+    expect(html).toContain('https://chatgpt.com/apps#settings/Connectors?connector=asdk_app_123&amp;show-settings-behind-connector-link=true');
+  });
+
+  it('rejects unsafe return_to query params', async () => {
+    const challenge = pkceChallenge(randomString());
+    const params = new URLSearchParams({
+      response_type: 'code', client_id: 'test-client',
+      redirect_uri: 'https://claude.ai/api/mcp/auth_callback',
+      code_challenge: challenge, code_challenge_method: 'S256',
+      state: 'test-state-123', scope: 'mcp read',
+      return_to: 'http://chatgpt.com/apps',
+    });
+
+    const res = await fetch(`http://127.0.0.1:${ctx.port}/authorize?${params}`);
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toBe('invalid_request');
+    expect(body.error_description).toContain('return_to');
+  });
+
   it('returns 400 for missing required params', async () => {
     const res = await fetch(`http://127.0.0.1:${ctx.port}/authorize`);
     const body = await res.json();
@@ -429,6 +466,7 @@ describe('Full authorize + token flow', () => {
   /** Helper: run full authorize flow and return the redirect location + code verifier */
   async function doAuthorize(params?: Partial<{
     clientId: string; redirectUri: string; state: string; scope: string;
+    returnTo: string;
     connectionKey: string;
   }>): Promise<{ location: string; codeVerifier: string }> {
     const verifier = randomString();
@@ -444,6 +482,10 @@ describe('Full authorize + token flow', () => {
       scope: params?.scope ?? 'mcp read',
       connection_key: params?.connectionKey ?? 'ck_test_key',
     });
+
+    if (params?.returnTo) {
+      formBody.set('return_to', params.returnTo);
+    }
 
     const res = await fetch(`http://127.0.0.1:${ctx.port}/authorize`, {
       method: 'POST',
@@ -500,8 +542,8 @@ describe('Full authorize + token flow', () => {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: formBody.toString(),
     });
-    const body = await res.json();
     expect(res.status).toBe(400);
+    const body = await res.json();
     expect(body.error).toBe('invalid_request');
   });
 
@@ -513,6 +555,40 @@ describe('Full authorize + token flow', () => {
     const url = new URL(location);
     expect(url.origin).toBe('https://claude.ai');
     expect(url.pathname).toBe('/api/mcp/auth_callback');
+  });
+
+  it('preserves return_to context on success', async () => {
+    const returnTo = 'https://chatgpt.com/apps#settings/Connectors?connector=asdk_app_123&show-settings-behind-connector-link=true';
+    const { location } = await doAuthorize({ returnTo });
+
+    const url = new URL(location);
+    expect(url.origin).toBe('https://claude.ai');
+    expect(url.pathname).toBe('/api/mcp/auth_callback');
+    expect(url.searchParams.get('return_to')).toBe(returnTo);
+  });
+
+  it('rejects unsafe return_to context', async () => {
+    const challenge = pkceChallenge(randomString());
+    const formBody = new URLSearchParams({
+      response_type: 'code', client_id: 'test-client',
+      redirect_uri: 'https://claude.ai/api/mcp/auth_callback',
+      code_challenge: challenge, code_challenge_method: 'S256',
+      state: 'test-state', scope: 'mcp read',
+      connection_key: 'ck_test_key',
+      return_to: 'javascript:alert(1)',
+    });
+
+    const res = await fetch(`http://127.0.0.1:${ctx.port}/authorize`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: formBody.toString(),
+      redirect: 'manual',
+    });
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toBe('invalid_request');
+    expect(body.error_description).toContain('return_to');
   });
 
   it('returns access token for valid authorization code', async () => {
