@@ -38,6 +38,11 @@ export type {
   MetaEcommerceCallToActionType,
 } from './tools/createEcommerceCampaignBundle.js';
 
+export { uploadImage } from './tools/uploadImage.js';
+export type { UploadImageOptions, UploadImageResult } from './tools/uploadImage.js';
+export { uploadVideo } from './tools/uploadVideo.js';
+export type { UploadVideoOptions, UploadVideoResult } from './tools/uploadVideo.js';
+
 // --- Mutation Tools ---
 export { pauseCampaign } from './tools/pauseCampaign.js';
 export type * from './tools/pauseCampaign.js';
