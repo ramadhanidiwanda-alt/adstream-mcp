@@ -17,6 +17,8 @@ import type {
   PermissionPolicy,
   VideoSourceResult,
   AdCreativeMappingResult,
+  ImageUploadResult,
+  VideoUploadResult,
 } from './types.js';
 import { defaultDenyWritePermissionPolicy, isAdsProviderId } from './types.js';
 import type { CredentialResolverContract } from './credentials.js';
@@ -50,7 +52,9 @@ type AdapterWriteMethod =
   | 'resumeCampaign'
   | 'updateCampaignBudget'
   | 'renameCampaign'
-  | 'createEcommerceCampaignBundle';
+  | 'createEcommerceCampaignBundle'
+  | 'uploadImage'
+  | 'uploadVideo';
 
 export class AdsBroker {
   private readonly providerRegistry: ProviderRegistry;
@@ -306,7 +310,15 @@ export class AdsBroker {
     return this.executeWrite<EcommerceCampaignBundleResult>(request, 'createEcommerceCampaignBundle');
   }
 
-  private async executeWrite<TData extends AdsMutationResult | EcommerceCampaignBundleResult>(
+  uploadImage(request: AdsBrokerRequest): Promise<AdsBrokerResponse<ImageUploadResult>> {
+    return this.executeWrite<ImageUploadResult>(request, 'uploadImage');
+  }
+
+  uploadVideo(request: AdsBrokerRequest): Promise<AdsBrokerResponse<VideoUploadResult>> {
+    return this.executeWrite<VideoUploadResult>(request, 'uploadVideo');
+  }
+
+  private async executeWrite<TData extends AdsMutationResult | EcommerceCampaignBundleResult | ImageUploadResult | VideoUploadResult>(
     request: AdsBrokerRequest,
     method: AdapterWriteMethod
   ): Promise<AdsBrokerResponse<TData>> {

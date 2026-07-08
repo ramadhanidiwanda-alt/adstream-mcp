@@ -1,4 +1,6 @@
 import type { MetaClient } from '../metaClient.js';
+import { uploadImage } from './uploadImage.js';
+import { uploadVideo } from './uploadVideo.js';
 
 export type EcommerceLaunchStatus = 'dry_run' | 'pending_confirmation' | 'executed' | 'failed';
 export type MetaEcommerceCallToActionType = 'SHOP_NOW' | 'LEARN_MORE' | 'SIGN_UP' | 'GET_OFFER';
@@ -19,6 +21,8 @@ export interface EcommerceCampaignBundlePayload {
   description?: string;
   imageHash?: string;
   videoId?: string;
+  imageFilePath?: string;
+  videoFilePath?: string;
   callToActionType?: MetaEcommerceCallToActionType;
   bidStrategy?: 'LOWEST_COST_WITHOUT_CAP' | 'LOWEST_COST_WITH_BID_CAP' | 'COST_CAP';
   billingEvent?: 'IMPRESSIONS';
@@ -86,6 +90,12 @@ export async function createEcommerceCampaignBundle(
     warnings: [
       'All entities are created as PAUSED by default; review in Meta Ads Manager before publishing.',
       'This ecommerce MVP optimizes for the PURCHASE pixel event using OUTCOME_SALES.',
+      ...(payload.imageFilePath?.trim()
+        ? [`Will upload image file: ${payload.imageFilePath.trim().split('/').pop() || payload.imageFilePath.trim()}`]
+        : []),
+      ...(payload.videoFilePath?.trim()
+        ? [`Will upload video file: ${payload.videoFilePath.trim().split('/').pop() || payload.videoFilePath.trim()}`]
+        : []),
     ],
   };
 
@@ -113,9 +123,49 @@ export async function createEcommerceCampaignBundle(
     const adSet = await client.metaPost<MetaIdResponse>(`${accountPath}/adsets`, adSetPayload, maxRetries);
     const adSetId = requireCreatedId(adSet, 'ad set');
 
+    // Auto-upload file if filePath is provided instead of hash/ID
+    const creativePayload = { ...preview.creative };
+    if (payload.imageFilePath?.trim() && !payload.imageHash?.trim()) {
+      const uploadResult = await uploadImage(client, {
+        adAccountId: payload.adAccountId,
+        filePath: payload.imageFilePath.trim(),
+        maxRetries,
+      });
+      if (uploadResult.status === 'failed' || !uploadResult.image_hash) {
+        return {
+          ...baseResult,
+          status: 'failed' as const,
+          error: `Image upload failed: ${uploadResult.error ?? 'unknown error'}`,
+        };
+      }
+      // Inject image_hash into creative link_data
+      if (creativePayload.object_story_spec) {
+        const linkData = (creativePayload.object_story_spec as Record<string, unknown>).link_data as Record<string, unknown> | undefined;
+        if (linkData) {
+          linkData.image_hash = uploadResult.image_hash;
+        }
+      }
+    } else if (payload.videoFilePath?.trim() && !payload.videoId?.trim()) {
+      const uploadResult = await uploadVideo(client, {
+        adAccountId: payload.adAccountId,
+        filePath: payload.videoFilePath.trim(),
+        maxRetries,
+      });
+      if (uploadResult.status === 'failed' || !uploadResult.video_id) {
+        return {
+          ...baseResult,
+          status: 'failed' as const,
+          error: `Video upload failed: ${uploadResult.error ?? 'unknown error'}`,
+        };
+      }
+      // For video creative, the object_story_spec uses video_data instead of link_data
+      // This is handled by the caller providing the correct spec; for MVP link_data,
+      // video is referenced by video_id but not used in link_data.image_hash
+    }
+
     const creative = await client.metaPost<MetaIdResponse>(
       `${accountPath}/adcreatives`,
-      preview.creative,
+      creativePayload,
       maxRetries
     );
     const creativeId = requireCreatedId(creative, 'creative');
@@ -160,6 +210,12 @@ function buildPreview(payload: EcommerceCampaignBundlePayload): EcommerceCampaig
   if (payload.description?.trim()) linkData.description = payload.description.trim();
   if (payload.imageHash?.trim()) linkData.image_hash = payload.imageHash.trim();
 
+  const creativePreviewName = payload.imageFilePath?.trim()
+    ? `${payload.adName.trim()} Creative (will upload: ${payload.imageFilePath.trim().split('/').pop() || payload.imageFilePath.trim()})`
+    : payload.videoFilePath?.trim()
+      ? `${payload.adName.trim()} Creative (will upload: ${payload.videoFilePath.trim().split('/').pop() || payload.videoFilePath.trim()})`
+      : `${payload.adName.trim()} Creative`;
+
   const objectStorySpec: Record<string, unknown> = {
     page_id: payload.pageId.trim(),
     link_data: linkData,
@@ -196,7 +252,7 @@ function buildPreview(payload: EcommerceCampaignBundlePayload): EcommerceCampaig
       },
     },
     creative: {
-      name: `${payload.adName.trim()} Creative`,
+      name: creativePreviewName,
       object_story_spec: objectStorySpec,
     },
     ad: {
@@ -225,8 +281,8 @@ function validatePayload(payload: EcommerceCampaignBundlePayload): void {
     throw new Error('countries must include at least one ISO country code');
   }
 
-  if (!payload.imageHash?.trim() && !payload.videoId?.trim()) {
-    throw new Error('imageHash or videoId is required for the launch creative');
+  if (!payload.imageHash?.trim() && !payload.videoId?.trim() && !payload.imageFilePath?.trim() && !payload.videoFilePath?.trim()) {
+    throw new Error('imageHash, videoId, imageFilePath, or videoFilePath is required for the launch creative');
   }
 
   try {

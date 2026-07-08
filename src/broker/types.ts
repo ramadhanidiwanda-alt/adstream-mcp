@@ -618,6 +618,24 @@ export interface VideoSourceResult {
   thumbnail_url?: string;
 }
 
+export interface ImageUploadResult {
+  operation: 'upload_image';
+  status: 'executed' | 'failed';
+  image_hash?: string;
+  url?: string;
+  filename?: string;
+  error?: string;
+}
+
+export interface VideoUploadResult {
+  operation: 'upload_video';
+  status: 'uploading' | 'executed' | 'failed';
+  video_id?: string;
+  title?: string;
+  error?: string;
+  warnings?: string[];
+}
+
 export interface AdsProviderAdapter {
   id: AdsProviderId;
   displayName: string;
@@ -639,6 +657,8 @@ export interface AdsProviderAdapter {
   updateCampaignBudget(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>>;
   renameCampaign(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>>;
   createEcommerceCampaignBundle(request: AdsBrokerRequest): Promise<AdsBrokerResponse<EcommerceCampaignBundleResult>>;
+  uploadImage(request: AdsBrokerRequest): Promise<AdsBrokerResponse<ImageUploadResult>>;
+  uploadVideo(request: AdsBrokerRequest): Promise<AdsBrokerResponse<VideoUploadResult>>;
 }
 
 export interface AdsToolDefinition {
