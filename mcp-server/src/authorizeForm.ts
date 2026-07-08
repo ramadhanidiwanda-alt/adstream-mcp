@@ -17,6 +17,7 @@ export interface AuthorizeFormParams {
   scope: string;
   error?: string;
   resource?: string;
+  returnTo?: string;
 }
 
 function escapeHtml(str: string): string {
@@ -141,6 +142,7 @@ export function renderAuthorizeForm(params: AuthorizeFormParams): string {
       <input type="hidden" name="state" value="${escapeHtml(params.state)}" />
       <input type="hidden" name="scope" value="${escapeHtml(params.scope)}" />
       ${params.resource ? `<input type="hidden" name="resource" value="${escapeHtml(params.resource)}" />` : ''}
+      ${params.returnTo ? `<input type="hidden" name="return_to" value="${escapeHtml(params.returnTo)}" />` : ''}
       <button type="submit">Authorize</button>
     </form>
     <div class="scope-info">Scopes yang diminta: ${escapeHtml(params.scope)}</div>

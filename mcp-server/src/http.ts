@@ -381,6 +381,15 @@ function handleWellKnownProtectedResource(
   });
 }
 
+function isSafeReturnToUrl(returnTo: string): boolean {
+  try {
+    const parsed = new URL(returnTo);
+    return parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
 async function handleGetAuthorize(
   req: IncomingMessage,
   res: ServerResponse,
@@ -395,6 +404,7 @@ async function handleGetAuthorize(
   const state = url.searchParams.get('state');
   const scope = url.searchParams.get('scope');
   const resource = url.searchParams.get('resource') || undefined;
+  const returnTo = url.searchParams.get('return_to') || undefined;
 
   oauthDebug('authorize.get.start', {
     client_id_prefix: clientId?.slice(0, 8) ?? 'none',
@@ -402,6 +412,7 @@ async function handleGetAuthorize(
     has_response_type: !!responseType,
     has_scope: !!scope,
     has_resource: !!resource,
+    has_return_to: !!returnTo,
     has_state: !!state,
     has_code_challenge: !!codeChallenge,
     has_code_challenge_method: !!codeChallengeMethod,
@@ -417,6 +428,7 @@ async function handleGetAuthorize(
   if (codeChallengeMethod && codeChallengeMethod !== 'S256') errors.push('Only S256 code_challenge_method is supported');
   if (!state) errors.push('state required');
   if (!scope) errors.push('scope required');
+  if (returnTo && !isSafeReturnToUrl(returnTo)) errors.push('return_to must be an absolute https URL');
 
   if (errors.length > 0) {
     writeJson(res, 400, { error: 'invalid_request', error_description: errors.join('; ') });
@@ -449,6 +461,7 @@ async function handleGetAuthorize(
     state: state!,
     scope: scope!,
     resource,
+    returnTo,
   });
 
   oauthDebug('authorize.get.success', {
@@ -479,12 +492,14 @@ async function handlePostAuthorize(
   const scope = params.get('scope');
   const connectionKey = params.get('connection_key');
   const resource = params.get('resource') || undefined;
+  const returnTo = params.get('return_to') || undefined;
 
   oauthDebug('authorize.post.start', {
     client_id_prefix: clientId?.slice(0, 8) ?? 'none',
     redirect_uri_host: redirectUri ? (() => { try { return new URL(redirectUri).host; } catch { return 'invalid'; } })() : 'none',
     has_connection_key: !!connectionKey,
     has_resource: !!resource,
+    has_return_to: !!returnTo,
     has_state: !!state,
     has_code_challenge: !!codeChallenge,
   }, env);
@@ -500,6 +515,7 @@ async function handlePostAuthorize(
   if (!state) errors.push('state required');
   if (!scope) errors.push('scope required');
   if (!connectionKey) errors.push('connection_key required');
+  if (returnTo && !isSafeReturnToUrl(returnTo)) errors.push('return_to must be an absolute https URL');
 
   if (errors.length > 0) {
     writeJson(res, 400, { error: 'invalid_request', error_description: errors.join('; ') });
@@ -548,6 +564,7 @@ async function handlePostAuthorize(
       state: state!,
       scope: scope!,
       resource: params.get('resource') || undefined,
+      returnTo,
       error: 'Connection Key tidak valid atau sudah dicabut.',
     });
     writeHtml(res, 200, html);
@@ -562,6 +579,7 @@ async function handlePostAuthorize(
   oauthDebug('authorize.post.connection_key_valid', {
     client_id_prefix: clientId?.slice(0, 8) ?? 'none',
     has_resource: !!resource,
+    has_return_to: !!returnTo,
     has_connection_key_id: !!keyValidation.connectionKeyId,
     driver: isSupabaseDriver ? 'supabase' : 'memory',
   }, env);
@@ -596,12 +614,16 @@ async function handlePostAuthorize(
   const redirectUrl = new URL(redirectUri!);
   redirectUrl.searchParams.set('code', code);
   redirectUrl.searchParams.set('state', state!);
+  if (returnTo) {
+    redirectUrl.searchParams.set('return_to', returnTo);
+  }
 
   oauthDebug('authorize.post.redirect', {
     client_id_prefix: clientId?.slice(0, 8) ?? 'none',
     redirect_uri_scheme_host: `${redirectUrl.protocol}//${redirectUrl.host}`,
     has_code: true,
     has_state: true,
+    has_return_to: !!returnTo,
   }, env);
 
   res.writeHead(302, { Location: redirectUrl.toString() });
