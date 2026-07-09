@@ -40,10 +40,34 @@ Ask one question at a time until all required fields are known:
 ## Launch Modes
 
 | Mode | Allowed behavior |
-|---|---|
+|------|------------------|
 | `draft_only` | Prepare structure and copy, no tool call |
-| `dry_run_launch` | Call `ads_create_ecommerce_campaign_bundle` with `dryRun: true` |
-| `execute_after_confirmation` | Call the same tool with `dryRun: false` and `confirmed: true` only after the user approves the dry-run preview |
+| `dry_run_launch` | Call individual create tools with `dryRun: true` or use `ads_create_ecommerce_campaign_bundle` with `dryRun: true` |
+| `execute_after_confirmation` | Execute the confirmed tools with `dryRun: false` and `confirmed: true` only after the user approves the dry-run preview |
+
+## Launch Paths
+
+### Path A — Bundle Tool (Quickest)
+
+Use `ads_create_ecommerce_campaign_bundle` when the user has all inputs ready. This creates campaign + ad set + creative + ad in one call:
+
+1. Dry-run with `dryRun: true`
+2. Show the full preview
+3. Execute with `dryRun: false, confirmed: true`
+
+### Path B — Individual Tools (For Custom Setups)
+
+When you need fine-grained control (e.g., reuse an existing creative, use a specific ad set):
+
+1. `ads_create_campaign` — create campaign (PAUSED)
+2. `ads_create_adset` — create ad set under the campaign (PAUSED). Pre-flight checks will validate CBO/bid strategy against the campaign.
+3. If using a local file: `ads_upload_image` or `ads_upload_video` — upload media first
+4. `ads_create_adcreative` — create creative using uploaded hash/video ID
+5. `ads_create_ad` — link ad set and creative
+6. Show summary of all created entities
+7. User can later activate by setting status to ACTIVE via update tools
+
+**Pre-flight reminder:** When creating an ad set, the tool will automatically check the parent campaign's bid strategy. If the campaign uses `COST_CAP` or `LOWEST_COST_WITH_BID_CAP`, you must provide `bidAmount` (in cents). Example: `bidAmount: 500000` for Rp5.000.
 
 ## Dry-Run Checklist
 

@@ -20,6 +20,10 @@ export const ADS_MCP_TOOL_NAMES = [
   'ads_generate_report',
   'ads_pause_campaign',
   'ads_resume_campaign',
+  'ads_pause_adset',
+  'ads_resume_adset',
+  'ads_pause_ad',
+  'ads_resume_ad',
   'ads_update_campaign_budget',
   'ads_rename_campaign',
   'ads_create_campaign',
@@ -353,14 +357,11 @@ function callBrokerMethod(
       return broker.uploadImage(request);
     case 'ads_upload_video':
       return broker.uploadVideo(request);
-    case 'ads_get_account_info':
-      return broker.getAccountInfo(request);
-    case 'ads_list_adimages':
-      return broker.listAdImages(request);
-    case 'ads_list_advideos':
-      return broker.listAdVideos(request);
-    case 'ads_get_ad_preview':
-      return broker.getAdPreview(request);
+    default:
+      return Promise.resolve({
+        ok: false,
+        errors: [{ code: 'UNSUPPORTED_OPERATION', message: `'${name}' is not implemented through the broker yet` }],
+      });
   }
 }
 
@@ -847,6 +848,9 @@ function createCreateAdSetInputSchema() {
       attributionSpec: { type: 'array', description: 'Attribution window spec. Example: [{ event_type: "CLICK_THROUGH", window_days: 7 }]' },
       frequencyControlSpecs: { type: 'array', description: 'Frequency cap specs. Example: [{ event: "IMPRESSIONS", interval_days: 7, max_frequency: 3 }]' },
       isDynamicCreative: { type: 'boolean', description: 'Enable Dynamic Creative for this ad set.' },
+      dsaBeneficiary: { type: 'string', description: 'DSA beneficiary for European compliance (person/org that benefits from ads).' },
+      dsaPayor: { type: 'string', description: 'DSA payor for European compliance (person/org paying for the ads).' },
+      multiAdvertiserAds: { type: 'number', description: 'Multi-Advertiser Ads opt-in (1) or opt-out (0).' },
       dryRun: { type: 'boolean', description: 'Defaults to true. Set false only after preview.' },
       confirmed: { type: 'boolean', description: 'Must be true to execute after preview.' },
     },
