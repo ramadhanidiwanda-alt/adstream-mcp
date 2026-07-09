@@ -130,12 +130,22 @@ describe('ads MCP broker tools', () => {
       'ads_resume_campaign',
       'ads_update_campaign_budget',
       'ads_rename_campaign',
+      'ads_create_campaign',
+      'ads_create_adset',
+      'ads_create_adcreative',
+      'ads_create_ad',
+      'ads_archive_ad',
+      'ads_update_adset',
+      'ads_get_targeting_options',
       'ads_create_ecommerce_campaign_bundle',
       'ads_get_video_source',
       'ads_get_ad_creative_mapping',
       'ads_upload_image',
       'ads_upload_video',
       'ads_get_account_info',
+      'ads_list_adimages',
+      'ads_list_advideos',
+      'ads_get_ad_preview',
     ]);
     expect(legacyToolNames).toContain('meta_get_campaign_insights');
     expect(legacyToolNames).toContain('meta_get_ads_insights');

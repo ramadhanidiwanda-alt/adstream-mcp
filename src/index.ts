@@ -38,6 +38,27 @@ export type {
   MetaEcommerceCallToActionType,
 } from './tools/createEcommerceCampaignBundle.js';
 
+export { createCampaign } from './tools/createCampaign.js';
+export type { CreateCampaignOptions, CreateCampaignResult, CreateCampaignStatus, CampaignStatus, MetaCampaignObjective } from './tools/createCampaign.js';
+
+export { createAdSet } from './tools/createAdSet.js';
+export type { CreateAdSetOptions, CreateAdSetResult, CreateAdSetStatus, AdSetStatus, AdSetTargeting, BillingEvent, OptimizationGoal } from './tools/createAdSet.js';
+
+export { createAdCreative } from './tools/createAdCreative.js';
+export type { CreateAdCreativeOptions, CreateAdCreativeResult, CreateAdCreativeStatus, CreativeStatus } from './tools/createAdCreative.js';
+
+export { createAd } from './tools/createAd.js';
+export type { CreateAdOptions, CreateAdResult, CreateAdStatus, AdStatus } from './tools/createAd.js';
+
+export { archiveAd } from './tools/archiveAd.js';
+export type { ArchiveAdOptions, ArchiveAdResult } from './tools/archiveAd.js';
+
+export { updateAdSet } from './tools/updateAdSet.js';
+export type { UpdateAdSetOptions, UpdateAdSetResult, UpdateAdSetStatus } from './tools/updateAdSet.js';
+
+export { getTargetingOptions } from './tools/getTargetingOptions.js';
+export type { GetTargetingOptionsOptions, GetTargetingOptionsResult, TargetingOption, TargetingOptionType } from './tools/getTargetingOptions.js';
+
 export { uploadImage } from './tools/uploadImage.js';
 export type { UploadImageOptions, UploadImageResult } from './tools/uploadImage.js';
 export { uploadVideo } from './tools/uploadVideo.js';
@@ -45,6 +66,13 @@ export type { UploadVideoOptions, UploadVideoResult } from './tools/uploadVideo.
 
 export { getAccountInfo } from './tools/getAccountInfo.js';
 export type { GetAccountInfoOptions } from './tools/getAccountInfo.js';
+
+export { listAdImages } from './tools/listAdImages.js';
+export type { ListAdImagesOptions } from './tools/listAdImages.js';
+export { listAdVideos } from './tools/listAdVideos.js';
+export type { ListAdVideosOptions } from './tools/listAdVideos.js';
+export { getAdPreview } from './tools/getAdPreview.js';
+export type { GetAdPreviewOptions, AdPreviewFormat } from './tools/getAdPreview.js';
 
 // --- Mutation Tools ---
 export { pauseCampaign } from './tools/pauseCampaign.js';
@@ -70,7 +98,7 @@ export type * from './analysis/analyzePlacementPerformance.js';
 
 export { parseActionValue, parseActionValueFromValues } from './utils/parseActions.js';
 export { formatCurrency, formatNumber } from './utils/formatCurrency.js';
-export { normalizeAccountId } from './utils/normalizeAccountId.js';
+export { normalizeAccountId, normalizeAccountPath } from './utils/normalizeAccountId.js';
 export {
   normalizeLocationBreakdowns,
   assertLocationBreakdowns,
@@ -81,6 +109,9 @@ export type * from './types.js';
 export {
   VideoSourceResult,
   AdCreativeMappingResult,
+  AdImageResult,
+  AdVideoResult,
+  AdPreviewResult,
   ADS_PROVIDER_IDS,
   ADS_ENTITY_LEVELS,
   ADS_OPERATION_KINDS,
