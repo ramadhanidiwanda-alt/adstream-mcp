@@ -1,5 +1,5 @@
 import type { AdsBroker } from './AdsBroker.js';
-import type { AdsBrokerRequest, AdsBrokerResponse, AdsEntityLevel, AdsMetricRecord, AdsMutationResult, AdsPerformanceEnvelope, AdsProviderId } from './types.js';
+import type { AdsBrokerRequest, AdsBrokerResponse, AdsEntityLevel, AdsMetricRecord, AdsMutationResult, AdsPerformanceEnvelope, AdsProviderId, ArchiveAdResult, CreateAdCreativeResult, CreateAdResult, CreateAdSetResult, CreateCampaignResult, GetTargetingOptionsResult, UpdateAdSetResult } from './types.js';
 import { ADS_ENTITY_LEVELS, ADS_PROVIDER_IDS, isAdsProviderId } from './types.js';
 import { redactErrorMessage, redactTokenLikeValues } from './credentials.js';
 
@@ -22,12 +22,22 @@ export const ADS_MCP_TOOL_NAMES = [
   'ads_resume_campaign',
   'ads_update_campaign_budget',
   'ads_rename_campaign',
+  'ads_create_campaign',
+  'ads_create_adset',
+  'ads_create_adcreative',
+  'ads_create_ad',
+  'ads_archive_ad',
+  'ads_update_adset',
+  'ads_get_targeting_options',
   'ads_create_ecommerce_campaign_bundle',
   'ads_get_video_source',
   'ads_get_ad_creative_mapping',
   'ads_upload_image',
   'ads_upload_video',
   'ads_get_account_info',
+  'ads_list_adimages',
+  'ads_list_advideos',
+  'ads_get_ad_preview',
 ] as const;
 
 export type AdsMcpToolName = (typeof ADS_MCP_TOOL_NAMES)[number];
@@ -124,6 +134,41 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
     inputSchema: createWriteInputSchema(['campaignId', 'newName']),
   },
   {
+    name: 'ads_create_campaign',
+    description: 'Create a Meta ad campaign with a specified objective. Dry-run by default. Set dryRun=false and confirmed=true to execute. Campaign is created PAUSED by default.',
+    inputSchema: createCreateCampaignInputSchema(),
+  },
+  {
+    name: 'ads_create_adset',
+    description: 'Create a Meta ad set under an existing campaign. Dry-run by default. Set dryRun=false and confirmed=true to execute. Ad set is created PAUSED by default.',
+    inputSchema: createCreateAdSetInputSchema(),
+  },
+  {
+    name: 'ads_create_adcreative',
+    description: 'Create a Meta ad creative with image/video, headline, body, and CTA. Dry-run by default. Set dryRun=false and confirmed=true to execute.',
+    inputSchema: createCreateAdCreativeInputSchema(),
+  },
+  {
+    name: 'ads_create_ad',
+    description: 'Create a Meta ad by linking an existing ad set to an existing creative. Dry-run by default. Set dryRun=false and confirmed=true to execute. Ad is created PAUSED by default.',
+    inputSchema: createCreateAdInputSchema(),
+  },
+  {
+    name: 'ads_archive_ad',
+    description: 'Archive (soft-delete) a Meta ad. Sets status to ARCHIVED. Irreversible via API.',
+    inputSchema: createArchiveAdInputSchema(),
+  },
+  {
+    name: 'ads_update_adset',
+    description: 'Update an existing Meta ad set (name, budget, targeting, status). Dry-run by default. Set dryRun=false and confirmed=true to execute.',
+    inputSchema: createUpdateAdSetInputSchema(),
+  },
+  {
+    name: 'ads_get_targeting_options',
+    description: 'Search Meta targeting options (interests, behaviors, demographics) for ad set creation.',
+    inputSchema: createGetTargetingOptionsInputSchema(),
+  },
+  {
     name: 'ads_create_ecommerce_campaign_bundle',
     description: 'Create a PAUSED Meta ecommerce sales campaign bundle (campaign, ad set, creative, ad) after dry-run preview and explicit confirmation.',
     inputSchema: createEcommerceLaunchInputSchema(),
@@ -152,6 +197,21 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
     name: 'ads_get_account_info',
     description: 'Get detailed information about a Meta Ads account. Returns account name, currency, timezone, balance, spending limit, amount spent, account status, and business info.',
     inputSchema: createAdsInputSchema([]),
+  },
+  {
+    name: 'ads_list_adimages',
+    description: 'List images from the Meta Ads Image Library. Returns image hash, URL, dimensions, name, and creatives count. Calls GET /act_{id}/adimages.',
+    inputSchema: createAdsInputSchema([]),
+  },
+  {
+    name: 'ads_list_advideos',
+    description: 'List videos from the Meta Ads Video Library (paginated). Returns video ID, title, source URL, status, file size, and thumbnail. Calls GET /act_{id}/advideos. Supports params: limit, cursor.',
+    inputSchema: createAdsInputSchema([]),
+  },
+  {
+    name: 'ads_get_ad_preview',
+    description: 'Get a preview URL for a Meta ad creative in a specific ad format. Returns preview URL, platform, and ad format. Calls GET /{creative_id}/previews. Required params: creativeId, adFormat (enum: DESKTOP_FEED, MOBILE_FEED, INSTAGRAM_FEED, INSTAGRAM_EXPLORE, INSTAGRAM_REELS, INSTAGRAM_STORIES, FACEBOOK_STORIES, MESSENGER_INBOX, MARKETPLACE, REWARDS_PLATFORM, FACEBOOK_REELS).',
+    inputSchema: createPreviewInputSchema(),
   },
 ] as const;
 
@@ -269,6 +329,20 @@ function callBrokerMethod(
       return broker.updateCampaignBudget(request);
     case 'ads_rename_campaign':
       return broker.renameCampaign(request);
+    case 'ads_create_campaign':
+      return broker.createCampaign(request);
+    case 'ads_create_adset':
+      return broker.createAdSet(request);
+    case 'ads_create_adcreative':
+      return broker.createAdCreative(request);
+    case 'ads_create_ad':
+      return broker.createAd(request);
+    case 'ads_archive_ad':
+      return broker.archiveAd(request);
+    case 'ads_update_adset':
+      return broker.updateAdSet(request);
+    case 'ads_get_targeting_options':
+      return broker.getTargetingOptions(request);
     case 'ads_create_ecommerce_campaign_bundle':
       return broker.createEcommerceCampaignBundle(request);
     case 'ads_get_video_source':
@@ -281,6 +355,12 @@ function callBrokerMethod(
       return broker.uploadVideo(request);
     case 'ads_get_account_info':
       return broker.getAccountInfo(request);
+    case 'ads_list_adimages':
+      return broker.listAdImages(request);
+    case 'ads_list_advideos':
+      return broker.listAdVideos(request);
+    case 'ads_get_ad_preview':
+      return broker.getAdPreview(request);
   }
 }
 
@@ -614,6 +694,274 @@ function createUploadInputSchema(required: string[]) {
       },
     },
     required,
+  };
+}
+
+function createPreviewInputSchema() {
+  const schema = createAdsInputSchema([]);
+
+  return {
+    type: 'object',
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      creativeId: {
+        type: 'string',
+        description: 'The creative ID to generate a preview for.',
+      },
+      adFormat: {
+        type: 'string',
+        enum: [
+          'DESKTOP_FEED',
+          'MOBILE_FEED',
+          'INSTAGRAM_FEED',
+          'INSTAGRAM_EXPLORE',
+          'INSTAGRAM_REELS',
+          'INSTAGRAM_STORIES',
+          'FACEBOOK_STORIES',
+          'MESSENGER_INBOX',
+          'MARKETPLACE',
+          'REWARDS_PLATFORM',
+          'FACEBOOK_REELS',
+        ],
+        description: 'The ad format/platform to preview on.',
+      },
+    },
+    required: ['creativeId', 'adFormat'],
+  };
+}
+
+function createCreateCampaignInputSchema() {
+  const schema = createAdsInputSchema([]);
+
+  return {
+    type: 'object',
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      name: { type: 'string', description: 'Campaign name.' },
+      objective: {
+        type: 'string',
+        enum: [
+          'OUTCOME_SALES', 'OUTCOME_TRAFFIC', 'OUTCOME_ENGAGEMENT',
+          'OUTCOME_LEADS', 'OUTCOME_AWARENESS', 'OUTCOME_APP_PROMOTION',
+          'OUTCOME_CONVERSATIONS', 'OUTCOME_RESHARES', 'OUTCOME_VALUE',
+          'OUTCOME_VIDEO_VIEWS', 'OUTCOME_POST_ENGAGEMENT',
+          'OUTCOME_LANDING_PAGE_VIEWS', 'OUTCOME_REACH',
+          'OUTCOME_MESSAGES', 'OUTCOME_THRUPLAY',
+        ],
+        description: 'Campaign objective.',
+      },
+      status: {
+        type: 'string',
+        enum: ['ACTIVE', 'PAUSED'],
+        description: 'Campaign status. Defaults to PAUSED.',
+      },
+      specialAdCategories: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'Meta special ad categories (e.g. CREDIT, EMPLOYMENT, HOUSING, SOCIAL_ISSUES_ELECTIONS).',
+      },
+      buyType: {
+        type: 'string',
+        enum: ['AUCTION', 'RESERVED'],
+        description: 'Buying type. Defaults to AUCTION.',
+      },
+      dailyBudget: {
+        type: 'number',
+        description: 'Daily budget in local currency minor units (e.g. 50000 for Rp50,000).',
+      },
+      lifetimeBudget: {
+        type: 'number',
+        description: 'Lifetime budget in local currency minor units.',
+      },
+      bidStrategy: {
+        type: 'string',
+        description: 'Bid strategy (e.g. LOWEST_COST_WITHOUT_CAP).',
+      },
+      dryRun: {
+        type: 'boolean',
+        description: 'Defaults to true. Set false only after preview.',
+      },
+      confirmed: {
+        type: 'boolean',
+        description: 'Must be true to execute after preview.',
+      },
+    },
+    required: ['accountId', 'name', 'objective'],
+  };
+}
+
+function createCreateAdSetInputSchema() {
+  const schema = createAdsInputSchema([]);
+
+  return {
+    type: 'object',
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      campaignId: { type: 'string', description: 'The campaign ID to create the ad set under.' },
+      name: { type: 'string', description: 'Ad set name.' },
+      status: {
+        type: 'string',
+        enum: ['ACTIVE', 'PAUSED'],
+        description: 'Ad set status. Defaults to PAUSED.',
+      },
+      dailyBudget: { type: 'number', description: 'Daily budget in local currency minor units.' },
+      lifetimeBudget: { type: 'number', description: 'Lifetime budget in local currency minor units.' },
+      billingEvent: {
+        type: 'string',
+        enum: ['IMPRESSIONS', 'LINK_CLICKS', 'PAGE_LIKES', 'POST_ENGAGEMENT', 'VIDEO_VIEWS', 'LEADS', 'APP_INSTALLS', 'REACH', 'VALUE', 'LANDING_PAGE_VIEWS', 'OFFSITE_CONVERSIONS'],
+        description: 'Billing event. Defaults to IMPRESSIONS.',
+      },
+      optimizationGoal: {
+        type: 'string',
+        enum: ['NONE', 'APP_INSTALLS', 'CONVERSATIONS', 'ENGAGED_USERS', 'IMPRESSIONS', 'LANDING_PAGE_VIEWS', 'LEAD_GENERATION', 'LINK_CLICKS', 'OFFSITE_CONVERSIONS', 'PAGE_LIKES', 'POST_ENGAGEMENT', 'REACH', 'THRUPLAY', 'VALUE'],
+        description: 'Optimization goal. Defaults to REACH.',
+      },
+      bidStrategy: {
+        type: 'string',
+        description: 'Bid strategy (e.g. LOWEST_COST_WITHOUT_CAP).',
+      },
+      geoLocations: {
+        type: 'object',
+        description: 'Geo targeting object with countries[], regions[], cities[].',
+      },
+      ageMin: { type: 'number', description: 'Minimum age target (e.g. 18).' },
+      ageMax: { type: 'number', description: 'Maximum age target (e.g. 65).' },
+      publisherPlatforms: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'Publisher platforms (e.g. facebook, instagram, messenger).',
+      },
+      interests: {
+        type: 'array',
+        description: 'Interest targeting array [{ id, name }].',
+      },
+      promotedObject: {
+        type: 'object',
+        description: 'Promoted object (e.g. { pixel_id, custom_event_type }).',
+      },
+      startTime: { type: 'string', description: 'Start time in ISO format.' },
+      endTime: { type: 'string', description: 'End time in ISO format.' },
+      dryRun: { type: 'boolean', description: 'Defaults to true. Set false only after preview.' },
+      confirmed: { type: 'boolean', description: 'Must be true to execute after preview.' },
+    },
+    required: ['accountId', 'campaignId', 'name'],
+  };
+}
+
+function createCreateAdCreativeInputSchema() {
+  const schema = createAdsInputSchema([]);
+
+  return {
+    type: 'object',
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      name: { type: 'string', description: 'Creative name.' },
+      pageId: { type: 'string', description: 'Meta Page ID used in object_story_spec.' },
+      link: { type: 'string', description: 'Destination URL for the link ad.' },
+      message: { type: 'string', description: 'Primary ad text (message).' },
+      headline: { type: 'string', description: 'Ad headline.' },
+      description: { type: 'string', description: 'Optional ad description.' },
+      imageHash: { type: 'string', description: 'Uploaded Meta image hash.' },
+      videoId: { type: 'string', description: 'Uploaded Meta video ID.' },
+      callToActionType: {
+        type: 'string',
+        enum: ['SHOP_NOW', 'LEARN_MORE', 'SIGN_UP', 'GET_OFFER', 'BOOK_NOW', 'DOWNLOAD', 'CONTACT_US', 'SUBSCRIBE', 'INSTALL_APP'],
+        description: 'Call to action button type.',
+      },
+      instagramUserId: { type: 'string', description: 'Instagram user ID for IG posting.' },
+      dryRun: { type: 'boolean', description: 'Defaults to true. Set false only after preview.' },
+      confirmed: { type: 'boolean', description: 'Must be true to execute after preview.' },
+    },
+    required: ['accountId', 'name', 'pageId', 'message'],
+  };
+}
+
+function createCreateAdInputSchema() {
+  const schema = createAdsInputSchema([]);
+
+  return {
+    type: 'object',
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      name: { type: 'string', description: 'Ad name.' },
+      adSetId: { type: 'string', description: 'The ad set ID to place the ad under.' },
+      creativeId: { type: 'string', description: 'The creative ID to use for this ad.' },
+      status: {
+        type: 'string',
+        enum: ['ACTIVE', 'PAUSED'],
+        description: 'Ad status. Defaults to PAUSED.',
+      },
+      dryRun: { type: 'boolean', description: 'Defaults to true. Set false only after preview.' },
+      confirmed: { type: 'boolean', description: 'Must be true to execute after preview.' },
+    },
+    required: ['accountId', 'name', 'adSetId', 'creativeId'],
+  };
+}
+
+function createArchiveAdInputSchema() {
+  const schema = createAdsInputSchema([]);
+
+  return {
+    type: 'object',
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      adId: { type: 'string', description: 'The ad ID to archive.' },
+    },
+    required: ['adId'],
+  };
+}
+
+function createUpdateAdSetInputSchema() {
+  const schema = createAdsInputSchema([]);
+
+  return {
+    type: 'object',
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      adSetId: { type: 'string', description: 'The ad set ID to update.' },
+      name: { type: 'string', description: 'New ad set name.' },
+      status: {
+        type: 'string',
+        enum: ['ACTIVE', 'PAUSED'],
+        description: 'New ad set status.',
+      },
+      dailyBudget: { type: 'number', description: 'New daily budget in local currency minor units.' },
+      lifetimeBudget: { type: 'number', description: 'New lifetime budget.' },
+      bidStrategy: { type: 'string', description: 'New bid strategy.' },
+      optimizationGoal: {
+        type: 'string',
+        enum: ['REACH', 'IMPRESSIONS', 'LINK_CLICKS', 'LANDING_PAGE_VIEWS', 'CONVERSATIONS', 'VALUE'],
+        description: 'New optimization goal.',
+      },
+      geoLocations: { type: 'object', description: 'Geo targeting object.' },
+      ageMin: { type: 'number', description: 'Minimum age target.' },
+      ageMax: { type: 'number', description: 'Maximum age target.' },
+      publisherPlatforms: { type: 'array', items: { type: 'string' }, description: 'Publisher platforms.' },
+      startTime: { type: 'string', description: 'Start time in ISO format.' },
+      endTime: { type: 'string', description: 'End time in ISO format.' },
+      dryRun: { type: 'boolean', description: 'Defaults to true. Set false only after preview.' },
+      confirmed: { type: 'boolean', description: 'Must be true to execute after preview.' },
+    },
+    required: ['adSetId'],
+  };
+}
+
+function createGetTargetingOptionsInputSchema() {
+  const schema = createAdsInputSchema([]);
+
+  return {
+    type: 'object',
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      type: {
+        type: 'string',
+        enum: ['interests', 'behaviors', 'demographics', 'industries', 'life_events'],
+        description: 'Targeting option type to search.',
+      },
+      query: { type: 'string', description: 'Search keyword to filter targeting options.' },
+      limit: { type: 'number', description: 'Maximum results to return (default: 25).' },
+    },
+    required: ['type'],
   };
 }
 

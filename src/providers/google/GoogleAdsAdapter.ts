@@ -4,6 +4,13 @@ import type {
   AdsChangeHistoryEnvelope,
   AdsMetricRecord,
   AdsMutationResult,
+  ArchiveAdResult,
+  CreateAdCreativeResult,
+  CreateAdResult,
+  CreateAdSetResult,
+  CreateCampaignResult,
+  GetTargetingOptionsResult,
+  UpdateAdSetResult,
   EcommerceCampaignBundleResult,
   AdsProviderAdapter,
   VideoSourceResult,
@@ -11,6 +18,9 @@ import type {
   ImageUploadResult,
   VideoUploadResult,
   AccountInfoResult,
+  AdImageResult,
+  AdVideoResult,
+  AdPreviewResult,
 } from '../../broker/types.js';
 import { ADS_PROVIDER_CAPABILITY_MATRIX } from '../../broker/types.js';
 import { redactErrorMessage } from '../../broker/credentials.js';
@@ -128,6 +138,18 @@ export class GoogleAdsAdapter implements AdsProviderAdapter {
     return this.notImplemented('Google Ads account info is not implemented yet');
   }
 
+  async listAdImages(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdImageResult[]>> {
+    return Promise.resolve(this.notImplemented('Google Ads image library is not implemented yet') as unknown as AdsBrokerResponse<AdImageResult[]>);
+  }
+
+  async listAdVideos(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdVideoResult[]>> {
+    return Promise.resolve(this.notImplemented('Google Ads video library is not implemented yet') as unknown as AdsBrokerResponse<AdVideoResult[]>);
+  }
+
+  async getAdPreview(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdPreviewResult[]>> {
+    return Promise.resolve(this.notImplemented('Google Ads ad preview is not implemented yet') as unknown as AdsBrokerResponse<AdPreviewResult[]>);
+  }
+
   private async getPerformance(
     request: AdsBrokerRequest,
     level: GoogleReadLevel
@@ -237,6 +259,34 @@ export class GoogleAdsAdapter implements AdsProviderAdapter {
       provider: 'google',
       errors: [{ provider: 'google', code: 'WRITE_NOT_IMPLEMENTED', message: 'Google Ads write operations are not implemented yet' }],
     };
+  }
+
+  async createCampaign(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<CreateCampaignResult>> {
+    return this.writeNotImplemented() as unknown as AdsBrokerResponse<CreateCampaignResult>;
+  }
+
+  async createAdSet(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<CreateAdSetResult>> {
+    return this.writeNotImplemented() as unknown as AdsBrokerResponse<CreateAdSetResult>;
+  }
+
+  async createAdCreative(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<CreateAdCreativeResult>> {
+    return this.writeNotImplemented() as unknown as AdsBrokerResponse<CreateAdCreativeResult>;
+  }
+
+  async createAd(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<CreateAdResult>> {
+    return this.writeNotImplemented() as unknown as AdsBrokerResponse<CreateAdResult>;
+  }
+
+  async archiveAd(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<ArchiveAdResult>> {
+    return this.writeNotImplemented() as unknown as AdsBrokerResponse<ArchiveAdResult>;
+  }
+
+  async updateAdSet(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<UpdateAdSetResult>> {
+    return this.writeNotImplemented() as unknown as AdsBrokerResponse<UpdateAdSetResult>;
+  }
+
+  async getTargetingOptions(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<GetTargetingOptionsResult>> {
+    return this.writeNotImplemented() as unknown as AdsBrokerResponse<GetTargetingOptionsResult>;
   }
 
   private errorResponse(error: unknown): AdsBrokerResponse<never> {

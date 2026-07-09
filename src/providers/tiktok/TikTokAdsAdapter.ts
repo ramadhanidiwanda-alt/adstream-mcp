@@ -4,6 +4,13 @@ import type {
   AdsChangeHistoryEnvelope,
   AdsMetricRecord,
   AdsMutationResult,
+  ArchiveAdResult,
+  CreateAdCreativeResult,
+  CreateAdResult,
+  CreateAdSetResult,
+  CreateCampaignResult,
+  GetTargetingOptionsResult,
+  UpdateAdSetResult,
   EcommerceCampaignBundleResult,
   AdsProviderAdapter,
   VideoSourceResult,
@@ -11,6 +18,9 @@ import type {
   ImageUploadResult,
   VideoUploadResult,
   AccountInfoResult,
+  AdImageResult,
+  AdVideoResult,
+  AdPreviewResult,
 } from '../../broker/types.js';
 import { ADS_PROVIDER_CAPABILITY_MATRIX } from '../../broker/types.js';
 import { redactErrorMessage } from '../../broker/credentials.js';
@@ -359,6 +369,34 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
     return this.writeNotImplemented();
   }
 
+  async createCampaign(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<CreateCampaignResult>> {
+    return this.writeNotImplemented();
+  }
+
+  async createAdSet(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<CreateAdSetResult>> {
+    return this.writeNotImplemented();
+  }
+
+  async createAdCreative(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<CreateAdCreativeResult>> {
+    return this.writeNotImplemented();
+  }
+
+  async createAd(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<CreateAdResult>> {
+    return this.writeNotImplemented();
+  }
+
+  async archiveAd(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<ArchiveAdResult>> {
+    return this.writeNotImplemented();
+  }
+
+  async updateAdSet(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<UpdateAdSetResult>> {
+    return this.writeNotImplemented();
+  }
+
+  async getTargetingOptions(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<GetTargetingOptionsResult>> {
+    return this.writeNotImplemented();
+  }
+
   async createEcommerceCampaignBundle(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<EcommerceCampaignBundleResult>> {
     return this.writeNotImplemented();
   }
@@ -373,6 +411,18 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
 
   async getAccountInfo(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<AccountInfoResult>> {
     return this.writeNotImplemented();
+  }
+
+  async listAdImages(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdImageResult[]>> {
+    return Promise.resolve(this.notImplemented('TikTok ad image library is not implemented yet') as unknown as AdsBrokerResponse<AdImageResult[]>);
+  }
+
+  async listAdVideos(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdVideoResult[]>> {
+    return Promise.resolve(this.notImplemented('TikTok ad video library is not implemented yet') as unknown as AdsBrokerResponse<AdVideoResult[]>);
+  }
+
+  async getAdPreview(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdPreviewResult[]>> {
+    return Promise.resolve(this.notImplemented('TikTok ad preview is not implemented yet') as unknown as AdsBrokerResponse<AdPreviewResult[]>);
   }
 
   private writeNotImplemented(): AdsBrokerResponse<never> {
