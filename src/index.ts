@@ -41,6 +41,9 @@ export type {
 export { createCampaign } from './tools/createCampaign.js';
 export type { CreateCampaignOptions, CreateCampaignResult, CreateCampaignStatus, CampaignStatus, MetaCampaignObjective } from './tools/createCampaign.js';
 
+export { createAdSet } from './tools/createAdSet.js';
+export type { CreateAdSetOptions, CreateAdSetResult, CreateAdSetStatus, AdSetStatus, AdSetTargeting, BillingEvent, OptimizationGoal } from './tools/createAdSet.js';
+
 export { uploadImage } from './tools/uploadImage.js';
 export type { UploadImageOptions, UploadImageResult } from './tools/uploadImage.js';
 export { uploadVideo } from './tools/uploadVideo.js';

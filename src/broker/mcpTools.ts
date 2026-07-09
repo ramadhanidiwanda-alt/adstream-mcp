@@ -23,6 +23,7 @@ export const ADS_MCP_TOOL_NAMES = [
   'ads_update_campaign_budget',
   'ads_rename_campaign',
   'ads_create_campaign',
+  'ads_create_adset',
   'ads_create_ecommerce_campaign_bundle',
   'ads_get_video_source',
   'ads_get_ad_creative_mapping',
@@ -131,6 +132,11 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
     name: 'ads_create_campaign',
     description: 'Create a Meta ad campaign with a specified objective. Dry-run by default. Set dryRun=false and confirmed=true to execute. Campaign is created PAUSED by default.',
     inputSchema: createCreateCampaignInputSchema(),
+  },
+  {
+    name: 'ads_create_adset',
+    description: 'Create a Meta ad set under an existing campaign. Dry-run by default. Set dryRun=false and confirmed=true to execute. Ad set is created PAUSED by default.',
+    inputSchema: createCreateAdSetInputSchema(),
   },
   {
     name: 'ads_create_ecommerce_campaign_bundle',
@@ -295,6 +301,8 @@ function callBrokerMethod(
       return broker.renameCampaign(request);
     case 'ads_create_campaign':
       return broker.createCampaign(request);
+    case 'ads_create_adset':
+      return broker.createAdSet(request);
     case 'ads_create_ecommerce_campaign_bundle':
       return broker.createEcommerceCampaignBundle(request);
     case 'ads_get_video_source':
@@ -739,6 +747,64 @@ function createCreateCampaignInputSchema() {
       },
     },
     required: ['accountId', 'name', 'objective'],
+  };
+}
+
+function createCreateAdSetInputSchema() {
+  const schema = createAdsInputSchema([]);
+
+  return {
+    type: 'object',
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      campaignId: { type: 'string', description: 'The campaign ID to create the ad set under.' },
+      name: { type: 'string', description: 'Ad set name.' },
+      status: {
+        type: 'string',
+        enum: ['ACTIVE', 'PAUSED'],
+        description: 'Ad set status. Defaults to PAUSED.',
+      },
+      dailyBudget: { type: 'number', description: 'Daily budget in local currency minor units.' },
+      lifetimeBudget: { type: 'number', description: 'Lifetime budget in local currency minor units.' },
+      billingEvent: {
+        type: 'string',
+        enum: ['IMPRESSIONS', 'LINK_CLICKS', 'PAGE_LIKES', 'POST_ENGAGEMENT', 'VIDEO_VIEWS', 'LEADS', 'APP_INSTALLS', 'REACH', 'VALUE', 'LANDING_PAGE_VIEWS', 'OFFSITE_CONVERSIONS'],
+        description: 'Billing event. Defaults to IMPRESSIONS.',
+      },
+      optimizationGoal: {
+        type: 'string',
+        enum: ['NONE', 'APP_INSTALLS', 'CONVERSATIONS', 'ENGAGED_USERS', 'IMPRESSIONS', 'LANDING_PAGE_VIEWS', 'LEAD_GENERATION', 'LINK_CLICKS', 'OFFSITE_CONVERSIONS', 'PAGE_LIKES', 'POST_ENGAGEMENT', 'REACH', 'THRUPLAY', 'VALUE'],
+        description: 'Optimization goal. Defaults to REACH.',
+      },
+      bidStrategy: {
+        type: 'string',
+        description: 'Bid strategy (e.g. LOWEST_COST_WITHOUT_CAP).',
+      },
+      geoLocations: {
+        type: 'object',
+        description: 'Geo targeting object with countries[], regions[], cities[].',
+      },
+      ageMin: { type: 'number', description: 'Minimum age target (e.g. 18).' },
+      ageMax: { type: 'number', description: 'Maximum age target (e.g. 65).' },
+      publisherPlatforms: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'Publisher platforms (e.g. facebook, instagram, messenger).',
+      },
+      interests: {
+        type: 'array',
+        description: 'Interest targeting array [{ id, name }].',
+      },
+      promotedObject: {
+        type: 'object',
+        description: 'Promoted object (e.g. { pixel_id, custom_event_type }).',
+      },
+      startTime: { type: 'string', description: 'Start time in ISO format.' },
+      endTime: { type: 'string', description: 'End time in ISO format.' },
+      dryRun: { type: 'boolean', description: 'Defaults to true. Set false only after preview.' },
+      confirmed: { type: 'boolean', description: 'Must be true to execute after preview.' },
+    },
+    required: ['accountId', 'campaignId', 'name'],
   };
 }
 

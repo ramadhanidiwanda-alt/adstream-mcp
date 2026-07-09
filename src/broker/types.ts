@@ -648,6 +648,18 @@ export interface CreateCampaignResult {
   error?: string;
 }
 
+export type CreateAdSetStatus = 'dry_run' | 'pending_confirmation' | 'executed' | 'failed';
+
+export interface CreateAdSetResult {
+  operation: 'create_adset';
+  status: CreateAdSetStatus;
+  executed: boolean;
+  preview: Record<string, unknown>;
+  id?: string;
+  response?: Record<string, unknown>;
+  error?: string;
+}
+
 export interface AccountInfoResult {
   id: string;
   name: string;
@@ -713,6 +725,7 @@ export interface AdsProviderAdapter {
   updateCampaignBudget(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>>;
   renameCampaign(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>>;
   createCampaign(request: AdsBrokerRequest): Promise<AdsBrokerResponse<CreateCampaignResult>>;
+  createAdSet(request: AdsBrokerRequest): Promise<AdsBrokerResponse<CreateAdSetResult>>;
   createEcommerceCampaignBundle(request: AdsBrokerRequest): Promise<AdsBrokerResponse<EcommerceCampaignBundleResult>>;
   uploadImage(request: AdsBrokerRequest): Promise<AdsBrokerResponse<ImageUploadResult>>;
   uploadVideo(request: AdsBrokerRequest): Promise<AdsBrokerResponse<VideoUploadResult>>;

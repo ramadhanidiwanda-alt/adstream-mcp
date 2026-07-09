@@ -4,6 +4,7 @@ import type {
   AdsChangeHistoryEnvelope,
   AdsMetricRecord,
   AdsMutationResult,
+  CreateAdSetResult,
   CreateCampaignResult,
   EcommerceCampaignBundleResult,
   AdsProviderAdapter,
@@ -257,6 +258,10 @@ export class GoogleAdsAdapter implements AdsProviderAdapter {
 
   async createCampaign(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<CreateCampaignResult>> {
     return this.writeNotImplemented() as unknown as AdsBrokerResponse<CreateCampaignResult>;
+  }
+
+  async createAdSet(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<CreateAdSetResult>> {
+    return this.writeNotImplemented() as unknown as AdsBrokerResponse<CreateAdSetResult>;
   }
 
   private errorResponse(error: unknown): AdsBrokerResponse<never> {
