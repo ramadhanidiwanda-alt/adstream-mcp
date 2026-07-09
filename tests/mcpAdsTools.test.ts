@@ -130,6 +130,7 @@ describe('ads MCP broker tools', () => {
       'ads_resume_campaign',
       'ads_update_campaign_budget',
       'ads_rename_campaign',
+      'ads_create_campaign',
       'ads_create_ecommerce_campaign_bundle',
       'ads_get_video_source',
       'ads_get_ad_creative_mapping',

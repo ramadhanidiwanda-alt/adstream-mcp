@@ -4,6 +4,7 @@ import type {
   AdsChangeHistoryEnvelope,
   AdsMetricRecord,
   AdsMutationResult,
+  CreateCampaignResult,
   EcommerceCampaignBundleResult,
   AdsProviderAdapter,
   VideoSourceResult,
@@ -252,6 +253,10 @@ export class GoogleAdsAdapter implements AdsProviderAdapter {
       provider: 'google',
       errors: [{ provider: 'google', code: 'WRITE_NOT_IMPLEMENTED', message: 'Google Ads write operations are not implemented yet' }],
     };
+  }
+
+  async createCampaign(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<CreateCampaignResult>> {
+    return this.writeNotImplemented() as unknown as AdsBrokerResponse<CreateCampaignResult>;
   }
 
   private errorResponse(error: unknown): AdsBrokerResponse<never> {

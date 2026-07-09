@@ -38,6 +38,9 @@ export type {
   MetaEcommerceCallToActionType,
 } from './tools/createEcommerceCampaignBundle.js';
 
+export { createCampaign } from './tools/createCampaign.js';
+export type { CreateCampaignOptions, CreateCampaignResult, CreateCampaignStatus, CampaignStatus, MetaCampaignObjective } from './tools/createCampaign.js';
+
 export { uploadImage } from './tools/uploadImage.js';
 export type { UploadImageOptions, UploadImageResult } from './tools/uploadImage.js';
 export { uploadVideo } from './tools/uploadVideo.js';
@@ -77,7 +80,7 @@ export type * from './analysis/analyzePlacementPerformance.js';
 
 export { parseActionValue, parseActionValueFromValues } from './utils/parseActions.js';
 export { formatCurrency, formatNumber } from './utils/formatCurrency.js';
-export { normalizeAccountId } from './utils/normalizeAccountId.js';
+export { normalizeAccountId, normalizeAccountPath } from './utils/normalizeAccountId.js';
 export {
   normalizeLocationBreakdowns,
   assertLocationBreakdowns,

@@ -1,0 +1,177 @@
+import { describe, it, expect, vi } from 'vitest';
+import type { MetaClient } from '../src/metaClient.js';
+import { createCampaign } from '../src/tools/createCampaign.js';
+
+type MetaPostMock = ReturnType<typeof vi.fn>;
+
+describe('createCampaign', () => {
+  const mockMetaPost: MetaPostMock = vi.fn();
+  const mockClient = {
+    metaPost: mockMetaPost,
+  } as unknown as MetaClient;
+
+  const validOptions = {
+    adAccountId: 'act_123456789',
+    name: 'Test Campaign',
+    objective: 'OUTCOME_TRAFFIC' as const,
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  describe('dry-run mode (default)', () => {
+    it('returns dry_run status without calling API', async () => {
+      const result = await createCampaign(mockClient, validOptions);
+
+      expect(result.status).toBe('dry_run');
+      expect(result.executed).toBe(false);
+      expect(result.preview).toBeDefined();
+      expect(result.preview.name).toBe('Test Campaign');
+      expect(result.preview.objective).toBe('OUTCOME_TRAFFIC');
+      expect(result.preview.status).toBe('PAUSED');
+      expect(mockClient.metaPost).not.toHaveBeenCalled();
+    });
+
+    it('shows daily_budget in preview when provided', async () => {
+      const result = await createCampaign(mockClient, validOptions);
+
+      expect(result.preview.daily_budget).toBeUndefined();
+    });
+
+    it('includes daily_budget and bid_strategy in preview when provided', async () => {
+      const result = await createCampaign(mockClient, {
+        ...validOptions,
+        dailyBudget: 50000,
+        bidStrategy: 'LOWEST_COST_WITHOUT_CAP',
+      });
+
+      expect(result.preview.daily_budget).toBe(50000);
+      expect(result.preview.bid_strategy).toBe('LOWEST_COST_WITHOUT_CAP');
+    });
+  });
+
+  describe('pending_confirmation', () => {
+    it('returns pending_confirmation when dryRun=false but confirmed=false', async () => {
+      const result = await createCampaign(mockClient, validOptions, {
+        dryRun: false,
+        confirmed: false,
+      });
+
+      expect(result.status).toBe('pending_confirmation');
+      expect(result.executed).toBe(false);
+      expect(result.error).toContain('confirmation');
+      expect(mockClient.metaPost).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('execution mode', () => {
+    it('calls metaPost and returns executed with id on success', async () => {
+      mockClient.metaPost.mockResolvedValueOnce({ id: '120248446250030168' });
+
+      const result = await createCampaign(mockClient, validOptions, {
+        dryRun: false,
+        confirmed: true,
+      });
+
+      expect(result.status).toBe('executed');
+      expect(result.executed).toBe(true);
+      expect(result.id).toBe('120248446250030168');
+      expect(mockClient.metaPost).toHaveBeenCalledTimes(1);
+
+      const [path, payload] = mockClient.metaPost.mock.calls[0];
+      expect(path).toContain('/act_123456789/campaigns');
+      expect(payload.name).toBe('Test Campaign');
+      expect(payload.objective).toBe('OUTCOME_TRAFFIC');
+      expect(payload.status).toBe('PAUSED');
+    });
+
+    it('returns failed when Meta does not return an id', async () => {
+      mockClient.metaPost.mockResolvedValueOnce({ success: true });
+
+      const result = await createCampaign(mockClient, validOptions, {
+        dryRun: false,
+        confirmed: true,
+      });
+
+      expect(result.status).toBe('failed');
+      expect(result.executed).toBe(false);
+      expect(result.error).toContain('id');
+    });
+
+    it('returns failed on API error', async () => {
+      mockClient.metaPost.mockRejectedValueOnce(new Error('Rate limit exceeded'));
+
+      const result = await createCampaign(mockClient, validOptions, {
+        dryRun: false,
+        confirmed: true,
+      });
+
+      expect(result.status).toBe('failed');
+      expect(result.error).toContain('Rate limit exceeded');
+    });
+
+    it('handles ACTIVE status option', async () => {
+      mockClient.metaPost.mockResolvedValueOnce({ id: '120248446250030169' });
+
+      const result = await createCampaign(mockClient, { ...validOptions, status: 'ACTIVE' }, {
+        dryRun: false,
+        confirmed: true,
+      });
+
+      expect(result.status).toBe('executed');
+      const payload = mockClient.metaPost.mock.calls[0][1];
+      expect(payload.status).toBe('ACTIVE');
+    });
+
+    it('handles specialAdCategories', async () => {
+      mockClient.metaPost.mockResolvedValueOnce({ id: '120248446250030170' });
+
+      const result = await createCampaign(mockClient, { ...validOptions, specialAdCategories: ['CREDIT'] }, {
+        dryRun: false,
+        confirmed: true,
+      });
+
+      expect(result.status).toBe('executed');
+      const payload = mockClient.metaPost.mock.calls[0][1];
+      expect(payload.special_ad_categories).toEqual(['CREDIT']);
+    });
+  });
+
+  describe('adAccountId normalization', () => {
+    it('works with numeric accountId', async () => {
+      mockClient.metaPost.mockResolvedValueOnce({ id: '120248446250030171' });
+
+      const result = await createCampaign(mockClient, {
+        ...validOptions,
+        adAccountId: '123456789',
+      }, { dryRun: false, confirmed: true });
+
+      expect(result.status).toBe('executed');
+      const [path] = mockClient.metaPost.mock.calls[0];
+      expect(path).toBe('/act_123456789/campaigns');
+    });
+  });
+
+  describe('all objectives', () => {
+    const allObjectives = [
+      'OUTCOME_SALES', 'OUTCOME_TRAFFIC', 'OUTCOME_ENGAGEMENT',
+      'OUTCOME_LEADS', 'OUTCOME_AWARENESS', 'OUTCOME_APP_PROMOTION',
+      'OUTCOME_CONVERSATIONS', 'OUTCOME_RESHARES', 'OUTCOME_VALUE',
+      'OUTCOME_VIDEO_VIEWS', 'OUTCOME_POST_ENGAGEMENT',
+      'OUTCOME_LANDING_PAGE_VIEWS', 'OUTCOME_REACH',
+      'OUTCOME_MESSAGES', 'OUTCOME_THRUPLAY',
+    ] as const;
+
+    for (const objective of allObjectives) {
+      it(`supports objective: ${objective}`, async () => {
+        const result = await createCampaign(mockClient, {
+          ...validOptions,
+          objective: objective as typeof validOptions.objective,
+        });
+
+        expect(result.preview.objective).toBe(objective);
+      });
+    }
+  });
+});

@@ -16,3 +16,15 @@ export function normalizeAccountId(accountId: string): string {
   }
   return accountId;
 }
+
+/**
+ * Normalize an ad account ID to a full Meta API path segment.
+ * Ensures the result starts with `/act_` prefix.
+ *
+ * @param adAccountId - Raw account ID, e.g. `"act_1417353822551653"` or `"1417353822551653"`
+ * @returns Full account path, e.g. `"/act_1417353822551653"`
+ */
+export function normalizeAccountPath(adAccountId: string): string {
+  const trimmed = adAccountId.trim();
+  return trimmed.startsWith('act_') ? `/${trimmed}` : `/act_${trimmed}`;
+}

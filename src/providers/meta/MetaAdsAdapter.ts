@@ -17,7 +17,9 @@ import { resumeCampaign as resumeCampaignTool } from '../../tools/resumeCampaign
 import { updateCampaignBudget as updateCampaignBudgetTool } from '../../tools/updateCampaignBudget.js';
 import { renameCampaign as renameCampaignTool } from '../../tools/renameCampaign.js';
 import { createEcommerceCampaignBundle as createEcommerceCampaignBundleTool } from '../../tools/createEcommerceCampaignBundle.js';
+import { createCampaign as createCampaignTool } from '../../tools/createCampaign.js';
 import type { EcommerceCampaignBundlePayload as MetaEcommerceCampaignBundlePayload, EcommerceCampaignBundleResult } from '../../tools/createEcommerceCampaignBundle.js';
+import type { CreateCampaignResult } from '../../broker/types.js';
 import type { UploadImageResult } from '../../tools/uploadImage.js';
 import type { UploadVideoResult } from '../../tools/uploadVideo.js';
 import { uploadImage as uploadImageTool } from '../../tools/uploadImage.js';
@@ -116,6 +118,11 @@ export interface MetaAdsAdapterTools {
     payload: MetaEcommerceCampaignBundlePayload,
     options?: { dryRun?: boolean; confirmed?: boolean; maxRetries?: number }
   ): Promise<EcommerceCampaignBundleResult>;
+  createCampaign(
+    client: MetaClient,
+    options: { adAccountId: string; name: string; objective: string; status?: string; specialAdCategories?: string[]; buyType?: string; dailyBudget?: number; lifetimeBudget?: number; bidStrategy?: string },
+    execOptions?: { dryRun?: boolean; confirmed?: boolean; maxRetries?: number }
+  ): Promise<import('../../tools/createCampaign.js').CreateCampaignResult>;
   uploadImage(
     client: MetaClient,
     options: { adAccountId: string; filePath: string; maxRetries?: number }
@@ -165,6 +172,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       resumeCampaign: resumeCampaignTool,
       updateCampaignBudget: updateCampaignBudgetTool,
       renameCampaign: renameCampaignTool,
+      createCampaign: createCampaignTool,
       createEcommerceCampaignBundle: createEcommerceCampaignBundleTool,
       uploadImage: uploadImageTool,
       uploadVideo: uploadVideoTool,
@@ -727,6 +735,52 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       const client = this.createClient(context.credential);
       const result = await this.tools.renameCampaign(client, campaignId, newName);
       return { ok: true, provider: 'meta', data: this.toAdsMutationResult(result) };
+    } catch (error) {
+      return this.writeErrorResponse(error);
+    }
+  }
+
+  async createCampaign(request: AdsBrokerRequest): Promise<AdsBrokerResponse<CreateCampaignResult>> {
+    const context = this.getCredentialContext(request);
+    if (!context.ok) return context.response;
+
+    const adAccountId = request.accountId ?? context.credential.accountId;
+    if (!adAccountId) {
+      return {
+        ok: false,
+        provider: 'meta',
+        errors: [{ provider: 'meta', code: 'MISSING_ACCOUNT_ID', message: 'accountId is required to create a campaign' }],
+      };
+    }
+
+    const name = typeof request.params.name === 'string' ? request.params.name : undefined;
+    const objective = typeof request.params.objective === 'string' ? request.params.objective : undefined;
+
+    if (!name || !objective) {
+      return {
+        ok: false,
+        provider: 'meta',
+        errors: [{ provider: 'meta', code: 'MISSING_REQUIRED_PARAMS', message: 'name and objective are required in request.params' }],
+      };
+    }
+
+    try {
+      const client = this.createClient(context.credential);
+      const result = await this.tools.createCampaign(client, {
+        adAccountId,
+        name,
+        objective,
+        status: typeof request.params.status === 'string' ? request.params.status : undefined,
+        specialAdCategories: Array.isArray(request.params.specialAdCategories) ? request.params.specialAdCategories.map(String) : undefined,
+        buyType: typeof request.params.buyType === 'string' ? request.params.buyType : undefined,
+        dailyBudget: typeof request.params.dailyBudget === 'number' ? request.params.dailyBudget : undefined,
+        lifetimeBudget: typeof request.params.lifetimeBudget === 'number' ? request.params.lifetimeBudget : undefined,
+        bidStrategy: typeof request.params.bidStrategy === 'string' ? request.params.bidStrategy : undefined,
+      }, {
+        dryRun: request.params.dryRun !== false,
+        confirmed: request.params.confirmed === true,
+      });
+      return { ok: result.status !== 'failed', provider: 'meta', data: result };
     } catch (error) {
       return this.writeErrorResponse(error);
     }

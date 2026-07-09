@@ -1,5 +1,5 @@
 import type { AdsBroker } from './AdsBroker.js';
-import type { AdsBrokerRequest, AdsBrokerResponse, AdsEntityLevel, AdsMetricRecord, AdsMutationResult, AdsPerformanceEnvelope, AdsProviderId } from './types.js';
+import type { AdsBrokerRequest, AdsBrokerResponse, AdsEntityLevel, AdsMetricRecord, AdsMutationResult, AdsPerformanceEnvelope, AdsProviderId, CreateCampaignResult } from './types.js';
 import { ADS_ENTITY_LEVELS, ADS_PROVIDER_IDS, isAdsProviderId } from './types.js';
 import { redactErrorMessage, redactTokenLikeValues } from './credentials.js';
 
@@ -22,6 +22,7 @@ export const ADS_MCP_TOOL_NAMES = [
   'ads_resume_campaign',
   'ads_update_campaign_budget',
   'ads_rename_campaign',
+  'ads_create_campaign',
   'ads_create_ecommerce_campaign_bundle',
   'ads_get_video_source',
   'ads_get_ad_creative_mapping',
@@ -125,6 +126,11 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
     name: 'ads_rename_campaign',
     description: 'Rename a campaign. Returns success/error.',
     inputSchema: createWriteInputSchema(['campaignId', 'newName']),
+  },
+  {
+    name: 'ads_create_campaign',
+    description: 'Create a Meta ad campaign with a specified objective. Dry-run by default. Set dryRun=false and confirmed=true to execute. Campaign is created PAUSED by default.',
+    inputSchema: createCreateCampaignInputSchema(),
   },
   {
     name: 'ads_create_ecommerce_campaign_bundle',
@@ -287,6 +293,8 @@ function callBrokerMethod(
       return broker.updateCampaignBudget(request);
     case 'ads_rename_campaign':
       return broker.renameCampaign(request);
+    case 'ads_create_campaign':
+      return broker.createCampaign(request);
     case 'ads_create_ecommerce_campaign_bundle':
       return broker.createEcommerceCampaignBundle(request);
     case 'ads_get_video_source':
@@ -671,6 +679,66 @@ function createPreviewInputSchema() {
       },
     },
     required: ['creativeId', 'adFormat'],
+  };
+}
+
+function createCreateCampaignInputSchema() {
+  const schema = createAdsInputSchema([]);
+
+  return {
+    type: 'object',
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      name: { type: 'string', description: 'Campaign name.' },
+      objective: {
+        type: 'string',
+        enum: [
+          'OUTCOME_SALES', 'OUTCOME_TRAFFIC', 'OUTCOME_ENGAGEMENT',
+          'OUTCOME_LEADS', 'OUTCOME_AWARENESS', 'OUTCOME_APP_PROMOTION',
+          'OUTCOME_CONVERSATIONS', 'OUTCOME_RESHARES', 'OUTCOME_VALUE',
+          'OUTCOME_VIDEO_VIEWS', 'OUTCOME_POST_ENGAGEMENT',
+          'OUTCOME_LANDING_PAGE_VIEWS', 'OUTCOME_REACH',
+          'OUTCOME_MESSAGES', 'OUTCOME_THRUPLAY',
+        ],
+        description: 'Campaign objective.',
+      },
+      status: {
+        type: 'string',
+        enum: ['ACTIVE', 'PAUSED'],
+        description: 'Campaign status. Defaults to PAUSED.',
+      },
+      specialAdCategories: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'Meta special ad categories (e.g. CREDIT, EMPLOYMENT, HOUSING, SOCIAL_ISSUES_ELECTIONS).',
+      },
+      buyType: {
+        type: 'string',
+        enum: ['AUCTION', 'RESERVED'],
+        description: 'Buying type. Defaults to AUCTION.',
+      },
+      dailyBudget: {
+        type: 'number',
+        description: 'Daily budget in local currency minor units (e.g. 50000 for Rp50,000).',
+      },
+      lifetimeBudget: {
+        type: 'number',
+        description: 'Lifetime budget in local currency minor units.',
+      },
+      bidStrategy: {
+        type: 'string',
+        description: 'Bid strategy (e.g. LOWEST_COST_WITHOUT_CAP).',
+      },
+      dryRun: {
+        type: 'boolean',
+        description: 'Defaults to true. Set false only after preview.',
+      },
+      confirmed: {
+        type: 'boolean',
+        description: 'Must be true to execute after preview.',
+      },
+    },
+    required: ['accountId', 'name', 'objective'],
   };
 }
 

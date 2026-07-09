@@ -130,6 +130,28 @@ const ecommerceLaunchInputSchema = {
   confirmed: z.boolean().optional().describe('Must be true to execute after preview.'),
 };
 
+const createCampaignInputSchema = {
+  ...adsBaseInputSchema,
+  accountId: z.string().describe('Provider account id. Required for campaign creation.'),
+  name: z.string().describe('Campaign name.'),
+  objective: z.enum([
+    'OUTCOME_SALES', 'OUTCOME_TRAFFIC', 'OUTCOME_ENGAGEMENT',
+    'OUTCOME_LEADS', 'OUTCOME_AWARENESS', 'OUTCOME_APP_PROMOTION',
+    'OUTCOME_CONVERSATIONS', 'OUTCOME_RESHARES', 'OUTCOME_VALUE',
+    'OUTCOME_VIDEO_VIEWS', 'OUTCOME_POST_ENGAGEMENT',
+    'OUTCOME_LANDING_PAGE_VIEWS', 'OUTCOME_REACH',
+    'OUTCOME_MESSAGES', 'OUTCOME_THRUPLAY',
+  ]).describe('Campaign objective.'),
+  status: z.enum(['ACTIVE', 'PAUSED']).optional().describe('Campaign status. Defaults to PAUSED.'),
+  specialAdCategories: z.array(z.string()).optional().describe('Meta special ad categories.'),
+  buyType: z.enum(['AUCTION', 'RESERVED']).optional().describe('Buying type. Defaults to AUCTION.'),
+  dailyBudget: z.number().optional().describe('Daily budget in local currency minor units.'),
+  lifetimeBudget: z.number().optional().describe('Lifetime budget in local currency minor units.'),
+  bidStrategy: z.string().optional().describe('Bid strategy.'),
+  dryRun: z.boolean().optional().describe('Defaults to true. Set false only after preview.'),
+  confirmed: z.boolean().optional().describe('Must be true to execute after preview.'),
+};
+
 const legacyAdAccountId = z
   .string()
   .describe('Ad account ID (e.g., act_123456789)');
@@ -211,6 +233,8 @@ export function createMetaAdsMcpServer(
     let inputSchema: Record<string, z.ZodType<unknown>>;
     if (toolDefinition.name === 'ads_get_performance' || toolDefinition.name === 'ads_get_creatives') {
       inputSchema = adsPerformanceInputSchema;
+    } else if (toolDefinition.name === 'ads_create_campaign') {
+      inputSchema = createCampaignInputSchema;
     } else if (hasCampaignName) {
       inputSchema = ecommerceLaunchInputSchema;
     } else if (hasCampaignId) {
