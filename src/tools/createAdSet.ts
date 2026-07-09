@@ -1,5 +1,6 @@
 import type { MetaClient } from '../metaClient.js';
 import { normalizeAccountPath } from '../utils/normalizeAccountId.js';
+import { MetaApiError } from '../utils/metaError.js';
 
 export type AdSetStatus = 'ACTIVE' | 'PAUSED';
 
@@ -64,6 +65,14 @@ export interface CreateAdSetOptions {
   promotedObject?: Record<string, unknown>;
   startTime?: string;
   endTime?: string;
+  /** Where users go: WEBSITE, APP, MESSENGER, WHATSAPP, INSTAGRAM_DIRECT, etc. */
+  destinationType?: string;
+  /** Attribution window spec. Example: [{ event_type: 'CLICK_THROUGH', window_days: 7 }] */
+  attributionSpec?: Array<Record<string, unknown>>;
+  /** Frequency cap specs. Example: [{ event: 'IMPRESSIONS', interval_days: 7, max_frequency: 3 }] */
+  frequencyControlSpecs?: Array<Record<string, unknown>>;
+  /** Enable Dynamic Creative for this ad set */
+  isDynamicCreative?: boolean;
 }
 
 export type CreateAdSetStatus = 'dry_run' | 'pending_confirmation' | 'executed' | 'failed';
@@ -92,6 +101,23 @@ interface CampaignInfo {
 /** Bid strategies that require bid_amount */
 const STRATEGIES_REQUIRING_BID_AMOUNT = ['COST_CAP', 'LOWEST_COST_WITH_BID_CAP', 'TARGET_COST'];
 
+/** Map known Meta error subcodes to human-readable messages */
+function mapSubcodeError(subcode: number | undefined, bidStrategy?: string): string | null {
+  if (subcode === undefined) return null;
+  switch (subcode) {
+    case 1815857:
+      return `Bid amount required. The campaign uses bid strategy '${bidStrategy || 'LOWEST_COST_WITH_BID_CAP'}' which requires a bidAmount. Add bidAmount (in cents) or remove the ad set-level bid_strategy.`;
+    case 1885621:
+      return 'bid_amount value is invalid or too low. Ensure bidAmount is a positive integer in account currency cents (e.g., 500000 = Rp5.000).';
+    case 2446149:
+      return 'Unsupported bid_strategy and bid_amount combination. Try using COST_CAP instead of LOWEST_COST_WITH_BID_CAP.';
+    case 2446404:
+      return 'Missing required parameter. Ensure billing_event and optimization_goal are set correctly for this campaign objective.';
+    default:
+      return null;
+  }
+}
+
 /**
  * Create a Meta ad set under an existing campaign.
  *
@@ -99,6 +125,9 @@ const STRATEGIES_REQUIRING_BID_AMOUNT = ['COST_CAP', 'LOWEST_COST_WITH_BID_CAP',
  * Set dryRun=false + confirmed=true to execute.
  *
  * Includes pre-flight checks to catch common Meta API errors:
+ * - Invalid bid_strategy values (e.g., 'LOWEST_COST')
+ * - Missing bidAmount for strategies that require it
+ * - Missing bidConstraints for LOWEST_COST_WITH_MIN_ROAS
  * - CBO budget conflict (budget at both campaign and ad set level)
  * - Missing bid_amount when campaign uses a bid strategy that requires it
  *
@@ -128,6 +157,40 @@ export async function createAdSet(
       ...baseResult,
       status: 'pending_confirmation',
       error: 'Explicit confirmation is required after reviewing the dry-run preview.',
+    };
+  }
+
+  // --- CLIENT-SIDE BID STRATEGY VALIDATION ---
+  // These checks don't require an API call
+
+  // Check: Invalid 'LOWEST_COST' value (common mistake)
+  if (options.bidStrategy === 'LOWEST_COST') {
+    return {
+      ...baseResult,
+      status: 'failed',
+      error: `'LOWEST_COST' is not a valid bid_strategy. Use 'LOWEST_COST_WITHOUT_CAP' instead (no bidAmount required).`,
+    };
+  }
+
+  // Check: bid_strategy requiring bid_amount but no bidAmount provided
+  if (
+    options.bidStrategy &&
+    STRATEGIES_REQUIRING_BID_AMOUNT.includes(options.bidStrategy) &&
+    options.bidAmount === undefined
+  ) {
+    return {
+      ...baseResult,
+      status: 'failed',
+      error: `bidAmount is required when bidStrategy is '${options.bidStrategy}'. Add bidAmount (in cents), or change bidStrategy to 'LOWEST_COST_WITHOUT_CAP'.`,
+    };
+  }
+
+  // Check: LOWEST_COST_WITH_MIN_ROAS requires bidConstraints
+  if (options.bidStrategy === 'LOWEST_COST_WITH_MIN_ROAS' && options.bidConstraints === undefined) {
+    return {
+      ...baseResult,
+      status: 'failed',
+      error: `bidConstraints is required when bidStrategy is 'LOWEST_COST_WITH_MIN_ROAS'. Provide bidConstraints with roas_average_floor (target ROAS × 10000). Example: { roas_average_floor: 20000 } for 2.0x ROAS.`,
     };
   }
 
@@ -195,10 +258,18 @@ export async function createAdSet(
       response,
     };
   } catch (error) {
+    // Try to extract subcode for better error message
+    let errorMsg = error instanceof Error ? error.message : String(error);
+    if (error instanceof MetaApiError) {
+      const mapped = mapSubcodeError(error.subcode, preview.bid_strategy as string | undefined);
+      if (mapped) {
+        errorMsg = `${mapped} (Meta error: ${errorMsg})`;
+      }
+    }
     return {
       ...baseResult,
       status: 'failed',
-      error: error instanceof Error ? error.message : String(error),
+      error: errorMsg,
     };
   }
 }
@@ -250,6 +321,23 @@ function buildAdSetPayload(options: CreateAdSetOptions): Record<string, unknown>
 
   if (options.endTime) {
     payload.end_time = options.endTime;
+  }
+
+  // New fields
+  if (options.destinationType) {
+    payload.destination_type = options.destinationType;
+  }
+
+  if (options.attributionSpec) {
+    payload.attribution_spec = options.attributionSpec;
+  }
+
+  if (options.frequencyControlSpecs) {
+    payload.frequency_control_specs = options.frequencyControlSpecs;
+  }
+
+  if (options.isDynamicCreative !== undefined) {
+    payload.is_dynamic_creative = options.isDynamicCreative;
   }
 
   return payload;
