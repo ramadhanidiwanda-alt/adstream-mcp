@@ -56,6 +56,10 @@ export interface CreateAdSetOptions {
   billingEvent?: BillingEvent;
   optimizationGoal?: OptimizationGoal;
   bidStrategy?: string;
+  /** Bid amount in account currency cents. Required when campaign uses COST_CAP or LOWEST_COST_WITH_BID_CAP. */
+  bidAmount?: number;
+  /** Bid constraints for LOWEST_COST_WITH_MIN_ROAS. Shape: { roas_average_floor: number } */
+  bidConstraints?: Record<string, unknown>;
   targeting?: AdSetTargeting;
   promotedObject?: Record<string, unknown>;
   startTime?: string;
@@ -78,11 +82,25 @@ interface MetaIdResponse extends Record<string, unknown> {
   id?: string;
 }
 
+interface CampaignInfo {
+  id: string;
+  bid_strategy?: string;
+  daily_budget?: number;
+  lifetime_budget?: number;
+}
+
+/** Bid strategies that require bid_amount */
+const STRATEGIES_REQUIRING_BID_AMOUNT = ['COST_CAP', 'LOWEST_COST_WITH_BID_CAP', 'TARGET_COST'];
+
 /**
  * Create a Meta ad set under an existing campaign.
  *
  * Dry-run by default: returns preview without calling the API.
  * Set dryRun=false + confirmed=true to execute.
+ *
+ * Includes pre-flight checks to catch common Meta API errors:
+ * - CBO budget conflict (budget at both campaign and ad set level)
+ * - Missing bid_amount when campaign uses a bid strategy that requires it
  *
  * POST /act_{ad_account_id}/adsets
  *
@@ -111,6 +129,45 @@ export async function createAdSet(
       status: 'pending_confirmation',
       error: 'Explicit confirmation is required after reviewing the dry-run preview.',
     };
+  }
+
+  // --- PRE-FLIGHT CHECK: fetch campaign data ---
+  try {
+    const campaign = await client.metaGetObject<CampaignInfo>(
+      `/${options.campaignId}`,
+      { fields: 'id,bid_strategy,daily_budget,lifetime_budget' },
+      maxRetries
+    );
+
+    // Check 1: CBO budget conflict
+    // Meta doesn't allow budgets at both campaign and ad set level
+    const campaignHasBudget = campaign.daily_budget || campaign.lifetime_budget;
+    if (campaignHasBudget && (options.dailyBudget !== undefined || options.lifetimeBudget !== undefined)) {
+      return {
+        ...baseResult,
+        status: 'failed',
+        error: `Budget conflict: campaign '${options.campaignId}' already has a budget (CBO mode). Meta does not allow budgets at both campaign and ad set level. Remove dailyBudget/lifetimeBudget from your ad set — it will automatically use the campaign budget.`,
+      };
+    }
+
+    // Check 2: Campaign's bid strategy requires bid_amount on ad set
+    const campaignBidStrategy = campaign.bid_strategy;
+    if (campaignBidStrategy && STRATEGIES_REQUIRING_BID_AMOUNT.includes(campaignBidStrategy)) {
+      if (options.bidAmount === undefined) {
+        return {
+          ...baseResult,
+          status: 'failed',
+          error: `bidAmount is required because the parent campaign uses bid_strategy '${campaignBidStrategy}'. Add bidAmount (in account currency cents) to your ad set, or change the campaign's bid_strategy to 'LOWEST_COST_WITHOUT_CAP'.`,
+        };
+      }
+      // Auto-set bid_strategy to match campaign if user only provided bidAmount
+      if (options.bidStrategy === undefined) {
+        preview.bid_strategy = campaignBidStrategy;
+      }
+    }
+  } catch (error) {
+    // If pre-flight check fails (e.g., campaign not found), let the main call proceed
+    // Meta will return its own error
   }
 
   const accountPath = normalizeAccountPath(options.adAccountId);
@@ -153,8 +210,23 @@ function buildAdSetPayload(options: CreateAdSetOptions): Record<string, unknown>
     status: options.status ?? 'PAUSED',
     billing_event: options.billingEvent ?? 'IMPRESSIONS',
     optimization_goal: options.optimizationGoal ?? 'REACH',
-    bid_strategy: options.bidStrategy ?? 'LOWEST_COST_WITHOUT_CAP',
   };
+
+  // Only send bid_strategy if user explicitly specified it
+  // Otherwise let Meta inherit from the campaign
+  if (options.bidStrategy !== undefined) {
+    payload.bid_strategy = options.bidStrategy;
+  }
+
+  // Send bid_amount if provided
+  if (options.bidAmount !== undefined) {
+    payload.bid_amount = options.bidAmount;
+  }
+
+  // Send bid_constraints if provided (for LOWEST_COST_WITH_MIN_ROAS)
+  if (options.bidConstraints !== undefined) {
+    payload.bid_constraints = options.bidConstraints;
+  }
 
   if (options.dailyBudget !== undefined) {
     payload.daily_budget = options.dailyBudget;
@@ -207,6 +279,12 @@ function buildTargetingPayload(targeting: AdSetTargeting): Record<string, unknow
   if (targeting.flexibleSpec !== undefined) result.flexible_spec = targeting.flexibleSpec;
   if (targeting.exclusions !== undefined) result.exclusions = targeting.exclusions;
   if (targeting.targetingOptimization !== undefined) result.targeting_optimization = targeting.targetingOptimization;
+
+  // Meta API v24+ requires targeting_automation.advantage_audience
+  // Default to 0 (disabled) when user provides custom targeting
+  if (!('targeting_automation' in result)) {
+    result.targeting_automation = { advantage_audience: 0 };
+  }
 
   return result;
 }
