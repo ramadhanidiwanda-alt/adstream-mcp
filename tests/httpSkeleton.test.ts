@@ -4,7 +4,7 @@ import {
   createHttpMcpRequestHandler,
   parseHttpMcpConfig,
   startHttpMcpServer,
-} from '../mcp-server/src/http.js';
+} from '../src/mcp/http.js';
 
 describe('HTTP MCP skeleton config', () => {
   let originalEnv: NodeJS.ProcessEnv;

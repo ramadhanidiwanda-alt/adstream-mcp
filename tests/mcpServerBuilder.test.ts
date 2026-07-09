@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
-import { createMetaAdsMcpServer } from '../mcp-server/src/createServer.js';
+import { createMetaAdsMcpServer } from '../src/mcp/createServer.js';
 import { ADS_MCP_TOOL_DEFINITIONS } from '../src/broker/mcpTools.js';
 import { COMMERCE_MCP_TOOL_DEFINITIONS } from '../src/broker/commerceTools.js';
 import type { AdsBroker } from '../src/broker/AdsBroker.js';
