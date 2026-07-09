@@ -152,6 +152,29 @@ const createCampaignInputSchema = {
   confirmed: z.boolean().optional().describe('Must be true to execute after preview.'),
 };
 
+const createAdSetInputSchema = {
+  ...adsBaseInputSchema,
+  accountId: z.string().describe('Provider account id. Required for ad set creation.'),
+  campaignId: z.string().describe('The campaign ID to create the ad set under.'),
+  name: z.string().describe('Ad set name.'),
+  status: z.enum(['ACTIVE', 'PAUSED']).optional().describe('Ad set status. Defaults to PAUSED.'),
+  dailyBudget: z.number().optional().describe('Daily budget in local currency minor units.'),
+  lifetimeBudget: z.number().optional().describe('Lifetime budget in local currency minor units.'),
+  billingEvent: z.enum(['IMPRESSIONS', 'LINK_CLICKS', 'PAGE_LIKES', 'POST_ENGAGEMENT', 'VIDEO_VIEWS', 'LEADS', 'APP_INSTALLS', 'REACH', 'VALUE', 'LANDING_PAGE_VIEWS', 'OFFSITE_CONVERSIONS']).optional().describe('Billing event. Defaults to IMPRESSIONS.'),
+  optimizationGoal: z.enum(['NONE', 'APP_INSTALLS', 'CONVERSATIONS', 'ENGAGED_USERS', 'IMPRESSIONS', 'LANDING_PAGE_VIEWS', 'LEAD_GENERATION', 'LINK_CLICKS', 'OFFSITE_CONVERSIONS', 'PAGE_LIKES', 'POST_ENGAGEMENT', 'REACH', 'THRUPLAY', 'VALUE']).optional().describe('Optimization goal. Defaults to REACH.'),
+  bidStrategy: z.string().optional().describe('Bid strategy. Defaults to LOWEST_COST_WITHOUT_CAP.'),
+  geoLocations: z.record(z.unknown()).optional().describe('Geo targeting object with countries[], regions[], cities[].'),
+  ageMin: z.number().optional().describe('Minimum age target (e.g. 18).'),
+  ageMax: z.number().optional().describe('Maximum age target (e.g. 65).'),
+  publisherPlatforms: z.array(z.string()).optional().describe('Publisher platforms (e.g. facebook, instagram).'),
+  interests: z.array(z.record(z.unknown())).optional().describe('Interest targeting array [{ id, name }].'),
+  promotedObject: z.record(z.unknown()).optional().describe('Promoted object (e.g. { pixel_id, custom_event_type }).'),
+  startTime: z.string().optional().describe('Start time in ISO format.'),
+  endTime: z.string().optional().describe('End time in ISO format.'),
+  dryRun: z.boolean().optional().describe('Defaults to true. Set false only after preview.'),
+  confirmed: z.boolean().optional().describe('Must be true to execute after preview.'),
+};
+
 const legacyAdAccountId = z
   .string()
   .describe('Ad account ID (e.g., act_123456789)');
@@ -235,6 +258,8 @@ export function createMetaAdsMcpServer(
       inputSchema = adsPerformanceInputSchema;
     } else if (toolDefinition.name === 'ads_create_campaign') {
       inputSchema = createCampaignInputSchema;
+    } else if (toolDefinition.name === 'ads_create_adset') {
+      inputSchema = createAdSetInputSchema;
     } else if (hasCampaignName) {
       inputSchema = ecommerceLaunchInputSchema;
     } else if (hasCampaignId) {

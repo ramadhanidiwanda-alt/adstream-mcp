@@ -18,8 +18,9 @@ import { updateCampaignBudget as updateCampaignBudgetTool } from '../../tools/up
 import { renameCampaign as renameCampaignTool } from '../../tools/renameCampaign.js';
 import { createEcommerceCampaignBundle as createEcommerceCampaignBundleTool } from '../../tools/createEcommerceCampaignBundle.js';
 import { createCampaign as createCampaignTool } from '../../tools/createCampaign.js';
+import { createAdSet as createAdSetTool } from '../../tools/createAdSet.js';
 import type { EcommerceCampaignBundlePayload as MetaEcommerceCampaignBundlePayload, EcommerceCampaignBundleResult } from '../../tools/createEcommerceCampaignBundle.js';
-import type { CreateCampaignResult } from '../../broker/types.js';
+import type { CreateCampaignResult, CreateAdSetResult } from '../../broker/types.js';
 import type { UploadImageResult } from '../../tools/uploadImage.js';
 import type { UploadVideoResult } from '../../tools/uploadVideo.js';
 import { uploadImage as uploadImageTool } from '../../tools/uploadImage.js';
@@ -123,6 +124,11 @@ export interface MetaAdsAdapterTools {
     options: { adAccountId: string; name: string; objective: string; status?: string; specialAdCategories?: string[]; buyType?: string; dailyBudget?: number; lifetimeBudget?: number; bidStrategy?: string },
     execOptions?: { dryRun?: boolean; confirmed?: boolean; maxRetries?: number }
   ): Promise<import('../../tools/createCampaign.js').CreateCampaignResult>;
+  createAdSet(
+    client: MetaClient,
+    options: import('../../tools/createAdSet.js').CreateAdSetOptions,
+    execOptions?: { dryRun?: boolean; confirmed?: boolean; maxRetries?: number }
+  ): Promise<import('../../tools/createAdSet.js').CreateAdSetResult>;
   uploadImage(
     client: MetaClient,
     options: { adAccountId: string; filePath: string; maxRetries?: number }
@@ -173,6 +179,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       updateCampaignBudget: updateCampaignBudgetTool,
       renameCampaign: renameCampaignTool,
       createCampaign: createCampaignTool,
+      createAdSet: createAdSetTool,
       createEcommerceCampaignBundle: createEcommerceCampaignBundleTool,
       uploadImage: uploadImageTool,
       uploadVideo: uploadVideoTool,
@@ -786,6 +793,56 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
     }
   }
 
+  async createAdSet(request: AdsBrokerRequest): Promise<AdsBrokerResponse<CreateAdSetResult>> {
+    const context = this.getCredentialContext(request);
+    if (!context.ok) return context.response;
+
+    const adAccountId = request.accountId ?? context.credential.accountId;
+    if (!adAccountId) {
+      return {
+        ok: false,
+        provider: 'meta',
+        errors: [{ provider: 'meta', code: 'MISSING_ACCOUNT_ID', message: 'accountId is required to create an ad set' }],
+      };
+    }
+
+    const campaignId = typeof request.params.campaignId === 'string' ? request.params.campaignId : undefined;
+    const name = typeof request.params.name === 'string' ? request.params.name : undefined;
+
+    if (!campaignId || !name) {
+      return {
+        ok: false,
+        provider: 'meta',
+        errors: [{ provider: 'meta', code: 'MISSING_REQUIRED_PARAMS', message: 'campaignId and name are required in request.params' }],
+      };
+    }
+
+    try {
+      const client = this.createClient(context.credential);
+      const result = await this.tools.createAdSet(client, {
+        adAccountId,
+        campaignId,
+        name,
+        status: typeof request.params.status === 'string' ? request.params.status as import('../../tools/createAdSet.js').AdSetStatus : undefined,
+        dailyBudget: typeof request.params.dailyBudget === 'number' ? request.params.dailyBudget : undefined,
+        lifetimeBudget: typeof request.params.lifetimeBudget === 'number' ? request.params.lifetimeBudget : undefined,
+        billingEvent: typeof request.params.billingEvent === 'string' ? request.params.billingEvent as import('../../tools/createAdSet.js').BillingEvent : undefined,
+        optimizationGoal: typeof request.params.optimizationGoal === 'string' ? request.params.optimizationGoal as import('../../tools/createAdSet.js').OptimizationGoal : undefined,
+        bidStrategy: typeof request.params.bidStrategy === 'string' ? request.params.bidStrategy : undefined,
+        targeting: this.parseAdSetTargeting(request),
+        promotedObject: typeof request.params.promotedObject === 'object' && request.params.promotedObject !== null ? request.params.promotedObject as Record<string, unknown> : undefined,
+        startTime: typeof request.params.startTime === 'string' ? request.params.startTime : undefined,
+        endTime: typeof request.params.endTime === 'string' ? request.params.endTime : undefined,
+      }, {
+        dryRun: request.params.dryRun !== false,
+        confirmed: request.params.confirmed === true,
+      });
+      return { ok: result.status !== 'failed', provider: 'meta', data: result };
+    } catch (error) {
+      return this.writeErrorResponse(error);
+    }
+  }
+
   async createEcommerceCampaignBundle(
     request: AdsBrokerRequest
   ): Promise<AdsBrokerResponse<EcommerceCampaignBundleResult>> {
@@ -1167,6 +1224,26 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
     return typeof request.params.campaignId === 'string'
       ? request.params.campaignId
       : undefined;
+  }
+
+  private parseAdSetTargeting(request: AdsBrokerRequest): Record<string, unknown> | undefined {
+    const geoLocations = request.params.geoLocations;
+    const ageMin = typeof request.params.ageMin === 'number' ? request.params.ageMin : undefined;
+    const ageMax = typeof request.params.ageMax === 'number' ? request.params.ageMax : undefined;
+    const publisherPlatforms = request.params.publisherPlatforms;
+    const interests = request.params.interests;
+
+    if (!geoLocations && ageMin === undefined && ageMax === undefined && !publisherPlatforms && !interests) {
+      return undefined;
+    }
+
+    const targeting: Record<string, unknown> = {};
+    if (geoLocations && typeof geoLocations === 'object') targeting.geo_locations = geoLocations;
+    if (ageMin !== undefined) targeting.age_min = ageMin;
+    if (ageMax !== undefined) targeting.age_max = ageMax;
+    if (Array.isArray(publisherPlatforms)) targeting.publisher_platforms = publisherPlatforms;
+    if (Array.isArray(interests)) targeting.interests = interests;
+    return targeting;
   }
 
   private toAdsMutationResult(result: MutationResult): AdsMutationResult {

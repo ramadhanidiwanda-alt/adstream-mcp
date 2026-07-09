@@ -7,6 +7,7 @@ import type {
   AdsContentMatrixSortDirection,
   AdsMetricRecord,
   AdsMutationResult,
+  CreateAdSetResult,
   CreateCampaignResult,
   EcommerceCampaignBundleResult,
   AdsReport,
@@ -62,6 +63,7 @@ type AdapterWriteMethod =
   | 'updateCampaignBudget'
   | 'renameCampaign'
   | 'createCampaign'
+  | 'createAdSet'
   | 'createEcommerceCampaignBundle'
   | 'uploadImage'
   | 'uploadVideo';
@@ -334,6 +336,10 @@ export class AdsBroker {
     return this.executeWrite<CreateCampaignResult>(request, 'createCampaign');
   }
 
+  createAdSet(request: AdsBrokerRequest): Promise<AdsBrokerResponse<CreateAdSetResult>> {
+    return this.executeWrite<CreateAdSetResult>(request, 'createAdSet');
+  }
+
   createEcommerceCampaignBundle(
     request: AdsBrokerRequest
   ): Promise<AdsBrokerResponse<EcommerceCampaignBundleResult>> {
@@ -348,7 +354,7 @@ export class AdsBroker {
     return this.executeWrite<VideoUploadResult>(request, 'uploadVideo');
   }
 
-  private async executeWrite<TData extends AdsMutationResult | EcommerceCampaignBundleResult | CreateCampaignResult | ImageUploadResult | VideoUploadResult>(
+  private async executeWrite<TData extends AdsMutationResult | EcommerceCampaignBundleResult | CreateCampaignResult | CreateAdSetResult | ImageUploadResult | VideoUploadResult>(
     request: AdsBrokerRequest,
     method: AdapterWriteMethod
   ): Promise<AdsBrokerResponse<TData>> {
