@@ -17,15 +17,13 @@ As of Phase 16c, the internal MCP tool surface is registered through the SDK hig
 Use this mode when your MCP client can run a local command and pass environment variables to it.
 
 ```text
-node /absolute/path/to/adstream-mcp/mcp-server/dist/index.js
+node /absolute/path/to/adstream-mcp/dist/mcp/index.js
 ```
 
 Build before first use:
 
 ```bash
 npm install
-npm run build
-cd mcp-server
 npm run build
 ```
 
@@ -49,7 +47,7 @@ Remote SSE transport is available using the current SDK. Start the server:
 MCP_HTTP_ENABLED=true \
 MCP_TRANSPORT=sse \
 MCP_HTTP_BEARER_TOKEN=<MCP_REMOTE_AUTH_TOKEN> \
-node mcp-server/dist/http.js
+node dist/mcp/http.js
 ```
 
 SSE is compatible with MCP clients that support remote SSE connections. The server exposes two endpoints:
@@ -72,7 +70,7 @@ MCP_TRANSPORT=streamable-http \
 MCP_HTTP_HOST=127.0.0.1 \
 MCP_HTTP_PORT=8787 \
 MCP_HTTP_BEARER_TOKEN=<MCP_REMOTE_AUTH_TOKEN> \
-node /absolute/path/to/adstream-mcp/mcp-server/dist/http.js
+node dist/mcp/http.js
 ```
 
 The server exposes:
