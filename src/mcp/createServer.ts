@@ -30,8 +30,8 @@ import {
   getGmvMaxReport,
   getTikTokAdvertisers,
   getTikTokLocationInsights,
-  } from 'adstream-mcp';
-import type { LocationBreakdown } from 'adstream-mcp';
+  } from '../index.js';
+import type { LocationBreakdown } from '../index.js';
 
 export interface CreateMetaAdsMcpServerOptions {
   client?: MetaClient;
@@ -53,6 +53,10 @@ type ToolArguments = {
   level?: 'campaign' | 'adset' | 'ad';
   breakdowns?: unknown;
   category?: string;
+  sortBy?: string;
+  sortDirection?: string;
+  minSpend?: number;
+  minClicks?: number;
 };
 
 const adsBaseInputSchema = {
@@ -173,8 +177,6 @@ const createAdSetInputSchema = {
   promotedObject: z.record(z.unknown()).optional().describe('Promoted object (e.g. { pixel_id, custom_event_type }).'),
   startTime: z.string().optional().describe('Start time in ISO format.'),
   endTime: z.string().optional().describe('End time in ISO format.'),
-  bidAmount: z.number().optional().describe('Bid amount in account currency cents. REQUIRED when bidStrategy is COST_CAP or LOWEST_COST_WITH_BID_CAP. Example: 500000 = Rp5.000.'),
-  bidConstraints: z.record(z.unknown()).optional().describe('Bid constraints for LOWEST_COST_WITH_MIN_ROAS. Shape: { roas_average_floor: number } where value = target ROAS × 10000.'),
   destinationType: z.string().optional().describe('Where users go: WEBSITE, APP, MESSENGER, WHATSAPP, INSTAGRAM_DIRECT, etc.'),
   attributionSpec: z.array(z.record(z.unknown())).optional().describe('Attribution window spec. Example: [{ event_type: "CLICK_THROUGH", window_days: 7 }]'),
   frequencyControlSpecs: z.array(z.record(z.unknown())).optional().describe('Frequency cap specs. Example: [{ event: "IMPRESSIONS", interval_days: 7, max_frequency: 3 }]'),
@@ -830,7 +832,7 @@ async function handleTikTokToolCall(
       case 'tiktok_get_location_insights': {
         const summary = await getTikTokLocationInsights(tiktokClient, {
           advertiserId: args.advertiserId as string,
-          breakdowns: (args.breakdowns as 'country' | 'province' | 'city'[]) ?? ['country'],
+          breakdowns: (args.breakdowns as ('country' | 'province' | 'city')[]) ?? ['country'],
           dataLevel: args.dataLevel as 'AUCTION_CAMPAIGN' | 'AUCTION_ADGROUP' | 'AUCTION_AD' | undefined,
           startDate: args.startDate as string | undefined,
           endDate: args.endDate as string | undefined,

@@ -4,14 +4,14 @@ import { createHash, randomBytes } from 'node:crypto';
 import {
   createHttpMcpRequestHandler,
   parseHttpMcpConfig,
-} from '../mcp-server/src/http.js';
+} from '../src/mcp/http.js';
 import {
   OAuthStore,
   type IOAuthStore,
   createOAuthStoreFromEnv,
   type OAuthStoreDriver,
-} from '../mcp-server/src/oauthStore.js';
-import { SupabaseOAuthStore } from '../mcp-server/src/oauthStoreSupabase.js';
+} from '../src/mcp/oauthStore.js';
+import { SupabaseOAuthStore } from '../src/mcp/oauthStoreSupabase.js';
 
 // ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -221,7 +221,7 @@ interface TestContext {
   port: number;
 }
 
-async function createTestServer(config?: Partial<import('../mcp-server/src/http.js').HttpMcpConfig>): Promise<TestContext> {
+async function createTestServer(config?: Partial<import('../src/mcp/http.js').HttpMcpConfig>): Promise<TestContext> {
   const server = createServer(
     createHttpMcpRequestHandler({
       enabled: true,
