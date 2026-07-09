@@ -36,7 +36,7 @@ docker run --rm \
   -e MCP_HTTP_BEARER_TOKEN=<MCP_REMOTE_AUTH_TOKEN> \
   -p 127.0.0.1:8787:8787 \
   adstream-mcp:mcp \
-  node mcp-server/dist/http.js
+  node dist/mcp/http.js
 ```
 
 The server exposes:
@@ -59,7 +59,7 @@ docker run --rm \
   -e MCP_HTTP_BEARER_TOKEN=<MCP_REMOTE_AUTH_TOKEN> \
   -p 127.0.0.1:8787:8787 \
   adstream-mcp:mcp \
-  node mcp-server/dist/http.js
+  node dist/mcp/http.js
 ```
 
 The server exposes:

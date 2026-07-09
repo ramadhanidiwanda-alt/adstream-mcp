@@ -41,7 +41,7 @@ adstream-mcp/
 │       ├── audit/SKILL.md
 │       ├── manage/SKILL.md
 │       └── shared/
-└── mcp-server/             # MCP wrapper
+└── src/mcp/               # MCP server entry
     └── src/index.ts
 
 Total: ~1,909 lines TypeScript + ~1,318 lines markdown

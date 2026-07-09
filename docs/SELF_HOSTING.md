@@ -89,7 +89,7 @@ git clone https://github.com/ramadhanidiwanda-alt/adstream-mcp.git
 cd adstream-mcp
 npm install
 npm run build
-npm run build --workspace=mcp-server
+npm run build
 ```
 
 Example MCP config:

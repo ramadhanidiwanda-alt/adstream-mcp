@@ -225,7 +225,7 @@ export function sha256Hex(input: string): string {
   return createHash('sha256').update(input).digest('hex');
 }
 
-export function base64UrlEncode(input: string): string {
+export function base64UrlEncode(input: string | Buffer): string {
   return Buffer.from(input)
     .toString('base64')
     .replace(/=/g, '')

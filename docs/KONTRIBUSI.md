@@ -158,7 +158,7 @@ chore(deps): update dependencies
 - `types` - src/types.ts
 - `utils` - src/utils/
 - `skills` - skills/
-- `mcp` - mcp-server/
+- `mcp` - src/mcp/
 - `docs` - Documentation
 
 ### PR Process
