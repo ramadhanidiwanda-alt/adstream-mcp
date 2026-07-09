@@ -1,6 +1,6 @@
 export interface MetaConfig {
   accessToken: string;
-  adAccountId: string;
+  adAccountId?: string;
   apiVersion: string;
 }
 

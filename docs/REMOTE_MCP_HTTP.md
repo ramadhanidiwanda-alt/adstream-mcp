@@ -14,8 +14,8 @@ Stdio remains the default entrypoint.
 
 ## Stdio vs HTTP
 
-- Stdio: local MCP transport for desktop clients, launched by `mcp-server/src/index.ts`.
-- HTTP: self-hosted URL entrypoint, launched explicitly by `mcp-server/src/http.ts`.
+- Stdio: local MCP transport for desktop clients, launched by `src/mcp/index.ts`.
+- HTTP: self-hosted URL entrypoint, launched explicitly by `src/mcp/http.ts`.
 
 Do not replace stdio config with HTTP unless your MCP client supports remote URLs and you have auth in place.
 
@@ -254,7 +254,7 @@ Build first:
 
 ```bash
 npm run build
-cd mcp-server && npm run build
+npm run build
 ```
 
 Start HTTP server:
@@ -266,7 +266,7 @@ MCP_HTTP_PORT=8787 \
 MCP_HTTP_PATH=/mcp \
 MCP_HTTP_BEARER_TOKEN=local_test_token \
 MCP_TRANSPORT=sse \
-node mcp-server/dist/http.js
+node dist/mcp/http.js
 ```
 
 Check health:
@@ -288,7 +288,7 @@ curl -i -X POST http://127.0.0.1:8787/mcp \
 Default Docker command remains stdio:
 
 ```bash
-node mcp-server/dist/index.js
+node dist/mcp/index.js
 ```
 
 Optional HTTP compose service is behind the `http` profile:

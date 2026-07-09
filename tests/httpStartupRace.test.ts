@@ -25,7 +25,7 @@ describe('HTTP MCP startup — persistent OAuth load race', () => {
     globalThis.fetch = fetchMock;
 
     vi.resetModules();
-    const { startHttpMcpServer } = await import('../mcp-server/src/http.js');
+    const { startHttpMcpServer } = await import('../src/mcp/http.js');
 
     let resolved = false;
     const startedPromise = startHttpMcpServer(

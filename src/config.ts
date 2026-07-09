@@ -11,9 +11,9 @@ const configSchema = z.object({
     ),
   adAccountId: z
     .string()
-    .min(1, 'META_AD_ACCOUNT_ID is required')
+    .optional()
     .refine(
-      (id) => id.startsWith('act_'),
+      (id) => id === undefined || id.startsWith('act_'),
       'Invalid ad account ID format. ID should start with "act_"'
     ),
   apiVersion: z.string().default('v20.0'),
@@ -22,7 +22,7 @@ const configSchema = z.object({
 export function loadConfig(): MetaConfig {
   const config = {
     accessToken: process.env.META_ACCESS_TOKEN || '',
-    adAccountId: process.env.META_AD_ACCOUNT_ID || '',
+    adAccountId: process.env.META_AD_ACCOUNT_ID || undefined,
     apiVersion: process.env.META_API_VERSION || 'v20.0',
   };
 
@@ -34,7 +34,8 @@ export function loadConfig(): MetaConfig {
       throw new Error(
         `Meta Ads configuration error:\n${messages}\n\n` +
           `Please set the following environment variables:\n` +
-          `  export META_ACCESS_TOKEN="EAAxxxxxxxxxx"\n` +
+          `  export META_ACCESS_TOKEN="EAAxxxxxxxxxx"\n\n` +
+          `Optionally set a default ad account:\n` +
           `  export META_AD_ACCOUNT_ID="act_123456789"\n\n` +
           `Get your access token from:\n` +
           `  https://developers.facebook.com/tools/explorer\n`

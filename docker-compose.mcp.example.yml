@@ -10,7 +10,7 @@ services:
     env_file:
       - .env
     restart: unless-stopped
-    command: node mcp-server/dist/index.js
+    command: node dist/mcp/index.js
 
   # Optional self-hosted HTTP skeleton. Keep disabled unless you need URL access.
   # This uses POST /mcp and GET /health, but fails fast for MCP messages until
@@ -30,6 +30,6 @@ services:
     ports:
       - "127.0.0.1:8787:8787"
     restart: unless-stopped
-    command: node mcp-server/dist/http.js
+    command: node dist/mcp/http.js
     profiles:
       - http

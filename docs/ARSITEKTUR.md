@@ -22,7 +22,7 @@ adstream-mcp/
 │       ├── audit/         # Performance auditing
 │       ├── manage/        # Campaign management
 │       └── shared/        # Shared context
-├── mcp-server/            # MCP wrapper
+├── src/mcp/               # MCP server entry
 │   └── src/index.ts
 ├── tests/                 # Test files
 └── docs/                  # Documentation (folder ini)

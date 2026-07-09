@@ -575,7 +575,7 @@ Unknown upstream error codes are mapped to `INTERNAL_ERROR` before they reach br
 - What is the minimum useful creative performance schema for TikTok Ads?
 - When should legacy Meta-only MCP tools be deprecated?
 - Which transport should be prioritized first for remote mode?
-- Known issue: `mcp-server` DTS build still needs dependency/workspace setup. Root `npm run test` and root `npm run build` pass, but this should be resolved before final packaging or release.
+- Known issue: unified package build (`tsup`) produces both library and MCP server entry points.
 
 ## 16. Recommendation
 

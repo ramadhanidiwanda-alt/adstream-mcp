@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
-import { MemoryOAuthStore } from '../mcp-server/src/oauthStore.js';
-import { SupabaseOAuthStore } from '../mcp-server/src/oauthStoreSupabase.js';
+import { MemoryOAuthStore } from '../src/mcp/oauthStore.js';
+import { SupabaseOAuthStore } from '../src/mcp/oauthStoreSupabase.js';
 
 function sha256Hex(value: string): string {
   return createHash('sha256').update(value).digest('hex');
