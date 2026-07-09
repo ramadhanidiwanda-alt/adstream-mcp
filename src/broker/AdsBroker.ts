@@ -7,8 +7,13 @@ import type {
   AdsContentMatrixSortDirection,
   AdsMetricRecord,
   AdsMutationResult,
+  ArchiveAdResult,
+  CreateAdCreativeResult,
+  CreateAdResult,
   CreateAdSetResult,
   CreateCampaignResult,
+  GetTargetingOptionsResult,
+  UpdateAdSetResult,
   EcommerceCampaignBundleResult,
   AdsReport,
   AdsMultiProviderReport,
@@ -55,7 +60,8 @@ type AdapterMethod =
   | 'getAccountInfo'
   | 'listAdImages'
   | 'listAdVideos'
-  | 'getAdPreview';
+  | 'getAdPreview'
+  | 'getTargetingOptions';
 
 type AdapterWriteMethod =
   | 'pauseCampaign'
@@ -64,6 +70,10 @@ type AdapterWriteMethod =
   | 'renameCampaign'
   | 'createCampaign'
   | 'createAdSet'
+  | 'createAdCreative'
+  | 'createAd'
+  | 'archiveAd'
+  | 'updateAdSet'
   | 'createEcommerceCampaignBundle'
   | 'uploadImage'
   | 'uploadVideo';
@@ -340,6 +350,26 @@ export class AdsBroker {
     return this.executeWrite<CreateAdSetResult>(request, 'createAdSet');
   }
 
+  createAdCreative(request: AdsBrokerRequest): Promise<AdsBrokerResponse<CreateAdCreativeResult>> {
+    return this.executeWrite<CreateAdCreativeResult>(request, 'createAdCreative');
+  }
+
+  createAd(request: AdsBrokerRequest): Promise<AdsBrokerResponse<CreateAdResult>> {
+    return this.executeWrite<CreateAdResult>(request, 'createAd');
+  }
+
+  archiveAd(request: AdsBrokerRequest): Promise<AdsBrokerResponse<ArchiveAdResult>> {
+    return this.executeWrite<ArchiveAdResult>(request, 'archiveAd');
+  }
+
+  updateAdSet(request: AdsBrokerRequest): Promise<AdsBrokerResponse<UpdateAdSetResult>> {
+    return this.executeWrite<UpdateAdSetResult>(request, 'updateAdSet');
+  }
+
+  getTargetingOptions(request: AdsBrokerRequest): Promise<AdsBrokerResponse<GetTargetingOptionsResult>> {
+    return this.executeRead<GetTargetingOptionsResult>(request, 'getTargetingOptions');
+  }
+
   createEcommerceCampaignBundle(
     request: AdsBrokerRequest
   ): Promise<AdsBrokerResponse<EcommerceCampaignBundleResult>> {
@@ -354,7 +384,7 @@ export class AdsBroker {
     return this.executeWrite<VideoUploadResult>(request, 'uploadVideo');
   }
 
-  private async executeWrite<TData extends AdsMutationResult | EcommerceCampaignBundleResult | CreateCampaignResult | CreateAdSetResult | ImageUploadResult | VideoUploadResult>(
+  private async executeWrite<TData extends AdsMutationResult | EcommerceCampaignBundleResult | CreateCampaignResult | CreateAdSetResult | CreateAdCreativeResult | CreateAdResult | ArchiveAdResult | UpdateAdSetResult | GetTargetingOptionsResult | ImageUploadResult | VideoUploadResult>(
     request: AdsBrokerRequest,
     method: AdapterWriteMethod
   ): Promise<AdsBrokerResponse<TData>> {

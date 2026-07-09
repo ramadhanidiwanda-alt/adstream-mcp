@@ -4,8 +4,13 @@ import type {
   AdsChangeHistoryEnvelope,
   AdsMetricRecord,
   AdsMutationResult,
+  ArchiveAdResult,
+  CreateAdCreativeResult,
+  CreateAdResult,
   CreateAdSetResult,
   CreateCampaignResult,
+  GetTargetingOptionsResult,
+  UpdateAdSetResult,
   EcommerceCampaignBundleResult,
   AdsProviderAdapter,
   VideoSourceResult,
@@ -369,6 +374,26 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
   }
 
   async createAdSet(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<CreateAdSetResult>> {
+    return this.writeNotImplemented();
+  }
+
+  async createAdCreative(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<CreateAdCreativeResult>> {
+    return this.writeNotImplemented();
+  }
+
+  async createAd(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<CreateAdResult>> {
+    return this.writeNotImplemented();
+  }
+
+  async archiveAd(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<ArchiveAdResult>> {
+    return this.writeNotImplemented();
+  }
+
+  async updateAdSet(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<UpdateAdSetResult>> {
+    return this.writeNotImplemented();
+  }
+
+  async getTargetingOptions(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<GetTargetingOptionsResult>> {
     return this.writeNotImplemented();
   }
 

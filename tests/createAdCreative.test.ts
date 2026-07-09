@@ -1,0 +1,47 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type { MetaClient } from '../src/metaClient.js';
+import { createAdCreative } from '../src/tools/createAdCreative.js';
+
+type MetaPostMock = ReturnType<typeof vi.fn>;
+
+describe('createAdCreative', () => {
+  const mockMetaPost: MetaPostMock = vi.fn();
+  const mockClient = { metaPost: mockMetaPost } as unknown as MetaClient;
+
+  const baseOpts = {
+    adAccountId: 'act_123', name: 'Test Creative', pageId: '1001',
+    linkData: { link: 'https://example.com', message: 'Buy now', callToAction: { type: 'SHOP_NOW' as const, value: { link: 'https://example.com' } } },
+  };
+
+  beforeEach(() => vi.clearAllMocks());
+
+  it('returns dry_run without calling API', async () => {
+    const r = await createAdCreative(mockClient, baseOpts);
+    expect(r.status).toBe('dry_run'); expect(r.executed).toBe(false);
+    expect(r.preview.name).toBe('Test Creative'); expect(mockMetaPost).not.toHaveBeenCalled();
+  });
+
+  it('returns pending_confirmation when not confirmed', async () => {
+    const r = await createAdCreative(mockClient, baseOpts, { dryRun: false, confirmed: false });
+    expect(r.status).toBe('pending_confirmation'); expect(r.error).toContain('confirmation');
+  });
+
+  it('executes and returns id on success', async () => {
+    mockMetaPost.mockResolvedValueOnce({ id: 'c123' });
+    const r = await createAdCreative(mockClient, baseOpts, { dryRun: false, confirmed: true });
+    expect(r.status).toBe('executed'); expect(r.id).toBe('c123');
+    expect(mockMetaPost).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns failed when no id returned', async () => {
+    mockMetaPost.mockResolvedValueOnce({});
+    const r = await createAdCreative(mockClient, baseOpts, { dryRun: false, confirmed: true });
+    expect(r.status).toBe('failed');
+  });
+
+  it('returns failed on API error', async () => {
+    mockMetaPost.mockRejectedValueOnce(new Error('creative error'));
+    const r = await createAdCreative(mockClient, baseOpts, { dryRun: false, confirmed: true });
+    expect(r.status).toBe('failed'); expect(r.error).toContain('creative error');
+  });
+});

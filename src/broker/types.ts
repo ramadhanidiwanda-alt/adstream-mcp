@@ -660,6 +660,70 @@ export interface CreateAdSetResult {
   error?: string;
 }
 
+export type CreateAdCreativeStatus = 'dry_run' | 'pending_confirmation' | 'executed' | 'failed';
+
+export interface CreateAdCreativeResult {
+  operation: 'create_adcreative';
+  status: CreateAdCreativeStatus;
+  executed: boolean;
+  preview: Record<string, unknown>;
+  id?: string;
+  response?: Record<string, unknown>;
+  error?: string;
+}
+
+export type CreateAdStatus = 'dry_run' | 'pending_confirmation' | 'executed' | 'failed';
+
+export interface CreateAdResult {
+  operation: 'create_ad';
+  status: CreateAdStatus;
+  executed: boolean;
+  preview: Record<string, unknown>;
+  id?: string;
+  response?: Record<string, unknown>;
+  error?: string;
+}
+
+export interface ArchiveAdResult {
+  operation: 'archive_ad';
+  status: 'executed' | 'failed';
+  success: boolean;
+  id?: string;
+  error?: string;
+}
+
+export type UpdateAdSetStatus = 'dry_run' | 'pending_confirmation' | 'executed' | 'failed';
+
+export interface UpdateAdSetResult {
+  operation: 'update_adset';
+  status: UpdateAdSetStatus;
+  executed: boolean;
+  preview: Record<string, unknown>;
+  success: boolean;
+  id?: string;
+  response?: Record<string, unknown>;
+  error?: string;
+}
+
+export interface TargetingOption {
+  id: string;
+  name: string;
+  type: string;
+  path?: string[];
+  audience_size_lower_bound?: number;
+  audience_size_upper_bound?: number;
+  description?: string;
+  topic?: string;
+}
+
+export interface GetTargetingOptionsResult {
+  operation: 'get_targeting_options';
+  data: TargetingOption[];
+  paging: {
+    nextCursor: string | null;
+  };
+}
+
 export interface AccountInfoResult {
   id: string;
   name: string;
@@ -726,6 +790,11 @@ export interface AdsProviderAdapter {
   renameCampaign(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>>;
   createCampaign(request: AdsBrokerRequest): Promise<AdsBrokerResponse<CreateCampaignResult>>;
   createAdSet(request: AdsBrokerRequest): Promise<AdsBrokerResponse<CreateAdSetResult>>;
+  createAdCreative(request: AdsBrokerRequest): Promise<AdsBrokerResponse<CreateAdCreativeResult>>;
+  createAd(request: AdsBrokerRequest): Promise<AdsBrokerResponse<CreateAdResult>>;
+  archiveAd(request: AdsBrokerRequest): Promise<AdsBrokerResponse<ArchiveAdResult>>;
+  updateAdSet(request: AdsBrokerRequest): Promise<AdsBrokerResponse<UpdateAdSetResult>>;
+  getTargetingOptions(request: AdsBrokerRequest): Promise<AdsBrokerResponse<GetTargetingOptionsResult>>;
   createEcommerceCampaignBundle(request: AdsBrokerRequest): Promise<AdsBrokerResponse<EcommerceCampaignBundleResult>>;
   uploadImage(request: AdsBrokerRequest): Promise<AdsBrokerResponse<ImageUploadResult>>;
   uploadVideo(request: AdsBrokerRequest): Promise<AdsBrokerResponse<VideoUploadResult>>;

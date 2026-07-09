@@ -44,6 +44,21 @@ export type { CreateCampaignOptions, CreateCampaignResult, CreateCampaignStatus,
 export { createAdSet } from './tools/createAdSet.js';
 export type { CreateAdSetOptions, CreateAdSetResult, CreateAdSetStatus, AdSetStatus, AdSetTargeting, BillingEvent, OptimizationGoal } from './tools/createAdSet.js';
 
+export { createAdCreative } from './tools/createAdCreative.js';
+export type { CreateAdCreativeOptions, CreateAdCreativeResult, CreateAdCreativeStatus, CreativeStatus } from './tools/createAdCreative.js';
+
+export { createAd } from './tools/createAd.js';
+export type { CreateAdOptions, CreateAdResult, CreateAdStatus, AdStatus } from './tools/createAd.js';
+
+export { archiveAd } from './tools/archiveAd.js';
+export type { ArchiveAdOptions, ArchiveAdResult } from './tools/archiveAd.js';
+
+export { updateAdSet } from './tools/updateAdSet.js';
+export type { UpdateAdSetOptions, UpdateAdSetResult, UpdateAdSetStatus } from './tools/updateAdSet.js';
+
+export { getTargetingOptions } from './tools/getTargetingOptions.js';
+export type { GetTargetingOptionsOptions, GetTargetingOptionsResult, TargetingOption, TargetingOptionType } from './tools/getTargetingOptions.js';
+
 export { uploadImage } from './tools/uploadImage.js';
 export type { UploadImageOptions, UploadImageResult } from './tools/uploadImage.js';
 export { uploadVideo } from './tools/uploadVideo.js';
