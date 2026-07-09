@@ -357,14 +357,11 @@ function callBrokerMethod(
       return broker.uploadImage(request);
     case 'ads_upload_video':
       return broker.uploadVideo(request);
-    case 'ads_get_account_info':
-      return broker.getAccountInfo(request);
-    case 'ads_list_adimages':
-      return broker.listAdImages(request);
-    case 'ads_list_advideos':
-      return broker.listAdVideos(request);
-    case 'ads_get_ad_preview':
-      return broker.getAdPreview(request);
+    default:
+      return Promise.resolve({
+        ok: false,
+        errors: [{ code: 'UNSUPPORTED_OPERATION', message: `'${name}' is not implemented through the broker yet` }],
+      });
   }
 }
 
