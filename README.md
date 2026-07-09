@@ -37,12 +37,24 @@ The intended public API should stay small:
 | `ads_get_capabilities` | Discover supported providers, metrics, breakdowns, levels, and writes |
 | `commerce_get_performance` | Fetch commerce/SKU/product/order performance when available |
 
-Optional write tools are separate from analytics:
+## Write tools (scoped mutations with dry-run + confirmation):
 
-- `ads_pause_campaign`
-- `ads_resume_campaign`
-- `ads_update_campaign_budget`
-- `ads_rename_campaign`
+| Tool | Purpose |
+|------|---------|
+| `ads_create_campaign` | Create a campaign under an ad account |
+| `ads_create_adset` | Create an ad set with pre-flight validation (bid strategy, CBO, budget) |
+| `ads_create_adcreative` | Create ad creative with page link or media |
+| `ads_create_ad` | Create an ad linking ad set and creative |
+| `ads_update_adset` | Update ad set settings (budget, status, targeting) |
+| `ads_pause_campaign` | Pause an active campaign |
+| `ads_resume_campaign` | Resume a paused campaign |
+| `ads_update_campaign_budget` | Change campaign daily budget |
+| `ads_rename_campaign` | Rename a campaign |
+| `ads_archive_ad` | Archive an ad or campaign |
+| `ads_upload_image` | Upload image to Meta Ads Image Library |
+| `ads_upload_video` | Upload video to Meta Ads Video Library |
+
+All write tools use dry-run by default. Set `dryRun=false` + `confirmed=true` to execute.
 
 Legacy and provider-specific tools remain available for compatibility, but new report-specific tools should be avoided. Daily reports, weekly reports, creative audits, KPI scoring, and recommendations should be implemented as AI/skill workflows over the same canonical data tools.
 
@@ -148,7 +160,9 @@ See `docs/LEGACY_AND_MIGRATION.md` for the migration classification.
 
 ## Authentication
 
-You need a Meta Access Token with `ads_read` permission.
+You need a Meta Access Token with `ads_read` and `ads_management` permissions.
+
+> **Important:** Write tools (create campaign, ad set, creative, ad, upload media) require `ads_management` permission. Read-only tools only need `ads_read`.
 
 ### Option 1: Graph API Explorer (Quick Testing)
 
@@ -165,9 +179,9 @@ For production or autonomous AI agents, use a System User token that never expir
 1. Go to [Meta Business Settings](https://business.facebook.com/settings)
 2. Navigate to **Users** > **System Users**
 3. Click **Add** to create a new System User
-4. Assign the System User to your Ad Account with **Analyst** role
-5. Click **Generate New Token**
-6. Select `ads_read` permission
+3. Assign the System User to your Ad Account with **Analyst** role (or **Advertiser** role for write access)
+4. Click **Generate New Token**
+5. Select `ads_read` and `ads_management` permissions
 7. Copy the token (never expires)
 
 **Recommended for:** Production use, AI agents, scheduled jobs
@@ -285,9 +299,10 @@ npm run lint
 - ✅ v0.2.0 — Advanced rule engine
 - ✅ v0.3.0 — AI skills layer
 - ✅ Connection Key auth mode (Phase 17.5C)
-- 🔜 v0.4.0 — Write operations (pause, budget changes)
-- 🔜 v0.5.0 — OAuth flow for skills
-- 🔜 v0.6.0 — Multi-account support
+- ✅ v0.4.0 — Write operations (campaign, ad set, creative, ad, media upload)
+- ✅ v0.5.0 — Pre-flight bid strategy validation (bid_amount, CBO detection, subcode mapping)
+- 🔜 v0.6.0 — OAuth flow for skills
+- 🔜 v0.7.0 — Multi-account support
 
 ---
 
@@ -340,7 +355,7 @@ MIT License - see [LICENSE](LICENSE) file for details.
 | AI Skills | ✅ | ✅ | ❌ |
 | Self-hosted MCP | ✅ | ❌ (cloud) | N/A |
 | Read Operations | ✅ | ✅ | ✅ |
-| Write Operations | 🔜 v0.4 | ✅ | ✅ |
+| Write Operations | ✅ (dry-run + confirmed) | ✅ | ✅ |
 | Rule Engine | ✅ | ❌ | ❌ |
 | Open Source | ✅ | ✅ | ✅ |
 | Target Audience | Both | End users | Developers |
@@ -352,7 +367,7 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 - **"Should I use skills or library?"** — Skills for ad-hoc analysis, library for automation
 - **"Can I use both?"** — Yes! They're complementary
-- **"Is this production-ready?"** — Yes for read operations, write ops coming in v0.4
+- **"Is this production-ready?"** — Yes. Read tools stable, write tools with dry-run + confirmation for safety. Pre-flight bid validation included.
 - **"Does this work with other AI agents?"** — Yes, any MCP-compatible agent
 - **"Can I self-host everything?"** — Yes, no external dependencies
 - **"Connection Key vs MCP Token?"** — Connection Key is recommended for end-user AI connector setups; MCP Token for developer self-host
