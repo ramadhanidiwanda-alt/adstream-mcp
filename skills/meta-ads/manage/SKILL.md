@@ -254,9 +254,24 @@ Your MCP server provides these tools:
 - Request only the fields you need to reduce API latency
 - Make parallel calls when analyzing multiple campaigns
 
-### Guarded write operations
+### Guarded write operations — all supported
 
-Campaign-level write operations may be available through broker/MCP tools, depending on the connected server. Supported campaign operations are pause, resume, budget update, and rename.
+Write operations may be available through broker/MCP tools, depending on the connected server. **All tools below are supported with dry-run + confirmation:**
+
+| Tool | Entity | Pre-flight |
+|------|--------|------------|
+| `ads_create_campaign` | Campaign | Schema validation |
+| `ads_create_adset` | Ad Set | Campaign fetch (CBO, bid strategy, targeting_automation) |
+| `ads_create_adcreative` | Creative | Page/link/media validated at Meta |
+| `ads_create_ad` | Ad | Adset + creative validated at Meta |
+| `ads_upload_image` | Image | File type/size validation |
+| `ads_upload_video` | Video | File type/size validation |
+| `ads_pause_campaign` | Campaign | None (safe) |
+| `ads_resume_campaign` | Campaign | None (safe) |
+| `ads_update_campaign_budget` | Campaign | Max 30% increase by default |
+| `ads_rename_campaign` | Campaign | None (safe) |
+| `ads_update_adset` | Ad Set | Budget, targeting, bid changes |
+| `ads_archive_ad` | Ad | Irreversible — warns before execute |
 
 For the full lifecycle and confirmation requirements, follow `../../../docs/WRITE_SAFETY_CONTRACT.md`.
 
@@ -267,9 +282,9 @@ For the full lifecycle and confirmation requirements, follow `../../../docs/WRIT
 - Execute only the exact confirmed operation and entity.
 - Never expose access tokens, provider tokens, connection keys, or raw authorization headers.
 
-When the user asks for unsupported operations — ad set/ad writes, targeting changes, creative upload, or campaign creation — explain the limitation and offer a safe alternative:
+When the user asks for unsupported operations — tracking/bid strategy changes or batch mutations — explain the limitation and offer a safe alternative:
 
-> I can't execute that operation from this skill yet. I can analyze the data, prepare a recommended change, or create a dry-run plan for supported campaign-level operations.
+> I can't execute that operation from this skill yet. I can analyze the data, prepare a recommended change, or create a dry-run plan for supported operations.
 
 ## Conditional handoffs
 
@@ -304,4 +319,4 @@ Change: +61% (anomaly — investigate)
 3. **Use business context when available.** If `business-context.json` exists, frame recommendations in dollar terms (Headroom $, Break-Even ROAS). If missing, use relative terms (ROAS, CPA) and suggest running audit.
 4. **Cite attribution window.** Always mention "7DC1DV" or whatever window is used when reporting ROAS/CPA.
 5. **Don't over-recommend.** Focus on top 3 actions, not a laundry list. Prioritize by dollar impact.
-6. **Mutation safety.** Campaign writes require dry-run, explicit confirmation, and exact-scope execution. Adset/ad writes remain unsupported until v0.6.0.
+6. **Mutation safety.** All write operations require dry-run, explicit confirmation, and exact-scope execution. See `docs/WRITE_SAFETY_CONTRACT.md` for full lifecycle.

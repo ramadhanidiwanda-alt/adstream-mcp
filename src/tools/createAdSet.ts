@@ -73,6 +73,12 @@ export interface CreateAdSetOptions {
   frequencyControlSpecs?: Array<Record<string, unknown>>;
   /** Enable Dynamic Creative for this ad set */
   isDynamicCreative?: boolean;
+  /** DSA beneficiary for European compliance (person/org that benefits from ads). Required for EU-targeted ad sets. */
+  dsaBeneficiary?: string;
+  /** DSA payor for European compliance (person/org paying for the ads). Required for EU-targeted ad sets. */
+  dsaPayor?: string;
+  /** Multi-Advertiser Ads opt-in (1) or opt-out (0). */
+  multiAdvertiserAds?: number;
 }
 
 export type CreateAdSetStatus = 'dry_run' | 'pending_confirmation' | 'executed' | 'failed';
@@ -338,6 +344,18 @@ function buildAdSetPayload(options: CreateAdSetOptions): Record<string, unknown>
 
   if (options.isDynamicCreative !== undefined) {
     payload.is_dynamic_creative = options.isDynamicCreative;
+  }
+
+  if (options.dsaBeneficiary) {
+    payload.dsa_beneficiary = options.dsaBeneficiary;
+  }
+
+  if (options.dsaPayor) {
+    payload.dsa_payor = options.dsaPayor;
+  }
+
+  if (options.multiAdvertiserAds !== undefined) {
+    payload.multi_advertiser_ads = options.multiAdvertiserAds;
   }
 
   return payload;

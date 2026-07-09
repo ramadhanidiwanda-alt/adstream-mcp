@@ -179,6 +179,9 @@ const createAdSetInputSchema = {
   attributionSpec: z.array(z.record(z.unknown())).optional().describe('Attribution window spec. Example: [{ event_type: "CLICK_THROUGH", window_days: 7 }]'),
   frequencyControlSpecs: z.array(z.record(z.unknown())).optional().describe('Frequency cap specs. Example: [{ event: "IMPRESSIONS", interval_days: 7, max_frequency: 3 }]'),
   isDynamicCreative: z.boolean().optional().describe('Enable Dynamic Creative for this ad set.'),
+  dsaBeneficiary: z.string().optional().describe('DSA beneficiary for European compliance (person/org that benefits from ads).'),
+  dsaPayor: z.string().optional().describe('DSA payor for European compliance (person/org paying for the ads).'),
+  multiAdvertiserAds: z.number().optional().describe('Multi-Advertiser Ads opt-in (1) or opt-out (0).'),
   dryRun: z.boolean().optional().describe('Defaults to true. Set false only after preview.'),
   confirmed: z.boolean().optional().describe('Must be true to execute after preview.'),
 };
