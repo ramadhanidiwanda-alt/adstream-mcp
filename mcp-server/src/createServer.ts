@@ -175,6 +175,65 @@ const createAdSetInputSchema = {
   confirmed: z.boolean().optional().describe('Must be true to execute after preview.'),
 };
 
+const createAdCreativeInputSchema = {
+  ...adsBaseInputSchema,
+  accountId: z.string().describe('Provider account id. Required for creative creation.'),
+  name: z.string().describe('Creative name.'),
+  pageId: z.string().describe('Meta Page ID used in object_story_spec.'),
+  link: z.string().optional().describe('Destination URL for the link ad.'),
+  message: z.string().describe('Primary ad text (message).'),
+  headline: z.string().optional().describe('Ad headline.'),
+  description: z.string().optional().describe('Optional ad description.'),
+  imageHash: z.string().optional().describe('Uploaded Meta image hash.'),
+  videoId: z.string().optional().describe('Uploaded Meta video ID.'),
+  callToActionType: z.enum(['SHOP_NOW', 'LEARN_MORE', 'SIGN_UP', 'GET_OFFER', 'BOOK_NOW', 'DOWNLOAD', 'CONTACT_US', 'SUBSCRIBE', 'INSTALL_APP']).optional().describe('Call to action button type.'),
+  instagramUserId: z.string().optional().describe('Instagram user ID for IG posting.'),
+  dryRun: z.boolean().optional().describe('Defaults to true. Set false only after preview.'),
+  confirmed: z.boolean().optional().describe('Must be true to execute after preview.'),
+};
+
+const createAdInputSchema = {
+  ...adsBaseInputSchema,
+  accountId: z.string().describe('Provider account id. Required for ad creation.'),
+  name: z.string().describe('Ad name.'),
+  adSetId: z.string().describe('The ad set ID to place the ad under.'),
+  creativeId: z.string().describe('The creative ID to use for this ad.'),
+  status: z.enum(['ACTIVE', 'PAUSED']).optional().describe('Ad status. Defaults to PAUSED.'),
+  dryRun: z.boolean().optional().describe('Defaults to true. Set false only after preview.'),
+  confirmed: z.boolean().optional().describe('Must be true to execute after preview.'),
+};
+
+const archiveAdInputSchema = {
+  ...adsBaseInputSchema,
+  adId: z.string().describe('The ad ID to archive.'),
+};
+
+const updateAdSetInputSchema = {
+  ...adsBaseInputSchema,
+  adSetId: z.string().describe('The ad set ID to update.'),
+  name: z.string().optional().describe('New ad set name.'),
+  status: z.enum(['ACTIVE', 'PAUSED']).optional().describe('New ad set status.'),
+  dailyBudget: z.number().optional().describe('New daily budget in minor units.'),
+  lifetimeBudget: z.number().optional().describe('New lifetime budget.'),
+  bidStrategy: z.string().optional().describe('New bid strategy.'),
+  optimizationGoal: z.enum(['REACH', 'IMPRESSIONS', 'LINK_CLICKS', 'LANDING_PAGE_VIEWS', 'CONVERSATIONS', 'VALUE']).optional().describe('New optimization goal.'),
+  geoLocations: z.record(z.unknown()).optional().describe('Geo targeting object.'),
+  ageMin: z.number().optional().describe('Minimum age target.'),
+  ageMax: z.number().optional().describe('Maximum age target.'),
+  publisherPlatforms: z.array(z.string()).optional().describe('Publisher platforms.'),
+  startTime: z.string().optional().describe('Start time in ISO format.'),
+  endTime: z.string().optional().describe('End time in ISO format.'),
+  dryRun: z.boolean().optional().describe('Defaults to true. Set false only after preview.'),
+  confirmed: z.boolean().optional().describe('Must be true to execute after preview.'),
+};
+
+const getTargetingOptionsInputSchema = {
+  ...adsBaseInputSchema,
+  type: z.enum(['interests', 'behaviors', 'demographics', 'industries', 'life_events']).describe('Targeting option type to search.'),
+  query: z.string().optional().describe('Search keyword to filter targeting options.'),
+  limit: z.number().optional().describe('Maximum results to return (default: 25).'),
+};
+
 const legacyAdAccountId = z
   .string()
   .describe('Ad account ID (e.g., act_123456789)');
@@ -260,6 +319,16 @@ export function createMetaAdsMcpServer(
       inputSchema = createCampaignInputSchema;
     } else if (toolDefinition.name === 'ads_create_adset') {
       inputSchema = createAdSetInputSchema;
+    } else if (toolDefinition.name === 'ads_create_adcreative') {
+      inputSchema = createAdCreativeInputSchema;
+    } else if (toolDefinition.name === 'ads_create_ad') {
+      inputSchema = createAdInputSchema;
+    } else if (toolDefinition.name === 'ads_archive_ad') {
+      inputSchema = archiveAdInputSchema;
+    } else if (toolDefinition.name === 'ads_update_adset') {
+      inputSchema = updateAdSetInputSchema;
+    } else if (toolDefinition.name === 'ads_get_targeting_options') {
+      inputSchema = getTargetingOptionsInputSchema;
     } else if (hasCampaignName) {
       inputSchema = ecommerceLaunchInputSchema;
     } else if (hasCampaignId) {

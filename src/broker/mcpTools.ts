@@ -1,5 +1,5 @@
 import type { AdsBroker } from './AdsBroker.js';
-import type { AdsBrokerRequest, AdsBrokerResponse, AdsEntityLevel, AdsMetricRecord, AdsMutationResult, AdsPerformanceEnvelope, AdsProviderId, CreateCampaignResult } from './types.js';
+import type { AdsBrokerRequest, AdsBrokerResponse, AdsEntityLevel, AdsMetricRecord, AdsMutationResult, AdsPerformanceEnvelope, AdsProviderId, ArchiveAdResult, CreateAdCreativeResult, CreateAdResult, CreateAdSetResult, CreateCampaignResult, GetTargetingOptionsResult, UpdateAdSetResult } from './types.js';
 import { ADS_ENTITY_LEVELS, ADS_PROVIDER_IDS, isAdsProviderId } from './types.js';
 import { redactErrorMessage, redactTokenLikeValues } from './credentials.js';
 
@@ -24,6 +24,11 @@ export const ADS_MCP_TOOL_NAMES = [
   'ads_rename_campaign',
   'ads_create_campaign',
   'ads_create_adset',
+  'ads_create_adcreative',
+  'ads_create_ad',
+  'ads_archive_ad',
+  'ads_update_adset',
+  'ads_get_targeting_options',
   'ads_create_ecommerce_campaign_bundle',
   'ads_get_video_source',
   'ads_get_ad_creative_mapping',
@@ -137,6 +142,31 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
     name: 'ads_create_adset',
     description: 'Create a Meta ad set under an existing campaign. Dry-run by default. Set dryRun=false and confirmed=true to execute. Ad set is created PAUSED by default.',
     inputSchema: createCreateAdSetInputSchema(),
+  },
+  {
+    name: 'ads_create_adcreative',
+    description: 'Create a Meta ad creative with image/video, headline, body, and CTA. Dry-run by default. Set dryRun=false and confirmed=true to execute.',
+    inputSchema: createCreateAdCreativeInputSchema(),
+  },
+  {
+    name: 'ads_create_ad',
+    description: 'Create a Meta ad by linking an existing ad set to an existing creative. Dry-run by default. Set dryRun=false and confirmed=true to execute. Ad is created PAUSED by default.',
+    inputSchema: createCreateAdInputSchema(),
+  },
+  {
+    name: 'ads_archive_ad',
+    description: 'Archive (soft-delete) a Meta ad. Sets status to ARCHIVED. Irreversible via API.',
+    inputSchema: createArchiveAdInputSchema(),
+  },
+  {
+    name: 'ads_update_adset',
+    description: 'Update an existing Meta ad set (name, budget, targeting, status). Dry-run by default. Set dryRun=false and confirmed=true to execute.',
+    inputSchema: createUpdateAdSetInputSchema(),
+  },
+  {
+    name: 'ads_get_targeting_options',
+    description: 'Search Meta targeting options (interests, behaviors, demographics) for ad set creation.',
+    inputSchema: createGetTargetingOptionsInputSchema(),
   },
   {
     name: 'ads_create_ecommerce_campaign_bundle',
@@ -303,6 +333,16 @@ function callBrokerMethod(
       return broker.createCampaign(request);
     case 'ads_create_adset':
       return broker.createAdSet(request);
+    case 'ads_create_adcreative':
+      return broker.createAdCreative(request);
+    case 'ads_create_ad':
+      return broker.createAd(request);
+    case 'ads_archive_ad':
+      return broker.archiveAd(request);
+    case 'ads_update_adset':
+      return broker.updateAdSet(request);
+    case 'ads_get_targeting_options':
+      return broker.getTargetingOptions(request);
     case 'ads_create_ecommerce_campaign_bundle':
       return broker.createEcommerceCampaignBundle(request);
     case 'ads_get_video_source':
@@ -805,6 +845,123 @@ function createCreateAdSetInputSchema() {
       confirmed: { type: 'boolean', description: 'Must be true to execute after preview.' },
     },
     required: ['accountId', 'campaignId', 'name'],
+  };
+}
+
+function createCreateAdCreativeInputSchema() {
+  const schema = createAdsInputSchema([]);
+
+  return {
+    type: 'object',
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      name: { type: 'string', description: 'Creative name.' },
+      pageId: { type: 'string', description: 'Meta Page ID used in object_story_spec.' },
+      link: { type: 'string', description: 'Destination URL for the link ad.' },
+      message: { type: 'string', description: 'Primary ad text (message).' },
+      headline: { type: 'string', description: 'Ad headline.' },
+      description: { type: 'string', description: 'Optional ad description.' },
+      imageHash: { type: 'string', description: 'Uploaded Meta image hash.' },
+      videoId: { type: 'string', description: 'Uploaded Meta video ID.' },
+      callToActionType: {
+        type: 'string',
+        enum: ['SHOP_NOW', 'LEARN_MORE', 'SIGN_UP', 'GET_OFFER', 'BOOK_NOW', 'DOWNLOAD', 'CONTACT_US', 'SUBSCRIBE', 'INSTALL_APP'],
+        description: 'Call to action button type.',
+      },
+      instagramUserId: { type: 'string', description: 'Instagram user ID for IG posting.' },
+      dryRun: { type: 'boolean', description: 'Defaults to true. Set false only after preview.' },
+      confirmed: { type: 'boolean', description: 'Must be true to execute after preview.' },
+    },
+    required: ['accountId', 'name', 'pageId', 'message'],
+  };
+}
+
+function createCreateAdInputSchema() {
+  const schema = createAdsInputSchema([]);
+
+  return {
+    type: 'object',
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      name: { type: 'string', description: 'Ad name.' },
+      adSetId: { type: 'string', description: 'The ad set ID to place the ad under.' },
+      creativeId: { type: 'string', description: 'The creative ID to use for this ad.' },
+      status: {
+        type: 'string',
+        enum: ['ACTIVE', 'PAUSED'],
+        description: 'Ad status. Defaults to PAUSED.',
+      },
+      dryRun: { type: 'boolean', description: 'Defaults to true. Set false only after preview.' },
+      confirmed: { type: 'boolean', description: 'Must be true to execute after preview.' },
+    },
+    required: ['accountId', 'name', 'adSetId', 'creativeId'],
+  };
+}
+
+function createArchiveAdInputSchema() {
+  const schema = createAdsInputSchema([]);
+
+  return {
+    type: 'object',
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      adId: { type: 'string', description: 'The ad ID to archive.' },
+    },
+    required: ['adId'],
+  };
+}
+
+function createUpdateAdSetInputSchema() {
+  const schema = createAdsInputSchema([]);
+
+  return {
+    type: 'object',
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      adSetId: { type: 'string', description: 'The ad set ID to update.' },
+      name: { type: 'string', description: 'New ad set name.' },
+      status: {
+        type: 'string',
+        enum: ['ACTIVE', 'PAUSED'],
+        description: 'New ad set status.',
+      },
+      dailyBudget: { type: 'number', description: 'New daily budget in local currency minor units.' },
+      lifetimeBudget: { type: 'number', description: 'New lifetime budget.' },
+      bidStrategy: { type: 'string', description: 'New bid strategy.' },
+      optimizationGoal: {
+        type: 'string',
+        enum: ['REACH', 'IMPRESSIONS', 'LINK_CLICKS', 'LANDING_PAGE_VIEWS', 'CONVERSATIONS', 'VALUE'],
+        description: 'New optimization goal.',
+      },
+      geoLocations: { type: 'object', description: 'Geo targeting object.' },
+      ageMin: { type: 'number', description: 'Minimum age target.' },
+      ageMax: { type: 'number', description: 'Maximum age target.' },
+      publisherPlatforms: { type: 'array', items: { type: 'string' }, description: 'Publisher platforms.' },
+      startTime: { type: 'string', description: 'Start time in ISO format.' },
+      endTime: { type: 'string', description: 'End time in ISO format.' },
+      dryRun: { type: 'boolean', description: 'Defaults to true. Set false only after preview.' },
+      confirmed: { type: 'boolean', description: 'Must be true to execute after preview.' },
+    },
+    required: ['adSetId'],
+  };
+}
+
+function createGetTargetingOptionsInputSchema() {
+  const schema = createAdsInputSchema([]);
+
+  return {
+    type: 'object',
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      type: {
+        type: 'string',
+        enum: ['interests', 'behaviors', 'demographics', 'industries', 'life_events'],
+        description: 'Targeting option type to search.',
+      },
+      query: { type: 'string', description: 'Search keyword to filter targeting options.' },
+      limit: { type: 'number', description: 'Maximum results to return (default: 25).' },
+    },
+    required: ['type'],
   };
 }
 

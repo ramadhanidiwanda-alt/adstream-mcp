@@ -4,8 +4,13 @@ import type {
   AdsChangeHistoryEnvelope,
   AdsMetricRecord,
   AdsMutationResult,
+  ArchiveAdResult,
+  CreateAdCreativeResult,
+  CreateAdResult,
   CreateAdSetResult,
   CreateCampaignResult,
+  GetTargetingOptionsResult,
+  UpdateAdSetResult,
   EcommerceCampaignBundleResult,
   AdsProviderAdapter,
   VideoSourceResult,
@@ -262,6 +267,26 @@ export class GoogleAdsAdapter implements AdsProviderAdapter {
 
   async createAdSet(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<CreateAdSetResult>> {
     return this.writeNotImplemented() as unknown as AdsBrokerResponse<CreateAdSetResult>;
+  }
+
+  async createAdCreative(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<CreateAdCreativeResult>> {
+    return this.writeNotImplemented() as unknown as AdsBrokerResponse<CreateAdCreativeResult>;
+  }
+
+  async createAd(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<CreateAdResult>> {
+    return this.writeNotImplemented() as unknown as AdsBrokerResponse<CreateAdResult>;
+  }
+
+  async archiveAd(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<ArchiveAdResult>> {
+    return this.writeNotImplemented() as unknown as AdsBrokerResponse<ArchiveAdResult>;
+  }
+
+  async updateAdSet(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<UpdateAdSetResult>> {
+    return this.writeNotImplemented() as unknown as AdsBrokerResponse<UpdateAdSetResult>;
+  }
+
+  async getTargetingOptions(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<GetTargetingOptionsResult>> {
+    return this.writeNotImplemented() as unknown as AdsBrokerResponse<GetTargetingOptionsResult>;
   }
 
   private errorResponse(error: unknown): AdsBrokerResponse<never> {
