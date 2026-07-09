@@ -1,7 +1,10 @@
 import type { MetaClient } from '../metaClient.js';
 import { uploadImage } from './uploadImage.js';
 import { uploadVideo } from './uploadVideo.js';
-import { normalizeAccountPath } from '../utils/normalizeAccountId.js';
+import { createCampaign } from './createCampaign.js';
+import { createAdSet } from './createAdSet.js';
+import { createAdCreative } from './createAdCreative.js';
+import { createAd } from './createAd.js';
 
 export type EcommerceLaunchStatus = 'dry_run' | 'pending_confirmation' | 'executed' | 'failed';
 export type MetaEcommerceCallToActionType = 'SHOP_NOW' | 'LEARN_MORE' | 'SIGN_UP' | 'GET_OFFER';
@@ -70,10 +73,12 @@ export interface EcommerceCampaignBundleResult {
   warnings: string[];
 }
 
-interface MetaIdResponse extends Record<string, unknown> {
-  id?: string;
-}
-
+/**
+ * Create a complete ecommerce campaign bundle (campaign + ad set + creative + ad).
+ *
+ * Refactored to use the new standalone create tools for each entity.
+ * Dry-run by default — set dryRun=false + confirmed=true to execute.
+ */
 export async function createEcommerceCampaignBundle(
   client: MetaClient,
   payload: EcommerceCampaignBundlePayload,
@@ -110,42 +115,62 @@ export async function createEcommerceCampaignBundle(
     };
   }
 
-  const accountPath = normalizeAccountPath(payload.adAccountId);
-
   try {
-    const campaign = await client.metaPost<MetaIdResponse>(
-      `${accountPath}/campaigns`,
-      preview.campaign,
-      maxRetries
-    );
-    const campaignId = requireCreatedId(campaign, 'campaign');
+    // Step 1: Create campaign (PAUSED, OUTCOME_SALES)
+    const campaignResult = await createCampaign(client, {
+      adAccountId: payload.adAccountId,
+      name: payload.campaignName.trim(),
+      objective: 'OUTCOME_SALES',
+      status: 'PAUSED',
+      specialAdCategories: payload.specialAdCategories,
+      dailyBudget: payload.dailyBudget,
+      bidStrategy: payload.bidStrategy,
+    }, { dryRun: false, confirmed: true, maxRetries });
 
-    const adSetPayload = { ...preview.adSet, campaign_id: campaignId };
-    const adSet = await client.metaPost<MetaIdResponse>(`${accountPath}/adsets`, adSetPayload, maxRetries);
-    const adSetId = requireCreatedId(adSet, 'ad set');
+    if (campaignResult.status === 'failed' || !campaignResult.id) {
+      return { ...baseResult, status: 'failed', error: `Campaign creation failed: ${campaignResult.error}` };
+    }
+    const campaignId = campaignResult.id;
 
-    // Auto-upload file if filePath is provided instead of hash/ID
-    const creativePayload = { ...preview.creative };
-    if (payload.imageFilePath?.trim() && !payload.imageHash?.trim()) {
+    // Step 2: Create ad set
+    const adSetResult = await createAdSet(client, {
+      adAccountId: payload.adAccountId,
+      campaignId,
+      name: payload.adSetName.trim(),
+      status: 'PAUSED',
+      billingEvent: payload.billingEvent ?? 'IMPRESSIONS',
+      optimizationGoal: payload.optimizationGoal ?? 'OFFSITE_CONVERSIONS',
+      bidStrategy: payload.bidStrategy ?? 'LOWEST_COST_WITHOUT_CAP',
+      dailyBudget: payload.dailyBudget,
+      targeting: {
+        geoLocations: { countries: payload.countries },
+        ageMin: payload.ageMin ?? 18,
+        ...(payload.ageMax ? { ageMax: payload.ageMax } : {}),
+        ...(payload.publisherPlatforms ? { publisherPlatforms: payload.publisherPlatforms } : {}),
+      },
+      promotedObject: {
+        pixel_id: payload.pixelId.trim(),
+        custom_event_type: payload.customEventType ?? 'PURCHASE',
+      },
+    }, { dryRun: false, confirmed: true, maxRetries });
+
+    if (adSetResult.status === 'failed' || !adSetResult.id) {
+      return { ...baseResult, status: 'failed', error: `Ad set creation failed: ${adSetResult.error}` };
+    }
+    const adSetId = adSetResult.id;
+
+    // Step 3: Upload image if filePath provided
+    let imageHash = payload.imageHash?.trim();
+    if (payload.imageFilePath?.trim() && !imageHash) {
       const uploadResult = await uploadImage(client, {
         adAccountId: payload.adAccountId,
         filePath: payload.imageFilePath.trim(),
         maxRetries,
       });
       if (uploadResult.status === 'failed' || !uploadResult.image_hash) {
-        return {
-          ...baseResult,
-          status: 'failed' as const,
-          error: `Image upload failed: ${uploadResult.error ?? 'unknown error'}`,
-        };
+        return { ...baseResult, status: 'failed', error: `Image upload failed: ${uploadResult.error ?? 'unknown error'}` };
       }
-      // Inject image_hash into creative link_data
-      if (creativePayload.object_story_spec) {
-        const linkData = (creativePayload.object_story_spec as Record<string, unknown>).link_data as Record<string, unknown> | undefined;
-        if (linkData) {
-          linkData.image_hash = uploadResult.image_hash;
-        }
-      }
+      imageHash = uploadResult.image_hash;
     } else if (payload.videoFilePath?.trim() && !payload.videoId?.trim()) {
       const uploadResult = await uploadVideo(client, {
         adAccountId: payload.adAccountId,
@@ -153,38 +178,59 @@ export async function createEcommerceCampaignBundle(
         maxRetries,
       });
       if (uploadResult.status === 'failed' || !uploadResult.video_id) {
-        return {
-          ...baseResult,
-          status: 'failed' as const,
-          error: `Video upload failed: ${uploadResult.error ?? 'unknown error'}`,
-        };
+        return { ...baseResult, status: 'failed', error: `Video upload failed: ${uploadResult.error ?? 'unknown error'}` };
       }
-      // For video creative, the object_story_spec uses video_data instead of link_data
-      // This is handled by the caller providing the correct spec; for MVP link_data,
-      // video is referenced by video_id but not used in link_data.image_hash
     }
 
-    const creative = await client.metaPost<MetaIdResponse>(
-      `${accountPath}/adcreatives`,
-      creativePayload,
-      maxRetries
-    );
-    const creativeId = requireCreatedId(creative, 'creative');
+    // Step 4: Create creative
+    const creativeResult = await createAdCreative(client, {
+      adAccountId: payload.adAccountId,
+      name: `${payload.adName.trim()} Creative`,
+      pageId: payload.pageId.trim(),
+      linkData: {
+        link: payload.destinationUrl.trim(),
+        message: payload.primaryText.trim(),
+        name: payload.headline.trim(),
+        description: payload.description?.trim(),
+        imageHash,
+        callToAction: {
+          type: payload.callToActionType ?? 'SHOP_NOW',
+          value: { link: payload.destinationUrl.trim() },
+        },
+      },
+      instagramUserId: payload.instagramUserId?.trim(),
+    }, { dryRun: false, confirmed: true, maxRetries });
 
-    const adPayload = {
-      ...preview.ad,
-      adset_id: adSetId,
-      creative: JSON.stringify({ creative_id: creativeId }),
-    };
-    const ad = await client.metaPost<MetaIdResponse>(`${accountPath}/ads`, adPayload, maxRetries);
-    const adId = requireCreatedId(ad, 'ad');
+    if (creativeResult.status === 'failed' || !creativeResult.id) {
+      return { ...baseResult, status: 'failed', error: `Creative creation failed: ${creativeResult.error}` };
+    }
+    const creativeId = creativeResult.id;
+
+    // Step 5: Create ad
+    const adResult = await createAd(client, {
+      adAccountId: payload.adAccountId,
+      name: payload.adName.trim(),
+      adSetId,
+      creativeId,
+      status: 'PAUSED',
+    }, { dryRun: false, confirmed: true, maxRetries });
+
+    if (adResult.status === 'failed' || !adResult.id) {
+      return { ...baseResult, status: 'failed', error: `Ad creation failed: ${adResult.error}` };
+    }
+    const adId = adResult.id;
 
     return {
       ...baseResult,
       status: 'executed',
       executed: true,
       ids: { campaignId, adSetId, creativeId, adId },
-      responses: { campaign, adSet, creative, ad },
+      responses: {
+        campaign: campaignResult.response,
+        adSet: adSetResult.response,
+        creative: creativeResult.response,
+        ad: adResult.response,
+      },
     };
   } catch (error) {
     return {
@@ -296,11 +342,4 @@ function validatePayload(payload: EcommerceCampaignBundlePayload): void {
 
 function requireNonEmpty(value: string | undefined, field: string): void {
   if (!value?.trim()) throw new Error(`${field} is required`);
-}
-
-function requireCreatedId(response: MetaIdResponse, entity: string): string {
-  if (!response.id || typeof response.id !== 'string') {
-    throw new Error(`Meta did not return an id for created ${entity}`);
-  }
-  return response.id;
 }
