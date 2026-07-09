@@ -1,41 +1,71 @@
 # Write Safety Contract
 
-**Status:** Active for campaign write operations; required for v0.6.0 adset/ad write operations.
-**Last updated:** 2026-07-01
+**Status:** Active for all write operations.
+**Last updated:** 2026-07-09
 
-This contract defines the minimum safety behavior for any Meta Ads mutation exposed by the library, broker, MCP server, or AI skills.
+This contract defines the minimum safety behavior for every Meta Ads mutation exposed by the library, broker, MCP server, or AI skills.
 
-## Capability Boundary
+---
 
-### Supported today
+## 1. Capability Boundary
 
-Campaign-level mutations are supported when the connected server exposes the broker write tools:
+### ✅ Supported — Batch 1 (Foundation Write)
 
-- Pause campaign
-- Resume campaign
-- Update campaign daily budget
-- Rename campaign
+Full campaign creation lifecycle with pre-flight validation:
 
-### Not supported yet
+| Tool | Domain | Pre-flight |
+|------|--------|------------|
+| `ads_create_campaign` | Campaign | None (campaign-level params validated at schema) |
+| `ads_create_adset` | Ad Set | Campaign fetch (CBO conflict, bid strategy requirement, `targeting_automation`) |
+| `ads_create_adcreative` | Creative | None (page/link/media validated at Meta) |
+| `ads_create_ad` | Ad | None (adset + creative existence validated at Meta) |
+| `ads_upload_image` | Media | File existence, type (jpg/png), size (< 30MB) |
+| `ads_upload_video` | Media | File existence, type, size (< 1GB) |
+| `ads_get_ad_preview` | Preview | None (read-only render check) |
 
-These remain out of scope until explicitly implemented and tested:
+### ✅ Supported — Batch 2 (Light Mutation)
 
-- Pause/resume ad sets
-- Pause/resume ads
-- Rename ad sets
-- Rename ads
-- Update ad set budgets
-- Batch mutations
-- Rollback mutations
-- Targeting changes
-- Creative upload
-- Campaign/ad set/ad creation
+Safe single-entity status/name changes:
 
-Unsupported operations must fail closed with a clear limitation message. They must not fall back to direct API calls, inferred endpoints, or generic mutation helpers.
+| Tool | Entity | Risk |
+|------|--------|------|
+| `ads_pause_campaign` | Campaign | Low |
+| `ads_resume_campaign` | Campaign | Low |
+| `ads_pause_adset` | Ad Set | Low |
+| `ads_resume_adset` | Ad Set | Low |
+| `ads_pause_ad` | Ad | Low |
+| `ads_resume_ad` | Ad | Low |
+| `ads_rename_campaign` | Campaign | Low |
+| `ads_rename_adset` | Ad Set | Low |
+| `ads_rename_ad` | Ad | Low |
+| `ads_archive_ad` | Ad | Low (irreversible via API) |
 
-## Required Write Lifecycle
+### ✅ Supported — Batch 3 (Budget Write)
 
-Every write operation must follow this lifecycle:
+Budget changes with mandatory safety limits:
+
+| Tool | Safety Limit |
+|------|--------------|
+| `ads_update_campaign_budget` | Max increase 30% by default; >100% requires explicit override |
+| `ads_update_adset_budget` | Max increase 30% by default; >100% requires explicit override |
+| `ads_update_adset_targeting` | Dry-run only; confirms diff before execution |
+
+### 🔜 Planned — Batch 4 (Targeting & Bid Write)
+
+Higher-risk mutations requiring additional validation:
+
+| Tool | Status |
+|------|--------|
+| `ads_update_adset_bid_strategy` | Not implemented |
+| `ads_update_adset_optimization` | Not implemented |
+| Batch mutations | Not implemented |
+| Rollback mutations | Not implemented |
+
+---
+
+## 2. Required Write Lifecycle
+
+Every write operation MUST follow this lifecycle:
 
 1. **Intent discovery** — confirm objective, scope, and mode before write planning.
 2. **Permission check** — verify the resolved credential allows writes.
@@ -46,22 +76,26 @@ Every write operation must follow this lifecycle:
 7. **Audit result** — return an audit entry with status `executed` or `failed`.
 8. **Sanitized response** — redact secrets from all success and error responses.
 
-Execution must never happen in the same assistant response that first proposes the mutation.
+Execution MUST never happen in the same assistant response that first proposes the mutation.
 
-## Mode Semantics
+---
+
+## 3. Mode Semantics
 
 | Mode | Mutates? | Requirements |
-|---|---:|---|
+|------|:--------:|--------------|
 | `analyze_only` | No | Read data and summarize findings only |
 | `recommend_only` | No | Rank recommended actions, no mutation tool calls |
 | `dry_run_mutation` | No | Produce preview/audit diff for supported operations |
 | `execute_after_confirmation` | Yes | Requires prior dry run plus explicit confirmation |
 
-Agents must not infer `execute_after_confirmation` from vague commands like “optimize”, “fix”, “improve”, or “scale”.
+Agents MUST NOT infer `execute_after_confirmation` from vague commands like "optimize", "fix", "improve", or "scale".
 
-## Confirmation Contract
+---
 
-A confirmation is valid only when all fields are unambiguous:
+## 4. Confirmation Contract
+
+A confirmation is valid ONLY when all fields are unambiguous:
 
 - Provider
 - Account ID
@@ -71,26 +105,27 @@ A confirmation is valid only when all fields are unambiguous:
 - Payload values
 - Dry-run preview timestamp or equivalent preview reference
 
-Examples of insufficient confirmation:
+**Insufficient confirmation examples:**
+- "ok" after a broad list of suggested changes
+- "do it" when multiple entities are shown
+- "optimize all bad campaigns"
+- Confirmation given before a dry-run preview
 
-- “ok” after a broad list of suggested changes
-- “do it” when multiple entities are shown
-- “optimize all bad campaigns”
-- confirmation given before a dry-run preview
+---
 
-## Audit Contract
+## 5. Audit Contract
 
-Every mutation workflow must return or create an audit entry with:
+Every mutation workflow MUST return or create an audit entry with:
 
 - `timestamp`
 - `operation`
 - `entityType`
 - `entityId`
-- `before`
+- `before` (where applicable — always for updates, omitted for creates)
 - `after`
 - `fields`
 - `status`
-- `error` when failed
+- `error` (when failed)
 
 Valid statuses:
 
@@ -99,35 +134,42 @@ Valid statuses:
 - `executed`
 - `failed`
 
-Audit entries must not include access tokens, provider tokens, connection keys, OAuth tokens, authorization headers, or raw request URLs containing secrets.
+Audit entries MUST NOT include access tokens, provider tokens, connection keys, OAuth tokens, authorization headers, or raw request URLs containing secrets.
 
-## Permission Contract
+---
 
-Write operations must pass through the broker permission policy before adapter execution.
+## 6. Permission Contract
+
+Write operations MUST pass through the broker permission policy before adapter execution.
 
 Required behavior:
 
 - Missing write permission returns `WRITE_NOT_ALLOWED`.
 - Cross-provider writes fail closed as not implemented.
-- Provider adapters must not bypass broker credential resolution for MCP/broker write paths.
-- Local direct library helpers may exist, but MCP-exposed writes must use broker permission checks.
+- Provider adapters MUST NOT bypass broker credential resolution for MCP/broker write paths.
+- Local direct library helpers may exist, but MCP-exposed writes MUST use broker permission checks.
 
-## Budget Safety Contract
+---
+
+## 7. Budget Safety Contract
 
 Budget changes require stricter validation than status/name changes:
 
-- Budget must be positive.
-- Budget must be in provider minor units when using Meta campaign budget tools.
-- Budget increase must respect the configured maximum increase threshold.
-- The dry-run preview must show old and new budget values.
-- Future ad set budget tools must reuse the same max-increase semantics unless a stricter limit is chosen.
+- Budget MUST be positive.
+- Budget MUST be in provider minor units when using Meta campaign budget tools.
+- Budget increase MUST respect the configured maximum increase threshold.
+- **Default maximum increase:** 30%.
+- **Override threshold:** >100% requires explicit user override in the confirmation.
+- The dry-run preview MUST show old and new budget values.
+- Future batch budget tools MUST reuse the same max-increase semantics unless a stricter limit is chosen.
 
-## Error and Redaction Contract
+---
 
-All errors returned through broker/MCP surfaces must be sanitized.
+## 8. Error and Redaction Contract
 
-Never expose:
+All errors returned through broker/MCP surfaces MUST be sanitized.
 
+**Never expose:**
 - Meta access tokens
 - Cuan Insight provider tokens
 - Connection Keys
@@ -136,7 +178,7 @@ Never expose:
 - Full URLs containing `access_token`
 - Raw request/response payloads that include secrets
 
-Errors should be actionable but safe, for example:
+**Errors should be actionable but safe:**
 
 - `MISSING_CAMPAIGN_ID`
 - `MISSING_REQUIRED_PARAMS`
@@ -144,18 +186,38 @@ Errors should be actionable but safe, for example:
 - `UNSUPPORTED_OPERATION`
 - `PROVIDER_NOT_REGISTERED`
 
-## v0.6.0 Implementation Gate
+---
 
-Before adding adset/ad write operations, the implementation must prove:
+## 9. Pre-flight Validation Contract
 
-- Existing campaign write tests still pass.
-- New adset/ad write tools support dry-run previews before execution.
-- Broker methods enforce write permission before adapter calls.
-- MCP tools expose precise schemas for entity IDs and payloads.
-- Unsupported write operations fail closed.
-- Tests cover dry run, execution, missing params, permission denial, and sanitized errors.
+For entity creation tools (especially `ads_create_adset`), the tool MUST perform pre-flight checks before calling the Meta API:
 
-## Media Upload Operations
+- **CBO budget conflict:** If parent campaign has `daily_budget` or `lifetime_budget`, reject ad-set-level budget with a clear error.
+- **Bid strategy requirement:** If parent campaign uses `COST_CAP`, `LOWEST_COST_WITH_BID_CAP`, or `TARGET_COST`, require `bidAmount` on the ad set.
+- **Invalid bid strategy values:** Reject `LOWEST_COST` (invalid) — suggest `LOWEST_COST_WITHOUT_CAP`.
+- **MIN_ROAS bid constraints:** If `bid_strategy = LOWEST_COST_WITH_MIN_ROAS`, require `bidConstraints.roas_average_floor`.
+
+Pre-flight errors MUST be returned BEFORE any Meta API call with an actionable message.
+
+---
+
+## 10. Error Subcode Mapping
+
+Meta API errors carry subcodes that SHOULD be mapped to human-readable messages:
+
+| Subcode | Message |
+|---------|---------|
+| `1815857` | "Bid amount required. Add bidAmount or use LOWEST_COST_WITHOUT_CAP." |
+| `1815198` | "Frequency cap is immutable. Set it during ad set creation." |
+| `1885154` | "promoted_object/page_id required for this engagement ad set." |
+| `1815715` | "destination_type is incompatible with this campaign objective." |
+| `1885621` | "bid_amount value is invalid or too low." |
+| `2446149` | "Unsupported bid_strategy and bid_amount combination." |
+| `4834011` | "special_ad_categories required for this campaign/objective combination." |
+
+---
+
+## 11. Media Upload Operations
 
 Media upload (`ads_upload_image`, `ads_upload_video`) are write operations with a modified lifecycle:
 
@@ -166,12 +228,16 @@ Media upload (`ads_upload_image`, `ads_upload_video`) are write operations with 
 - **No audit entry:** Upload operations return the result directly; standalone uploads do not create audit log entries.
 - **Bundle integration:** When used via `createEcommerceCampaignBundle.imageFilePath`/`videoFilePath`, upload happens at execution time (after dry-run preview + confirmation of the bundle).
 
-## Recommended v0.6.0 Sequence
+---
 
-1. Add adset/ad pause and resume direct tools.
-2. Add adset/ad rename direct tools.
-3. Add adset budget update only after status/name mutations are stable.
-4. Extend broker interfaces and Meta adapter methods.
-5. Expose MCP tools with precise schemas.
-6. Update `meta-ads-manage` supported-operation language.
-7. Add batch, rollback, blacklist, whitelist, and rate-limit guards in a later phase.
+## 12. Recommended Next Sequence
+
+Once Batch 1–3 are stable:
+
+1. Add `ads_update_adset_bid_strategy` and `ads_update_adset_optimization` (Batch 4).
+2. Add batch pause/resume by campaign or account.
+3. Add rate-limit guards per account per hour.
+4. Add blacklist/whitelist for high-risk entities.
+5. Add budget schedule tools (start/end time + budget allocation).
+
+All Batch 4 and beyond additions MUST update this contract and pass the existing test suite before merging.
