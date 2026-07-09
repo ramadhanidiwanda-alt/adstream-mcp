@@ -636,6 +636,18 @@ export interface VideoUploadResult {
   warnings?: string[];
 }
 
+export type CreateCampaignStatus = 'dry_run' | 'pending_confirmation' | 'executed' | 'failed';
+
+export interface CreateCampaignResult {
+  operation: 'create_campaign';
+  status: CreateCampaignStatus;
+  executed: boolean;
+  preview: Record<string, unknown>;
+  id?: string;
+  response?: Record<string, unknown>;
+  error?: string;
+}
+
 export interface AccountInfoResult {
   id: string;
   name: string;
@@ -700,6 +712,7 @@ export interface AdsProviderAdapter {
   resumeCampaign(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>>;
   updateCampaignBudget(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>>;
   renameCampaign(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>>;
+  createCampaign(request: AdsBrokerRequest): Promise<AdsBrokerResponse<CreateCampaignResult>>;
   createEcommerceCampaignBundle(request: AdsBrokerRequest): Promise<AdsBrokerResponse<EcommerceCampaignBundleResult>>;
   uploadImage(request: AdsBrokerRequest): Promise<AdsBrokerResponse<ImageUploadResult>>;
   uploadVideo(request: AdsBrokerRequest): Promise<AdsBrokerResponse<VideoUploadResult>>;

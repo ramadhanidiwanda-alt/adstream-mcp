@@ -1,6 +1,7 @@
 import type { MetaClient } from '../metaClient.js';
 import { uploadImage } from './uploadImage.js';
 import { uploadVideo } from './uploadVideo.js';
+import { normalizeAccountPath } from '../utils/normalizeAccountId.js';
 
 export type EcommerceLaunchStatus = 'dry_run' | 'pending_confirmation' | 'executed' | 'failed';
 export type MetaEcommerceCallToActionType = 'SHOP_NOW' | 'LEARN_MORE' | 'SIGN_UP' | 'GET_OFFER';
@@ -295,11 +296,6 @@ function validatePayload(payload: EcommerceCampaignBundlePayload): void {
 
 function requireNonEmpty(value: string | undefined, field: string): void {
   if (!value?.trim()) throw new Error(`${field} is required`);
-}
-
-function normalizeAccountPath(adAccountId: string): string {
-  const trimmed = adAccountId.trim();
-  return trimmed.startsWith('act_') ? `/${trimmed}` : `/act_${trimmed}`;
 }
 
 function requireCreatedId(response: MetaIdResponse, entity: string): string {

@@ -4,6 +4,7 @@ import type {
   AdsChangeHistoryEnvelope,
   AdsMetricRecord,
   AdsMutationResult,
+  CreateCampaignResult,
   EcommerceCampaignBundleResult,
   AdsProviderAdapter,
   VideoSourceResult,
@@ -359,6 +360,10 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
   }
 
   async renameCampaign(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>> {
+    return this.writeNotImplemented();
+  }
+
+  async createCampaign(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<CreateCampaignResult>> {
     return this.writeNotImplemented();
   }
 
