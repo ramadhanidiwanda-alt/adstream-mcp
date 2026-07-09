@@ -78,98 +78,6 @@ Legacy and provider-specific tools remain available for compatibility, but new r
 - `docs/WRITE_SAFETY_CONTRACT.md` defines required safety behavior for mutations.
 - `skills/README.md` explains how skills should sit above MCP data tools.
 
----
-
-## MCP Server Setup
-
-### 1. Minimal (via npx — no install needed)
-
-Add to `claude_desktop_config.json`:
-
-```json
-{
-  "mcpServers": {
-    "meta-ads": {
-      "command": "npx",
-      "args": ["-y", "adstream-mcp"],
-      "env": {
-        "META_ACCESS_TOKEN": "EAAxxxxxxxxxx"
-      }
-    }
-  }
-}
-```
-
-> `META_AD_ACCOUNT_ID` is **optional**. AI agent can call `ads_list_accounts` first to discover available accounts.
-
-### 2. Local Install
-
-```bash
-git clone https://github.com/ramadhanidiwanda-alt/adstream-mcp.git
-cd adstream-mcp
-npm install && npm run build
-```
-
-Then in `claude_desktop_config.json`:
-
-```json
-{
-  "mcpServers": {
-    "meta-ads": {
-      "command": "node",
-      "args": ["/path/to/adstream-mcp/dist/mcp/index.js"],
-      "env": {
-        "META_ACCESS_TOKEN": "EAAxxxxxxxxxx"
-      }
-    }
-  }
-}
-```
-
-### 3. Docker (Production / Self-Hosted)
-
-```bash
-docker compose up -d
-```
-
-The HTTP MCP server listens on `http://127.0.0.1:8000` (configurable via env).
-
-See [docs/DOCKER_MCP.md](docs/DOCKER_MCP.md) for full Docker setup.
-
-### 4. Remote Mode (Cuan Insight Credential Broker)
-
-For hosted multi-user deployments with credential resolution via Cuan Insight:
-
-```json
-{
-  "mcpServers": {
-    "meta-ads": {
-      "command": "npx",
-      "args": ["-y", "adstream-mcp"],
-      "env": {
-        "CUAN_INSIGHT_AUTH_MODE": "connection_key",
-        "CUAN_INSIGHT_CONNECTION_KEY": "<your-connection-key>"
-      }
-    }
-  }
-}
-```
-
-See [Remote Mode](#configuration--remote-mode-with-cuan-insight) for full setup.
-
-### Environment Variables
-
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `META_ACCESS_TOKEN` | ✅ | — | Meta Ads access token |
-| `META_AD_ACCOUNT_ID` | ❌ | — | Default ad account (optional, AI can pick via `ads_list_accounts`) |
-| `META_API_VERSION` | ❌ | `v20.0` | Meta Graph API version |
-| `TIKTOK_ACCESS_TOKEN` | ❌ | — | TikTok Ads access token |
-| `MCP_HTTP_ENABLED` | ❌ | `false` | Enable HTTP transport |
-| `CUAN_INSIGHT_AUTH_MODE` | ❌ | — | Set to `connection_key` for remote mode |
-
----
-
 ## Quick Start
 
 ```typescript
@@ -313,18 +221,13 @@ See [Remote Mode](#configuration--remote-mode-with-cuan-insight) for full setup.
 
 ```
 adstream-mcp/
-├── src/                          # TypeScript library + MCP server
-│   ├── index.ts                 # Library barrel export
-│   ├── metaClient.ts            # Meta API wrapper
-│   ├── config.ts                # Config loader (META_ACCESS_TOKEN optional)
+├── src/                          # TypeScript library
+│   ├── metaClient.ts            # API wrapper
+│   ├── config.ts                # Config loader
 │   ├── types.ts                 # TypeScript types
-│   ├── mcp/                     # MCP server entry points
-│   │   ├── index.ts             # Stdio entrypoint (Claude Desktop, Codex)
-│   │   ├── http.ts              # HTTP/SSE/Streamable HTTP server
-│   │   └── createServer.ts      # McpServer factory (all tools)
-│   ├── tools/                   # Library helpers and write utilities
-│   ├── analysis/                # Analysis utilities
-│   ├── rules/                   # Rule templates
+│   ├── tools/                   # Legacy library helpers and write utilities
+│   ├── analysis/                # Legacy/internal analysis utilities
+│   ├── rules/                   # Legacy/internal rule templates
 │   ├── broker/                  # Credential broker (multi-provider)
 │   │   ├── cuanInsightClient.ts # Cuan Insight HTTP client
 │   │   ├── credentials.ts       # Credential resolver + redaction
@@ -336,13 +239,13 @@ adstream-mcp/
 │       ├── audit/SKILL.md       # Audit skill
 │       ├── manage/SKILL.md      # Management skill
 │       └── shared/              # Shared references
-├── dist/                         # Build output
-│   ├── index.js                 # Library (import 'adstream-mcp')
-│   └── mcp/
-│       ├── index.js             # CLI binary (npx adstream-mcp)
-│       └── http.js              # HTTP server (node dist/mcp/http.js)
+├── mcp-server/                   # MCP server
+│   └── src/
+│       ├── index.ts             # Stdio entrypoint
+│       ├── createServer.ts      # McpServer factory
+│       └── http.ts              # HTTP/SSE/Streamable HTTP entrypoint
 ├── examples/                     # Code examples
-└── tests/                        # Unit tests (480+ tests)
+└── tests/                        # Unit tests (239 tests)
 ```
 
 ---
