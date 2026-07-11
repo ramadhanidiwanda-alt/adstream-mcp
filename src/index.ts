@@ -74,6 +74,9 @@ export type { ListAdVideosOptions } from './tools/listAdVideos.js';
 export { getAdPreview } from './tools/getAdPreview.js';
 export type { GetAdPreviewOptions, AdPreviewFormat } from './tools/getAdPreview.js';
 
+export { getAdDestinations } from './tools/getAdDestinations.js';
+export type { GetAdDestinationsOptions, AdDestinationInfo, AdDestinationPage } from './tools/getAdDestinations.js';
+
 // --- Mutation Tools ---
 export { pauseCampaign } from './tools/pauseCampaign.js';
 export type * from './tools/pauseCampaign.js';
@@ -113,10 +116,11 @@ export {
 } from './utils/locationBreakdowns.js';
 
 export type * from './types.js';
-export type * from './types.js';
+export type * from './broker/types.js';
 export {
   VideoSourceResult,
   AdCreativeMappingResult,
+  AdDestinationResult,
   AdImageResult,
   AdVideoResult,
   AdPreviewResult,
