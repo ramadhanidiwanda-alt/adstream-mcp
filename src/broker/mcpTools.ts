@@ -1,5 +1,5 @@
 import type { AdsBroker } from './AdsBroker.js';
-import type { AdsBrokerRequest, AdsBrokerResponse, AdsEntityLevel, AdsMetricRecord, AdsMutationResult, AdsPerformanceEnvelope, AdsProviderId, ArchiveAdResult, CreateAdCreativeResult, CreateAdResult, CreateAdSetResult, CreateCampaignResult, GetTargetingOptionsResult, UpdateAdSetResult } from './types.js';
+import type { AdsBrokerRequest, AdsBrokerResponse, AdsEntityLevel, AdsMetricRecord, AdsMutationResult, AdsPerformanceEnvelope, AdsProviderId, AdDestinationResult, ArchiveAdResult, CreateAdCreativeResult, CreateAdResult, CreateAdSetResult, CreateCampaignResult, GetTargetingOptionsResult, UpdateAdSetResult } from './types.js';
 import { ADS_ENTITY_LEVELS, ADS_PROVIDER_IDS, isAdsProviderId } from './types.js';
 import { redactErrorMessage, redactTokenLikeValues } from './credentials.js';
 
@@ -42,6 +42,7 @@ export const ADS_MCP_TOOL_NAMES = [
   'ads_list_adimages',
   'ads_list_advideos',
   'ads_get_ad_preview',
+  'ads_get_ad_destinations',
 ] as const;
 
 export type AdsMcpToolName = (typeof ADS_MCP_TOOL_NAMES)[number];
@@ -217,6 +218,11 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
     description: 'Get a preview URL for a Meta ad creative in a specific ad format. Returns preview URL, platform, and ad format. Calls GET /{creative_id}/previews. Required params: creativeId, adFormat (enum: DESKTOP_FEED, MOBILE_FEED, INSTAGRAM_FEED, INSTAGRAM_EXPLORE, INSTAGRAM_REELS, INSTAGRAM_STORIES, FACEBOOK_STORIES, MESSENGER_INBOX, MARKETPLACE, REWARDS_PLATFORM, FACEBOOK_REELS).',
     inputSchema: createPreviewInputSchema(),
   },
+  {
+    name: 'ads_get_ad_destinations',
+    description: 'Get destination URLs from ads with their creative metadata. Fetches ads with object_story_spec and asset_feed_spec, then extracts the destination URL for each creative type (link, video, carousel, Advantage+, existing post). Supports status filtering. Calls GET /act_{id}/ads?fields=id,name,status,effective_status,creative{id,object_type,object_story_spec,asset_feed_spec}.',
+    inputSchema: createAdsInputSchema([]),
+  },
 ] as const;
 
 export function isAdsMcpToolName(name: string): name is AdsMcpToolName {
@@ -353,6 +359,8 @@ function callBrokerMethod(
       return broker.getVideoSource(request);
     case 'ads_get_ad_creative_mapping':
       return broker.getAdCreativeMapping(request);
+    case 'ads_get_ad_destinations':
+      return broker.getAdDestinations(request);
     case 'ads_upload_image':
       return broker.uploadImage(request);
     case 'ads_upload_video':

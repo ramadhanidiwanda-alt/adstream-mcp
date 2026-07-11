@@ -7,6 +7,7 @@ import type {
   AdsContentMatrixSortDirection,
   AdsMetricRecord,
   AdsMutationResult,
+  AdDestinationResult,
   ArchiveAdResult,
   CreateAdCreativeResult,
   CreateAdResult,
@@ -61,7 +62,8 @@ type AdapterMethod =
   | 'listAdImages'
   | 'listAdVideos'
   | 'getAdPreview'
-  | 'getTargetingOptions';
+  | 'getTargetingOptions'
+  | 'getAdDestinations';
 
 type AdapterWriteMethod =
   | 'pauseCampaign'
@@ -135,6 +137,10 @@ export class AdsBroker {
 
   getAdCreativeMapping(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdCreativeMappingResult[]>> {
     return this.executeRead(request, 'getAdCreativeMapping');
+  }
+
+  getAdDestinations(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdDestinationResult[]>> {
+    return this.executeRead(request, 'getAdDestinations');
   }
 
   getAccountInfo(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AccountInfoResult>> {
