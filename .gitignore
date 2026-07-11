@@ -74,6 +74,7 @@ Thumbs.db
 .private/
 
 # Local markdown artifacts from previous agent/dev sessions
+docs/superpowers/plans/
 *_COMPLETE.md
 *_SUMMARY.md
 PROJECT_SUMMARY.md
