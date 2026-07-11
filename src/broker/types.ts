@@ -610,6 +610,19 @@ export interface AdCreativeMappingResult {
   creative_id?: string;
 }
 
+export interface AdDestinationResult {
+  ad_id: string;
+  ad_name?: string;
+  status?: string;
+  effective_status?: string;
+  creative_id?: string;
+  creative_type?: string;
+  destination_url: string | null;
+  all_urls: string[];
+  resolution_method: string | null;
+  warning?: string;
+}
+
 export interface VideoSourceResult {
   provider: AdsProviderId;
   video_id: string;
@@ -783,6 +796,7 @@ export interface AdsProviderAdapter {
   getChangeHistory(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsChangeHistoryEnvelope>>;
   getVideoSource(request: AdsBrokerRequest): Promise<AdsBrokerResponse<VideoSourceResult>>;
   getAdCreativeMapping(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdCreativeMappingResult[]>>;
+  getAdDestinations(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdDestinationResult[]>>;
   // --- Write Operations ---
   pauseCampaign(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>>;
   resumeCampaign(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>>;

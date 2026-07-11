@@ -21,6 +21,7 @@ import type {
   AdImageResult,
   AdVideoResult,
   AdPreviewResult,
+  AdDestinationResult,
 } from '../../broker/types.js';
 import { ADS_PROVIDER_CAPABILITY_MATRIX } from '../../broker/types.js';
 import { redactErrorMessage } from '../../broker/credentials.js';
@@ -152,6 +153,10 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
 
   async getAdCreativeMapping(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdCreativeMappingResult[]>> {
     return Promise.resolve(this.notImplemented('TikTok ad→creative mapping is not implemented yet') as unknown as AdsBrokerResponse<AdCreativeMappingResult[]>);
+  }
+
+  async getAdDestinations(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdDestinationResult[]>> {
+    return Promise.resolve(this.notImplemented('TikTok ad destinations are not implemented yet') as unknown as AdsBrokerResponse<AdDestinationResult[]>);
   }
 
   private async getPlacementPerformanceForRequest(
