@@ -1,25 +1,16 @@
 # Dependencies
 node_modules/
-package-lock.json
-yarn.lock
-pnpm-lock.yaml
 
 # Build output
 dist/
+mcp-server/dist/
 *.tsbuildinfo
 
-# Environment
+# Environment and secrets
 .env
 .env.*
-!.env.example
-.env.local
-.env.*.local
-.env.production
-.env.production.bak*
 *.env
 *.env.*
-*.pem
-*.key
 *env*.bak
 *env*.bak.*
 *env*.backup
@@ -28,17 +19,24 @@ dist/
 *env*.orig
 *env*.save
 *env*.tmp
+!.env.example
 
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
+# Keys and certificates
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.csr
 
-# OS
-.DS_Store
-Thumbs.db
+# Local databases, dumps, and backups
+*.sqlite
+*.sqlite3
+*.db
+*.dump
+*.bak
+*.backup
+backups/
 
 # Logs
 logs/
@@ -51,16 +49,31 @@ yarn-error.log*
 coverage/
 .nyc_output/
 
-# Skills data (contains sensitive business info)
-.meta-ads/
-.meta-ads.json
-
-# Temporary files
+# Cache and temporary files
 tmp/
 temp/
 *.tmp
+.cache/
+.codegraph/
 
-# Development artifacts (cleaned up)
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE/editor local state
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Project local sensitive data
+.meta-ads/
+.meta-ads.json
+.local/
+.private/
+
+# Local markdown artifacts from previous agent/dev sessions
 *_COMPLETE.md
 *_SUMMARY.md
 PROJECT_SUMMARY.md
@@ -72,11 +85,3 @@ RELEASE_COMPLETE.md
 SETUP_COMPLETE.md
 TODAY_SUMMARY.md
 GITHUB_PUBLISHED.md
-
-.local/
-
-.private/
-
-.ai-private/
-
-*.local.md
