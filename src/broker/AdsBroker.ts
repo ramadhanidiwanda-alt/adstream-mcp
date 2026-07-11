@@ -390,6 +390,58 @@ export class AdsBroker {
     return this.executeWrite<VideoUploadResult>(request, 'uploadVideo');
   }
 
+  // --- TikTok GMV Max (routed via optional interface methods) ---
+
+  gmvMaxCreateCampaign(request: AdsBrokerRequest): Promise<AdsBrokerResponse<EcommerceCampaignBundleResult>> {
+    return this.callOptionalMethod<EcommerceCampaignBundleResult>(request, 'gmvMaxCreateCampaign');
+  }
+
+  gmvMaxUpdateCampaign(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>> {
+    return this.callOptionalMethod<AdsMutationResult>(request, 'gmvMaxUpdateCampaign');
+  }
+
+  gmvMaxCreateSession(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>> {
+    return this.callOptionalMethod<AdsMutationResult>(request, 'gmvMaxCreateSession');
+  }
+
+  gmvMaxUpdateSession(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>> {
+    return this.callOptionalMethod<AdsMutationResult>(request, 'gmvMaxUpdateSession');
+  }
+
+  gmvMaxDeleteSession(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>> {
+    return this.callOptionalMethod<AdsMutationResult>(request, 'gmvMaxDeleteSession');
+  }
+
+  gmvMaxGetCampaignInfo(request: AdsBrokerRequest): Promise<AdsBrokerResponse<Record<string, unknown>[]>> {
+    return this.callOptionalMethod<Record<string, unknown>[]>(request, 'gmvMaxGetCampaignInfo');
+  }
+
+  // --- TikTok Smart Plus (routed via optional interface methods) ---
+
+  smartPlusCreateCampaign(request: AdsBrokerRequest): Promise<AdsBrokerResponse<EcommerceCampaignBundleResult>> {
+    return this.callOptionalMethod<EcommerceCampaignBundleResult>(request, 'smartPlusCreateCampaign');
+  }
+
+  smartPlusPauseCampaign(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>> {
+    return this.callOptionalMethod<AdsMutationResult>(request, 'smartPlusPauseCampaign');
+  }
+
+  smartPlusResumeCampaign(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>> {
+    return this.callOptionalMethod<AdsMutationResult>(request, 'smartPlusResumeCampaign');
+  }
+
+  smartPlusCreateAdGroup(request: AdsBrokerRequest): Promise<AdsBrokerResponse<CreateAdSetResult>> {
+    return this.callOptionalMethod<CreateAdSetResult>(request, 'smartPlusCreateAdGroup');
+  }
+
+  smartPlusPauseAdGroup(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>> {
+    return this.callOptionalMethod<AdsMutationResult>(request, 'smartPlusPauseAdGroup');
+  }
+
+  smartPlusResumeAdGroup(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>> {
+    return this.callOptionalMethod<AdsMutationResult>(request, 'smartPlusResumeAdGroup');
+  }
+
   private async executeWrite<TData extends AdsMutationResult | EcommerceCampaignBundleResult | CreateCampaignResult | CreateAdSetResult | CreateAdCreativeResult | CreateAdResult | ArchiveAdResult | UpdateAdSetResult | GetTargetingOptionsResult | ImageUploadResult | VideoUploadResult>(
     request: AdsBrokerRequest,
     method: AdapterWriteMethod
@@ -475,6 +527,36 @@ export class AdsBroker {
         ),
       };
     }
+  }
+
+  /**
+   * Call an optional TikTok-specific method on the adapter.
+   * Falls back to "not implemented" if method is not defined by the adapter.
+   */
+  private async callOptionalMethod<TData>(
+    request: AdsBrokerRequest,
+    method: string
+  ): Promise<AdsBrokerResponse<TData>> {
+    const resolved = this.resolveProviderId(request);
+    if (!resolved.ok) return resolved.response as unknown as AdsBrokerResponse<TData>;
+
+    const adapterResult = this.getAdapter(resolved.provider);
+    if (!adapterResult.ok) return adapterResult.response as unknown as AdsBrokerResponse<TData>;
+
+    const adapter = adapterResult.adapter;
+    const methodFn = (adapter as unknown as Record<string, unknown>)[method] as
+      | ((req: AdsBrokerRequest) => Promise<AdsBrokerResponse<TData>>)
+      | undefined;
+
+    if (typeof methodFn !== 'function') {
+      return {
+        ok: false,
+        provider: resolved.provider,
+        errors: [{ provider: resolved.provider, code: 'NOT_IMPLEMENTED', message: `Method ${method} is not implemented by this provider` }],
+      } as AdsBrokerResponse<TData>;
+    }
+
+    return methodFn.call(adapter, request);
   }
 
   private withCredential(

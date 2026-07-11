@@ -58,6 +58,32 @@ import type {
   CreateTikTokAdOptions,
   TikTokAdStatusOptions,
 } from '../../tools/tiktok/createTikTokAd.js';
+import {
+  createGmvMaxCampaign,
+  updateGmvMaxCampaign,
+  createGmvMaxSession,
+  updateGmvMaxSession,
+  deleteGmvMaxSession,
+  getGmvMaxCampaignInfo,
+  getGmvMaxBidRecommend,
+} from '../../tools/tiktok/createTikTokGmvMax.js';
+import type {
+  CreateGmvMaxCampaignOptions,
+  CreateGmvMaxSessionOptions,
+} from '../../tools/tiktok/createTikTokGmvMax.js';
+import {
+  createSmartPlusCampaign,
+  updateSmartPlusCampaign,
+  updateSmartPlusCampaignStatus,
+  createSmartPlusAdGroup,
+  updateSmartPlusAdGroup,
+  updateSmartPlusAdGroupStatus,
+  getSmartPlusCampaign,
+} from '../../tools/tiktok/createTikTokSmartPlus.js';
+import type {
+  CreateSmartPlusCampaignOptions,
+  CreateSmartPlusAdGroupOptions,
+} from '../../tools/tiktok/createTikTokSmartPlus.js';
 
 export interface TikTokAdsAdapterMockData {
   accounts?: unknown[];
@@ -617,8 +643,225 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
     return this.writeNotImplemented();
   }
 
-  async createEcommerceCampaignBundle(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<EcommerceCampaignBundleResult>> {
-    return this.writeNotImplemented();
+  async createEcommerceCampaignBundle(request: AdsBrokerRequest): Promise<AdsBrokerResponse<EcommerceCampaignBundleResult>> {
+    if (!this.client) return this.writeNotImplemented();
+    const params = request.params;
+    const platform = String(params.platform ?? 'tiktok_gmv');
+
+    try {
+      if (platform === 'smart_plus') {
+        const campaign = await createSmartPlusCampaign(this.client, {
+          advertiserId: String(params.advertiserId ?? request.accountId ?? ''),
+          campaignName: String(params.campaignName ?? ''),
+          objectiveType: String(params.objectiveType ?? ''),
+          budget: Number(params.budget ?? 0),
+          budgetMode: String(params.budgetMode ?? 'DAILY'),
+          operationStatus: String(params.operationStatus ?? 'ENABLE'),
+        });
+        return { ok: true, provider: 'tiktok', data: { operation: 'create_ecommerce_campaign_bundle', status: 'executed', executed: true, preview: { campaign: {}, adSet: {}, creative: {}, ad: {} }, ids: { campaignId: campaign.campaign_id }, responses: { campaign: campaign as unknown as Record<string, unknown> } } };
+      }
+
+      // Default: create GMV Max campaign
+      const result = await createGmvMaxCampaign(this.client, {
+        advertiserId: String(params.advertiserId ?? request.accountId ?? ''),
+        campaignName: String(params.campaignName ?? ''),
+        objectiveType: String(params.objectiveType ?? ''),
+        storeIds: Array.isArray(params.storeIds) ? params.storeIds.map(String) : [],
+        budget: params.budget as number | undefined,
+        budgetMode: String(params.budgetMode ?? 'DAILY'),
+        scheduleType: params.scheduleType as string | undefined,
+        scheduleStartTime: params.scheduleStartTime as string | undefined,
+        operationStatus: String(params.operationStatus ?? 'ENABLE'),
+      });
+      return { ok: true, provider: 'tiktok', data: { operation: 'create_ecommerce_campaign_bundle', status: 'executed', executed: true, preview: { campaign: {}, adSet: {}, creative: {}, ad: {} }, ids: { campaignId: result.campaign_id }, responses: { campaign: result as unknown as Record<string, unknown> } } };
+    } catch (error) {
+      return this.errorResponse(error);
+    }
+  }
+
+  // ── TikTok GMV Max specific methods ──
+
+  async gmvMaxCreateCampaign(request: AdsBrokerRequest): Promise<AdsBrokerResponse<EcommerceCampaignBundleResult>> {
+    if (!this.client) return this.writeNotImplemented();
+    const params = request.params;
+    try {
+      const result = await createGmvMaxCampaign(this.client, {
+        advertiserId: String(params.advertiserId ?? request.accountId ?? ''),
+        campaignName: String(params.campaignName ?? ''),
+        objectiveType: String(params.objectiveType ?? ''),
+        storeIds: Array.isArray(params.storeIds) ? params.storeIds.map(String) : [],
+        budget: params.budget as number | undefined,
+        budgetMode: String(params.budgetMode ?? 'DAILY'),
+        scheduleType: params.scheduleType as string | undefined,
+        scheduleStartTime: params.scheduleStartTime as string | undefined,
+        operationStatus: String(params.operationStatus ?? 'ENABLE'),
+      });
+      return { ok: true, provider: 'tiktok', data: { operation: 'create_ecommerce_campaign_bundle', status: 'executed', executed: true, preview: { campaign: {}, adSet: {}, creative: {}, ad: {} }, ids: { campaignId: result.campaign_id }, responses: { campaign: result as unknown as Record<string, unknown> } } };
+    } catch (error) {
+      return this.errorResponse(error);
+    }
+  }
+
+  async gmvMaxUpdateCampaign(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>> {
+    if (!this.client) return this.writeNotImplemented();
+    try {
+      const result = await updateGmvMaxCampaign(this.client, {
+        advertiserId: String(request.accountId ?? request.credentials?.accountId ?? ''),
+        campaignId: String(request.params.campaignId ?? ''),
+        campaignName: request.params.campaignName as string | undefined,
+        budget: request.params.budget as number | undefined,
+        operationStatus: request.params.operationStatus as string | undefined,
+      });
+      return { ok: true, provider: 'tiktok', data: { success: true, id: String(request.params.campaignId ?? ''), operation: 'gmv_max_update_campaign', response: result as unknown as Record<string, unknown> } };
+    } catch (error) {
+      return this.errorResponse(error);
+    }
+  }
+
+  async gmvMaxCreateSession(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>> {
+    if (!this.client) return this.writeNotImplemented();
+    try {
+      const result = await createGmvMaxSession(this.client, {
+        advertiserId: String(request.accountId ?? request.credentials?.accountId ?? ''),
+        campaignId: String(request.params.campaignId ?? ''),
+        sessionName: String(request.params.sessionName ?? ''),
+        startTime: String(request.params.startTime ?? ''),
+        endTime: String(request.params.endTime ?? ''),
+        sessionType: request.params.sessionType as string | undefined,
+        sessionBudget: request.params.sessionBudget as number | undefined,
+        productIds: Array.isArray(request.params.productIds) ? request.params.productIds.map(String) : undefined,
+      });
+      return { ok: true, provider: 'tiktok', data: { success: true, id: result.session_id ?? '', operation: 'gmv_max_create_session', response: result as unknown as Record<string, unknown> } };
+    } catch (error) {
+      return this.errorResponse(error);
+    }
+  }
+
+  async gmvMaxUpdateSession(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>> {
+    if (!this.client) return this.writeNotImplemented();
+    try {
+      const result = await updateGmvMaxSession(this.client, {
+        advertiserId: String(request.accountId ?? request.credentials?.accountId ?? ''),
+        sessionId: String(request.params.sessionId ?? ''),
+        sessionName: request.params.sessionName as string | undefined,
+        sessionBudget: request.params.sessionBudget as number | undefined,
+        startTime: request.params.startTime as string | undefined,
+        endTime: request.params.endTime as string | undefined,
+      });
+      return { ok: true, provider: 'tiktok', data: { success: true, id: String(request.params.sessionId ?? ''), operation: 'gmv_max_update_session', response: result as unknown as Record<string, unknown> } };
+    } catch (error) {
+      return this.errorResponse(error);
+    }
+  }
+
+  async gmvMaxDeleteSession(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>> {
+    if (!this.client) return this.writeNotImplemented();
+    try {
+      await deleteGmvMaxSession(this.client, {
+        advertiserId: String(request.accountId ?? request.credentials?.accountId ?? ''),
+        sessionId: String(request.params.sessionId ?? ''),
+      });
+      return { ok: true, provider: 'tiktok', data: { success: true, id: String(request.params.sessionId ?? ''), operation: 'gmv_max_delete_session' } };
+    } catch (error) {
+      return this.errorResponse(error);
+    }
+  }
+
+  async gmvMaxGetCampaignInfo(request: AdsBrokerRequest): Promise<AdsBrokerResponse<Record<string, unknown>[]>> {
+    if (!this.client) return this.writeNotImplemented();
+    try {
+      const campaignIds = Array.isArray(request.params.campaignIds) ? request.params.campaignIds.map(String) : [];
+      const result = await getGmvMaxCampaignInfo(this.client, {
+        advertiserId: String(request.accountId ?? request.credentials?.accountId ?? ''),
+        campaignIds,
+      });
+      return { ok: true, provider: 'tiktok', data: result as unknown as Record<string, unknown>[] };
+    } catch (error) {
+      return this.errorResponse(error);
+    }
+  }
+
+  // ── TikTok Smart Plus specific methods ──
+
+  async smartPlusCreateCampaign(request: AdsBrokerRequest): Promise<AdsBrokerResponse<EcommerceCampaignBundleResult>> {
+    if (!this.client) return this.writeNotImplemented();
+    try {
+      const result = await createSmartPlusCampaign(this.client, {
+        advertiserId: String(request.accountId ?? request.credentials?.accountId ?? ''),
+        campaignName: String(request.params.campaignName ?? ''),
+        objectiveType: String(request.params.objectiveType ?? ''),
+        budget: Number(request.params.budget ?? 0),
+        budgetMode: String(request.params.budgetMode ?? 'DAILY'),
+        operationStatus: String(request.params.operationStatus ?? 'ENABLE'),
+      });
+      return { ok: true, provider: 'tiktok', data: { operation: 'create_ecommerce_campaign_bundle', status: 'executed', executed: true, preview: { campaign: {}, adSet: {}, creative: {}, ad: {} }, ids: { campaignId: result.campaign_id }, responses: { campaign: result as unknown as Record<string, unknown> } } };
+    } catch (error) {
+      return this.errorResponse(error);
+    }
+  }
+
+  async smartPlusPauseCampaign(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>> {
+    return this.smartPlusCampaignStatus(request, 'DISABLE');
+  }
+
+  async smartPlusResumeCampaign(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>> {
+    return this.smartPlusCampaignStatus(request, 'ENABLE');
+  }
+
+  private async smartPlusCampaignStatus(request: AdsBrokerRequest, status: 'ENABLE' | 'DISABLE'): Promise<AdsBrokerResponse<AdsMutationResult>> {
+    if (!this.client) return this.writeNotImplemented();
+    try {
+      await updateSmartPlusCampaignStatus(this.client, {
+        advertiserId: String(request.accountId ?? request.credentials?.accountId ?? ''),
+        campaignId: String(request.params.campaignId ?? ''),
+        status,
+      });
+      return { ok: true, provider: 'tiktok', data: { success: true, id: String(request.params.campaignId ?? ''), operation: status === 'ENABLE' ? 'smart_plus_resume_campaign' : 'smart_plus_pause_campaign' } };
+    } catch (error) {
+      return this.errorResponse(error);
+    }
+  }
+
+  async smartPlusCreateAdGroup(request: AdsBrokerRequest): Promise<AdsBrokerResponse<CreateAdSetResult>> {
+    if (!this.client) return this.writeNotImplemented();
+    try {
+      const result = await createSmartPlusAdGroup(this.client, {
+        advertiserId: String(request.accountId ?? request.credentials?.accountId ?? ''),
+        campaignId: String(request.params.campaignId ?? ''),
+        adgroupName: String(request.params.name ?? request.params.adgroupName ?? ''),
+        budget: Number(request.params.budget ?? 0),
+        budgetMode: String(request.params.budgetMode ?? 'DAILY'),
+        operationStatus: String(request.params.operationStatus ?? 'ENABLE'),
+        landingPageUrl: String(request.params.landingPageUrl ?? ''),
+        identityId: request.params.identityId as string | undefined,
+        identityType: request.params.identityType as string | undefined,
+      });
+      return { ok: true, provider: 'tiktok', data: { operation: 'create_adset', status: 'executed', executed: true, id: result.adgroup_id ?? '', preview: {}, response: result as unknown as Record<string, unknown> } };
+    } catch (error) {
+      return this.errorResponse(error);
+    }
+  }
+
+  async smartPlusPauseAdGroup(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>> {
+    return this.smartPlusAdGroupStatus(request, 'DISABLE');
+  }
+
+  async smartPlusResumeAdGroup(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>> {
+    return this.smartPlusAdGroupStatus(request, 'ENABLE');
+  }
+
+  private async smartPlusAdGroupStatus(request: AdsBrokerRequest, status: 'ENABLE' | 'DISABLE' | 'DELETE'): Promise<AdsBrokerResponse<AdsMutationResult>> {
+    if (!this.client) return this.writeNotImplemented();
+    try {
+      await updateSmartPlusAdGroupStatus(this.client, {
+        advertiserId: String(request.accountId ?? request.credentials?.accountId ?? ''),
+        adgroupId: String(request.params.adgroupId ?? ''),
+        status: status as 'ENABLE' | 'DISABLE' | 'DELETE',
+      });
+      return { ok: true, provider: 'tiktok', data: { success: true, id: String(request.params.adgroupId ?? ''), operation: status === 'ENABLE' ? 'smart_plus_resume_adgroup' : status === 'DELETE' ? 'smart_plus_delete_adgroup' : 'smart_plus_pause_adgroup' } };
+    } catch (error) {
+      return this.errorResponse(error);
+    }
   }
 
   async uploadImage(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<ImageUploadResult>> {

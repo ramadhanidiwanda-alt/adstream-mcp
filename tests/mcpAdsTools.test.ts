@@ -162,6 +162,18 @@ describe('ads MCP broker tools', () => {
       'ads_list_advideos',
       'ads_get_ad_preview',
       'ads_get_ad_destinations',
+      'tiktok_gmv_max_create_campaign',
+      'tiktok_gmv_max_update_campaign',
+      'tiktok_gmv_max_create_session',
+      'tiktok_gmv_max_update_session',
+      'tiktok_gmv_max_delete_session',
+      'tiktok_gmv_max_get_campaign_info',
+      'tiktok_smart_plus_create_campaign',
+      'tiktok_smart_plus_pause_campaign',
+      'tiktok_smart_plus_resume_campaign',
+      'tiktok_smart_plus_create_adgroup',
+      'tiktok_smart_plus_pause_adgroup',
+      'tiktok_smart_plus_resume_adgroup',
     ]);
     expect(legacyToolNames).toContain('meta_get_campaign_insights');
     expect(legacyToolNames).toContain('meta_get_ads_insights');

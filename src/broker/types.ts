@@ -816,6 +816,20 @@ export interface AdsProviderAdapter {
   listAdImages(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdImageResult[]>>;
   listAdVideos(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdVideoResult[]>>;
   getAdPreview(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdPreviewResult[]>>;
+  // --- TikTok GMV Max (TikTok-specific) ---
+  gmvMaxCreateCampaign?(request: AdsBrokerRequest): Promise<AdsBrokerResponse<EcommerceCampaignBundleResult>>;
+  gmvMaxUpdateCampaign?(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>>;
+  gmvMaxCreateSession?(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>>;
+  gmvMaxUpdateSession?(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>>;
+  gmvMaxDeleteSession?(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>>;
+  gmvMaxGetCampaignInfo?(request: AdsBrokerRequest): Promise<AdsBrokerResponse<Record<string, unknown>[]>>;
+  // --- TikTok Smart Plus (TikTok-specific) ---
+  smartPlusCreateCampaign?(request: AdsBrokerRequest): Promise<AdsBrokerResponse<EcommerceCampaignBundleResult>>;
+  smartPlusPauseCampaign?(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>>;
+  smartPlusResumeCampaign?(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>>;
+  smartPlusCreateAdGroup?(request: AdsBrokerRequest): Promise<AdsBrokerResponse<CreateAdSetResult>>;
+  smartPlusPauseAdGroup?(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>>;
+  smartPlusResumeAdGroup?(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>>;
 }
 
 export interface AdsToolDefinition {
