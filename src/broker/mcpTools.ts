@@ -43,6 +43,20 @@ export const ADS_MCP_TOOL_NAMES = [
   'ads_list_advideos',
   'ads_get_ad_preview',
   'ads_get_ad_destinations',
+  // --- TikTok GMV Max ---
+  'tiktok_gmv_max_create_campaign',
+  'tiktok_gmv_max_update_campaign',
+  'tiktok_gmv_max_create_session',
+  'tiktok_gmv_max_update_session',
+  'tiktok_gmv_max_delete_session',
+  'tiktok_gmv_max_get_campaign_info',
+  // --- TikTok Smart Plus ---
+  'tiktok_smart_plus_create_campaign',
+  'tiktok_smart_plus_pause_campaign',
+  'tiktok_smart_plus_resume_campaign',
+  'tiktok_smart_plus_create_adgroup',
+  'tiktok_smart_plus_pause_adgroup',
+  'tiktok_smart_plus_resume_adgroup',
 ] as const;
 
 export type AdsMcpToolName = (typeof ADS_MCP_TOOL_NAMES)[number];
@@ -223,6 +237,68 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
     description: 'Get destination URLs from ads with their creative metadata. Fetches ads with object_story_spec and asset_feed_spec, then extracts the destination URL for each creative type (link, video, carousel, Advantage+, existing post). Supports status filtering. Calls GET /act_{id}/ads?fields=id,name,status,effective_status,creative{id,object_type,object_story_spec,asset_feed_spec}.',
     inputSchema: createAdsInputSchema([]),
   },
+  // --- TikTok GMV Max ---
+  {
+    name: 'tiktok_gmv_max_create_campaign',
+    description: 'Create a TikTok GMV Max campaign for Shop sellers. Requires store_ids, objective_type, campaign_name, and budget.',
+    inputSchema: createAdsInputSchema([]),
+  },
+  {
+    name: 'tiktok_gmv_max_update_campaign',
+    description: 'Update a TikTok GMV Max campaign (name, budget, status).',
+    inputSchema: createAdsInputSchema([]),
+  },
+  {
+    name: 'tiktok_gmv_max_create_session',
+    description: 'Create a GMV Max session (sale event) for an existing GMV Max campaign. Requires session_name, start_time, end_time.',
+    inputSchema: createAdsInputSchema([]),
+  },
+  {
+    name: 'tiktok_gmv_max_update_session',
+    description: 'Update a GMV Max session (name, budget, time).',
+    inputSchema: createAdsInputSchema([]),
+  },
+  {
+    name: 'tiktok_gmv_max_delete_session',
+    description: 'Delete a GMV Max session.',
+    inputSchema: createAdsInputSchema([]),
+  },
+  {
+    name: 'tiktok_gmv_max_get_campaign_info',
+    description: 'Get detailed info for one or more GMV Max campaigns by campaign_ids.',
+    inputSchema: createAdsInputSchema([]),
+  },
+  // --- TikTok Smart Plus ---
+  {
+    name: 'tiktok_smart_plus_create_campaign',
+    description: 'Create a TikTok Smart Plus campaign (Advantage+ equivalent). TikTok handles targeting and creatives automatically.',
+    inputSchema: createAdsInputSchema([]),
+  },
+  {
+    name: 'tiktok_smart_plus_pause_campaign',
+    description: 'Pause a TikTok Smart Plus campaign.',
+    inputSchema: createAdsInputSchema([]),
+  },
+  {
+    name: 'tiktok_smart_plus_resume_campaign',
+    description: 'Resume a paused TikTok Smart Plus campaign.',
+    inputSchema: createAdsInputSchema([]),
+  },
+  {
+    name: 'tiktok_smart_plus_create_adgroup',
+    description: 'Create a TikTok Smart Plus ad group. TikTok handles targeting and creatives automatically.',
+    inputSchema: createAdsInputSchema([]),
+  },
+  {
+    name: 'tiktok_smart_plus_pause_adgroup',
+    description: 'Pause a TikTok Smart Plus ad group.',
+    inputSchema: createAdsInputSchema([]),
+  },
+  {
+    name: 'tiktok_smart_plus_resume_adgroup',
+    description: 'Resume a paused TikTok Smart Plus ad group.',
+    inputSchema: createAdsInputSchema([]),
+  },
 ] as const;
 
 export function isAdsMcpToolName(name: string): name is AdsMcpToolName {
@@ -365,6 +441,32 @@ function callBrokerMethod(
       return broker.uploadImage(request);
     case 'ads_upload_video':
       return broker.uploadVideo(request);
+    // --- TikTok GMV Max ---
+    case 'tiktok_gmv_max_create_campaign':
+      return broker.gmvMaxCreateCampaign(request);
+    case 'tiktok_gmv_max_update_campaign':
+      return broker.gmvMaxUpdateCampaign(request);
+    case 'tiktok_gmv_max_create_session':
+      return broker.gmvMaxCreateSession(request);
+    case 'tiktok_gmv_max_update_session':
+      return broker.gmvMaxUpdateSession(request);
+    case 'tiktok_gmv_max_delete_session':
+      return broker.gmvMaxDeleteSession(request);
+    case 'tiktok_gmv_max_get_campaign_info':
+      return broker.gmvMaxGetCampaignInfo(request);
+    // --- TikTok Smart Plus ---
+    case 'tiktok_smart_plus_create_campaign':
+      return broker.smartPlusCreateCampaign(request);
+    case 'tiktok_smart_plus_pause_campaign':
+      return broker.smartPlusPauseCampaign(request);
+    case 'tiktok_smart_plus_resume_campaign':
+      return broker.smartPlusResumeCampaign(request);
+    case 'tiktok_smart_plus_create_adgroup':
+      return broker.smartPlusCreateAdGroup(request);
+    case 'tiktok_smart_plus_pause_adgroup':
+      return broker.smartPlusPauseAdGroup(request);
+    case 'tiktok_smart_plus_resume_adgroup':
+      return broker.smartPlusResumeAdGroup(request);
     default:
       return Promise.resolve({
         ok: false,
