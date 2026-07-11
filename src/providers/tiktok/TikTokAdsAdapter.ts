@@ -658,7 +658,7 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
           budgetMode: String(params.budgetMode ?? 'DAILY'),
           operationStatus: String(params.operationStatus ?? 'ENABLE'),
         });
-        return { ok: true, provider: 'tiktok', data: { operation: 'create_ecommerce_campaign_bundle', status: 'executed', executed: true, preview: { campaign: {}, adSet: {}, creative: {}, ad: {} }, ids: { campaignId: campaign.campaign_id }, responses: { campaign: campaign as unknown as Record<string, unknown> } } };
+        return { ok: true, provider: 'tiktok', data: { operation: 'create_ecommerce_campaign_bundle', status: 'executed', executed: true, preview: { campaign: {}, adSet: {}, creative: {}, ad: {} }, warnings: [], ids: { campaignId: campaign.campaign_id }, responses: { campaign: campaign as unknown as Record<string, unknown> } } };
       }
 
       // Default: create GMV Max campaign
@@ -673,7 +673,7 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
         scheduleStartTime: params.scheduleStartTime as string | undefined,
         operationStatus: String(params.operationStatus ?? 'ENABLE'),
       });
-      return { ok: true, provider: 'tiktok', data: { operation: 'create_ecommerce_campaign_bundle', status: 'executed', executed: true, preview: { campaign: {}, adSet: {}, creative: {}, ad: {} }, ids: { campaignId: result.campaign_id }, responses: { campaign: result as unknown as Record<string, unknown> } } };
+      return { ok: true, provider: 'tiktok', data: { operation: 'create_ecommerce_campaign_bundle', status: 'executed', executed: true, preview: { campaign: {}, adSet: {}, creative: {}, ad: {} }, warnings: [], ids: { campaignId: result.campaign_id }, responses: { campaign: result as unknown as Record<string, unknown> } } };
     } catch (error) {
       return this.errorResponse(error);
     }
@@ -696,7 +696,7 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
         scheduleStartTime: params.scheduleStartTime as string | undefined,
         operationStatus: String(params.operationStatus ?? 'ENABLE'),
       });
-      return { ok: true, provider: 'tiktok', data: { operation: 'create_ecommerce_campaign_bundle', status: 'executed', executed: true, preview: { campaign: {}, adSet: {}, creative: {}, ad: {} }, ids: { campaignId: result.campaign_id }, responses: { campaign: result as unknown as Record<string, unknown> } } };
+      return { ok: true, provider: 'tiktok', data: { operation: 'create_ecommerce_campaign_bundle', status: 'executed', executed: true, preview: { campaign: {}, adSet: {}, creative: {}, ad: {} }, warnings: [], ids: { campaignId: result.campaign_id }, responses: { campaign: result as unknown as Record<string, unknown> } } };
     } catch (error) {
       return this.errorResponse(error);
     }
@@ -794,7 +794,7 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
         budgetMode: String(request.params.budgetMode ?? 'DAILY'),
         operationStatus: String(request.params.operationStatus ?? 'ENABLE'),
       });
-      return { ok: true, provider: 'tiktok', data: { operation: 'create_ecommerce_campaign_bundle', status: 'executed', executed: true, preview: { campaign: {}, adSet: {}, creative: {}, ad: {} }, ids: { campaignId: result.campaign_id }, responses: { campaign: result as unknown as Record<string, unknown> } } };
+      return { ok: true, provider: 'tiktok', data: { operation: 'create_ecommerce_campaign_bundle', status: 'executed', executed: true, preview: { campaign: {}, adSet: {}, creative: {}, ad: {} }, warnings: [], ids: { campaignId: result.campaign_id }, responses: { campaign: result as unknown as Record<string, unknown> } } };
     } catch (error) {
       return this.errorResponse(error);
     }
