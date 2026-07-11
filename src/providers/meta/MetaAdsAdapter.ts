@@ -1,4 +1,5 @@
 import { getAdCreativeMapping } from '../../tools/getAdCreativeMapping.js';
+import { getAdDestinations } from '../../tools/getAdDestinations.js';
 import type { AdCreativeMappingResult } from '../../broker/types.js';
 import { MetaClient } from '../../metaClient.js';
 import { getAdAccounts } from '../../tools/getAdAccounts.js';
@@ -41,6 +42,7 @@ import type {
   AdsChangeHistoryRecord,
   AdsMetricRecord,
   AdsMutationResult,
+  AdDestinationResult,
   AdsProviderAdapter,
   CredentialContext,
   EcommerceCampaignBundlePayload,
@@ -1238,6 +1240,46 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
 
       // Extract paging from the array augmentation
       const page = result as AdCreativeMappingResult[] & { paging?: { cursors?: { after?: string } } };
+      return {
+        ok: true,
+        provider: 'meta',
+        data: page,
+        meta: { nextCursor: page.paging?.cursors?.after ?? null },
+      };
+    } catch (error) {
+      return this.errorResponse(error);
+    }
+  }
+
+  async getAdDestinations(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdDestinationResult[]>> {
+    const context = this.getCredentialContext(request);
+    if (!context.ok) return context.response;
+
+    const accountId = request.accountId ?? context.credential.accountId;
+    if (!accountId) {
+      return {
+        ok: false,
+        provider: 'meta',
+        errors: [{ provider: 'meta', code: 'MISSING_ACCOUNT_ID', message: 'accountId is required to fetch ad destinations' }],
+      };
+    }
+
+    try {
+      const client = this.createClient(context.credential);
+      const adIds = Array.isArray(request.params.adIds) ? request.params.adIds.map(String) : undefined;
+      const effectiveStatus = Array.isArray(request.params.effectiveStatus)
+        ? request.params.effectiveStatus.map(String)
+        : undefined;
+
+      const result = await getAdDestinations(client, {
+        adAccountId: accountId,
+        effectiveStatus,
+        adIds,
+        limit: typeof request.params.limit === 'number' ? request.params.limit : 100,
+        cursor: typeof request.params.cursor === 'string' ? request.params.cursor : undefined,
+      });
+
+      const page = result as AdDestinationResult[] & { paging?: { cursors?: { after?: string } } };
       return {
         ok: true,
         provider: 'meta',

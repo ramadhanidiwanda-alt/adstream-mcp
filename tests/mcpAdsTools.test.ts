@@ -100,6 +100,21 @@ function createBrokerStub(): AdsBroker {
         disclaimer: 'These recommendations are suggestions only. Review performance context and business constraints before taking action.',
       } satisfies AdsReport,
     }),
+    getAdDestinations: async () => ({
+      ok: true,
+      provider: 'meta',
+      data: [{
+        ad_id: 'ad_123',
+        ad_name: 'Test Ad',
+        status: 'ACTIVE',
+        effective_status: 'ACTIVE',
+        creative_id: 'cr_123',
+        creative_type: 'link',
+        destination_url: 'https://example.com',
+        all_urls: ['https://example.com'],
+        resolution_method: 'link_data.link',
+      }],
+    }),
   } as unknown as AdsBroker;
 }
 
@@ -146,6 +161,7 @@ describe('ads MCP broker tools', () => {
       'ads_list_adimages',
       'ads_list_advideos',
       'ads_get_ad_preview',
+      'ads_get_ad_destinations',
     ]);
     expect(legacyToolNames).toContain('meta_get_campaign_insights');
     expect(legacyToolNames).toContain('meta_get_ads_insights');
