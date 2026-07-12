@@ -1,6 +1,7 @@
 import type { MetaClient } from '../metaClient.js';
+import type { StructuredMutationError } from '../types.js';
 import { normalizeAccountPath } from '../utils/normalizeAccountId.js';
-import { formatMetaWriteError } from '../utils/formatMetaWriteError.js';
+import { formatMetaWriteError, formatStructuredMetaWriteError } from '../utils/formatMetaWriteError.js';
 
 export type CreativeStatus = 'ACTIVE' | 'PAUSED' | 'DELETED';
 
@@ -26,9 +27,11 @@ export interface CreateAdCreativeOptions {
   threadsProfileId?: string;
   urlTags?: string;
   objectStorySpec?: Record<string, unknown>;
+  dedupeByName?: boolean;
+  externalReference?: string;
 }
 
-export type CreateAdCreativeStatus = 'dry_run' | 'pending_confirmation' | 'executed' | 'failed';
+export type CreateAdCreativeStatus = 'dry_run' | 'pending_confirmation' | 'executed' | 'failed' | 'deduped';
 
 export interface CreateAdCreativeResult {
   operation: 'create_adcreative';
@@ -38,6 +41,7 @@ export interface CreateAdCreativeResult {
   id?: string;
   response?: Record<string, unknown>;
   error?: string;
+  structuredError?: StructuredMutationError;
 }
 
 interface MetaIdResponse extends Record<string, unknown> {
@@ -61,6 +65,9 @@ export async function createAdCreative(
   const { dryRun = true, confirmed = false, maxRetries = 3 } = execOptions;
 
   const preview = buildCreativePayload(options);
+  if (options.externalReference) {
+    preview.external_reference = options.externalReference;
+  }
   const baseResult: CreateAdCreativeResult = {
     operation: 'create_adcreative',
     status: 'dry_run',
@@ -79,6 +86,19 @@ export async function createAdCreative(
   }
 
   const accountPath = normalizeAccountPath(options.adAccountId);
+
+  if (options.dedupeByName) {
+    const existing = await findExistingCreativeByName(client, accountPath, options.name, maxRetries);
+    if (existing) {
+      return {
+        ...baseResult,
+        status: 'deduped',
+        executed: false,
+        id: existing.id,
+        response: { deduped: true, existing },
+      };
+    }
+  }
 
   try {
     const response = await client.metaPost<MetaIdResponse>(
@@ -107,8 +127,34 @@ export async function createAdCreative(
       ...baseResult,
       status: 'failed',
       error: formatMetaWriteError(error),
+      structuredError: formatStructuredMetaWriteError(error),
     };
   }
+}
+
+interface ExistingNamedCreative extends Record<string, unknown> {
+  id: string;
+  name?: string;
+  status?: string;
+}
+
+async function findExistingCreativeByName(
+  client: MetaClient,
+  accountPath: string,
+  name: string,
+  maxRetries: number
+): Promise<ExistingNamedCreative | null> {
+  const response = await client.metaGet<{ data?: ExistingNamedCreative[] }>(
+    `${accountPath}/adcreatives`,
+    {
+      fields: 'id,name,status',
+      limit: 100,
+      filtering: [{ field: 'name', operator: 'EQUAL', value: name.trim() }],
+    },
+    { maxRetries }
+  );
+
+  return response.data?.find((creative) => creative.name === name.trim()) ?? null;
 }
 
 function buildCreativePayload(options: CreateAdCreativeOptions): Record<string, unknown> {

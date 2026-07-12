@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   ADS_MCP_TOOL_DEFINITIONS,
+  getAdsMcpToolAnnotations,
   handleAdsMcpToolCall,
   safeAdsMcpError,
   toAdsBrokerRequest,
@@ -123,6 +124,42 @@ function parseToolResponse(response: Awaited<ReturnType<typeof handleAdsMcpToolC
 }
 
 describe('ads MCP broker tools', () => {
+  it('labels read tools as safe to read repeatedly', () => {
+    expect(getAdsMcpToolAnnotations('ads_get_performance')).toMatchObject({
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: true,
+    });
+  });
+
+  it('labels additive create tools as non-destructive writes', () => {
+    expect(getAdsMcpToolAnnotations('ads_create_campaign')).toMatchObject({
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: false,
+      openWorldHint: true,
+    });
+  });
+
+  it('labels risky mutation tools as destructive writes', () => {
+    expect(getAdsMcpToolAnnotations('ads_archive_ad')).toMatchObject({
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: false,
+      openWorldHint: true,
+    });
+  });
+
+  it('labels upload tools as additive writes', () => {
+    expect(getAdsMcpToolAnnotations('ads_upload_image')).toMatchObject({
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: false,
+      openWorldHint: true,
+    });
+  });
+
   it('defines new ads tools without removing legacy names from expected server surface', () => {
     const adsToolNames = ADS_MCP_TOOL_DEFINITIONS.map((tool) => tool.name);
 

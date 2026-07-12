@@ -142,7 +142,6 @@ export async function createEcommerceCampaignBundle(
       billingEvent: payload.billingEvent ?? 'IMPRESSIONS',
       optimizationGoal: payload.optimizationGoal ?? 'OFFSITE_CONVERSIONS',
       bidStrategy: payload.bidStrategy ?? 'LOWEST_COST_WITHOUT_CAP',
-      dailyBudget: payload.dailyBudget,
       targeting: {
         geoLocations: { countries: payload.countries },
         ageMin: payload.ageMin ?? 18,
@@ -284,6 +283,7 @@ function buildPreview(payload: EcommerceCampaignBundlePayload): EcommerceCampaig
       buying_type: 'AUCTION',
       status: 'PAUSED',
       special_ad_categories: payload.specialAdCategories ?? [],
+      daily_budget: payload.dailyBudget,
     },
     adSet: {
       name: payload.adSetName.trim(),
@@ -291,7 +291,6 @@ function buildPreview(payload: EcommerceCampaignBundlePayload): EcommerceCampaig
       billing_event: payload.billingEvent ?? 'IMPRESSIONS',
       optimization_goal: payload.optimizationGoal ?? 'OFFSITE_CONVERSIONS',
       bid_strategy: payload.bidStrategy ?? 'LOWEST_COST_WITHOUT_CAP',
-      daily_budget: payload.dailyBudget,
       targeting: {
         geo_locations: { countries: payload.countries },
         age_min: payload.ageMin ?? 18,

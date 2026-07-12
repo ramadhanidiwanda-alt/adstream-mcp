@@ -11,6 +11,7 @@ function createMockClient(overrides: Record<string, unknown> = {}): MetaClient {
       lifetime_budget: undefined,
       ...overrides,
     }),
+    metaGet: vi.fn().mockResolvedValue({ data: [] }),
     metaPost: vi.fn().mockResolvedValue({ id: '120000000000000002' }),
   } as unknown as MetaClient;
 }
@@ -130,6 +131,23 @@ describe('createAdSet — bid strategy + pre-flight validation', () => {
   });
 
   describe('pre-flight: campaign bid strategy requires bidAmount', () => {
+    it('should not create duplicate ad set when dedupeByName finds an existing one', async () => {
+      const client = createMockClient({ bid_strategy: 'LOWEST_COST_WITHOUT_CAP', daily_budget: undefined });
+      vi.mocked(client.metaGet).mockResolvedValueOnce({
+        data: [{ id: 'existing_adset_1', name: 'Test Ad Set', status: 'PAUSED' }],
+      });
+
+      const result = await createAdSet(client, {
+        ...defaultOptions,
+        dedupeByName: true,
+      }, { dryRun: false, confirmed: true });
+
+      expect(result.status).toBe('deduped');
+      expect(result.executed).toBe(false);
+      expect(result.id).toBe('existing_adset_1');
+      expect(client.metaPost).not.toHaveBeenCalled();
+    });
+
     it('should require bidAmount when campaign uses COST_CAP', async () => {
       const client = createMockClient({ bid_strategy: 'COST_CAP' });
       const result = await createAdSet(client, defaultOptions, { dryRun: false, confirmed: true });
@@ -170,14 +188,24 @@ describe('createAdSet — bid strategy + pre-flight validation', () => {
   });
 
   describe('dry-run mode', () => {
-    it('should return preview without API call when dryRun=true', async () => {
+    it('should run read-only preflight and return preview without mutation when dryRun=true', async () => {
       const client = createMockClient();
       const result = await createAdSet(client, defaultOptions, { dryRun: true });
-      expect(result.status).toBe('dry_run');
+      expect(result.status).toBe('failed');
       expect(result.executed).toBe(false);
       expect(result.preview).toBeDefined();
       expect(client.metaPost).not.toHaveBeenCalled();
-      expect(client.metaGetObject).not.toHaveBeenCalled();
+      expect(client.metaGetObject).toHaveBeenCalled();
+      expect(result.error).toContain('bidAmount is required');
+    });
+
+    it('should return dry_run when read-only preflight passes', async () => {
+      const client = createMockClient({ bid_strategy: 'LOWEST_COST_WITHOUT_CAP', daily_budget: undefined });
+      const result = await createAdSet(client, defaultOptions, { dryRun: true });
+      expect(result.status).toBe('dry_run');
+      expect(result.executed).toBe(false);
+      expect(client.metaPost).not.toHaveBeenCalled();
+      expect(client.metaGetObject).toHaveBeenCalled();
     });
   });
 

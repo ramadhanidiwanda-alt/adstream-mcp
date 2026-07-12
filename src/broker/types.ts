@@ -529,6 +529,15 @@ export interface AdsMutationResult {
   operation: string;
   response?: Record<string, unknown>;
   error?: string;
+  structuredError?: {
+    code: string;
+    message: string;
+    provider?: string;
+    providerCode?: string;
+    providerSubcode?: string;
+    traceId?: string;
+    actionableFix?: string;
+  };
 }
 
 export interface EcommerceCampaignBundlePayload {
@@ -651,7 +660,7 @@ export interface VideoUploadResult {
   warnings?: string[];
 }
 
-export type CreateCampaignStatus = 'dry_run' | 'pending_confirmation' | 'executed' | 'failed';
+export type CreateCampaignStatus = 'dry_run' | 'pending_confirmation' | 'executed' | 'failed' | 'deduped';
 
 export interface CreateCampaignResult {
   operation: 'create_campaign';
@@ -663,7 +672,7 @@ export interface CreateCampaignResult {
   error?: string;
 }
 
-export type CreateAdSetStatus = 'dry_run' | 'pending_confirmation' | 'executed' | 'failed';
+export type CreateAdSetStatus = 'dry_run' | 'pending_confirmation' | 'executed' | 'failed' | 'deduped';
 
 export interface CreateAdSetResult {
   operation: 'create_adset';
@@ -675,7 +684,7 @@ export interface CreateAdSetResult {
   error?: string;
 }
 
-export type CreateAdCreativeStatus = 'dry_run' | 'pending_confirmation' | 'executed' | 'failed';
+export type CreateAdCreativeStatus = 'dry_run' | 'pending_confirmation' | 'executed' | 'failed' | 'deduped';
 
 export interface CreateAdCreativeResult {
   operation: 'create_adcreative';
@@ -687,7 +696,7 @@ export interface CreateAdCreativeResult {
   error?: string;
 }
 
-export type CreateAdStatus = 'dry_run' | 'pending_confirmation' | 'executed' | 'failed';
+export type CreateAdStatus = 'dry_run' | 'pending_confirmation' | 'executed' | 'failed' | 'deduped';
 
 export interface CreateAdResult {
   operation: 'create_ad';

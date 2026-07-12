@@ -6,14 +6,18 @@ type MetaPostMock = ReturnType<typeof vi.fn>;
 
 describe('createAdCreative', () => {
   const mockMetaPost: MetaPostMock = vi.fn();
-  const mockClient = { metaPost: mockMetaPost } as unknown as MetaClient;
+  const mockMetaGet: MetaPostMock = vi.fn();
+  const mockClient = { metaPost: mockMetaPost, metaGet: mockMetaGet } as unknown as MetaClient;
 
   const baseOpts = {
     adAccountId: 'act_123', name: 'Test Creative', pageId: '1001',
     linkData: { link: 'https://example.com', message: 'Buy now', callToAction: { type: 'SHOP_NOW' as const, value: { link: 'https://example.com' } } },
   };
 
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockMetaGet.mockResolvedValue({ data: [] });
+  });
 
   it('returns dry_run without calling API', async () => {
     const r = await createAdCreative(mockClient, baseOpts);
@@ -46,6 +50,22 @@ describe('createAdCreative', () => {
     const r = await createAdCreative(mockClient, baseOpts, { dryRun: false, confirmed: true });
     expect(r.status).toBe('executed'); expect(r.id).toBe('c123');
     expect(mockMetaPost).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not create a duplicate creative when dedupeByName finds an existing one', async () => {
+    mockMetaGet.mockResolvedValueOnce({
+      data: [{ id: 'existing_creative_1', name: 'Test Creative', status: 'ACTIVE' }],
+    });
+
+    const r = await createAdCreative(mockClient, {
+      ...baseOpts,
+      dedupeByName: true,
+    }, { dryRun: false, confirmed: true });
+
+    expect(r.status).toBe('deduped');
+    expect(r.executed).toBe(false);
+    expect(r.id).toBe('existing_creative_1');
+    expect(mockMetaPost).not.toHaveBeenCalled();
   });
 
   it('returns failed when no id returned', async () => {

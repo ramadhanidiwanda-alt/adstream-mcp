@@ -22,6 +22,7 @@ Do not use skills as a reason to move recommendation logic into MCP core. If a w
 
 ## Current Skill Families
 
+- `adstream-mcp/` — General MCP tool design guardrails for canonical APIs, write safety, provider abstraction, and skill-vs-core boundaries.
 - `meta-ads/` — Meta Ads audit, management, launch, and shared references.
 - `tiktok-ads/` — TikTok Ads audit instructions and shared references.
 

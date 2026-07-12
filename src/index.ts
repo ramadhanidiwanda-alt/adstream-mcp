@@ -164,6 +164,7 @@ export type * from './broker/factory.js';
 export {
   ADS_MCP_TOOL_DEFINITIONS,
   ADS_MCP_TOOL_NAMES,
+  getAdsMcpToolAnnotations,
   handleAdsMcpToolCall,
   isAdsMcpToolName,
   safeAdsMcpError,

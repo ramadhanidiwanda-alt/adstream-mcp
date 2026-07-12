@@ -1,6 +1,7 @@
 import type { MetaClient } from '../metaClient.js';
+import type { StructuredMutationError } from '../types.js';
 import { normalizeAccountPath } from '../utils/normalizeAccountId.js';
-import { formatMetaWriteError } from '../utils/formatMetaWriteError.js';
+import { formatMetaWriteError, formatStructuredMetaWriteError } from '../utils/formatMetaWriteError.js';
 
 export type AdStatus = 'ACTIVE' | 'PAUSED';
 
@@ -12,9 +13,11 @@ export interface CreateAdOptions {
   status?: AdStatus;
   trackingSpecs?: Array<Record<string, unknown>>;
   adLabels?: Array<{ name: string }>;
+  dedupeByName?: boolean;
+  externalReference?: string;
 }
 
-export type CreateAdStatus = 'dry_run' | 'pending_confirmation' | 'executed' | 'failed';
+export type CreateAdStatus = 'dry_run' | 'pending_confirmation' | 'executed' | 'failed' | 'deduped';
 
 export interface CreateAdResult {
   operation: 'create_ad';
@@ -24,6 +27,7 @@ export interface CreateAdResult {
   id?: string;
   response?: Record<string, unknown>;
   error?: string;
+  structuredError?: StructuredMutationError;
 }
 
 interface MetaIdResponse extends Record<string, unknown> {
@@ -47,6 +51,9 @@ export async function createAd(
   const { dryRun = true, confirmed = false, maxRetries = 3 } = execOptions;
 
   const preview = buildAdPayload(options);
+  if (options.externalReference) {
+    preview.external_reference = options.externalReference;
+  }
   const baseResult: CreateAdResult = {
     operation: 'create_ad',
     status: 'dry_run',
@@ -65,6 +72,19 @@ export async function createAd(
   }
 
   const accountPath = normalizeAccountPath(options.adAccountId);
+
+  if (options.dedupeByName) {
+    const existing = await findExistingAdByName(client, options.adSetId, options.name, maxRetries);
+    if (existing) {
+      return {
+        ...baseResult,
+        status: 'deduped',
+        executed: false,
+        id: existing.id,
+        response: { deduped: true, existing },
+      };
+    }
+  }
 
   try {
     const response = await client.metaPost<MetaIdResponse>(
@@ -93,8 +113,34 @@ export async function createAd(
       ...baseResult,
       status: 'failed',
       error: formatMetaWriteError(error),
+      structuredError: formatStructuredMetaWriteError(error),
     };
   }
+}
+
+interface ExistingNamedAd extends Record<string, unknown> {
+  id: string;
+  name?: string;
+  status?: string;
+}
+
+async function findExistingAdByName(
+  client: MetaClient,
+  adSetId: string,
+  name: string,
+  maxRetries: number
+): Promise<ExistingNamedAd | null> {
+  const response = await client.metaGet<{ data?: ExistingNamedAd[] }>(
+    `/${adSetId}/ads`,
+    {
+      fields: 'id,name,status',
+      limit: 100,
+      filtering: [{ field: 'name', operator: 'EQUAL', value: name.trim() }],
+    },
+    { maxRetries }
+  );
+
+  return response.data?.find((ad) => ad.name === name.trim()) ?? null;
 }
 
 function buildAdPayload(options: CreateAdOptions): Record<string, unknown> {

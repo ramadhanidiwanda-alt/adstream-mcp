@@ -7,6 +7,11 @@ type MetaPostMock = ReturnType<typeof vi.fn>;
 function createMockClient(): MetaClient {
   return {
     metaPost: vi.fn(),
+    metaGetObject: vi.fn().mockResolvedValue({
+      id: 'cmp_1',
+      bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+      daily_budget: 150000,
+    }),
     metaGet: vi.fn(),
     lastRateLimitInfo: null,
   } as unknown as MetaClient;
@@ -43,14 +48,15 @@ describe('createEcommerceCampaignBundle', () => {
       objective: 'OUTCOME_SALES',
       status: 'PAUSED',
       special_ad_categories: [],
+      daily_budget: payload.dailyBudget,
     });
     expect(result.preview.adSet).toMatchObject({
       name: payload.adSetName,
       status: 'PAUSED',
       optimization_goal: 'OFFSITE_CONVERSIONS',
       billing_event: 'IMPRESSIONS',
-      daily_budget: payload.dailyBudget,
     });
+    expect(result.preview.adSet.daily_budget).toBeUndefined();
     expect(result.preview.ad).toMatchObject({ name: payload.adName, status: 'PAUSED' });
   });
 
@@ -100,6 +106,7 @@ describe('createEcommerceCampaignBundle', () => {
     expect(mockPost.mock.calls[0][0]).toContain('/campaigns');
     // Check second call is adset creation
     expect(mockPost.mock.calls[1][0]).toContain('/adsets');
+    expect(mockPost.mock.calls[1][1].daily_budget).toBeUndefined();
     // Check third call is creative creation
     expect(mockPost.mock.calls[2][0]).toContain('/adcreatives');
     // Check fourth call is ad creation

@@ -16,6 +16,7 @@ import {
   RuleEngine,
   allRuleTemplates,
   ADS_MCP_TOOL_DEFINITIONS,
+  getAdsMcpToolAnnotations,
   COMMERCE_MCP_TOOL_DEFINITIONS,
   createDefaultAdsBroker,
   createAdsBrokerFromConfig,
@@ -154,6 +155,8 @@ const createCampaignInputSchema = {
   dailyBudget: z.number().optional().describe('Daily budget in local currency minor units.'),
   lifetimeBudget: z.number().optional().describe('Lifetime budget in local currency minor units.'),
   bidStrategy: z.string().optional().describe('Bid strategy.'),
+  dedupeByName: z.boolean().optional().describe('Check for an existing campaign with the same name before creating.'),
+  externalReference: z.string().optional().describe('Caller-provided reference for duplicate prevention and audit correlation.'),
   dryRun: z.boolean().optional().describe('Defaults to true. Set false only after preview.'),
   confirmed: z.boolean().optional().describe('Must be true to execute after preview.'),
 };
@@ -187,6 +190,8 @@ const createAdSetInputSchema = {
   dsaBeneficiary: z.string().optional().describe('DSA beneficiary for European compliance (person/org that benefits from ads).'),
   dsaPayor: z.string().optional().describe('DSA payor for European compliance (person/org paying for the ads).'),
   multiAdvertiserAds: z.number().optional().describe('Multi-Advertiser Ads opt-in (1) or opt-out (0).'),
+  dedupeByName: z.boolean().optional().describe('Check for an existing ad set with the same name under the campaign before creating.'),
+  externalReference: z.string().optional().describe('Caller-provided reference for duplicate prevention and audit correlation.'),
   dryRun: z.boolean().optional().describe('Defaults to true. Set false only after preview.'),
   confirmed: z.boolean().optional().describe('Must be true to execute after preview.'),
 };
@@ -205,6 +210,8 @@ const createAdCreativeInputSchema = {
   callToActionType: z.enum(['SHOP_NOW', 'LEARN_MORE', 'SIGN_UP', 'GET_OFFER', 'BOOK_NOW', 'DOWNLOAD', 'CONTACT_US', 'SUBSCRIBE', 'INSTALL_APP']).optional().describe('Call to action button type.'),
   instagramUserId: z.string().optional().describe('Instagram user ID for IG posting.'),
   threadsProfileId: z.string().optional().describe('Threads profile ID for Threads posting.'),
+  dedupeByName: z.boolean().optional().describe('Check for an existing creative with the same name before creating.'),
+  externalReference: z.string().optional().describe('Caller-provided reference for duplicate prevention and audit correlation.'),
   dryRun: z.boolean().optional().describe('Defaults to true. Set false only after preview.'),
   confirmed: z.boolean().optional().describe('Must be true to execute after preview.'),
 };
@@ -216,6 +223,8 @@ const createAdInputSchema = {
   adSetId: z.string().describe('The ad set ID to place the ad under.'),
   creativeId: z.string().describe('The creative ID to use for this ad.'),
   status: z.enum(['ACTIVE', 'PAUSED']).optional().describe('Ad status. Defaults to PAUSED.'),
+  dedupeByName: z.boolean().optional().describe('Check for an existing ad with the same name under the ad set before creating.'),
+  externalReference: z.string().optional().describe('Caller-provided reference for duplicate prevention and audit correlation.'),
   dryRun: z.boolean().optional().describe('Defaults to true. Set false only after preview.'),
   confirmed: z.boolean().optional().describe('Must be true to execute after preview.'),
 };
@@ -241,6 +250,8 @@ const updateAdSetInputSchema = {
   publisherPlatforms: z.array(z.string()).optional().describe('Publisher platforms.'),
   startTime: z.string().optional().describe('Start time in ISO format.'),
   endTime: z.string().optional().describe('End time in ISO format.'),
+  mode: z.enum(['patch', 'replace']).optional().describe('Nested update mode. Defaults to patch; replace requires explicit replacement confirmation.'),
+  replaceTargetingConfirmed: z.boolean().optional().describe('Required when mode=replace and targeting is provided.'),
   dryRun: z.boolean().optional().describe('Defaults to true. Set false only after preview.'),
   confirmed: z.boolean().optional().describe('Must be true to execute after preview.'),
 };
@@ -402,6 +413,7 @@ export function createMetaAdsMcpServer(
       {
         description: toolDefinition.description,
         inputSchema,
+        annotations: getAdsMcpToolAnnotations(toolDefinition.name),
       },
       async (args: Record<string, unknown>, extra: RequestHandlerExtra<ServerRequest, ServerNotification>) => {
         const connectionKey = extra.authInfo?.extra?.connectionKey as string | undefined;
@@ -421,6 +433,12 @@ export function createMetaAdsMcpServer(
       toolDefinition.name,
       {
         description: toolDefinition.description,
+        annotations: {
+          readOnlyHint: true,
+          destructiveHint: false,
+          idempotentHint: true,
+          openWorldHint: true,
+        },
         inputSchema: {
           provider: z.enum(['tiktok_gmv']).describe('Commerce provider. Only tiktok_gmv is supported today.'),
           accountId: z.string().describe('Provider account or advertiser id.'),
