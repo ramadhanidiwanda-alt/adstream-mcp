@@ -43,6 +43,7 @@ export const ADS_MCP_TOOL_NAMES = [
   'ads_list_advideos',
   'ads_get_ad_preview',
   'ads_get_ad_destinations',
+  'ads_list_pages',
   // --- TikTok GMV Max ---
   'tiktok_gmv_max_create_campaign',
   'tiktok_gmv_max_update_campaign',
@@ -235,6 +236,11 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
   {
     name: 'ads_get_ad_destinations',
     description: 'Get destination URLs from ads with their creative metadata. Fetches ads with object_story_spec and asset_feed_spec, then extracts the destination URL for each creative type (link, video, carousel, Advantage+, existing post). Supports status filtering. Calls GET /act_{id}/ads?fields=id,name,status,effective_status,creative{id,object_type,object_story_spec,asset_feed_spec}.',
+    inputSchema: createAdsInputSchema([]),
+  },
+  {
+    name: 'ads_list_pages',
+    description: 'List Meta Pages accessible by the token for selecting a valid pageId for ad creative object_story_spec.',
     inputSchema: createAdsInputSchema([]),
   },
   // --- TikTok GMV Max ---
@@ -437,6 +443,8 @@ function callBrokerMethod(
       return broker.getAdCreativeMapping(request);
     case 'ads_get_ad_destinations':
       return broker.getAdDestinations(request);
+    case 'ads_list_pages':
+      return broker.listPages(request);
     case 'ads_upload_image':
       return broker.uploadImage(request);
     case 'ads_upload_video':
@@ -939,6 +947,7 @@ function createCreateAdSetInputSchema() {
       bidConstraints: { type: 'object', description: 'Bid constraints for LOWEST_COST_WITH_MIN_ROAS. Shape: { roas_average_floor: number }.' },
       ageMin: { type: 'number', description: 'Minimum age target (e.g. 18).' },
       ageMax: { type: 'number', description: 'Maximum age target (e.g. 65).' },
+      genders: { type: 'array', items: { type: 'number' }, description: 'Gender targeting values. Meta uses 1=male, 2=female.' },
       publisherPlatforms: {
           type: 'array',
           items: { type: 'string' },
@@ -1056,6 +1065,7 @@ function createUpdateAdSetInputSchema() {
       geoLocations: { type: 'object', description: 'Geo targeting object.' },
       ageMin: { type: 'number', description: 'Minimum age target.' },
       ageMax: { type: 'number', description: 'Maximum age target.' },
+      genders: { type: 'array', items: { type: 'number' }, description: 'Gender targeting values. Meta uses 1=male, 2=female.' },
       publisherPlatforms: { type: 'array', items: { type: 'string' }, description: 'Publisher platforms.' },
       startTime: { type: 'string', description: 'Start time in ISO format.' },
       endTime: { type: 'string', description: 'End time in ISO format.' },

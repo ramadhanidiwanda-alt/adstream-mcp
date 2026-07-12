@@ -474,4 +474,142 @@ describe('MetaAdsAdapter', () => {
     const adapter = new MetaAdsAdapter();
     expect(typeof adapter.listCampaigns).toBe('function');
   });
+  it('passes full ad set write parameters from broker request into createAdSet tool', async () => {
+    let receivedOptions: Record<string, unknown> | undefined;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        createAdSet: async (_client, options) => {
+          receivedOptions = options as unknown as Record<string, unknown>;
+          return {
+            operation: 'create_adset',
+            status: 'dry_run',
+            executed: false,
+            preview: {},
+          };
+        },
+      },
+    });
+
+    const response = await adapter.createAdSet({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {
+        campaignId: 'cmp_123',
+        name: 'Affiliate Ad Set',
+        status: 'PAUSED',
+        billingEvent: 'IMPRESSIONS',
+        optimizationGoal: 'LINK_CLICKS',
+        bidStrategy: 'LOWEST_COST_WITH_BID_CAP',
+        bidAmount: 9000,
+        bidConstraints: { roas_average_floor: 20000 },
+        geoLocations: { countries: ['ID'] },
+        ageMin: 25,
+        genders: [2],
+        publisherPlatforms: ['facebook', 'instagram'],
+        destinationType: 'WEBSITE',
+        attributionSpec: [{ event_type: 'CLICK_THROUGH', window_days: 7 }],
+        frequencyControlSpecs: [{ event: 'IMPRESSIONS', interval_days: 7, max_frequency: 3 }],
+        isDynamicCreative: false,
+        dsaBeneficiary: 'Advertiser',
+        dsaPayor: 'Advertiser',
+        multiAdvertiserAds: 0,
+      },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    });
+
+    expect(response.ok).toBe(true);
+    expect(receivedOptions).toMatchObject({
+      adAccountId: 'act_123',
+      campaignId: 'cmp_123',
+      name: 'Affiliate Ad Set',
+      bidAmount: 9000,
+      bidConstraints: { roas_average_floor: 20000 },
+      destinationType: 'WEBSITE',
+      attributionSpec: [{ event_type: 'CLICK_THROUGH', window_days: 7 }],
+      frequencyControlSpecs: [{ event: 'IMPRESSIONS', interval_days: 7, max_frequency: 3 }],
+      isDynamicCreative: false,
+      dsaBeneficiary: 'Advertiser',
+      dsaPayor: 'Advertiser',
+      multiAdvertiserAds: 0,
+      targeting: {
+        geoLocations: { countries: ['ID'] },
+        ageMin: 25,
+        genders: [2],
+        publisherPlatforms: ['facebook', 'instagram'],
+      },
+    });
+    expect(JSON.stringify(response)).not.toContain('secret-token');
+  });
+
+  it('normalizes ad set targeting to camelCase and defaults advantage_audience', async () => {
+    let receivedOptions: Record<string, unknown> | undefined;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        createAdSet: async (_client, options) => {
+          receivedOptions = options as unknown as Record<string, unknown>;
+          return { operation: 'create_adset', status: 'dry_run', executed: false, preview: {} };
+        },
+      },
+    });
+
+    const response = await adapter.createAdSet({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {
+        campaignId: 'cmp_123',
+        name: 'Targeting Ad Set',
+        optimizationGoal: 'LINK_CLICKS',
+        billingEvent: 'IMPRESSIONS',
+        destinationType: 'WEBSITE',
+        geoLocations: { countries: ['ID'] },
+        ageMin: 25,
+        genders: [2],
+        publisherPlatforms: ['facebook', 'instagram'],
+      },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    });
+
+    expect(response.ok).toBe(true);
+    expect(receivedOptions?.targeting).toMatchObject({
+      geoLocations: { countries: ['ID'] },
+      ageMin: 25,
+      genders: [2],
+      publisherPlatforms: ['facebook', 'instagram'],
+    });
+  });
+
+  it('lists Meta pages without exposing page access tokens', async () => {
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        listPages: async () => [{
+          id: 'page_123',
+          name: 'Affiliate Page',
+          category: 'Shopping',
+          tasks: ['ADVERTISE', 'CREATE_CONTENT'],
+          access_token: 'page-token-secret',
+        }],
+      },
+    });
+
+    const response = await adapter.listPages({
+      provider: 'meta',
+      params: {},
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    });
+
+    expect(response.ok).toBe(true);
+    expect(response.data).toEqual([{
+      id: 'page_123',
+      name: 'Affiliate Page',
+      category: 'Shopping',
+      tasks: ['ADVERTISE', 'CREATE_CONTENT'],
+      can_advertise: true,
+    }]);
+    expect(JSON.stringify(response)).not.toContain('page-token-secret');
+    expect(JSON.stringify(response)).not.toContain('secret-token');
+  });
+
 });

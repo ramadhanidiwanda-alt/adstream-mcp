@@ -45,6 +45,7 @@ export interface AdSetTargeting {
   flexibleSpec?: Array<Record<string, unknown>>;
   exclusions?: Record<string, unknown>;
   targetingOptimization?: string;
+  targetingAutomation?: Record<string, unknown>;
 }
 
 export interface CreateAdSetOptions {
@@ -385,6 +386,10 @@ function buildTargetingPayload(targeting: AdSetTargeting): Record<string, unknow
   if (targeting.flexibleSpec !== undefined) result.flexible_spec = targeting.flexibleSpec;
   if (targeting.exclusions !== undefined) result.exclusions = targeting.exclusions;
   if (targeting.targetingOptimization !== undefined) result.targeting_optimization = targeting.targetingOptimization;
+
+  if (targeting.targetingAutomation !== undefined) {
+    result.targeting_automation = targeting.targetingAutomation;
+  }
 
   // Meta API v24+ requires targeting_automation.advantage_audience
   // Default to 0 (disabled) when user provides custom targeting

@@ -450,6 +450,7 @@ export interface AdsBrokerResponse<TData = AdsMetricRecord[] | unknown> {
     provider?: AdsProviderId;
     code?: string;
     message: string;
+    details?: Record<string, unknown>;
   }>;
   meta?: Record<string, unknown>;
 }
@@ -781,6 +782,14 @@ export interface AdPreviewResult {
   body?: string;
 }
 
+export interface MetaPageResult {
+  id: string;
+  name: string;
+  category?: string;
+  tasks?: string[];
+  can_advertise?: boolean;
+}
+
 export interface AdsProviderAdapter {
   id: AdsProviderId;
   displayName: string;
@@ -816,6 +825,7 @@ export interface AdsProviderAdapter {
   listAdImages(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdImageResult[]>>;
   listAdVideos(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdVideoResult[]>>;
   getAdPreview(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdPreviewResult[]>>;
+  listPages?(request: AdsBrokerRequest): Promise<AdsBrokerResponse<MetaPageResult[]>>;
   // --- TikTok GMV Max (TikTok-specific) ---
   gmvMaxCreateCampaign?(request: AdsBrokerRequest): Promise<AdsBrokerResponse<EcommerceCampaignBundleResult>>;
   gmvMaxUpdateCampaign?(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>>;

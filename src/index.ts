@@ -73,6 +73,8 @@ export { listAdVideos } from './tools/listAdVideos.js';
 export type { ListAdVideosOptions } from './tools/listAdVideos.js';
 export { getAdPreview } from './tools/getAdPreview.js';
 export type { GetAdPreviewOptions, AdPreviewFormat } from './tools/getAdPreview.js';
+export { listPages } from './tools/listPages.js';
+export type { MetaPageResult } from './tools/listPages.js';
 
 export { getAdDestinations } from './tools/getAdDestinations.js';
 export type { GetAdDestinationsOptions, AdDestinationInfo, AdDestinationPage } from './tools/getAdDestinations.js';

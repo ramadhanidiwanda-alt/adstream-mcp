@@ -1,5 +1,6 @@
 import type { MetaClient } from '../metaClient.js';
 import { normalizeAccountPath } from '../utils/normalizeAccountId.js';
+import { formatMetaWriteError } from '../utils/formatMetaWriteError.js';
 
 export type CreativeStatus = 'ACTIVE' | 'PAUSED' | 'DELETED';
 
@@ -104,7 +105,7 @@ export async function createAdCreative(
     return {
       ...baseResult,
       status: 'failed',
-      error: error instanceof Error ? error.message : String(error),
+      error: formatMetaWriteError(error),
     };
   }
 }

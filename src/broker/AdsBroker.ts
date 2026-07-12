@@ -31,6 +31,7 @@ import type {
   AdImageResult,
   AdVideoResult,
   AdPreviewResult,
+  MetaPageResult,
 } from './types.js';
 import { defaultDenyWritePermissionPolicy, isAdsProviderId } from './types.js';
 import type { CredentialResolverContract } from './credentials.js';
@@ -157,6 +158,54 @@ export class AdsBroker {
 
   getAdPreview(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdPreviewResult[]>> {
     return this.executeRead(request, 'getAdPreview');
+  }
+
+  listPages(request: AdsBrokerRequest): Promise<AdsBrokerResponse<MetaPageResult[]>> {
+    return this.callOptionalReadMethod(request, 'listPages');
+  }
+
+  private async callOptionalReadMethod<TData>(
+    request: AdsBrokerRequest,
+    method: keyof Pick<AdsProviderAdapter, 'listPages'>
+  ): Promise<AdsBrokerResponse<TData>> {
+    const provider = this.resolveProviderId(request);
+    if (!provider.ok) return provider.response;
+
+    const credential = await this.credentialResolver.resolve({
+      provider: provider.provider,
+      accountId: request.accountId,
+      connectionKey: request.connectionKey,
+      oauthAuthContext: request.oauthAuthContext,
+      params: request.params,
+    });
+
+    if (!credential.ok) {
+      return this.errorResponse(provider.provider, credential.error.code, credential.error.message);
+    }
+
+    if (!this.permissionPolicy.canRead(credential.credential, request)) {
+      return this.errorResponse(provider.provider, 'READ_NOT_ALLOWED', 'Read operation is not allowed');
+    }
+
+    const adapter = this.getAdapter(provider.provider);
+    if (!adapter.ok) return adapter.response;
+
+    const optionalMethod = adapter.adapter[method];
+    if (!optionalMethod) {
+      return this.errorResponse(provider.provider, 'PROVIDER_METHOD_NOT_IMPLEMENTED', `${method} is not implemented for provider ${provider.provider}`);
+    }
+
+    try {
+      const adapterRequest = this.withCredential(request, provider.provider, credential.credential);
+      const response = await optionalMethod.call(adapter.adapter, adapterRequest);
+      return this.sanitizeResponse(response as AdsBrokerResponse<TData>);
+    } catch (error) {
+      return this.errorResponse(
+        provider.provider,
+        'BROKER_ADAPTER_ERROR',
+        error instanceof Error ? error.message : String(error)
+      );
+    }
   }
 
   getCapabilities(request: AdsBrokerRequest): AdsBrokerResponse<Record<string, unknown>> {

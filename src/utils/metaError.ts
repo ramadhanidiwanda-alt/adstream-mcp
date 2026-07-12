@@ -4,6 +4,8 @@ export class MetaApiError extends Error {
   public code: number;
   public type: string;
   public subcode?: number;
+  public userTitle?: string;
+  public userMessage?: string;
   public fbtraceId?: string;
 
   constructor(errorResponse: MetaErrorResponse['error']) {
@@ -12,6 +14,8 @@ export class MetaApiError extends Error {
     this.code = errorResponse.code;
     this.type = errorResponse.type;
     this.subcode = errorResponse.error_subcode;
+    this.userTitle = errorResponse.error_user_title;
+    this.userMessage = errorResponse.error_user_msg;
     this.fbtraceId = errorResponse.fbtrace_id;
   }
 }

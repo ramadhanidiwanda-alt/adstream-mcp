@@ -35,6 +35,7 @@ import { getAccountInfo } from '../../tools/getAccountInfo.js';
 import { listAdImages } from '../../tools/listAdImages.js';
 import { listAdVideos } from '../../tools/listAdVideos.js';
 import { getAdPreview } from '../../tools/getAdPreview.js';
+import { listPages as listPagesTool } from '../../tools/listPages.js';
 import type {
   AdsBrokerRequest,
   AdsBrokerResponse,
@@ -53,10 +54,12 @@ import type {
   AdImageResult,
   AdVideoResult,
   AdPreviewResult,
+  MetaPageResult,
 } from '../../broker/types.js';
 import { ADS_PROVIDER_CAPABILITY_MATRIX } from '../../broker/types.js';
 import { redactErrorMessage } from '../../broker/credentials.js';
 import { assertLocationBreakdowns } from '../../utils/locationBreakdowns.js';
+import { MetaApiError } from '../../utils/metaError.js';
 import { normalizeMetaInsights } from './normalizer.js';
 
 interface MetaActivityRecord {
@@ -180,6 +183,7 @@ export interface MetaAdsAdapterTools {
     client: MetaClient,
     options: { creativeId: string; adFormat: string }
   ): Promise<AdPreviewResult[]>;
+  listPages(client: MetaClient, options?: { limit?: number }): Promise<import('../../tools/listPages.js').MetaPageResult[]>;
 }
 
 export interface MetaAdsAdapterOptions {
@@ -222,6 +226,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       listAdImages,
       listAdVideos,
       getAdPreview,
+      listPages: listPagesTool,
       ...options.tools,
     };
   }
@@ -865,10 +870,19 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
         billingEvent: typeof request.params.billingEvent === 'string' ? request.params.billingEvent as import('../../tools/createAdSet.js').BillingEvent : undefined,
         optimizationGoal: typeof request.params.optimizationGoal === 'string' ? request.params.optimizationGoal as import('../../tools/createAdSet.js').OptimizationGoal : undefined,
         bidStrategy: typeof request.params.bidStrategy === 'string' ? request.params.bidStrategy : undefined,
+        bidAmount: typeof request.params.bidAmount === 'number' ? request.params.bidAmount : undefined,
+        bidConstraints: typeof request.params.bidConstraints === 'object' && request.params.bidConstraints !== null ? request.params.bidConstraints as Record<string, unknown> : undefined,
         targeting: this.parseAdSetTargeting(request),
         promotedObject: typeof request.params.promotedObject === 'object' && request.params.promotedObject !== null ? request.params.promotedObject as Record<string, unknown> : undefined,
         startTime: typeof request.params.startTime === 'string' ? request.params.startTime : undefined,
         endTime: typeof request.params.endTime === 'string' ? request.params.endTime : undefined,
+        destinationType: typeof request.params.destinationType === 'string' ? request.params.destinationType : undefined,
+        attributionSpec: Array.isArray(request.params.attributionSpec) ? request.params.attributionSpec as Array<Record<string, unknown>> : undefined,
+        frequencyControlSpecs: Array.isArray(request.params.frequencyControlSpecs) ? request.params.frequencyControlSpecs as Array<Record<string, unknown>> : undefined,
+        isDynamicCreative: typeof request.params.isDynamicCreative === 'boolean' ? request.params.isDynamicCreative : undefined,
+        dsaBeneficiary: typeof request.params.dsaBeneficiary === 'string' ? request.params.dsaBeneficiary : undefined,
+        dsaPayor: typeof request.params.dsaPayor === 'string' ? request.params.dsaPayor : undefined,
+        multiAdvertiserAds: typeof request.params.multiAdvertiserAds === 'number' ? request.params.multiAdvertiserAds : undefined,
       }, {
         dryRun: request.params.dryRun !== false,
         confirmed: request.params.confirmed === true,
@@ -1389,6 +1403,30 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
     }
   }
 
+  async listPages(request: AdsBrokerRequest): Promise<AdsBrokerResponse<MetaPageResult[]>> {
+    const context = this.getCredentialContext(request);
+    if (!context.ok) return context.response;
+
+    try {
+      const client = this.createClient(context.credential);
+      const limit = typeof request.params.limit === 'number' ? request.params.limit : undefined;
+      const pages = await this.tools.listPages(client, { limit });
+      return {
+        ok: true,
+        provider: 'meta',
+        data: pages.map((page) => ({
+          id: page.id,
+          name: page.name,
+          category: page.category,
+          tasks: page.tasks,
+          can_advertise: page.tasks?.some((task) => ['ADVERTISE', 'CREATE_ADS', 'MANAGE'].includes(task)),
+        })),
+      };
+    } catch (error) {
+      return this.errorResponse(error);
+    }
+  }
+
   private getEcommerceCampaignBundlePayload(
     request: AdsBrokerRequest,
     credential: CredentialContext
@@ -1453,17 +1491,35 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
     const ageMax = typeof request.params.ageMax === 'number' ? request.params.ageMax : undefined;
     const publisherPlatforms = request.params.publisherPlatforms;
     const interests = request.params.interests;
+    const genders = request.params.genders;
+    const advantageAudience = typeof request.params.advantageAudience === 'number' ? request.params.advantageAudience : undefined;
+    const targetingAutomation = request.params.targetingAutomation;
 
-    if (!geoLocations && ageMin === undefined && ageMax === undefined && !publisherPlatforms && !interests) {
+    if (
+      !geoLocations
+      && ageMin === undefined
+      && ageMax === undefined
+      && !publisherPlatforms
+      && !interests
+      && !genders
+      && advantageAudience === undefined
+      && !targetingAutomation
+    ) {
       return undefined;
     }
 
     const targeting: Record<string, unknown> = {};
-    if (geoLocations && typeof geoLocations === 'object') targeting.geo_locations = geoLocations;
-    if (ageMin !== undefined) targeting.age_min = ageMin;
-    if (ageMax !== undefined) targeting.age_max = ageMax;
-    if (Array.isArray(publisherPlatforms)) targeting.publisher_platforms = publisherPlatforms;
+    if (geoLocations && typeof geoLocations === 'object') targeting.geoLocations = geoLocations;
+    if (ageMin !== undefined) targeting.ageMin = ageMin;
+    if (ageMax !== undefined) targeting.ageMax = ageMax;
+    if (Array.isArray(publisherPlatforms)) targeting.publisherPlatforms = publisherPlatforms;
     if (Array.isArray(interests)) targeting.interests = interests;
+    if (Array.isArray(genders)) targeting.genders = genders;
+    if (targetingAutomation && typeof targetingAutomation === 'object') {
+      targeting.targetingAutomation = targetingAutomation as Record<string, unknown>;
+    } else if (advantageAudience !== undefined) {
+      targeting.targetingAutomation = { advantage_audience: advantageAudience };
+    }
     return targeting;
   }
 
@@ -1478,6 +1534,16 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
   }
 
   private writeErrorResponse(error: unknown): AdsBrokerResponse<never> {
+    const message = redactErrorMessage(error instanceof Error ? error.message : String(error));
+    const details = error instanceof MetaApiError
+      ? {
+          metaCode: error.code,
+          metaType: error.type,
+          metaSubcode: error.subcode,
+          fbtraceId: error.fbtraceId,
+        }
+      : undefined;
+
     return {
       ok: false,
       provider: 'meta',
@@ -1485,7 +1551,8 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
         {
           provider: 'meta',
           code: 'META_WRITE_ERROR',
-          message: redactErrorMessage(error instanceof Error ? error.message : String(error)),
+          message,
+          details,
         },
       ],
     };

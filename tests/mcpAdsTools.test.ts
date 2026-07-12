@@ -162,6 +162,7 @@ describe('ads MCP broker tools', () => {
       'ads_list_advideos',
       'ads_get_ad_preview',
       'ads_get_ad_destinations',
+      'ads_list_pages',
       'tiktok_gmv_max_create_campaign',
       'tiktok_gmv_max_update_campaign',
       'tiktok_gmv_max_create_session',

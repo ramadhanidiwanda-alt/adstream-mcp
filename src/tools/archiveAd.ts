@@ -1,4 +1,5 @@
 import type { MetaClient } from '../metaClient.js';
+import { formatMetaWriteError } from '../utils/formatMetaWriteError.js';
 
 export interface ArchiveAdOptions {
   adId: string;
@@ -44,7 +45,7 @@ export async function archiveAd(
       operation: 'archive_ad',
       status: 'failed',
       success: false,
-      error: error instanceof Error ? error.message : String(error),
+      error: formatMetaWriteError(error),
     };
   }
 }
