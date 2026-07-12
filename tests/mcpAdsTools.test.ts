@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   ADS_MCP_TOOL_DEFINITIONS,
+  getAdsMcpToolDefinitions,
   getAdsMcpToolAnnotations,
   handleAdsMcpToolCall,
+  isAdsMcpWriteTool,
   safeAdsMcpError,
   toAdsBrokerRequest,
 } from '../src/broker/mcpTools.js';
@@ -158,6 +160,22 @@ describe('ads MCP broker tools', () => {
       idempotentHint: false,
       openWorldHint: true,
     });
+  });
+
+  it('separates read tools from write tools for default MCP exposure', () => {
+    expect(isAdsMcpWriteTool('ads_get_performance')).toBe(false);
+    expect(isAdsMcpWriteTool('ads_create_campaign')).toBe(true);
+    expect(isAdsMcpWriteTool('ads_archive_ad')).toBe(true);
+
+    const defaultToolNames = getAdsMcpToolDefinitions({ includeWrites: false }).map((tool) => tool.name);
+    const fullToolNames = getAdsMcpToolDefinitions({ includeWrites: true }).map((tool) => tool.name);
+
+    expect(defaultToolNames).toContain('ads_get_performance');
+    expect(defaultToolNames).toContain('ads_get_capabilities');
+    expect(defaultToolNames).not.toContain('ads_create_campaign');
+    expect(defaultToolNames).not.toContain('ads_archive_ad');
+    expect(defaultToolNames).not.toContain('ads_upload_image');
+    expect(fullToolNames).toEqual(ADS_MCP_TOOL_DEFINITIONS.map((tool) => tool.name));
   });
 
   it('defines new ads tools without removing legacy names from expected server surface', () => {

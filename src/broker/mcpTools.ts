@@ -107,7 +107,7 @@ const ADDITIVE_WRITE_TOOLS = new Set<AdsMcpToolName>([
 ]);
 
 export function getAdsMcpToolAnnotations(name: AdsMcpToolName): AdsMcpToolAnnotations {
-  const readOnly = !DESTRUCTIVE_WRITE_TOOLS.has(name) && !ADDITIVE_WRITE_TOOLS.has(name);
+  const readOnly = !isAdsMcpWriteTool(name);
 
   if (readOnly) {
     return {
@@ -124,6 +124,16 @@ export function getAdsMcpToolAnnotations(name: AdsMcpToolName): AdsMcpToolAnnota
     idempotentHint: false,
     openWorldHint: true,
   };
+}
+
+export function isAdsMcpWriteTool(name: AdsMcpToolName): boolean {
+  return DESTRUCTIVE_WRITE_TOOLS.has(name) || ADDITIVE_WRITE_TOOLS.has(name);
+}
+
+export function getAdsMcpToolDefinitions(options: { includeWrites?: boolean } = {}) {
+  return ADS_MCP_TOOL_DEFINITIONS.filter((tool) => (
+    options.includeWrites === true || !isAdsMcpWriteTool(tool.name)
+  ));
 }
 
 export const ADS_MCP_TOOL_DEFINITIONS = [

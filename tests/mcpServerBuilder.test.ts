@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { createMetaAdsMcpServer } from '../src/mcp/createServer.js';
-import { ADS_MCP_TOOL_DEFINITIONS } from '../src/broker/mcpTools.js';
+import { ADS_MCP_TOOL_DEFINITIONS, getAdsMcpToolDefinitions } from '../src/broker/mcpTools.js';
 import { COMMERCE_MCP_TOOL_DEFINITIONS } from '../src/broker/commerceTools.js';
 import type { AdsBroker } from '../src/broker/AdsBroker.js';
 
@@ -31,6 +31,7 @@ const envKeys = [
   'CUAN_INSIGHT_MCP_TOKEN_HEADER_NAME',
   'META_ACCESS_TOKEN',
   'META_AD_ACCOUNT_ID',
+  'ADSTREAM_ENABLE_WRITES',
 ] as const;
 
 const originalEnv = Object.fromEntries(
@@ -118,7 +119,7 @@ describe('MCP server builder', () => {
     const response = await listRegisteredTools();
     const toolsByName = new Map(response.tools.map((tool) => [tool.name, tool]));
 
-    for (const expectedTool of ADS_MCP_TOOL_DEFINITIONS) {
+    for (const expectedTool of getAdsMcpToolDefinitions({ includeWrites: false })) {
       const actualTool = toolsByName.get(expectedTool.name);
 
       expect(actualTool?.name).toBe(expectedTool.name);
@@ -133,7 +134,11 @@ describe('MCP server builder', () => {
   it('keeps the expected MCP tool count', async () => {
     const response = await listRegisteredTools();
 
-    expect(response.tools).toHaveLength(64);
+    expect(response.tools).toHaveLength(
+      getAdsMcpToolDefinitions({ includeWrites: false }).length
+      + COMMERCE_MCP_TOOL_DEFINITIONS.length
+      + legacyToolNames.length
+    );
   });
 
   it('keeps full tool order stable for stdio and future transports', async () => {
@@ -141,10 +146,26 @@ describe('MCP server builder', () => {
     const names = response.tools.map((tool) => tool.name);
 
     expect(names).toEqual([
-      ...ADS_MCP_TOOL_DEFINITIONS.map((tool) => tool.name),
+      ...getAdsMcpToolDefinitions({ includeWrites: false }).map((tool) => tool.name),
       ...COMMERCE_MCP_TOOL_DEFINITIONS.map((tool) => tool.name),
       ...legacyToolNames,
     ]);
+  });
+
+  it('hides write tools by default and exposes them only when enabled', async () => {
+    let response = await listRegisteredTools();
+    let names = response.tools.map((tool) => tool.name);
+
+    expect(names).not.toContain('ads_create_campaign');
+    expect(names).not.toContain('ads_archive_ad');
+
+    process.env.ADSTREAM_ENABLE_WRITES = 'true';
+    response = await listRegisteredTools();
+    names = response.tools.map((tool) => tool.name);
+
+    expect(names).toEqual(
+      expect.arrayContaining(ADS_MCP_TOOL_DEFINITIONS.map((tool) => tool.name))
+    );
   });
 
   it('starts in remote mode without legacy Meta env', async () => {
@@ -158,7 +179,9 @@ describe('MCP server builder', () => {
 
       expect(names).toEqual(expect.arrayContaining(legacyToolNames));
       expect(names).toEqual(
-        expect.arrayContaining(ADS_MCP_TOOL_DEFINITIONS.map((tool) => tool.name))
+        expect.arrayContaining(
+          getAdsMcpToolDefinitions({ includeWrites: false }).map((tool) => tool.name)
+        )
       );
       expect(names).toEqual(
         expect.arrayContaining(COMMERCE_MCP_TOOL_DEFINITIONS.map((tool) => tool.name))

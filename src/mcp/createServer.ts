@@ -15,7 +15,7 @@ import {
   generateDailyReport,
   RuleEngine,
   allRuleTemplates,
-  ADS_MCP_TOOL_DEFINITIONS,
+  getAdsMcpToolDefinitions,
   getAdsMcpToolAnnotations,
   COMMERCE_MCP_TOOL_DEFINITIONS,
   createDefaultAdsBroker,
@@ -334,7 +334,11 @@ export function createMetaAdsMcpServer(
 
   const adsBroker = options.adsBroker ?? createAdsBrokerFromConfig(brokerConfig);
 
-  for (const toolDefinition of ADS_MCP_TOOL_DEFINITIONS) {
+  const adsToolDefinitions = getAdsMcpToolDefinitions({
+    includeWrites: process.env.ADSTREAM_ENABLE_WRITES === 'true',
+  });
+
+  for (const toolDefinition of adsToolDefinitions) {
     const hasSince = toolDefinition.inputSchema.required.includes('since');
     const hasCampaignId = toolDefinition.inputSchema.required.includes('campaignId');
     const hasCampaignName = toolDefinition.inputSchema.required.includes('campaignName');
