@@ -44,6 +44,8 @@ export const ADS_MCP_TOOL_NAMES = [
   'ads_get_ad_preview',
   'ads_get_ad_destinations',
   'ads_list_pages',
+  'ads_list_instagram_accounts',
+  'ads_list_threads_profiles',
   // --- TikTok GMV Max ---
   'tiktok_gmv_max_create_campaign',
   'tiktok_gmv_max_update_campaign',
@@ -241,6 +243,16 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
   {
     name: 'ads_list_pages',
     description: 'List Meta Pages accessible by the token for selecting a valid pageId for ad creative object_story_spec.',
+    inputSchema: createAdsInputSchema([]),
+  },
+  {
+    name: 'ads_list_instagram_accounts',
+    description: 'List Instagram Business Accounts connected to the user\'s Facebook Pages.',
+    inputSchema: createAdsInputSchema([]),
+  },
+  {
+    name: 'ads_list_threads_profiles',
+    description: 'List Threads profiles connected to the user\'s Facebook Pages.',
     inputSchema: createAdsInputSchema([]),
   },
   // --- TikTok GMV Max ---
@@ -445,6 +457,10 @@ function callBrokerMethod(
       return broker.getAdDestinations(request);
     case 'ads_list_pages':
       return broker.listPages(request);
+    case 'ads_list_instagram_accounts':
+      return broker.listInstagramAccounts(request);
+    case 'ads_list_threads_profiles':
+      return broker.listThreadsProfiles(request);
     case 'ads_upload_image':
       return broker.uploadImage(request);
     case 'ads_upload_video':
@@ -998,6 +1014,7 @@ function createCreateAdCreativeInputSchema() {
         description: 'Call to action button type.',
       },
       instagramUserId: { type: 'string', description: 'Instagram user ID for IG posting.' },
+      threadsProfileId: { type: 'string', description: 'Threads profile ID for Threads posting.' },
       dryRun: { type: 'boolean', description: 'Defaults to true. Set false only after preview.' },
       confirmed: { type: 'boolean', description: 'Must be true to execute after preview.' },
     },
@@ -1121,6 +1138,8 @@ function createEcommerceLaunchInputSchema() {
       ageMin: { type: 'number' },
       ageMax: { type: 'number' },
       publisherPlatforms: { type: 'array', items: { type: 'string' } },
+      instagramUserId: { type: 'string', description: 'Instagram user ID for IG posting.' },
+      threadsProfileId: { type: 'string', description: 'Threads profile ID for Threads posting.' },
       dryRun: { type: 'boolean', description: 'Defaults to true. Set false only after preview.' },
       confirmed: { type: 'boolean', description: 'Must be true to execute after preview.' },
     },

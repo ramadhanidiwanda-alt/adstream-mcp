@@ -21,6 +21,21 @@ describe('createAdCreative', () => {
     expect(r.preview.name).toBe('Test Creative'); expect(mockMetaPost).not.toHaveBeenCalled();
   });
 
+
+  it('includes Instagram and Threads identities in object_story_spec preview', async () => {
+    const r = await createAdCreative(mockClient, {
+      ...baseOpts,
+      instagramUserId: 'ig_123',
+      threadsProfileId: 'threads_456',
+    });
+
+    expect(r.preview.object_story_spec).toMatchObject({
+      page_id: '1001',
+      instagram_user_id: 'ig_123',
+      threads_profile_id: 'threads_456',
+    });
+  });
+
   it('returns pending_confirmation when not confirmed', async () => {
     const r = await createAdCreative(mockClient, baseOpts, { dryRun: false, confirmed: false });
     expect(r.status).toBe('pending_confirmation'); expect(r.error).toContain('confirmation');

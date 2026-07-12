@@ -37,6 +37,7 @@ export interface EcommerceCampaignBundlePayload {
   ageMax?: number;
   publisherPlatforms?: string[];
   instagramUserId?: string;
+  threadsProfileId?: string;
 }
 
 export interface EcommerceCampaignBundleOptions {
@@ -199,6 +200,7 @@ export async function createEcommerceCampaignBundle(
         },
       },
       instagramUserId: payload.instagramUserId?.trim(),
+      threadsProfileId: payload.threadsProfileId?.trim(),
     }, { dryRun: false, confirmed: true, maxRetries });
 
     if (creativeResult.status === 'failed' || !creativeResult.id) {
@@ -270,6 +272,9 @@ function buildPreview(payload: EcommerceCampaignBundlePayload): EcommerceCampaig
 
   if (payload.instagramUserId?.trim()) {
     objectStorySpec.instagram_user_id = payload.instagramUserId.trim();
+  }
+  if (payload.threadsProfileId?.trim()) {
+    objectStorySpec.threads_profile_id = payload.threadsProfileId.trim();
   }
 
   return {
