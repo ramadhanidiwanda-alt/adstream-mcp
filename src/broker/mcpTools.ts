@@ -407,6 +407,10 @@ export async function handleAdsMcpToolCall(
   args: Record<string, unknown> = {},
   connectionKey?: string
 ): Promise<{ content: Array<{ type: 'text'; text: string }>; isError?: boolean }> {
+  if (isAdsMcpWriteTool(name) && !areAdsWriteToolsEnabled()) {
+    return writeToolsDisabledResponse(name);
+  }
+
   const request = toAdsBrokerRequest(args, connectionKey);
   const response = await callBrokerMethod(broker, name, request);
   const canonicalResponse = canonicalizeToolResponse(name, request, response);
@@ -420,6 +424,33 @@ export async function handleAdsMcpToolCall(
       },
     ],
     isError: !safeResponse.ok || undefined,
+  };
+}
+
+function writeToolsDisabledResponse(name: AdsMcpToolName): {
+  content: Array<{ type: 'text'; text: string }>;
+  isError: true;
+} {
+  const body = {
+    ok: false,
+    errors: [
+      {
+        code: 'WRITE_TOOLS_DISABLED',
+        message: `The "${name}" tool changes your ad account, and change tools are turned off right now.`,
+        actionableFix: `Turn on change tools by setting ${ADS_WRITE_TOOLS_ENABLE_FLAG}=true, then try again.`,
+        enableFlag: ADS_WRITE_TOOLS_ENABLE_FLAG,
+      },
+    ],
+  };
+
+  return {
+    content: [
+      {
+        type: 'text',
+        text: JSON.stringify(body, null, 2),
+      },
+    ],
+    isError: true,
   };
 }
 

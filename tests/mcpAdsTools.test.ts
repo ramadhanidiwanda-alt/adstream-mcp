@@ -433,6 +433,34 @@ describe('ads MCP broker tools', () => {
     }
   });
 
+  it('refuses write tools with a friendly error when they are turned off', async () => {
+    const broker = createBrokerStub();
+    const previous = process.env.ADSTREAM_ENABLE_WRITES;
+
+    try {
+      delete process.env.ADSTREAM_ENABLE_WRITES;
+      const response = await handleAdsMcpToolCall(broker, 'ads_create_campaign', {
+        provider: 'meta',
+        accountId: 'act_123',
+      });
+
+      expect(response.isError).toBe(true);
+      const parsed = parseToolResponse(response);
+      expect(parsed.ok).toBe(false);
+      expect(parsed.errors?.[0]).toMatchObject({
+        code: 'WRITE_TOOLS_DISABLED',
+        enableFlag: 'ADSTREAM_ENABLE_WRITES',
+      });
+      expect(parsed.errors?.[0]?.actionableFix).toContain('ADSTREAM_ENABLE_WRITES=true');
+    } finally {
+      if (previous === undefined) {
+        delete process.env.ADSTREAM_ENABLE_WRITES;
+      } else {
+        process.env.ADSTREAM_ENABLE_WRITES = previous;
+      }
+    }
+  });
+
 
   it('routes ads_get_account_performance through AdsBroker', async () => {
     let receivedRequest: AdsBrokerRequest | undefined;
@@ -478,6 +506,8 @@ describe('ads MCP broker tools', () => {
   });
 
   it('routes ads_create_ecommerce_campaign_bundle through AdsBroker with top-level params', async () => {
+    const previousEnableWrites = process.env.ADSTREAM_ENABLE_WRITES;
+    process.env.ADSTREAM_ENABLE_WRITES = 'true';
     let receivedRequest: AdsBrokerRequest | undefined;
     const broker = {
       ...createBrokerStub(),
@@ -497,20 +527,28 @@ describe('ads MCP broker tools', () => {
       },
     } as unknown as AdsBroker;
 
-    const response = await handleAdsMcpToolCall(broker, 'ads_create_ecommerce_campaign_bundle', {
-      provider: 'meta',
-      accountId: 'act_123',
-      campaignName: 'Sales Campaign',
-      dailyBudget: 150000,
-      dryRun: true,
-    });
+    try {
+      const response = await handleAdsMcpToolCall(broker, 'ads_create_ecommerce_campaign_bundle', {
+        provider: 'meta',
+        accountId: 'act_123',
+        campaignName: 'Sales Campaign',
+        dailyBudget: 150000,
+        dryRun: true,
+      });
 
-    expect(parseToolResponse(response).ok).toBe(true);
-    expect(receivedRequest).toMatchObject({
-      provider: 'meta',
-      accountId: 'act_123',
-      params: { campaignName: 'Sales Campaign', dailyBudget: 150000, dryRun: true },
-    });
+      expect(parseToolResponse(response).ok).toBe(true);
+      expect(receivedRequest).toMatchObject({
+        provider: 'meta',
+        accountId: 'act_123',
+        params: { campaignName: 'Sales Campaign', dailyBudget: 150000, dryRun: true },
+      });
+    } finally {
+      if (previousEnableWrites === undefined) {
+        delete process.env.ADSTREAM_ENABLE_WRITES;
+      } else {
+        process.env.ADSTREAM_ENABLE_WRITES = previousEnableWrites;
+      }
+    }
   });
 
   it('routes adset/adgroup and ad performance through AdsBroker', async () => {
