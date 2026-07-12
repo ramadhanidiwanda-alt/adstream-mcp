@@ -33,6 +33,25 @@ describe('EnvCredentialProvider', () => {
     });
   });
 
+  it('uses requested Meta account id when provided', async () => {
+    process.env.META_ACCESS_TOKEN = 'meta-token-secret';
+    delete process.env.META_AD_ACCOUNT_ID;
+    process.env.META_API_VERSION = 'v20.0';
+
+    const provider = new EnvCredentialProvider();
+    const result = await provider.resolve({ provider: 'meta', accountId: 'act_456' });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('Expected credential result');
+    expect(result.credential).toMatchObject({
+      provider: 'meta',
+      accessToken: 'meta-token-secret',
+      accountId: 'act_456',
+      apiVersion: 'v20.0',
+      source: 'env',
+    });
+  });
+
   it('resolves TikTok credentials from env', async () => {
     process.env.TIKTOK_ACCESS_TOKEN = 'tiktok-token-secret';
     process.env.TIKTOK_ADVERTISER_ID = 'advertiser_123';
@@ -53,8 +72,8 @@ describe('EnvCredentialProvider', () => {
   });
 
   it('returns safe missing-env error without token values', async () => {
-    process.env.META_ACCESS_TOKEN = 'meta-token-secret';
-    delete process.env.META_AD_ACCOUNT_ID;
+    delete process.env.META_ACCESS_TOKEN;
+    process.env.META_AD_ACCOUNT_ID = 'act_123';
 
     const provider = new EnvCredentialProvider();
     const result = await provider.resolve({ provider: 'meta' });
@@ -62,7 +81,7 @@ describe('EnvCredentialProvider', () => {
     expect(result.ok).toBe(false);
     if (result.ok) throw new Error('Expected error result');
     expect(result.error.message).toContain('Missing required environment credentials');
-    expect(result.error.message).not.toContain('meta-token-secret');
+    expect(result.error.message).not.toContain('act_123');
   });
 });
 

@@ -135,12 +135,12 @@ export class EnvCredentialProvider implements CredentialProvider {
     }
 
     const credential = request.provider === 'meta'
-      ? this.resolveMeta()
+      ? this.resolveMeta(request)
       : request.provider === 'tiktok'
-        ? this.resolveTikTok()
-        : this.resolveGoogle();
+        ? this.resolveTikTok(request)
+        : this.resolveGoogle(request);
 
-    if (!credential.accessToken || !credential.accountId) {
+    if (!credential.accessToken) {
       return {
         ok: false,
         error: {
@@ -154,31 +154,31 @@ export class EnvCredentialProvider implements CredentialProvider {
     return { ok: true, credential };
   }
 
-  private resolveMeta(): CredentialContext {
+  private resolveMeta(request?: CredentialResolveRequest): CredentialContext {
     return {
       provider: 'meta',
       accessToken: process.env.META_ACCESS_TOKEN,
-      accountId: process.env.META_AD_ACCOUNT_ID,
+      accountId: request?.accountId ?? process.env.META_AD_ACCOUNT_ID,
       apiVersion: process.env.META_API_VERSION,
       source: 'env',
     };
   }
 
-  private resolveTikTok(): CredentialContext {
+  private resolveTikTok(request?: CredentialResolveRequest): CredentialContext {
     return {
       provider: 'tiktok',
       accessToken: process.env.TIKTOK_ACCESS_TOKEN,
-      accountId: process.env.TIKTOK_ADVERTISER_ID,
+      accountId: request?.accountId ?? process.env.TIKTOK_ADVERTISER_ID,
       apiVersion: process.env.TIKTOK_API_VERSION,
       source: 'env',
     };
   }
 
-  private resolveGoogle(): CredentialContext {
+  private resolveGoogle(request?: CredentialResolveRequest): CredentialContext {
     return {
       provider: 'google',
       accessToken: process.env.GOOGLE_ADS_ACCESS_TOKEN,
-      accountId: process.env.GOOGLE_ADS_CUSTOMER_ID,
+      accountId: request?.accountId ?? process.env.GOOGLE_ADS_CUSTOMER_ID,
       apiVersion: process.env.GOOGLE_ADS_API_VERSION,
       source: 'env',
     };
