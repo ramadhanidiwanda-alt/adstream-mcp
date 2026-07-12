@@ -399,6 +399,40 @@ describe('ads MCP broker tools', () => {
     });
   });
 
+  it('reports write-tool availability that follows the enable flag', async () => {
+    const broker = createBrokerStub();
+    const previous = process.env.ADSTREAM_ENABLE_WRITES;
+
+    try {
+      delete process.env.ADSTREAM_ENABLE_WRITES;
+      const disabled = parseToolResponse(
+        await handleAdsMcpToolCall(broker, 'ads_get_capabilities', { provider: 'meta' })
+      );
+      expect(disabled.data).toMatchObject({
+        writes: expect.objectContaining({
+          optIn: true,
+          enabled: false,
+          enableFlag: 'ADSTREAM_ENABLE_WRITES',
+          optionalTools: expect.arrayContaining(['ads_create_campaign', 'ads_archive_ad']),
+        }),
+      });
+
+      process.env.ADSTREAM_ENABLE_WRITES = 'true';
+      const enabled = parseToolResponse(
+        await handleAdsMcpToolCall(broker, 'ads_get_capabilities', { provider: 'meta' })
+      );
+      expect(enabled.data).toMatchObject({
+        writes: expect.objectContaining({ enabled: true }),
+      });
+    } finally {
+      if (previous === undefined) {
+        delete process.env.ADSTREAM_ENABLE_WRITES;
+      } else {
+        process.env.ADSTREAM_ENABLE_WRITES = previous;
+      }
+    }
+  });
+
 
   it('routes ads_get_account_performance through AdsBroker', async () => {
     let receivedRequest: AdsBrokerRequest | undefined;

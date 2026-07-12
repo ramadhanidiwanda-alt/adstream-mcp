@@ -15,6 +15,7 @@ import {
   generateDailyReport,
   RuleEngine,
   allRuleTemplates,
+  areAdsWriteToolsEnabled,
   getAdsMcpToolDefinitions,
   getAdsMcpToolAnnotations,
   COMMERCE_MCP_TOOL_DEFINITIONS,
@@ -335,7 +336,7 @@ export function createMetaAdsMcpServer(
   const adsBroker = options.adsBroker ?? createAdsBrokerFromConfig(brokerConfig);
 
   const adsToolDefinitions = getAdsMcpToolDefinitions({
-    includeWrites: process.env.ADSTREAM_ENABLE_WRITES === 'true',
+    includeWrites: areAdsWriteToolsEnabled(),
   });
 
   for (const toolDefinition of adsToolDefinitions) {

@@ -130,6 +130,12 @@ export function isAdsMcpWriteTool(name: AdsMcpToolName): boolean {
   return DESTRUCTIVE_WRITE_TOOLS.has(name) || ADDITIVE_WRITE_TOOLS.has(name);
 }
 
+export const ADS_WRITE_TOOLS_ENABLE_FLAG = 'ADSTREAM_ENABLE_WRITES';
+
+export function areAdsWriteToolsEnabled(): boolean {
+  return process.env[ADS_WRITE_TOOLS_ENABLE_FLAG] === 'true';
+}
+
 export function getAdsMcpToolDefinitions(options: { includeWrites?: boolean } = {}) {
   return ADS_MCP_TOOL_DEFINITIONS.filter((tool) => (
     options.includeWrites === true || !isAdsMcpWriteTool(tool.name)
@@ -837,12 +843,9 @@ function getAdsCapabilities(request: AdsBrokerRequest): AdsBrokerResponse<Record
       },
       writes: {
         optIn: true,
-        optionalTools: [
-          'ads_pause_campaign',
-          'ads_resume_campaign',
-          'ads_update_campaign_budget',
-          'ads_rename_campaign',
-        ],
+        enabled: areAdsWriteToolsEnabled(),
+        enableFlag: 'ADSTREAM_ENABLE_WRITES',
+        optionalTools: ADS_MCP_TOOL_NAMES.filter((name) => isAdsMcpWriteTool(name)),
         safetyContract: 'docs/WRITE_SAFETY_CONTRACT.md',
       },
       warnings: [
