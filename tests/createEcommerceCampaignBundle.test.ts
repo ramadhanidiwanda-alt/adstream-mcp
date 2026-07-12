@@ -54,6 +54,23 @@ describe('createEcommerceCampaignBundle', () => {
     expect(result.preview.ad).toMatchObject({ name: payload.adName, status: 'PAUSED' });
   });
 
+
+  it('includes Instagram and Threads identities in creative preview', async () => {
+    const client = createMockClient();
+
+    const result = await createEcommerceCampaignBundle(client, {
+      ...payload,
+      instagramUserId: 'ig_123',
+      threadsProfileId: 'threads_456',
+    }, { dryRun: true });
+
+    expect(result.preview.creative.object_story_spec).toMatchObject({
+      page_id: payload.pageId,
+      instagram_user_id: 'ig_123',
+      threads_profile_id: 'threads_456',
+    });
+  });
+
   it('creates campaign, ad set, creative, and ad in order when confirmed', async () => {
     const client = createMockClient();
     const mockPost = client.metaPost as MetaPostMock;

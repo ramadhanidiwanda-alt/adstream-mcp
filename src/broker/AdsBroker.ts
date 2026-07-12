@@ -32,6 +32,8 @@ import type {
   AdVideoResult,
   AdPreviewResult,
   MetaPageResult,
+  InstagramAccountResult,
+  ThreadsProfileResult,
 } from './types.js';
 import { defaultDenyWritePermissionPolicy, isAdsProviderId } from './types.js';
 import type { CredentialResolverContract } from './credentials.js';
@@ -164,9 +166,17 @@ export class AdsBroker {
     return this.callOptionalReadMethod(request, 'listPages');
   }
 
+  listInstagramAccounts(request: AdsBrokerRequest): Promise<AdsBrokerResponse<InstagramAccountResult[]>> {
+    return this.callOptionalReadMethod(request, 'listInstagramAccounts');
+  }
+
+  listThreadsProfiles(request: AdsBrokerRequest): Promise<AdsBrokerResponse<ThreadsProfileResult[]>> {
+    return this.callOptionalReadMethod(request, 'listThreadsProfiles');
+  }
+
   private async callOptionalReadMethod<TData>(
     request: AdsBrokerRequest,
-    method: keyof Pick<AdsProviderAdapter, 'listPages'>
+    method: keyof Pick<AdsProviderAdapter, 'listPages' | 'listInstagramAccounts' | 'listThreadsProfiles'>
   ): Promise<AdsBrokerResponse<TData>> {
     const provider = this.resolveProviderId(request);
     if (!provider.ok) return provider.response;
@@ -197,7 +207,8 @@ export class AdsBroker {
 
     try {
       const adapterRequest = this.withCredential(request, provider.provider, credential.credential);
-      const response = await optionalMethod.call(adapter.adapter, adapterRequest);
+      const callable = optionalMethod as (request: AdsBrokerRequest) => Promise<AdsBrokerResponse<TData>>;
+      const response = await callable.call(adapter.adapter, adapterRequest);
       return this.sanitizeResponse(response as AdsBrokerResponse<TData>);
     } catch (error) {
       return this.errorResponse(

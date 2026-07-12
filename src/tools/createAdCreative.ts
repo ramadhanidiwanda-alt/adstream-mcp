@@ -23,6 +23,7 @@ export interface CreateAdCreativeOptions {
   imageHash?: string;
   videoId?: string;
   instagramUserId?: string;
+  threadsProfileId?: string;
   urlTags?: string;
   objectStorySpec?: Record<string, unknown>;
 }
@@ -137,6 +138,9 @@ function buildCreativePayload(options: CreateAdCreativeOptions): Record<string, 
 
     if (options.instagramUserId?.trim()) {
       objectStorySpec.instagram_user_id = options.instagramUserId.trim();
+    }
+    if (options.threadsProfileId?.trim()) {
+      objectStorySpec.threads_profile_id = options.threadsProfileId.trim();
     }
 
     payload.object_story_spec = objectStorySpec;

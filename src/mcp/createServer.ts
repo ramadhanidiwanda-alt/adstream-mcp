@@ -130,6 +130,8 @@ const ecommerceLaunchInputSchema = {
   ageMin: z.number().optional(),
   ageMax: z.number().optional(),
   publisherPlatforms: z.array(z.string()).optional(),
+  instagramUserId: z.string().optional().describe('Instagram user ID for IG posting.'),
+  threadsProfileId: z.string().optional().describe('Threads profile ID for Threads posting.'),
   dryRun: z.boolean().optional().describe('Defaults to true. Set false only after preview.'),
   confirmed: z.boolean().optional().describe('Must be true to execute after preview.'),
 };
@@ -202,6 +204,7 @@ const createAdCreativeInputSchema = {
   videoId: z.string().optional().describe('Uploaded Meta video ID.'),
   callToActionType: z.enum(['SHOP_NOW', 'LEARN_MORE', 'SIGN_UP', 'GET_OFFER', 'BOOK_NOW', 'DOWNLOAD', 'CONTACT_US', 'SUBSCRIBE', 'INSTALL_APP']).optional().describe('Call to action button type.'),
   instagramUserId: z.string().optional().describe('Instagram user ID for IG posting.'),
+  threadsProfileId: z.string().optional().describe('Threads profile ID for Threads posting.'),
   dryRun: z.boolean().optional().describe('Defaults to true. Set false only after preview.'),
   confirmed: z.boolean().optional().describe('Must be true to execute after preview.'),
 };
@@ -550,8 +553,8 @@ export function createMetaAdsMcpServer(
       inputSchema: {
         advertiserId: z.string().describe('TikTok advertiser ID'),
         reportType: z.string().optional().default('BASIC').describe('Report type (default: BASIC)'),
-        dimensions: z.array(z.string()).describe('Dimension fields (e.g., [\"campaign_id\"])'),
-        metrics: z.array(z.string()).describe('Metric fields (e.g., [\"spend\", \"impressions\"])'),
+        dimensions: z.array(z.string()).describe('Dimension fields (e.g., ["campaign_id"])'),
+        metrics: z.array(z.string()).describe('Metric fields (e.g., ["spend", "impressions"])'),
         dataLevel: z.enum(['AUCTION_CAMPAIGN', 'AUCTION_ADGROUP', 'AUCTION_AD']).describe('Data aggregation level'),
         startDate: z.string().optional().describe('Start date YYYY-MM-DD'),
         endDate: z.string().optional().describe('End date YYYY-MM-DD'),

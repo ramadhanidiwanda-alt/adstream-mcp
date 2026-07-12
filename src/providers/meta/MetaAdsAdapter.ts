@@ -36,6 +36,8 @@ import { listAdImages } from '../../tools/listAdImages.js';
 import { listAdVideos } from '../../tools/listAdVideos.js';
 import { getAdPreview } from '../../tools/getAdPreview.js';
 import { listPages as listPagesTool } from '../../tools/listPages.js';
+import { listInstagramAccounts as listInstagramAccountsTool } from '../../tools/listInstagramAccounts.js';
+import { listThreadsProfiles as listThreadsProfilesTool } from '../../tools/listThreadsProfiles.js';
 import type {
   AdsBrokerRequest,
   AdsBrokerResponse,
@@ -55,6 +57,8 @@ import type {
   AdVideoResult,
   AdPreviewResult,
   MetaPageResult,
+  InstagramAccountResult,
+  ThreadsProfileResult,
 } from '../../broker/types.js';
 import { ADS_PROVIDER_CAPABILITY_MATRIX } from '../../broker/types.js';
 import { redactErrorMessage } from '../../broker/credentials.js';
@@ -184,6 +188,8 @@ export interface MetaAdsAdapterTools {
     options: { creativeId: string; adFormat: string }
   ): Promise<AdPreviewResult[]>;
   listPages(client: MetaClient, options?: { limit?: number }): Promise<import('../../tools/listPages.js').MetaPageResult[]>;
+  listInstagramAccounts(client: MetaClient, options?: { limit?: number }): Promise<InstagramAccountResult[]>;
+  listThreadsProfiles(client: MetaClient, options?: { limit?: number }): Promise<ThreadsProfileResult[]>;
 }
 
 export interface MetaAdsAdapterOptions {
@@ -227,6 +233,8 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       listAdVideos,
       getAdPreview,
       listPages: listPagesTool,
+      listInstagramAccounts: listInstagramAccountsTool,
+      listThreadsProfiles: listThreadsProfilesTool,
       ...options.tools,
     };
   }
@@ -927,6 +935,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
         adAccountId, name, pageId, linkData,
         imageHash: typeof request.params.imageHash === 'string' ? request.params.imageHash : undefined,
         instagramUserId: typeof request.params.instagramUserId === 'string' ? request.params.instagramUserId : undefined,
+        threadsProfileId: typeof request.params.threadsProfileId === 'string' ? request.params.threadsProfileId : undefined,
       }, {
         dryRun: request.params.dryRun !== false,
         confirmed: request.params.confirmed === true,
@@ -1403,6 +1412,28 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
     }
   }
 
+  async listInstagramAccounts(request: AdsBrokerRequest): Promise<AdsBrokerResponse<InstagramAccountResult[]>> {
+    const context = this.getCredentialContext(request);
+    if (!context.ok) return context.response;
+    try {
+      const client = this.createClient(context.credential);
+      const limit = typeof request.params.limit === 'number' ? request.params.limit : undefined;
+      const accounts = await this.tools.listInstagramAccounts(client, { limit });
+      return { ok: true, provider: 'meta', data: accounts };
+    } catch (error) { return this.errorResponse(error); }
+  }
+
+  async listThreadsProfiles(request: AdsBrokerRequest): Promise<AdsBrokerResponse<ThreadsProfileResult[]>> {
+    const context = this.getCredentialContext(request);
+    if (!context.ok) return context.response;
+    try {
+      const client = this.createClient(context.credential);
+      const limit = typeof request.params.limit === 'number' ? request.params.limit : undefined;
+      const profiles = await this.tools.listThreadsProfiles(client, { limit });
+      return { ok: true, provider: 'meta', data: profiles };
+    } catch (error) { return this.errorResponse(error); }
+  }
+
   async listPages(request: AdsBrokerRequest): Promise<AdsBrokerResponse<MetaPageResult[]>> {
     const context = this.getCredentialContext(request);
     if (!context.ok) return context.response;
@@ -1475,6 +1506,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
           ? params.publisherPlatforms.filter((platform): platform is string => typeof platform === 'string')
           : undefined,
         instagramUserId: typeof params.instagramUserId === 'string' ? params.instagramUserId : undefined,
+        threadsProfileId: typeof params.threadsProfileId === 'string' ? params.threadsProfileId : undefined,
       },
     };
   }

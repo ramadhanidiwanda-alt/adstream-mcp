@@ -552,6 +552,7 @@ export interface EcommerceCampaignBundlePayload {
   ageMax?: number;
   publisherPlatforms?: string[];
   instagramUserId?: string;
+  threadsProfileId?: string;
   dryRun?: boolean;
   confirmed?: boolean;
 }
@@ -790,6 +791,24 @@ export interface MetaPageResult {
   can_advertise?: boolean;
 }
 
+export interface InstagramAccountResult {
+  igId: string;
+  username: string;
+  name: string;
+  profilePic?: string;
+  pageId: string;
+  pageName: string;
+}
+
+export interface ThreadsProfileResult {
+  threadsId: string;
+  username: string;
+  name: string;
+  profilePic?: string;
+  pageId: string;
+  pageName: string;
+}
+
 export interface AdsProviderAdapter {
   id: AdsProviderId;
   displayName: string;
@@ -826,6 +845,8 @@ export interface AdsProviderAdapter {
   listAdVideos(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdVideoResult[]>>;
   getAdPreview(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdPreviewResult[]>>;
   listPages?(request: AdsBrokerRequest): Promise<AdsBrokerResponse<MetaPageResult[]>>;
+  listInstagramAccounts?(request: AdsBrokerRequest): Promise<AdsBrokerResponse<InstagramAccountResult[]>>;
+  listThreadsProfiles?(request: AdsBrokerRequest): Promise<AdsBrokerResponse<ThreadsProfileResult[]>>;
   // --- TikTok GMV Max (TikTok-specific) ---
   gmvMaxCreateCampaign?(request: AdsBrokerRequest): Promise<AdsBrokerResponse<EcommerceCampaignBundleResult>>;
   gmvMaxUpdateCampaign?(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>>;

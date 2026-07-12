@@ -75,6 +75,10 @@ export { getAdPreview } from './tools/getAdPreview.js';
 export type { GetAdPreviewOptions, AdPreviewFormat } from './tools/getAdPreview.js';
 export { listPages } from './tools/listPages.js';
 export type { MetaPageResult } from './tools/listPages.js';
+export { listInstagramAccounts } from './tools/listInstagramAccounts.js';
+export type { InstagramAccountResult } from './tools/listInstagramAccounts.js';
+export { listThreadsProfiles } from './tools/listThreadsProfiles.js';
+export type { ThreadsProfileResult } from './tools/listThreadsProfiles.js';
 
 export { getAdDestinations } from './tools/getAdDestinations.js';
 export type { GetAdDestinationsOptions, AdDestinationInfo, AdDestinationPage } from './tools/getAdDestinations.js';
