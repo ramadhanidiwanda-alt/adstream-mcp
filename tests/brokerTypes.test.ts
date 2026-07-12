@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   ADS_PROVIDER_CAPABILITY_MATRIX,
   ADS_TOOL_CATEGORIES,
+  allowWritePermissionPolicy,
   credentialAllowsRequestAccount,
   credentialAllowsRequestProvider,
   credentialHasAnyScope,
@@ -56,6 +57,24 @@ describe('Ads MCP Broker rich types and contracts', () => {
     expect(defaultDenyWritePermissionPolicy.canRead(credential)).toBe(true);
     expect(defaultDenyWritePermissionPolicy.canWrite(credential)).toBe(false);
     expect(defaultDenyWritePermissionPolicy.requireConfirmation(credential)).toBe(true);
+  });
+
+  it('allows write operations with the opt-in write policy', () => {
+    const credential = {
+      provider: 'meta' as AdsProviderId,
+      accountId: 'act_123',
+      allowedAccountIds: ['act_123'],
+      scopes: ['ads.write'],
+      source: 'test' as const,
+    };
+
+    expect(allowWritePermissionPolicy.canWrite(credential, { provider: 'meta', accountId: 'act_123', params: {} }))
+      .toBe(true);
+    expect(allowWritePermissionPolicy.canWrite(credential, { provider: 'meta', accountId: 'act_999', params: {} }))
+      .toBe(false);
+    expect(allowWritePermissionPolicy.canWrite(credential, { provider: 'tiktok', accountId: 'act_123', params: {} }))
+      .toBe(false);
+    expect(allowWritePermissionPolicy.requireConfirmation(credential)).toBe(true);
   });
 
   it('checks credential account, provider, and scope constraints when provided', () => {

@@ -890,3 +890,13 @@ export const defaultDenyWritePermissionPolicy: PermissionPolicy = {
   canWrite: () => false,
   requireConfirmation: () => true,
 };
+
+export const allowWritePermissionPolicy: PermissionPolicy = {
+  canRead: defaultDenyWritePermissionPolicy.canRead,
+  canWrite: (context, request) => (
+    credentialAllowsRequestProvider(context, request)
+    && credentialAllowsRequestAccount(context, request)
+    && credentialHasAnyScope(context, ['ads.write', 'ads.admin'])
+  ),
+  requireConfirmation: () => true,
+};

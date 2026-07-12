@@ -130,6 +130,7 @@ export {
   ADS_TOOL_CATEGORIES,
   isAdsProviderId,
   isReadOperation,
+  allowWritePermissionPolicy,
   defaultDenyWritePermissionPolicy,
 } from './broker/types.js';
 export type * from './broker/credentials.js';

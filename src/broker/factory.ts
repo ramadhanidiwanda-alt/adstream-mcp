@@ -4,6 +4,7 @@ import { ProviderRegistry } from './providerRegistry.js';
 import { MetaAdsAdapter } from '../providers/meta/MetaAdsAdapter.js';
 import { TikTokAdsAdapter } from '../providers/tiktok/TikTokAdsAdapter.js';
 import { GoogleAdsAdapter } from '../providers/google/GoogleAdsAdapter.js';
+import { allowWritePermissionPolicy } from './types.js';
 
 export function createDefaultProviderRegistry(): ProviderRegistry {
   const registry = new ProviderRegistry();
@@ -18,9 +19,14 @@ export function createDefaultCredentialResolver(): CredentialResolver {
 }
 
 export function createDefaultAdsBroker(): AdsBroker {
+  const permissionPolicy = process.env.ADSTREAM_ENABLE_WRITES === 'true'
+    ? allowWritePermissionPolicy
+    : undefined;
+
   return new AdsBroker({
     providerRegistry: createDefaultProviderRegistry(),
     credentialResolver: createDefaultCredentialResolver(),
+    permissionPolicy,
   });
 }
 
