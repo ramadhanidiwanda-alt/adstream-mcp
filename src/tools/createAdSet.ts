@@ -1,6 +1,8 @@
 import type { MetaClient } from '../metaClient.js';
+import type { StructuredMutationError } from '../types.js';
 import { normalizeAccountPath } from '../utils/normalizeAccountId.js';
 import { MetaApiError } from '../utils/metaError.js';
+import { formatMetaWriteError, formatStructuredMetaWriteError } from '../utils/formatMetaWriteError.js';
 
 export type AdSetStatus = 'ACTIVE' | 'PAUSED';
 
@@ -80,9 +82,11 @@ export interface CreateAdSetOptions {
   dsaPayor?: string;
   /** Multi-Advertiser Ads opt-in (1) or opt-out (0). */
   multiAdvertiserAds?: number;
+  dedupeByName?: boolean;
+  externalReference?: string;
 }
 
-export type CreateAdSetStatus = 'dry_run' | 'pending_confirmation' | 'executed' | 'failed';
+export type CreateAdSetStatus = 'dry_run' | 'pending_confirmation' | 'executed' | 'failed' | 'deduped';
 
 export interface CreateAdSetResult {
   operation: 'create_adset';
@@ -92,6 +96,7 @@ export interface CreateAdSetResult {
   id?: string;
   response?: Record<string, unknown>;
   error?: string;
+  structuredError?: StructuredMutationError;
 }
 
 interface MetaIdResponse extends Record<string, unknown> {
@@ -150,6 +155,9 @@ export async function createAdSet(
   const { dryRun = true, confirmed = false, maxRetries = 3 } = execOptions;
 
   const preview = buildAdSetPayload(options);
+  if (options.externalReference) {
+    preview.external_reference = options.externalReference;
+  }
   const baseResult: CreateAdSetResult = {
     operation: 'create_adset',
     status: 'dry_run',
@@ -157,9 +165,7 @@ export async function createAdSet(
     preview,
   };
 
-  if (dryRun) return baseResult;
-
-  if (!confirmed) {
+  if (!dryRun && !confirmed) {
     return {
       ...baseResult,
       status: 'pending_confirmation',
@@ -176,6 +182,10 @@ export async function createAdSet(
       ...baseResult,
       status: 'failed',
       error: `'LOWEST_COST' is not a valid bid_strategy. Use 'LOWEST_COST_WITHOUT_CAP' instead (no bidAmount required).`,
+      structuredError: validationError(
+        'INVALID_BID_STRATEGY',
+        `'LOWEST_COST' is not a valid bid_strategy. Use 'LOWEST_COST_WITHOUT_CAP' instead.`
+      ),
     };
   }
 
@@ -189,6 +199,10 @@ export async function createAdSet(
       ...baseResult,
       status: 'failed',
       error: `bidAmount is required when bidStrategy is '${options.bidStrategy}'. Add bidAmount (in cents), or change bidStrategy to 'LOWEST_COST_WITHOUT_CAP'.`,
+      structuredError: validationError(
+        'MISSING_BID_AMOUNT',
+        `bidAmount is required when bidStrategy is '${options.bidStrategy}'.`
+      ),
     };
   }
 
@@ -198,6 +212,10 @@ export async function createAdSet(
       ...baseResult,
       status: 'failed',
       error: `bidConstraints is required when bidStrategy is 'LOWEST_COST_WITH_MIN_ROAS'. Provide bidConstraints with roas_average_floor (target ROAS × 10000). Example: { roas_average_floor: 20000 } for 2.0x ROAS.`,
+      structuredError: validationError(
+        'MISSING_BID_CONSTRAINTS',
+        `bidConstraints is required when bidStrategy is 'LOWEST_COST_WITH_MIN_ROAS'.`
+      ),
     };
   }
 
@@ -217,6 +235,10 @@ export async function createAdSet(
         ...baseResult,
         status: 'failed',
         error: `Budget conflict: campaign '${options.campaignId}' already has a budget (CBO mode). Meta does not allow budgets at both campaign and ad set level. Remove dailyBudget/lifetimeBudget from your ad set — it will automatically use the campaign budget.`,
+        structuredError: validationError(
+          'BUDGET_CONFLICT',
+          `Campaign '${options.campaignId}' already has a budget, so ad-set-level budget is not allowed.`
+        ),
       };
     }
 
@@ -228,6 +250,10 @@ export async function createAdSet(
           ...baseResult,
           status: 'failed',
           error: `bidAmount is required because the parent campaign uses bid_strategy '${campaignBidStrategy}'. Add bidAmount (in account currency cents) to your ad set, or change the campaign's bid_strategy to 'LOWEST_COST_WITHOUT_CAP'.`,
+          structuredError: validationError(
+            'MISSING_BID_AMOUNT',
+            `bidAmount is required because the parent campaign uses bid_strategy '${campaignBidStrategy}'.`
+          ),
         };
       }
       // Auto-set bid_strategy to match campaign if user only provided bidAmount
@@ -236,11 +262,30 @@ export async function createAdSet(
       }
     }
   } catch (error) {
-    // If pre-flight check fails (e.g., campaign not found), let the main call proceed
-    // Meta will return its own error
+    return {
+      ...baseResult,
+      status: 'failed',
+      error: formatMetaWriteError(error),
+      structuredError: formatStructuredMetaWriteError(error),
+    };
   }
 
+  if (dryRun) return baseResult;
+
   const accountPath = normalizeAccountPath(options.adAccountId);
+
+  if (options.dedupeByName) {
+    const existing = await findExistingAdSetByName(client, options.campaignId, options.name, maxRetries);
+    if (existing) {
+      return {
+        ...baseResult,
+        status: 'deduped',
+        executed: false,
+        id: existing.id,
+        response: { deduped: true, existing },
+      };
+    }
+  }
 
   try {
     const response = await client.metaPost<MetaIdResponse>(
@@ -277,8 +322,43 @@ export async function createAdSet(
       ...baseResult,
       status: 'failed',
       error: errorMsg,
+      structuredError: formatStructuredMetaWriteError(error),
     };
   }
+}
+
+interface ExistingNamedAdSet extends Record<string, unknown> {
+  id: string;
+  name?: string;
+  status?: string;
+}
+
+async function findExistingAdSetByName(
+  client: MetaClient,
+  campaignId: string,
+  name: string,
+  maxRetries: number
+): Promise<ExistingNamedAdSet | null> {
+  const response = await client.metaGet<{ data?: ExistingNamedAdSet[] }>(
+    `/${campaignId}/adsets`,
+    {
+      fields: 'id,name,status',
+      limit: 100,
+      filtering: [{ field: 'name', operator: 'EQUAL', value: name.trim() }],
+    },
+    { maxRetries }
+  );
+
+  return response.data?.find((adSet) => adSet.name === name.trim()) ?? null;
+}
+
+function validationError(code: string, message: string): StructuredMutationError {
+  return {
+    code,
+    message,
+    provider: 'meta',
+    actionableFix: 'Review the dry-run preview and update the invalid ad set input before executing.',
+  };
 }
 
 function buildAdSetPayload(options: CreateAdSetOptions): Record<string, unknown> {

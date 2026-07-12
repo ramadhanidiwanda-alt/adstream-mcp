@@ -64,6 +64,84 @@ export const ADS_MCP_TOOL_NAMES = [
 
 export type AdsMcpToolName = (typeof ADS_MCP_TOOL_NAMES)[number];
 
+export interface AdsMcpToolAnnotations {
+  title?: string;
+  readOnlyHint?: boolean;
+  destructiveHint?: boolean;
+  idempotentHint?: boolean;
+  openWorldHint?: boolean;
+}
+
+const DESTRUCTIVE_WRITE_TOOLS = new Set<AdsMcpToolName>([
+  'ads_pause_campaign',
+  'ads_pause_adset',
+  'ads_pause_ad',
+  'ads_update_campaign_budget',
+  'ads_archive_ad',
+  'ads_update_adset',
+  'tiktok_gmv_max_delete_session',
+  'tiktok_gmv_max_update_campaign',
+  'tiktok_gmv_max_update_session',
+  'tiktok_smart_plus_pause_campaign',
+  'tiktok_smart_plus_pause_adgroup',
+]);
+
+const ADDITIVE_WRITE_TOOLS = new Set<AdsMcpToolName>([
+  'ads_create_campaign',
+  'ads_create_adset',
+  'ads_create_adcreative',
+  'ads_create_ad',
+  'ads_create_ecommerce_campaign_bundle',
+  'ads_upload_image',
+  'ads_upload_video',
+  'ads_rename_campaign',
+  'ads_resume_campaign',
+  'ads_resume_adset',
+  'ads_resume_ad',
+  'tiktok_gmv_max_create_campaign',
+  'tiktok_gmv_max_create_session',
+  'tiktok_smart_plus_create_campaign',
+  'tiktok_smart_plus_create_adgroup',
+  'tiktok_smart_plus_resume_campaign',
+  'tiktok_smart_plus_resume_adgroup',
+]);
+
+export function getAdsMcpToolAnnotations(name: AdsMcpToolName): AdsMcpToolAnnotations {
+  const readOnly = !isAdsMcpWriteTool(name);
+
+  if (readOnly) {
+    return {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: true,
+    };
+  }
+
+  return {
+    readOnlyHint: false,
+    destructiveHint: DESTRUCTIVE_WRITE_TOOLS.has(name),
+    idempotentHint: false,
+    openWorldHint: true,
+  };
+}
+
+export function isAdsMcpWriteTool(name: AdsMcpToolName): boolean {
+  return DESTRUCTIVE_WRITE_TOOLS.has(name) || ADDITIVE_WRITE_TOOLS.has(name);
+}
+
+export const ADS_WRITE_TOOLS_ENABLE_FLAG = 'ADSTREAM_ENABLE_WRITES';
+
+export function areAdsWriteToolsEnabled(): boolean {
+  return process.env[ADS_WRITE_TOOLS_ENABLE_FLAG] === 'true';
+}
+
+export function getAdsMcpToolDefinitions(options: { includeWrites?: boolean } = {}) {
+  return ADS_MCP_TOOL_DEFINITIONS.filter((tool) => (
+    options.includeWrites === true || !isAdsMcpWriteTool(tool.name)
+  ));
+}
+
 export const ADS_MCP_TOOL_DEFINITIONS = [
   {
     name: 'ads_list_accounts',
@@ -329,6 +407,10 @@ export async function handleAdsMcpToolCall(
   args: Record<string, unknown> = {},
   connectionKey?: string
 ): Promise<{ content: Array<{ type: 'text'; text: string }>; isError?: boolean }> {
+  if (isAdsMcpWriteTool(name) && !areAdsWriteToolsEnabled()) {
+    return writeToolsDisabledResponse(name);
+  }
+
   const request = toAdsBrokerRequest(args, connectionKey);
   const response = await callBrokerMethod(broker, name, request);
   const canonicalResponse = canonicalizeToolResponse(name, request, response);
@@ -342,6 +424,33 @@ export async function handleAdsMcpToolCall(
       },
     ],
     isError: !safeResponse.ok || undefined,
+  };
+}
+
+function writeToolsDisabledResponse(name: AdsMcpToolName): {
+  content: Array<{ type: 'text'; text: string }>;
+  isError: true;
+} {
+  const body = {
+    ok: false,
+    errors: [
+      {
+        code: 'WRITE_TOOLS_DISABLED',
+        message: `The "${name}" tool changes your ad account, and change tools are turned off right now.`,
+        actionableFix: `Turn on change tools by setting ${ADS_WRITE_TOOLS_ENABLE_FLAG}=true, then try again.`,
+        enableFlag: ADS_WRITE_TOOLS_ENABLE_FLAG,
+      },
+    ],
+  };
+
+  return {
+    content: [
+      {
+        type: 'text',
+        text: JSON.stringify(body, null, 2),
+      },
+    ],
+    isError: true,
   };
 }
 
@@ -765,12 +874,9 @@ function getAdsCapabilities(request: AdsBrokerRequest): AdsBrokerResponse<Record
       },
       writes: {
         optIn: true,
-        optionalTools: [
-          'ads_pause_campaign',
-          'ads_resume_campaign',
-          'ads_update_campaign_budget',
-          'ads_rename_campaign',
-        ],
+        enabled: areAdsWriteToolsEnabled(),
+        enableFlag: 'ADSTREAM_ENABLE_WRITES',
+        optionalTools: ADS_MCP_TOOL_NAMES.filter((name) => isAdsMcpWriteTool(name)),
         safetyContract: 'docs/WRITE_SAFETY_CONTRACT.md',
       },
       warnings: [
@@ -912,6 +1018,14 @@ function createCreateCampaignInputSchema() {
         type: 'string',
         description: 'Bid strategy (e.g. LOWEST_COST_WITHOUT_CAP).',
       },
+      dedupeByName: {
+        type: 'boolean',
+        description: 'Check for an existing campaign with the same name before creating.',
+      },
+      externalReference: {
+        type: 'string',
+        description: 'Caller-provided reference for duplicate prevention and audit correlation.',
+      },
       dryRun: {
         type: 'boolean',
         description: 'Defaults to true. Set false only after preview.',
@@ -986,6 +1100,14 @@ function createCreateAdSetInputSchema() {
       dsaBeneficiary: { type: 'string', description: 'DSA beneficiary for European compliance (person/org that benefits from ads).' },
       dsaPayor: { type: 'string', description: 'DSA payor for European compliance (person/org paying for the ads).' },
       multiAdvertiserAds: { type: 'number', description: 'Multi-Advertiser Ads opt-in (1) or opt-out (0).' },
+      dedupeByName: {
+        type: 'boolean',
+        description: 'Check for an existing ad set with the same name under the campaign before creating.',
+      },
+      externalReference: {
+        type: 'string',
+        description: 'Caller-provided reference for duplicate prevention and audit correlation.',
+      },
       dryRun: { type: 'boolean', description: 'Defaults to true. Set false only after preview.' },
       confirmed: { type: 'boolean', description: 'Must be true to execute after preview.' },
     },
@@ -1015,6 +1137,14 @@ function createCreateAdCreativeInputSchema() {
       },
       instagramUserId: { type: 'string', description: 'Instagram user ID for IG posting.' },
       threadsProfileId: { type: 'string', description: 'Threads profile ID for Threads posting.' },
+      dedupeByName: {
+        type: 'boolean',
+        description: 'Check for an existing creative with the same name before creating.',
+      },
+      externalReference: {
+        type: 'string',
+        description: 'Caller-provided reference for duplicate prevention and audit correlation.',
+      },
       dryRun: { type: 'boolean', description: 'Defaults to true. Set false only after preview.' },
       confirmed: { type: 'boolean', description: 'Must be true to execute after preview.' },
     },
@@ -1036,6 +1166,14 @@ function createCreateAdInputSchema() {
         type: 'string',
         enum: ['ACTIVE', 'PAUSED'],
         description: 'Ad status. Defaults to PAUSED.',
+      },
+      dedupeByName: {
+        type: 'boolean',
+        description: 'Check for an existing ad with the same name under the ad set before creating.',
+      },
+      externalReference: {
+        type: 'string',
+        description: 'Caller-provided reference for duplicate prevention and audit correlation.',
       },
       dryRun: { type: 'boolean', description: 'Defaults to true. Set false only after preview.' },
       confirmed: { type: 'boolean', description: 'Must be true to execute after preview.' },
@@ -1086,6 +1224,15 @@ function createUpdateAdSetInputSchema() {
       publisherPlatforms: { type: 'array', items: { type: 'string' }, description: 'Publisher platforms.' },
       startTime: { type: 'string', description: 'Start time in ISO format.' },
       endTime: { type: 'string', description: 'End time in ISO format.' },
+      mode: {
+        type: 'string',
+        enum: ['patch', 'replace'],
+        description: 'Nested update mode. Defaults to patch; replace requires explicit replacement confirmation.',
+      },
+      replaceTargetingConfirmed: {
+        type: 'boolean',
+        description: 'Required when mode=replace and targeting is provided.',
+      },
       dryRun: { type: 'boolean', description: 'Defaults to true. Set false only after preview.' },
       confirmed: { type: 'boolean', description: 'Must be true to execute after preview.' },
     },

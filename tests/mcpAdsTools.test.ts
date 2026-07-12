@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   ADS_MCP_TOOL_DEFINITIONS,
+  getAdsMcpToolDefinitions,
+  getAdsMcpToolAnnotations,
   handleAdsMcpToolCall,
+  isAdsMcpWriteTool,
   safeAdsMcpError,
   toAdsBrokerRequest,
 } from '../src/broker/mcpTools.js';
@@ -123,6 +126,58 @@ function parseToolResponse(response: Awaited<ReturnType<typeof handleAdsMcpToolC
 }
 
 describe('ads MCP broker tools', () => {
+  it('labels read tools as safe to read repeatedly', () => {
+    expect(getAdsMcpToolAnnotations('ads_get_performance')).toMatchObject({
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: true,
+    });
+  });
+
+  it('labels additive create tools as non-destructive writes', () => {
+    expect(getAdsMcpToolAnnotations('ads_create_campaign')).toMatchObject({
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: false,
+      openWorldHint: true,
+    });
+  });
+
+  it('labels risky mutation tools as destructive writes', () => {
+    expect(getAdsMcpToolAnnotations('ads_archive_ad')).toMatchObject({
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: false,
+      openWorldHint: true,
+    });
+  });
+
+  it('labels upload tools as additive writes', () => {
+    expect(getAdsMcpToolAnnotations('ads_upload_image')).toMatchObject({
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: false,
+      openWorldHint: true,
+    });
+  });
+
+  it('separates read tools from write tools for default MCP exposure', () => {
+    expect(isAdsMcpWriteTool('ads_get_performance')).toBe(false);
+    expect(isAdsMcpWriteTool('ads_create_campaign')).toBe(true);
+    expect(isAdsMcpWriteTool('ads_archive_ad')).toBe(true);
+
+    const defaultToolNames = getAdsMcpToolDefinitions({ includeWrites: false }).map((tool) => tool.name);
+    const fullToolNames = getAdsMcpToolDefinitions({ includeWrites: true }).map((tool) => tool.name);
+
+    expect(defaultToolNames).toContain('ads_get_performance');
+    expect(defaultToolNames).toContain('ads_get_capabilities');
+    expect(defaultToolNames).not.toContain('ads_create_campaign');
+    expect(defaultToolNames).not.toContain('ads_archive_ad');
+    expect(defaultToolNames).not.toContain('ads_upload_image');
+    expect(fullToolNames).toEqual(ADS_MCP_TOOL_DEFINITIONS.map((tool) => tool.name));
+  });
+
   it('defines new ads tools without removing legacy names from expected server surface', () => {
     const adsToolNames = ADS_MCP_TOOL_DEFINITIONS.map((tool) => tool.name);
 
@@ -344,6 +399,68 @@ describe('ads MCP broker tools', () => {
     });
   });
 
+  it('reports write-tool availability that follows the enable flag', async () => {
+    const broker = createBrokerStub();
+    const previous = process.env.ADSTREAM_ENABLE_WRITES;
+
+    try {
+      delete process.env.ADSTREAM_ENABLE_WRITES;
+      const disabled = parseToolResponse(
+        await handleAdsMcpToolCall(broker, 'ads_get_capabilities', { provider: 'meta' })
+      );
+      expect(disabled.data).toMatchObject({
+        writes: expect.objectContaining({
+          optIn: true,
+          enabled: false,
+          enableFlag: 'ADSTREAM_ENABLE_WRITES',
+          optionalTools: expect.arrayContaining(['ads_create_campaign', 'ads_archive_ad']),
+        }),
+      });
+
+      process.env.ADSTREAM_ENABLE_WRITES = 'true';
+      const enabled = parseToolResponse(
+        await handleAdsMcpToolCall(broker, 'ads_get_capabilities', { provider: 'meta' })
+      );
+      expect(enabled.data).toMatchObject({
+        writes: expect.objectContaining({ enabled: true }),
+      });
+    } finally {
+      if (previous === undefined) {
+        delete process.env.ADSTREAM_ENABLE_WRITES;
+      } else {
+        process.env.ADSTREAM_ENABLE_WRITES = previous;
+      }
+    }
+  });
+
+  it('refuses write tools with a friendly error when they are turned off', async () => {
+    const broker = createBrokerStub();
+    const previous = process.env.ADSTREAM_ENABLE_WRITES;
+
+    try {
+      delete process.env.ADSTREAM_ENABLE_WRITES;
+      const response = await handleAdsMcpToolCall(broker, 'ads_create_campaign', {
+        provider: 'meta',
+        accountId: 'act_123',
+      });
+
+      expect(response.isError).toBe(true);
+      const parsed = parseToolResponse(response);
+      expect(parsed.ok).toBe(false);
+      expect(parsed.errors?.[0]).toMatchObject({
+        code: 'WRITE_TOOLS_DISABLED',
+        enableFlag: 'ADSTREAM_ENABLE_WRITES',
+      });
+      expect(parsed.errors?.[0]?.actionableFix).toContain('ADSTREAM_ENABLE_WRITES=true');
+    } finally {
+      if (previous === undefined) {
+        delete process.env.ADSTREAM_ENABLE_WRITES;
+      } else {
+        process.env.ADSTREAM_ENABLE_WRITES = previous;
+      }
+    }
+  });
+
 
   it('routes ads_get_account_performance through AdsBroker', async () => {
     let receivedRequest: AdsBrokerRequest | undefined;
@@ -389,6 +506,8 @@ describe('ads MCP broker tools', () => {
   });
 
   it('routes ads_create_ecommerce_campaign_bundle through AdsBroker with top-level params', async () => {
+    const previousEnableWrites = process.env.ADSTREAM_ENABLE_WRITES;
+    process.env.ADSTREAM_ENABLE_WRITES = 'true';
     let receivedRequest: AdsBrokerRequest | undefined;
     const broker = {
       ...createBrokerStub(),
@@ -408,20 +527,28 @@ describe('ads MCP broker tools', () => {
       },
     } as unknown as AdsBroker;
 
-    const response = await handleAdsMcpToolCall(broker, 'ads_create_ecommerce_campaign_bundle', {
-      provider: 'meta',
-      accountId: 'act_123',
-      campaignName: 'Sales Campaign',
-      dailyBudget: 150000,
-      dryRun: true,
-    });
+    try {
+      const response = await handleAdsMcpToolCall(broker, 'ads_create_ecommerce_campaign_bundle', {
+        provider: 'meta',
+        accountId: 'act_123',
+        campaignName: 'Sales Campaign',
+        dailyBudget: 150000,
+        dryRun: true,
+      });
 
-    expect(parseToolResponse(response).ok).toBe(true);
-    expect(receivedRequest).toMatchObject({
-      provider: 'meta',
-      accountId: 'act_123',
-      params: { campaignName: 'Sales Campaign', dailyBudget: 150000, dryRun: true },
-    });
+      expect(parseToolResponse(response).ok).toBe(true);
+      expect(receivedRequest).toMatchObject({
+        provider: 'meta',
+        accountId: 'act_123',
+        params: { campaignName: 'Sales Campaign', dailyBudget: 150000, dryRun: true },
+      });
+    } finally {
+      if (previousEnableWrites === undefined) {
+        delete process.env.ADSTREAM_ENABLE_WRITES;
+      } else {
+        process.env.ADSTREAM_ENABLE_WRITES = previousEnableWrites;
+      }
+    }
   });
 
   it('routes adset/adgroup and ad performance through AdsBroker', async () => {

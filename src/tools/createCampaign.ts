@@ -1,6 +1,7 @@
 import type { MetaClient } from '../metaClient.js';
+import type { StructuredMutationError } from '../types.js';
 import { normalizeAccountPath } from '../utils/normalizeAccountId.js';
-import { formatMetaWriteError } from '../utils/formatMetaWriteError.js';
+import { formatMetaWriteError, formatStructuredMetaWriteError } from '../utils/formatMetaWriteError.js';
 
 export type MetaCampaignObjective =
   | 'OUTCOME_SALES'
@@ -31,9 +32,11 @@ export interface CreateCampaignOptions {
   dailyBudget?: number;
   lifetimeBudget?: number;
   bidStrategy?: string;
+  dedupeByName?: boolean;
+  externalReference?: string;
 }
 
-export type CreateCampaignStatus = 'dry_run' | 'pending_confirmation' | 'executed' | 'failed';
+export type CreateCampaignStatus = 'dry_run' | 'pending_confirmation' | 'executed' | 'failed' | 'deduped';
 
 export interface CreateCampaignResult {
   operation: 'create_campaign';
@@ -43,6 +46,7 @@ export interface CreateCampaignResult {
   id?: string;
   response?: Record<string, unknown>;
   error?: string;
+  structuredError?: StructuredMutationError;
 }
 
 interface MetaIdResponse extends Record<string, unknown> {
@@ -67,6 +71,9 @@ export async function createCampaign(
   const { dryRun = true, confirmed = false, maxRetries = 3 } = execOptions;
 
   const preview = buildCampaignPayload(options);
+  if (options.externalReference) {
+    preview.external_reference = options.externalReference;
+  }
   const baseResult: CreateCampaignResult = {
     operation: 'create_campaign',
     status: 'dry_run',
@@ -85,6 +92,19 @@ export async function createCampaign(
   }
 
   const accountPath = normalizeAccountPath(options.adAccountId);
+
+  if (options.dedupeByName) {
+    const existing = await findExistingCampaignByName(client, accountPath, options.name, maxRetries);
+    if (existing) {
+      return {
+        ...baseResult,
+        status: 'deduped',
+        executed: false,
+        id: existing.id,
+        response: { deduped: true, existing },
+      };
+    }
+  }
 
   try {
     const response = await client.metaPost<MetaIdResponse>(
@@ -113,8 +133,34 @@ export async function createCampaign(
       ...baseResult,
       status: 'failed',
       error: formatMetaWriteError(error),
+      structuredError: formatStructuredMetaWriteError(error),
     };
   }
+}
+
+interface ExistingNamedEntity extends Record<string, unknown> {
+  id: string;
+  name?: string;
+  status?: string;
+}
+
+async function findExistingCampaignByName(
+  client: MetaClient,
+  accountPath: string,
+  name: string,
+  maxRetries: number
+): Promise<ExistingNamedEntity | null> {
+  const response = await client.metaGet<{ data?: ExistingNamedEntity[] }>(
+    `${accountPath}/campaigns`,
+    {
+      fields: 'id,name,status',
+      limit: 100,
+      filtering: [{ field: 'name', operator: 'EQUAL', value: name.trim() }],
+    },
+    { maxRetries }
+  );
+
+  return response.data?.find((campaign) => campaign.name === name.trim()) ?? null;
 }
 
 function buildCampaignPayload(options: CreateCampaignOptions): Record<string, unknown> {

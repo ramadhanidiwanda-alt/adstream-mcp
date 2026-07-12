@@ -106,9 +106,45 @@ export interface MutationResult {
   entityType: MutateEntityType;
   response?: Record<string, unknown>;
   error?: string;
+  structuredError?: StructuredMutationError;
+}
+
+export type MutationEnvelopeStatus =
+  | 'previewed'
+  | 'validated'
+  | 'pending_confirmation'
+  | 'executed'
+  | 'failed'
+  | 'partially_executed'
+  | 'verified';
+
+export interface StructuredMutationError {
+  code: string;
+  message: string;
+  provider?: string;
+  providerCode?: string;
+  providerSubcode?: string;
+  traceId?: string;
+  actionableFix?: string;
+}
+
+export interface MutationEnvelope<TPreview = Record<string, unknown>, TResponse = Record<string, unknown>> {
+  operationId: string;
+  provider: string;
+  tool: string;
+  entityType: string;
+  entityId?: string;
+  status: MutationEnvelopeStatus;
+  executed: boolean;
+  dryRun: boolean;
+  preview: TPreview;
+  verification?: Record<string, unknown> | null;
+  response?: TResponse;
+  error?: StructuredMutationError | null;
 }
 
 export interface AuditLogEntry {
+  operationId?: string;
   timestamp: string;
   operation: MutationOperation;
   entityType: MutateEntityType;

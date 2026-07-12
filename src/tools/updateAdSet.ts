@@ -1,6 +1,7 @@
 import type { MetaClient } from '../metaClient.js';
+import type { StructuredMutationError } from '../types.js';
 import type { AdSetTargeting } from './createAdSet.js';
-import { formatMetaWriteError } from '../utils/formatMetaWriteError.js';
+import { formatMetaWriteError, formatStructuredMetaWriteError } from '../utils/formatMetaWriteError.js';
 
 export interface UpdateAdSetOptions {
   adSetId: string;
@@ -12,6 +13,8 @@ export interface UpdateAdSetOptions {
   optimizationGoal?: string;
   billingEvent?: string;
   targeting?: AdSetTargeting;
+  mode?: 'patch' | 'replace';
+  replaceTargetingConfirmed?: boolean;
   startTime?: string;
   endTime?: string;
 }
@@ -23,10 +26,12 @@ export interface UpdateAdSetResult {
   status: UpdateAdSetStatus;
   executed: boolean;
   preview: Record<string, unknown>;
+  mode: 'patch' | 'replace';
   success: boolean;
   id?: string;
   response?: Record<string, unknown>;
   error?: string;
+  structuredError?: StructuredMutationError;
 }
 
 /**
@@ -44,6 +49,7 @@ export async function updateAdSet(
   execOptions: { dryRun?: boolean; confirmed?: boolean; maxRetries?: number } = {}
 ): Promise<UpdateAdSetResult> {
   const { dryRun = true, confirmed = false, maxRetries = 3 } = execOptions;
+  const mode = options.mode ?? 'patch';
 
   const preview = buildUpdatePayload(options);
   const baseResult: UpdateAdSetResult = {
@@ -51,6 +57,7 @@ export async function updateAdSet(
     status: 'dry_run',
     executed: false,
     preview,
+    mode,
     success: false,
   };
 
@@ -61,6 +68,20 @@ export async function updateAdSet(
       ...baseResult,
       status: 'pending_confirmation',
       error: 'Explicit confirmation is required after reviewing the dry-run preview.',
+    };
+  }
+
+  if (mode === 'replace' && options.targeting && !options.replaceTargetingConfirmed) {
+    return {
+      ...baseResult,
+      status: 'failed',
+      error: 'replaceTargetingConfirmed=true is required when mode="replace" and targeting is provided.',
+      structuredError: {
+        code: 'REPLACE_CONFIRMATION_REQUIRED',
+        message: 'Explicit targeting replacement confirmation is required.',
+        provider: 'meta',
+        actionableFix: 'Use mode="patch" for merge semantics or set replaceTargetingConfirmed=true after reviewing the dry-run preview.',
+      },
     };
   }
 
@@ -85,6 +106,7 @@ export async function updateAdSet(
       status: 'failed',
       success: false,
       error: formatMetaWriteError(error),
+      structuredError: formatStructuredMetaWriteError(error),
     };
   }
 }

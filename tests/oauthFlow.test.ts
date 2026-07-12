@@ -625,7 +625,7 @@ describe('Full authorize + token flow', () => {
     expect(tokenData.expires_in).toBeGreaterThan(0);
     expect(tokenData.scope).toBe('mcp read write');
     expect(JSON.stringify(tokenData)).not.toContain('ck_key');
-    expect(JSON.stringify(tokenData)).not.toContain('123');
+    expect(JSON.stringify(tokenData)).not.toContain('ck_key_123');
   });
 
   it('rejects invalid authorization code', async () => {

@@ -56,6 +56,8 @@ The intended public API should stay small:
 
 All write tools use dry-run by default. Set `dryRun=false` + `confirmed=true` to execute.
 
+Write tools are turned off by default for safety, so only read tools appear until you enable them. Set `ADSTREAM_ENABLE_WRITES=true` to expose the write tools above. While they are off, calling one returns a `WRITE_TOOLS_DISABLED` error that explains how to enable them, and `ads_get_capabilities` reports `writes.enabled: false`.
+
 Legacy and provider-specific tools remain available for compatibility, but new report-specific tools should be avoided. Daily reports, weekly reports, creative audits, KPI scoring, and recommendations should be implemented as AI/skill workflows over the same canonical data tools.
 
 `ads_get_performance`, `ads_get_creatives`, `ads_get_change_history`, and `ads_get_capabilities` are available as non-breaking canonical entry points. Existing level-specific and provider-specific tools remain for compatibility during migration.
@@ -166,6 +168,7 @@ See [Remote Mode](#configuration--remote-mode-with-cuan-insight) for full setup.
 | `META_API_VERSION` | ❌ | `v20.0` | Meta Graph API version |
 | `TIKTOK_ACCESS_TOKEN` | ❌ | — | TikTok Ads access token |
 | `MCP_HTTP_ENABLED` | ❌ | `false` | Enable HTTP transport |
+| `ADSTREAM_ENABLE_WRITES` | ❌ | `false` | Expose the optional write tools; off by default so only read tools appear |
 | `CUAN_INSIGHT_AUTH_MODE` | ❌ | — | Set to `connection_key` for remote mode |
 
 ---

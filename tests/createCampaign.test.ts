@@ -6,8 +6,10 @@ type MetaPostMock = ReturnType<typeof vi.fn>;
 
 describe('createCampaign', () => {
   const mockMetaPost: MetaPostMock = vi.fn();
+  const mockMetaGet: MetaPostMock = vi.fn();
   const mockClient = {
     metaPost: mockMetaPost,
+    metaGet: mockMetaGet,
   } as unknown as MetaClient;
 
   const validOptions = {
@@ -18,6 +20,7 @@ describe('createCampaign', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockMetaGet.mockResolvedValue({ data: [] });
   });
 
   describe('dry-run mode (default)', () => {
@@ -66,6 +69,26 @@ describe('createCampaign', () => {
   });
 
   describe('execution mode', () => {
+    it('does not create a duplicate campaign when dedupeByName finds an existing one', async () => {
+      mockMetaGet.mockResolvedValueOnce({
+        data: [{ id: 'existing_campaign_1', name: 'Test Campaign', status: 'PAUSED' }],
+      });
+
+      const result = await createCampaign(mockClient, {
+        ...validOptions,
+        dedupeByName: true,
+      }, {
+        dryRun: false,
+        confirmed: true,
+      });
+
+      expect(result.status).toBe('deduped');
+      expect(result.executed).toBe(false);
+      expect(result.id).toBe('existing_campaign_1');
+      expect(result.response?.deduped).toBe(true);
+      expect(mockClient.metaPost).not.toHaveBeenCalled();
+    });
+
     it('calls metaPost and returns executed with id on success', async () => {
       mockClient.metaPost.mockResolvedValueOnce({ id: '120248446250030168' });
 

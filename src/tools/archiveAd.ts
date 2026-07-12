@@ -1,5 +1,6 @@
 import type { MetaClient } from '../metaClient.js';
-import { formatMetaWriteError } from '../utils/formatMetaWriteError.js';
+import type { StructuredMutationError } from '../types.js';
+import { formatMetaWriteError, formatStructuredMetaWriteError } from '../utils/formatMetaWriteError.js';
 
 export interface ArchiveAdOptions {
   adId: string;
@@ -11,6 +12,7 @@ export interface ArchiveAdResult {
   success: boolean;
   id?: string;
   error?: string;
+  structuredError?: StructuredMutationError;
 }
 
 /**
@@ -46,6 +48,7 @@ export async function archiveAd(
       status: 'failed',
       success: false,
       error: formatMetaWriteError(error),
+      structuredError: formatStructuredMetaWriteError(error),
     };
   }
 }

@@ -135,7 +135,7 @@ export interface MetaAdsAdapterTools {
   ): Promise<EcommerceCampaignBundleResult>;
   createCampaign(
     client: MetaClient,
-    options: { adAccountId: string; name: string; objective: string; status?: string; specialAdCategories?: string[]; buyType?: string; dailyBudget?: number; lifetimeBudget?: number; bidStrategy?: string },
+    options: import('../../tools/createCampaign.js').CreateCampaignOptions,
     execOptions?: { dryRun?: boolean; confirmed?: boolean; maxRetries?: number }
   ): Promise<import('../../tools/createCampaign.js').CreateCampaignResult>;
   createAdSet(
@@ -825,13 +825,15 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       const result = await this.tools.createCampaign(client, {
         adAccountId,
         name,
-        objective,
-        status: typeof request.params.status === 'string' ? request.params.status : undefined,
+        objective: objective as import('../../tools/createCampaign.js').MetaCampaignObjective,
+        status: typeof request.params.status === 'string' ? request.params.status as import('../../tools/createCampaign.js').CampaignStatus : undefined,
         specialAdCategories: Array.isArray(request.params.specialAdCategories) ? request.params.specialAdCategories.map(String) : undefined,
-        buyType: typeof request.params.buyType === 'string' ? request.params.buyType : undefined,
+        buyType: typeof request.params.buyType === 'string' ? request.params.buyType as 'AUCTION' | 'RESERVED' : undefined,
         dailyBudget: typeof request.params.dailyBudget === 'number' ? request.params.dailyBudget : undefined,
         lifetimeBudget: typeof request.params.lifetimeBudget === 'number' ? request.params.lifetimeBudget : undefined,
         bidStrategy: typeof request.params.bidStrategy === 'string' ? request.params.bidStrategy : undefined,
+        dedupeByName: request.params.dedupeByName === true,
+        externalReference: typeof request.params.externalReference === 'string' ? request.params.externalReference : undefined,
       }, {
         dryRun: request.params.dryRun !== false,
         confirmed: request.params.confirmed === true,
@@ -891,6 +893,8 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
         dsaBeneficiary: typeof request.params.dsaBeneficiary === 'string' ? request.params.dsaBeneficiary : undefined,
         dsaPayor: typeof request.params.dsaPayor === 'string' ? request.params.dsaPayor : undefined,
         multiAdvertiserAds: typeof request.params.multiAdvertiserAds === 'number' ? request.params.multiAdvertiserAds : undefined,
+        dedupeByName: request.params.dedupeByName === true,
+        externalReference: typeof request.params.externalReference === 'string' ? request.params.externalReference : undefined,
       }, {
         dryRun: request.params.dryRun !== false,
         confirmed: request.params.confirmed === true,
@@ -936,6 +940,8 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
         imageHash: typeof request.params.imageHash === 'string' ? request.params.imageHash : undefined,
         instagramUserId: typeof request.params.instagramUserId === 'string' ? request.params.instagramUserId : undefined,
         threadsProfileId: typeof request.params.threadsProfileId === 'string' ? request.params.threadsProfileId : undefined,
+        dedupeByName: request.params.dedupeByName === true,
+        externalReference: typeof request.params.externalReference === 'string' ? request.params.externalReference : undefined,
       }, {
         dryRun: request.params.dryRun !== false,
         confirmed: request.params.confirmed === true,
@@ -965,6 +971,8 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       const result = await this.tools.createAd(client, {
         adAccountId, name, adSetId, creativeId,
         status: typeof request.params.status === 'string' ? request.params.status as import('../../tools/createAd.js').AdStatus : undefined,
+        dedupeByName: request.params.dedupeByName === true,
+        externalReference: typeof request.params.externalReference === 'string' ? request.params.externalReference : undefined,
       }, {
         dryRun: request.params.dryRun !== false,
         confirmed: request.params.confirmed === true,
@@ -1013,6 +1021,8 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
         dailyBudget: typeof request.params.dailyBudget === 'number' ? request.params.dailyBudget : undefined,
         lifetimeBudget: typeof request.params.lifetimeBudget === 'number' ? request.params.lifetimeBudget : undefined,
         bidStrategy: typeof request.params.bidStrategy === 'string' ? request.params.bidStrategy : undefined,
+        mode: request.params.mode === 'replace' ? 'replace' : 'patch',
+        replaceTargetingConfirmed: request.params.replaceTargetingConfirmed === true,
         targeting: this.parseAdSetTargeting(request) as import('../../tools/createAdSet.js').AdSetTargeting | undefined,
       }, {
         dryRun: request.params.dryRun !== false,
