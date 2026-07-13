@@ -60,6 +60,11 @@ temp/
 .DS_Store
 Thumbs.db
 
+# Local Docker Compose overrides (machine-specific, not for sharing)
+docker-compose.override.yml
+docker-compose.local.yml
+docker-compose.compaq.yml
+
 # IDE/editor local state
 .vscode/
 .idea/
