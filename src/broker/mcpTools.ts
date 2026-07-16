@@ -245,7 +245,7 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
   },
   {
     name: 'ads_create_adcreative',
-    description: 'Create a Meta ad creative with image/video, headline, body, and CTA. Dry-run by default. Set dryRun=false and confirmed=true to execute.',
+    description: 'Create a Meta ad creative with image/video, headline, body, CTA, or an objectStorySpec for Dynamic Creative. Dynamic Creative asset_feed_spec supports multiple primary texts and headlines. Dry-run by default. Set dryRun=false and confirmed=true to execute.',
     inputSchema: createCreateAdCreativeInputSchema(),
   },
   {
@@ -1137,6 +1137,22 @@ function createCreateAdCreativeInputSchema() {
       },
       instagramUserId: { type: 'string', description: 'Instagram user ID for IG posting.' },
       threadsProfileId: { type: 'string', description: 'Threads profile ID for Threads posting.' },
+      objectStorySpec: {
+        type: 'object',
+        description: 'Meta object_story_spec. For Dynamic Creative, include asset_feed_spec with non-empty bodies[], titles[], and link_urls[]. asset_feed_spec is sent to Meta as the top-level creative field.',
+        properties: {
+          asset_feed_spec: {
+            type: 'object',
+            properties: {
+              bodies: { type: 'array', minItems: 1, items: { type: 'object', properties: { text: { type: 'string', minLength: 1 } }, required: ['text'] } },
+              titles: { type: 'array', minItems: 1, items: { type: 'object', properties: { text: { type: 'string', minLength: 1 } }, required: ['text'] } },
+              link_urls: { type: 'array', minItems: 1, items: { type: 'object', properties: { website_url: { type: 'string', format: 'uri' } }, required: ['website_url'] } },
+            },
+            required: ['bodies', 'titles', 'link_urls'],
+          },
+        },
+        additionalProperties: true,
+      },
       dedupeByName: {
         type: 'boolean',
         description: 'Check for an existing creative with the same name before creating.',
@@ -1148,7 +1164,7 @@ function createCreateAdCreativeInputSchema() {
       dryRun: { type: 'boolean', description: 'Defaults to true. Set false only after preview.' },
       confirmed: { type: 'boolean', description: 'Must be true to execute after preview.' },
     },
-    required: ['accountId', 'name', 'pageId', 'message'],
+    required: ['accountId', 'name', 'pageId'],
   };
 }
 

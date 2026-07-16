@@ -56,6 +56,36 @@ The intended public API should stay small:
 
 All write tools use dry-run by default. Set `dryRun=false` + `confirmed=true` to execute.
 
+### Dynamic Creative with multiple texts and headlines
+
+`ads_create_adcreative` also accepts `objectStorySpec` for Meta Dynamic Creative. Keep `pageId` at the top level, then put the Dynamic Creative variants in `objectStorySpec.asset_feed_spec`. The MCP server forwards `asset_feed_spec` as Meta's top-level creative field, so none of the variants are removed.
+
+```json
+{
+  "accountId": "act_123",
+  "name": "Product variants - July",
+  "pageId": "1234567890",
+  "objectStorySpec": {
+    "page_id": "1234567890",
+    "asset_feed_spec": {
+      "bodies": [
+        { "text": "Primary text A" },
+        { "text": "Primary text B" }
+      ],
+      "titles": [
+        { "text": "Headline A" },
+        { "text": "Headline B" }
+      ],
+      "link_urls": [
+        { "website_url": "https://example.com/product" }
+      ]
+    }
+  }
+}
+```
+
+For this mode, `link`, `message`, and `headline` are optional. `bodies`, `titles`, and `link_urls` must each contain at least one valid entry. Simple creatives using `link`, `message`, and `headline` remain supported.
+
 Write tools are turned off by default for safety, so only read tools appear until you enable them. Set `ADSTREAM_ENABLE_WRITES=true` to expose the write tools above. While they are off, calling one returns a `WRITE_TOOLS_DISABLED` error that explains how to enable them, and `ads_get_capabilities` reports `writes.enabled: false`.
 
 Legacy and provider-specific tools remain available for compatibility, but new report-specific tools should be avoided. Daily reports, weekly reports, creative audits, KPI scoring, and recommendations should be implemented as AI/skill workflows over the same canonical data tools.
