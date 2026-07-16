@@ -27,6 +27,7 @@ export interface CreateAdCreativeOptions {
   threadsProfileId?: string;
   urlTags?: string;
   objectStorySpec?: Record<string, unknown>;
+  assetFeedSpec?: Record<string, unknown>;
   dedupeByName?: boolean;
   externalReference?: string;
 }
@@ -163,11 +164,12 @@ function buildCreativePayload(options: CreateAdCreativeOptions): Record<string, 
   };
 
   if (options.objectStorySpec) {
-    const { asset_feed_spec: assetFeedSpec, ...objectStorySpec } = options.objectStorySpec;
+    const { asset_feed_spec: nestedAssetFeedSpec, ...objectStorySpec } = options.objectStorySpec;
     if (typeof objectStorySpec.page_id !== 'string' || !objectStorySpec.page_id.trim()) {
       objectStorySpec.page_id = options.pageId.trim();
     }
     payload.object_story_spec = objectStorySpec;
+    const assetFeedSpec = options.assetFeedSpec ?? nestedAssetFeedSpec;
     if (assetFeedSpec !== undefined) {
       payload.asset_feed_spec = assetFeedSpec;
     }

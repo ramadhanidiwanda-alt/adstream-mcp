@@ -58,7 +58,7 @@ All write tools use dry-run by default. Set `dryRun=false` + `confirmed=true` to
 
 ### Dynamic Creative with multiple texts and headlines
 
-`ads_create_adcreative` also accepts `objectStorySpec` for Meta Dynamic Creative. Keep `pageId` at the top level, then put the Dynamic Creative variants in `objectStorySpec.asset_feed_spec`. The MCP server forwards `asset_feed_spec` as Meta's top-level creative field, so none of the variants are removed.
+`ads_create_adcreative` accepts the official Meta Dynamic Creative shape: `objectStorySpec` and `assetFeedSpec` are separate MCP inputs. The server sends them as Meta's separate `object_story_spec` and `asset_feed_spec` fields, so none of the variants are removed.
 
 ```json
 {
@@ -66,25 +66,30 @@ All write tools use dry-run by default. Set `dryRun=false` + `confirmed=true` to
   "name": "Product variants - July",
   "pageId": "1234567890",
   "objectStorySpec": {
-    "page_id": "1234567890",
-    "asset_feed_spec": {
-      "bodies": [
-        { "text": "Primary text A" },
-        { "text": "Primary text B" }
-      ],
-      "titles": [
-        { "text": "Headline A" },
-        { "text": "Headline B" }
-      ],
-      "link_urls": [
-        { "website_url": "https://example.com/product" }
-      ]
-    }
+    "page_id": "1234567890"
+  },
+  "assetFeedSpec": {
+    "ad_formats": ["AUTOMATIC_FORMAT"],
+    "bodies": [
+      { "text": "Primary text A" },
+      { "text": "Primary text B" }
+    ],
+    "titles": [
+      { "text": "Headline A" },
+      { "text": "Headline B" }
+    ],
+    "images": [
+      { "hash": "<uploaded_image_hash>" }
+    ],
+    "link_urls": [
+      { "website_url": "https://example.com/product" }
+    ],
+    "call_to_action_types": ["LEARN_MORE"]
   }
 }
 ```
 
-For this mode, `link`, `message`, and `headline` are optional. `bodies`, `titles`, and `link_urls` must each contain at least one valid entry. Simple creatives using `link`, `message`, and `headline` remain supported.
+Create the corresponding ad set with `isDynamicCreative: true` before attaching this creative. For this mode, `link`, `message`, and `headline` are optional. `ad_formats`, `images`, `bodies`, `titles`, `link_urls`, and `call_to_action_types` must each contain at least one valid entry. Simple creatives using `link`, `message`, and `headline` remain supported. The previous nested `objectStorySpec.asset_feed_spec` form remains accepted for compatibility.
 
 Write tools are turned off by default for safety, so only read tools appear until you enable them. Set `ADSTREAM_ENABLE_WRITES=true` to expose the write tools above. While they are off, calling one returns a `WRITE_TOOLS_DISABLED` error that explains how to enable them, and `ads_get_capabilities` reports `writes.enabled: false`.
 

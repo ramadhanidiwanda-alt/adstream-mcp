@@ -175,6 +175,7 @@ describe('MCP server builder', () => {
     const creativeTool = response.tools.find((tool) => tool.name === 'ads_create_adcreative');
 
     expect(creativeTool?.inputSchema.properties).toHaveProperty('objectStorySpec');
+    expect(creativeTool?.inputSchema.properties).toHaveProperty('assetFeedSpec');
     expect(creativeTool?.inputSchema.required).not.toContain('message');
     expect(creativeTool?.description).toContain('Dynamic Creative');
   });
@@ -209,10 +210,49 @@ describe('MCP server builder', () => {
   it('passes every Dynamic Creative variant from MCP input to the broker', async () => {
     process.env.ADSTREAM_ENABLE_WRITES = 'true';
     const adsBroker = createBrokerStub();
+    const objectStorySpec = { page_id: 'page_123' };
+    const assetFeedSpec = {
+      ad_formats: ['AUTOMATIC_FORMAT'],
+      bodies: [{ text: 'Primary text A' }, { text: 'Primary text B' }],
+      titles: [{ text: 'Headline A' }, { text: 'Headline B' }],
+      images: [{ hash: 'image_hash_1' }],
+      link_urls: [{ website_url: 'https://example.com/product' }],
+      call_to_action_types: ['LEARN_MORE'],
+    };
+    const { client, server } = await createConnectedClient({
+      config: { adAccountId: 'act_123' },
+      adsBroker,
+    });
+
+    try {
+      const response = await client.callTool({
+        name: 'ads_create_adcreative',
+        arguments: {
+          accountId: 'act_123',
+          name: 'Complete Dynamic Creative',
+          pageId: 'page_123',
+          objectStorySpec,
+          assetFeedSpec,
+        },
+      });
+
+      expect(response.isError).not.toBe(true);
+      expect(adsBroker.createAdCreative).toHaveBeenCalledWith(expect.objectContaining({
+        params: expect.objectContaining({ objectStorySpec, assetFeedSpec }),
+      }));
+    } finally {
+      await Promise.all([client.close(), server.close()]);
+    }
+  });
+
+  it('continues to accept the legacy nested Dynamic Creative asset feed', async () => {
+    process.env.ADSTREAM_ENABLE_WRITES = 'true';
+    const adsBroker = createBrokerStub();
     const objectStorySpec = {
+      page_id: 'page_123',
       asset_feed_spec: {
-        bodies: [{ text: 'Primary text A' }, { text: 'Primary text B' }],
-        titles: [{ text: 'Headline A' }, { text: 'Headline B' }],
+        bodies: [{ text: 'Primary text A' }],
+        titles: [{ text: 'Headline A' }],
         link_urls: [{ website_url: 'https://example.com/product' }],
       },
     };
@@ -226,7 +266,7 @@ describe('MCP server builder', () => {
         name: 'ads_create_adcreative',
         arguments: {
           accountId: 'act_123',
-          name: 'Complete Dynamic Creative',
+          name: 'Legacy Dynamic Creative',
           pageId: 'page_123',
           objectStorySpec,
         },

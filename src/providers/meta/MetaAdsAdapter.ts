@@ -928,7 +928,22 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       const objectStorySpec = isRecord(request.params.objectStorySpec)
         ? request.params.objectStorySpec
         : undefined;
+      const assetFeedSpec = isRecord(request.params.assetFeedSpec)
+        ? request.params.assetFeedSpec
+        : undefined;
       const ctaType = typeof request.params.callToActionType === 'string' ? request.params.callToActionType : 'SHOP_NOW';
+
+      if (assetFeedSpec && !objectStorySpec) {
+        return {
+          ok: false,
+          provider: 'meta',
+          errors: [{
+            provider: 'meta',
+            code: 'INVALID_DYNAMIC_CREATIVE_PAYLOAD',
+            message: 'assetFeedSpec requires objectStorySpec with the Meta Page identity for a Dynamic Creative.',
+          }],
+        };
+      }
 
       if (!objectStorySpec && (!link || !message)) {
         return {
@@ -951,7 +966,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       } : undefined;
 
       const result = await this.tools.createAdCreative(client, {
-        adAccountId, name, pageId, linkData, objectStorySpec,
+        adAccountId, name, pageId, linkData, objectStorySpec, assetFeedSpec,
         imageHash: typeof request.params.imageHash === 'string' ? request.params.imageHash : undefined,
         instagramUserId: typeof request.params.instagramUserId === 'string' ? request.params.instagramUserId : undefined,
         threadsProfileId: typeof request.params.threadsProfileId === 'string' ? request.params.threadsProfileId : undefined,
