@@ -41,6 +41,7 @@ export function formatStructuredMetaWriteError(error: unknown): StructuredMutati
 }
 
 function mapMetaErrorCode(error: MetaApiError): string {
+  if (hasApplicationCapabilityError(error)) return 'META_APPLICATION_CAPABILITY_UNAVAILABLE';
   if (error.code === 190) return 'TOKEN_EXPIRED_OR_INVALID';
   if (error.code === 200 || error.code === 10) return 'MISSING_PERMISSION';
   if (error.code === 100) return 'INVALID_PARAMETER';
@@ -50,6 +51,9 @@ function mapMetaErrorCode(error: MetaApiError): string {
 
 function getActionableFix(error: MetaApiError, message: string): string {
   const text = `${error.userTitle ?? ''} ${error.userMessage ?? ''} ${message}`.toLowerCase();
+  if (hasApplicationCapabilityError(error)) {
+    return 'This Meta app or token is not enabled for this API capability. Verify the app’s Marketing API access and request the required Meta capability; changing the MCP payload alone cannot bypass this restriction.';
+  }
   if (error.code === 190) return 'Reconnect the provider account and ensure the token is not expired.';
   if (error.code === 200 || error.code === 10) return 'Reconnect the account with the required Meta Ads permission and verify account access.';
   if (text.includes('page')) return 'Verify the Page ID or identity is accessible to the connected ad account.';
@@ -58,4 +62,8 @@ function getActionableFix(error: MetaApiError, message: string): string {
   if (text.includes('duplicate')) return 'Use a unique name or retry with an idempotency/deduplication key when supported.';
   if (error.code === 4 || error.code === 17 || error.code === 613) return 'Retry later or reduce request rate for this provider account.';
   return 'Review the provider error details, fix the highlighted input, and retry the dry-run before executing.';
+}
+
+function hasApplicationCapabilityError(error: MetaApiError): boolean {
+  return error.code === 3 && /application does not have (the )?capability/i.test(error.message);
 }

@@ -578,6 +578,28 @@ describe('MetaAdsAdapter', () => {
     });
   });
 
+  it('explains that official assetFeedSpec requires objectStorySpec', async () => {
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+    });
+
+    const response = await adapter.createAdCreative({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {
+        name: 'Incomplete Dynamic Creative',
+        pageId: 'page_123',
+        assetFeedSpec: { ad_formats: ['AUTOMATIC_FORMAT'] },
+      },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    });
+
+    expect(response.errors?.[0]).toMatchObject({
+      code: 'INVALID_DYNAMIC_CREATIVE_PAYLOAD',
+      message: expect.stringContaining('objectStorySpec'),
+    });
+  });
+
   it('normalizes ad set targeting to camelCase and defaults advantage_audience', async () => {
     let receivedOptions: Record<string, unknown> | undefined;
     const adapter = new MetaAdsAdapter({

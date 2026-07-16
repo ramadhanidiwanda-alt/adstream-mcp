@@ -197,16 +197,25 @@ const createAdSetInputSchema = {
   confirmed: z.boolean().optional().describe('Must be true to execute after preview.'),
 };
 
-const dynamicCreativeAssetFeedSpecSchema = z.object({
+const legacyDynamicCreativeAssetFeedSpecSchema = z.object({
   bodies: z.array(z.object({ text: z.string().min(1) }).passthrough()).min(1),
   titles: z.array(z.object({ text: z.string().min(1) }).passthrough()).min(1),
   link_urls: z.array(z.object({ website_url: z.string().url() }).passthrough()).min(1),
 }).passthrough();
 
+const dynamicCreativeAssetFeedSpecSchema = z.object({
+  ad_formats: z.array(z.literal('AUTOMATIC_FORMAT')).min(1),
+  bodies: z.array(z.object({ text: z.string().min(1) }).passthrough()).min(1),
+  titles: z.array(z.object({ text: z.string().min(1) }).passthrough()).min(1),
+  images: z.array(z.object({ hash: z.string().min(1) }).passthrough()).min(1),
+  link_urls: z.array(z.object({ website_url: z.string().url() }).passthrough()).min(1),
+  call_to_action_types: z.array(z.string().min(1)).min(1),
+}).passthrough();
+
 const objectStorySpecInputSchema = z.object({
-  asset_feed_spec: dynamicCreativeAssetFeedSpecSchema.optional(),
+  asset_feed_spec: legacyDynamicCreativeAssetFeedSpecSchema.optional(),
 }).passthrough().describe(
-  'Meta object_story_spec. For Dynamic Creative, include asset_feed_spec with non-empty bodies[], titles[], and link_urls[]. asset_feed_spec is sent to Meta as the top-level creative field.'
+  'Meta object_story_spec. Legacy Dynamic Creative input may include asset_feed_spec here; prefer the top-level assetFeedSpec input.'
 );
 
 const createAdCreativeInputSchema = {
@@ -224,6 +233,7 @@ const createAdCreativeInputSchema = {
   instagramUserId: z.string().optional().describe('Instagram user ID for IG posting.'),
   threadsProfileId: z.string().optional().describe('Threads profile ID for Threads posting.'),
   objectStorySpec: objectStorySpecInputSchema.optional(),
+  assetFeedSpec: dynamicCreativeAssetFeedSpecSchema.optional().describe('Official Meta asset_feed_spec for Dynamic Creative. Requires ad_formats, images, bodies, titles, link_urls, and call_to_action_types.'),
   dedupeByName: z.boolean().optional().describe('Check for an existing creative with the same name before creating.'),
   externalReference: z.string().optional().describe('Caller-provided reference for duplicate prevention and audit correlation.'),
   dryRun: z.boolean().optional().describe('Defaults to true. Set false only after preview.'),

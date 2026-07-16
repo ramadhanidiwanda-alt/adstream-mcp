@@ -56,4 +56,17 @@ describe('formatMetaWriteError', () => {
       actionableFix: 'Retry the request. If the issue persists, inspect server logs without exposing credentials.',
     });
   });
+
+  it('explains when Meta blocks a Dynamic Creative request at the application capability layer', () => {
+    const error = new MetaApiError({
+      message: 'Application does not have the capability to make this API call.',
+      type: 'OAuthException',
+      code: 3,
+    });
+
+    expect(formatStructuredMetaWriteError(error)).toMatchObject({
+      code: 'META_APPLICATION_CAPABILITY_UNAVAILABLE',
+      actionableFix: expect.stringContaining('Meta app'),
+    });
+  });
 });
