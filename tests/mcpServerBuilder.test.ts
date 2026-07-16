@@ -63,6 +63,7 @@ function useRemoteBrokerEnv() {
 function createBrokerStub(): AdsBroker {
   return {
     listAccounts: vi.fn(async () => ({ ok: true, provider: 'meta', data: [] })),
+    createAdCreative: vi.fn(async () => ({ ok: true, provider: 'meta', data: { status: 'dry_run' } })),
     getCampaignPerformance: async () => ({ ok: true, provider: 'meta', data: [] }),
     getAdsetOrAdgroupPerformance: async () => ({ ok: true, provider: 'meta', data: [] }),
     getAdPerformance: async () => ({ ok: true, provider: 'meta', data: [] }),
@@ -166,6 +167,78 @@ describe('MCP server builder', () => {
     expect(names).toEqual(
       expect.arrayContaining(ADS_MCP_TOOL_DEFINITIONS.map((tool) => tool.name))
     );
+  });
+
+  it('documents objectStorySpec for Dynamic Creative payloads', async () => {
+    process.env.ADSTREAM_ENABLE_WRITES = 'true';
+    const response = await listRegisteredTools();
+    const creativeTool = response.tools.find((tool) => tool.name === 'ads_create_adcreative');
+
+    expect(creativeTool?.inputSchema.properties).toHaveProperty('objectStorySpec');
+    expect(creativeTool?.inputSchema.required).not.toContain('message');
+    expect(creativeTool?.description).toContain('Dynamic Creative');
+  });
+
+  it('rejects a Dynamic Creative payload without headline variants', async () => {
+    process.env.ADSTREAM_ENABLE_WRITES = 'true';
+    const { client, server } = await createConnectedClient();
+
+    try {
+      const response = await client.callTool({
+        name: 'ads_create_adcreative',
+        arguments: {
+          accountId: 'act_123',
+          name: 'Incomplete Dynamic Creative',
+          pageId: 'page_123',
+          objectStorySpec: {
+            asset_feed_spec: {
+              bodies: [{ text: 'Primary text' }],
+              link_urls: [{ website_url: 'https://example.com/product' }],
+            },
+          },
+        },
+      });
+
+      expect(response.isError).toBe(true);
+      expect(response.content[0]?.text).toMatch(/titles/i);
+    } finally {
+      await Promise.all([client.close(), server.close()]);
+    }
+  });
+
+  it('passes every Dynamic Creative variant from MCP input to the broker', async () => {
+    process.env.ADSTREAM_ENABLE_WRITES = 'true';
+    const adsBroker = createBrokerStub();
+    const objectStorySpec = {
+      asset_feed_spec: {
+        bodies: [{ text: 'Primary text A' }, { text: 'Primary text B' }],
+        titles: [{ text: 'Headline A' }, { text: 'Headline B' }],
+        link_urls: [{ website_url: 'https://example.com/product' }],
+      },
+    };
+    const { client, server } = await createConnectedClient({
+      config: { adAccountId: 'act_123' },
+      adsBroker,
+    });
+
+    try {
+      const response = await client.callTool({
+        name: 'ads_create_adcreative',
+        arguments: {
+          accountId: 'act_123',
+          name: 'Complete Dynamic Creative',
+          pageId: 'page_123',
+          objectStorySpec,
+        },
+      });
+
+      expect(response.isError).not.toBe(true);
+      expect(adsBroker.createAdCreative).toHaveBeenCalledWith(expect.objectContaining({
+        params: expect.objectContaining({ objectStorySpec }),
+      }));
+    } finally {
+      await Promise.all([client.close(), server.close()]);
+    }
   });
 
   it('starts in remote mode without legacy Meta env', async () => {

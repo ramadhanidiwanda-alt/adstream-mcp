@@ -197,13 +197,25 @@ const createAdSetInputSchema = {
   confirmed: z.boolean().optional().describe('Must be true to execute after preview.'),
 };
 
+const dynamicCreativeAssetFeedSpecSchema = z.object({
+  bodies: z.array(z.object({ text: z.string().min(1) }).passthrough()).min(1),
+  titles: z.array(z.object({ text: z.string().min(1) }).passthrough()).min(1),
+  link_urls: z.array(z.object({ website_url: z.string().url() }).passthrough()).min(1),
+}).passthrough();
+
+const objectStorySpecInputSchema = z.object({
+  asset_feed_spec: dynamicCreativeAssetFeedSpecSchema.optional(),
+}).passthrough().describe(
+  'Meta object_story_spec. For Dynamic Creative, include asset_feed_spec with non-empty bodies[], titles[], and link_urls[]. asset_feed_spec is sent to Meta as the top-level creative field.'
+);
+
 const createAdCreativeInputSchema = {
   ...adsBaseInputSchema,
   accountId: z.string().describe('Provider account id. Required for creative creation.'),
   name: z.string().describe('Creative name.'),
   pageId: z.string().describe('Meta Page ID used in object_story_spec.'),
   link: z.string().optional().describe('Destination URL for the link ad.'),
-  message: z.string().describe('Primary ad text (message).'),
+  message: z.string().optional().describe('Primary ad text (message). Required with link unless objectStorySpec is provided.'),
   headline: z.string().optional().describe('Ad headline.'),
   description: z.string().optional().describe('Optional ad description.'),
   imageHash: z.string().optional().describe('Uploaded Meta image hash.'),
@@ -211,6 +223,7 @@ const createAdCreativeInputSchema = {
   callToActionType: z.enum(['SHOP_NOW', 'LEARN_MORE', 'SIGN_UP', 'GET_OFFER', 'BOOK_NOW', 'DOWNLOAD', 'CONTACT_US', 'SUBSCRIBE', 'INSTALL_APP']).optional().describe('Call to action button type.'),
   instagramUserId: z.string().optional().describe('Instagram user ID for IG posting.'),
   threadsProfileId: z.string().optional().describe('Threads profile ID for Threads posting.'),
+  objectStorySpec: objectStorySpecInputSchema.optional(),
   dedupeByName: z.boolean().optional().describe('Check for an existing creative with the same name before creating.'),
   externalReference: z.string().optional().describe('Caller-provided reference for duplicate prevention and audit correlation.'),
   dryRun: z.boolean().optional().describe('Defaults to true. Set false only after preview.'),

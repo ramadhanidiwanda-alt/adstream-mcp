@@ -925,7 +925,22 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       const link = typeof request.params.link === 'string' ? request.params.link : undefined;
       const message = typeof request.params.message === 'string' ? request.params.message : undefined;
       const headline = typeof request.params.headline === 'string' ? request.params.headline : undefined;
+      const objectStorySpec = isRecord(request.params.objectStorySpec)
+        ? request.params.objectStorySpec
+        : undefined;
       const ctaType = typeof request.params.callToActionType === 'string' ? request.params.callToActionType : 'SHOP_NOW';
+
+      if (!objectStorySpec && (!link || !message)) {
+        return {
+          ok: false,
+          provider: 'meta',
+          errors: [{
+            provider: 'meta',
+            code: 'MISSING_CREATIVE_CONTENT',
+            message: 'Provide link and message for a simple creative, or objectStorySpec for a custom or Dynamic Creative payload.',
+          }],
+        };
+      }
 
       const linkData = link && message ? {
         link, message,
@@ -936,7 +951,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       } : undefined;
 
       const result = await this.tools.createAdCreative(client, {
-        adAccountId, name, pageId, linkData,
+        adAccountId, name, pageId, linkData, objectStorySpec,
         imageHash: typeof request.params.imageHash === 'string' ? request.params.imageHash : undefined,
         instagramUserId: typeof request.params.instagramUserId === 'string' ? request.params.instagramUserId : undefined,
         threadsProfileId: typeof request.params.threadsProfileId === 'string' ? request.params.threadsProfileId : undefined,
@@ -1605,6 +1620,10 @@ function parseIdParam(value: unknown): string | string[] | undefined {
   if (typeof value === 'string') return value;
   if (Array.isArray(value) && value.every((item) => typeof item === 'string')) return value;
   return undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function inferMetaCreativeType(creative: MetaCreativeRecord): string | undefined {

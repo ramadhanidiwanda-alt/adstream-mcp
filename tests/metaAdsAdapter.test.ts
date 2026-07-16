@@ -542,6 +542,42 @@ describe('MetaAdsAdapter', () => {
     expect(JSON.stringify(response)).not.toContain('secret-token');
   });
 
+  it('passes a Dynamic Creative objectStorySpec unchanged to the creative tool', async () => {
+    let receivedOptions: Record<string, unknown> | undefined;
+    const objectStorySpec = {
+      page_id: 'page_123',
+      asset_feed_spec: {
+        bodies: [{ text: 'Text 1' }, { text: 'Text 2' }],
+        titles: [{ text: 'Title 1' }, { text: 'Title 2' }],
+        link_urls: [{ website_url: 'https://example.com/product' }],
+      },
+    };
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        createAdCreative: async (_client, options) => {
+          receivedOptions = options as unknown as Record<string, unknown>;
+          return { operation: 'create_adcreative', status: 'dry_run', executed: false, preview: {} };
+        },
+      },
+    });
+
+    const response = await adapter.createAdCreative({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: { name: 'Dynamic Creative', pageId: 'page_123', objectStorySpec },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    });
+
+    expect(response.ok).toBe(true);
+    expect(receivedOptions).toMatchObject({
+      adAccountId: 'act_123',
+      name: 'Dynamic Creative',
+      pageId: 'page_123',
+      objectStorySpec,
+    });
+  });
+
   it('normalizes ad set targeting to camelCase and defaults advantage_audience', async () => {
     let receivedOptions: Record<string, unknown> | undefined;
     const adapter = new MetaAdsAdapter({
