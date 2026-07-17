@@ -261,7 +261,7 @@ describe('MetaAdsAdapter', () => {
       },
     });
 
-    expect(capturedPath).toBe('/act_act_123/adcreatives');
+    expect(capturedPath).toBe('/act_123/adcreatives');
     expect(capturedParams).toMatchObject({ limit: 25, after: 'prev_cursor' });
     for (const field of [
       'status',
@@ -332,6 +332,91 @@ describe('MetaAdsAdapter', () => {
 
     expect(capturedParams?.fields).not.toContain('media_sourcing_spec');
     expect(response.data?.[0]?.creative?.setup_compliance?.related_media.status).toBe('UNKNOWN');
+  });
+
+  it('audits active ads with their ad set placement targeting', async () => {
+    let capturedPath: string | undefined;
+    let capturedParams: Record<string, unknown> | undefined;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: () => ({
+        metaGet: async (path: string, params: Record<string, unknown>) => {
+          capturedPath = path;
+          capturedParams = params;
+          return {
+            data: [
+              {
+                id: 'ad_1',
+                name: 'Active Ad',
+                status: 'ACTIVE',
+                effective_status: 'ACTIVE',
+                adset: {
+                  id: 'adset_1',
+                  name: 'Main Ad Set',
+                  targeting: {
+                    publisher_platforms: ['facebook', 'instagram'],
+                    facebook_positions: ['feed', 'facebook_reels'],
+                    instagram_positions: ['stream', 'reels'],
+                  },
+                },
+                creative: {
+                  id: 'creative_1',
+                  name: 'Hero Creative',
+                  degrees_of_freedom_spec: {
+                    creative_features_spec: {
+                      standard_enhancements: { enroll_status: 'OPT_OUT' },
+                    },
+                  },
+                },
+              },
+            ],
+            paging: { cursors: { after: 'next_active_ad' } },
+          };
+        },
+      }) as never,
+    });
+
+    const response = await adapter.getCreativePerformance({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: { complianceAudit: true, limit: 10 },
+      credentials: {
+        provider: 'meta',
+        accessToken: 'secret-token',
+        accountId: 'act_123',
+        apiVersion: 'v23.0',
+        source: 'test',
+      },
+    });
+
+    expect(capturedPath).toBe('/act_123/ads');
+    expect(capturedParams).toMatchObject({
+      limit: 10,
+      fields: expect.stringContaining('adset{id,name,targeting}'),
+      filtering: expect.stringContaining('ACTIVE'),
+    });
+    expect(response.data?.[0]).toMatchObject({
+      identity: {
+        ad_id: 'ad_1',
+        ad_name: 'Active Ad',
+        adset_or_adgroup_id: 'adset_1',
+        adset_or_adgroup_name: 'Main Ad Set',
+        creative_id: 'creative_1',
+      },
+      setup: { status: 'ACTIVE', effective_status: 'ACTIVE' },
+      creative: {
+        setup_compliance: {
+          ai_creative: { status: 'PASS' },
+          related_media: { status: 'PASS' },
+          placement_customization: {
+            status: 'FAIL',
+            feed: 'FAIL',
+            reels: 'FAIL',
+            story: 'NOT_APPLICABLE',
+          },
+        },
+      },
+    });
+    expect(response.meta).toMatchObject({ nextCursor: 'next_active_ad' });
   });
 
   it('enables CPAS mode as Meta campaign performance parameters', async () => {
@@ -465,8 +550,8 @@ describe('MetaAdsAdapter', () => {
         call_to_action: 'SHOP_NOW',
         destination_url: 'https://example.test/product',
         setup_compliance: {
-          ai_creative: { status: 'UNKNOWN' },
-          related_media: { status: 'UNKNOWN' },
+          ai_creative: { status: 'NOT_APPLICABLE' },
+          related_media: { status: 'PASS' },
           placement_customization: {
             status: 'UNKNOWN',
             preview_required: true,

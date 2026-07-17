@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { evaluateMetaCreativeCompliance } from '../src/providers/meta/creativeCompliance.js';
+import {
+  deriveMetaActivePlacements,
+  evaluateMetaCreativeCompliance,
+} from '../src/providers/meta/creativeCompliance.js';
 
 const completePlacementSpec = {
   images: [
@@ -27,6 +30,26 @@ const completePlacementSpec = {
 };
 
 describe('evaluateMetaCreativeCompliance', () => {
+  it('treats omitted placement targeting as Meta automatic placements', () => {
+    expect(deriveMetaActivePlacements({})).toEqual({
+      feed: true,
+      reels: true,
+      story: true,
+    });
+  });
+
+  it('treats omitted positions on an enabled platform as automatic positions', () => {
+    expect(
+      deriveMetaActivePlacements({
+        publisher_platforms: ['facebook', 'instagram'],
+      })
+    ).toEqual({
+      feed: true,
+      reels: true,
+      story: true,
+    });
+  });
+
   it('passes explicit AI opt-outs, empty related media, and all placement families', () => {
     const result = evaluateMetaCreativeCompliance({
       degrees_of_freedom_spec: {
@@ -77,6 +100,88 @@ describe('evaluateMetaCreativeCompliance', () => {
       feed: 'UNKNOWN',
       reels: 'UNKNOWN',
       story: 'UNKNOWN',
+      preview_required: true,
+    });
+  });
+
+  it('uses requested-field evidence to classify omitted AI and related-media settings', () => {
+    const result = evaluateMetaCreativeCompliance({
+      requested_fields: {
+        degrees_of_freedom_spec: true,
+        media_sourcing_spec: true,
+        asset_feed_spec: true,
+      },
+    });
+
+    expect(result.ai_creative.status).toBe('NOT_APPLICABLE');
+    expect(result.related_media.status).toBe('PASS');
+  });
+
+  it('fails active placements without explicit customized media and skips inactive placements', () => {
+    const result = evaluateMetaCreativeCompliance({
+      requested_fields: {
+        degrees_of_freedom_spec: true,
+        media_sourcing_spec: true,
+        asset_feed_spec: true,
+      },
+      active_placements: { feed: true, reels: true, story: false },
+    });
+
+    expect(result.placement_customization).toMatchObject({
+      status: 'FAIL',
+      feed: 'FAIL',
+      reels: 'FAIL',
+      story: 'NOT_APPLICABLE',
+    });
+  });
+
+  it('fails active placements when asset_feed_spec has no customization rules', () => {
+    const result = evaluateMetaCreativeCompliance({
+      asset_feed_spec: { images: completePlacementSpec.images },
+      requested_fields: { asset_feed_spec: true },
+      active_placements: { feed: true, reels: true, story: true },
+    });
+
+    expect(result.placement_customization).toMatchObject({
+      status: 'FAIL',
+      feed: 'FAIL',
+      reels: 'FAIL',
+      story: 'FAIL',
+    });
+  });
+
+  it('requires visual review after active placements have explicit customized media', () => {
+    const result = evaluateMetaCreativeCompliance({
+      asset_feed_spec: completePlacementSpec,
+      requested_fields: {
+        degrees_of_freedom_spec: true,
+        media_sourcing_spec: true,
+        asset_feed_spec: true,
+      },
+      active_placements: { feed: true, reels: true, story: false },
+    });
+
+    expect(result.placement_customization).toMatchObject({
+      status: 'MANUAL_REVIEW',
+      feed: 'MANUAL_REVIEW',
+      reels: 'MANUAL_REVIEW',
+      story: 'NOT_APPLICABLE',
+      preview_required: true,
+    });
+  });
+
+  it('requires visual review when Meta returns legacy placement customization evidence', () => {
+    const result = evaluateMetaCreativeCompliance({
+      platform_customizations: { instagram: { image_url: 'https://example.test/vertical.jpg' } },
+      requested_fields: { asset_feed_spec: true },
+      active_placements: { feed: true, reels: true, story: true },
+    });
+
+    expect(result.placement_customization).toMatchObject({
+      status: 'MANUAL_REVIEW',
+      feed: 'MANUAL_REVIEW',
+      reels: 'MANUAL_REVIEW',
+      story: 'MANUAL_REVIEW',
       preview_required: true,
     });
   });

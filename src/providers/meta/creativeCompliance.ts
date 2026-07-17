@@ -9,6 +9,21 @@ export interface MetaCreativeComplianceInput {
   degrees_of_freedom_spec?: unknown;
   media_sourcing_spec?: unknown;
   asset_feed_spec?: unknown;
+  platform_customizations?: unknown;
+  portrait_customizations?: unknown;
+  image_crops?: unknown;
+  requested_fields?: {
+    degrees_of_freedom_spec?: boolean;
+    media_sourcing_spec?: boolean;
+    asset_feed_spec?: boolean;
+  };
+  active_placements?: MetaActivePlacements;
+}
+
+export interface MetaActivePlacements {
+  feed?: boolean;
+  reels?: boolean;
+  story?: boolean;
 }
 
 type UnknownRecord = Record<string, unknown>;
@@ -57,20 +72,83 @@ export function evaluateMetaCreativeCompliance(
   input: MetaCreativeComplianceInput
 ): AdsCreativeSetupCompliance {
   return {
-    ai_creative: evaluateAiCreative(input.degrees_of_freedom_spec),
-    related_media: evaluateRelatedMedia(input.media_sourcing_spec),
-    placement_customization: evaluatePlacementCustomization(input.asset_feed_spec),
+    ai_creative: evaluateAiCreative(
+      input.degrees_of_freedom_spec,
+      input.requested_fields?.degrees_of_freedom_spec === true
+    ),
+    related_media: evaluateRelatedMedia(
+      input.media_sourcing_spec,
+      input.requested_fields?.media_sourcing_spec === true
+    ),
+    placement_customization: evaluatePlacementCustomization(
+      input.asset_feed_spec,
+      input.active_placements,
+      input.requested_fields?.asset_feed_spec === true,
+      hasAlternativePlacementCustomization(input)
+    ),
   };
 }
 
+export function deriveMetaActivePlacements(targeting: unknown): MetaActivePlacements {
+  if (!isRecord(targeting)) return {};
+  if (targeting.publisher_platforms === undefined) {
+    return { feed: true, reels: true, story: true };
+  }
+  if (!Array.isArray(targeting.publisher_platforms)) return {};
+
+  const publishers = new Set(
+    targeting.publisher_platforms.filter(
+      (publisher): publisher is string => typeof publisher === 'string'
+    )
+  );
+
+  return Object.fromEntries(
+    PLACEMENT_FAMILIES.map((family) => {
+      let active = false;
+      let uncertain = false;
+
+      for (const [publisher, field, acceptedPositions] of [
+        ['facebook', 'facebook_positions', FACEBOOK_POSITIONS],
+        ['instagram', 'instagram_positions', INSTAGRAM_POSITIONS],
+      ] as const) {
+        if (!publishers.has(publisher)) continue;
+        const positions = targeting[field];
+        if (positions === undefined) {
+          active = true;
+          continue;
+        }
+        if (!Array.isArray(positions)) {
+          uncertain = true;
+          continue;
+        }
+        if (
+          positions.some(
+            (position) =>
+              typeof position === 'string' && acceptedPositions[family].has(position.toLowerCase())
+          )
+        ) {
+          active = true;
+        }
+      }
+
+      return [family, active ? true : uncertain ? undefined : false];
+    })
+  );
+}
+
 function evaluateAiCreative(
-  degreesOfFreedomSpec: unknown
+  degreesOfFreedomSpec: unknown,
+  fieldRequested: boolean
 ): AdsCreativeSetupCompliance['ai_creative'] {
   if (!isRecord(degreesOfFreedomSpec)) {
     return {
-      status: 'UNKNOWN',
+      status: fieldRequested ? 'NOT_APPLICABLE' : 'UNKNOWN',
       enabled_features: [],
-      reasons: ['Meta did not return degrees_of_freedom_spec.'],
+      reasons: [
+        fieldRequested
+          ? 'Meta returned no AI creative configuration for this creative.'
+          : 'Meta did not return degrees_of_freedom_spec.',
+      ],
     };
   }
 
@@ -123,11 +201,18 @@ function evaluateAiCreative(
   };
 }
 
-function evaluateRelatedMedia(mediaSourcingSpec: unknown): AdsComplianceCheck {
+function evaluateRelatedMedia(
+  mediaSourcingSpec: unknown,
+  fieldRequested: boolean
+): AdsComplianceCheck {
   if (!isRecord(mediaSourcingSpec)) {
     return {
-      status: 'UNKNOWN',
-      reasons: ['Meta did not return media_sourcing_spec.'],
+      status: fieldRequested ? 'PASS' : 'UNKNOWN',
+      reasons: [
+        fieldRequested
+          ? 'Meta returned no media sourcing configuration, so no related media is configured.'
+          : 'Meta did not return media_sourcing_spec.',
+      ],
     };
   }
 
@@ -164,7 +249,10 @@ function evaluateRelatedMedia(mediaSourcingSpec: unknown): AdsComplianceCheck {
 }
 
 function evaluatePlacementCustomization(
-  assetFeedSpec: unknown
+  assetFeedSpec: unknown,
+  activePlacements: MetaActivePlacements | undefined,
+  fieldRequested: boolean,
+  hasAlternativeCustomization: boolean
 ): AdsPlacementCustomizationCompliance {
   const unknownResult: AdsPlacementCustomizationCompliance = {
     status: 'UNKNOWN',
@@ -175,20 +263,48 @@ function evaluatePlacementCustomization(
     preview_required: true,
   };
 
-  if (!isRecord(assetFeedSpec)) return unknownResult;
+  if (!isRecord(assetFeedSpec)) {
+    return activePlacements
+      ? applyActivePlacementEvidence(
+          unknownResult,
+          activePlacements,
+          fieldRequested,
+          true,
+          hasAlternativeCustomization
+        )
+      : unknownResult;
+  }
 
   const customizationRules = assetFeedSpec.asset_customization_rules;
   if (customizationRules === undefined) {
-    return {
+    const result = {
       ...unknownResult,
       reasons: ['Meta did not return asset customization rules.'],
     };
+    return activePlacements
+      ? applyActivePlacementEvidence(
+          result,
+          activePlacements,
+          fieldRequested,
+          true,
+          hasAlternativeCustomization
+        )
+      : result;
   }
   if (!Array.isArray(customizationRules)) {
-    return {
+    const result = {
       ...unknownResult,
       reasons: ['Meta returned asset customization rules in an unrecognized format.'],
     };
+    return activePlacements
+      ? applyActivePlacementEvidence(
+          result,
+          activePlacements,
+          fieldRequested,
+          false,
+          hasAlternativeCustomization
+        )
+      : result;
   }
 
   const assetLabels = collectAssetLabels(assetFeedSpec);
@@ -267,7 +383,7 @@ function evaluatePlacementCustomization(
   const status = aggregatePlacementStatus(statuses);
   const uncoveredFamilies = PLACEMENT_FAMILIES.filter((family) => !coveredFamilies.has(family));
 
-  return {
+  const result: AdsPlacementCustomizationCompliance = {
     status,
     feed,
     reels,
@@ -282,6 +398,72 @@ function evaluatePlacementCustomization(
           : [`Missing explicit labeled asset rules for: ${uncoveredFamilies.join(', ')}.`],
     preview_required: true,
   };
+
+  return activePlacements
+    ? applyActivePlacementEvidence(
+        result,
+        activePlacements,
+        fieldRequested,
+        false,
+        hasAlternativeCustomization
+      )
+    : result;
+}
+
+function applyActivePlacementEvidence(
+  configuration: AdsPlacementCustomizationCompliance,
+  activePlacements: MetaActivePlacements,
+  fieldRequested: boolean,
+  missingConfiguration = false,
+  hasAlternativeCustomization = false
+): AdsPlacementCustomizationCompliance {
+  const statuses = Object.fromEntries(
+    PLACEMENT_FAMILIES.map((family) => {
+      const isActive = activePlacements[family];
+      if (isActive === false) return [family, 'NOT_APPLICABLE'];
+      if (isActive === undefined) return [family, 'UNKNOWN'];
+
+      const configuredStatus = configuration[family];
+      if (configuredStatus === 'PASS') return [family, 'MANUAL_REVIEW'];
+      if (configuredStatus === 'UNKNOWN' && hasAlternativeCustomization) {
+        return [family, 'MANUAL_REVIEW'];
+      }
+      if (configuredStatus === 'UNKNOWN' && fieldRequested && missingConfiguration) {
+        return [family, 'FAIL'];
+      }
+      return [family, configuredStatus];
+    })
+  ) as Record<PlacementFamily, AdsComplianceStatus>;
+
+  const status = aggregateActivePlacementStatus(
+    PLACEMENT_FAMILIES.map((family) => statuses[family])
+  );
+
+  return {
+    ...configuration,
+    status,
+    feed: statuses.feed,
+    reels: statuses.reels,
+    story: statuses.story,
+    reasons:
+      status === 'FAIL'
+        ? ['An active placement has no explicit customized media rule.']
+        : status === 'MANUAL_REVIEW'
+          ? [
+              'Customized media is configured; review placement previews to confirm there is no crop.',
+            ]
+          : status === 'NOT_APPLICABLE'
+            ? ['Feed, Reels, and Story are not active for this ad set.']
+            : configuration.reasons,
+  };
+}
+
+function hasAlternativePlacementCustomization(input: MetaCreativeComplianceInput): boolean {
+  return [input.platform_customizations, input.portrait_customizations, input.image_crops].some(
+    (value) =>
+      (isRecord(value) && Object.keys(value).length > 0) ||
+      (Array.isArray(value) && value.length > 0)
+  );
 }
 
 function collectAssetLabels(assetFeedSpec: UnknownRecord): {
@@ -399,6 +581,14 @@ function aggregatePlacementStatus(statuses: AdsComplianceStatus[]): AdsComplianc
   if (statuses.every((status) => status === 'PASS')) return 'PASS';
   if (statuses.some((status) => status === 'UNKNOWN')) return 'UNKNOWN';
   return 'FAIL';
+}
+
+function aggregateActivePlacementStatus(statuses: AdsComplianceStatus[]): AdsComplianceStatus {
+  if (statuses.some((status) => status === 'FAIL')) return 'FAIL';
+  if (statuses.some((status) => status === 'UNKNOWN')) return 'UNKNOWN';
+  if (statuses.some((status) => status === 'MANUAL_REVIEW')) return 'MANUAL_REVIEW';
+  if (statuses.every((status) => status === 'NOT_APPLICABLE')) return 'NOT_APPLICABLE';
+  return 'PASS';
 }
 
 function isRecord(value: unknown): value is UnknownRecord {

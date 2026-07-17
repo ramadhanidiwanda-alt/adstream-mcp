@@ -123,7 +123,12 @@ export interface AdsEngagementMetrics {
   follows?: number;
 }
 
-export type AdsComplianceStatus = 'PASS' | 'FAIL' | 'UNKNOWN';
+export type AdsComplianceStatus =
+  | 'PASS'
+  | 'FAIL'
+  | 'UNKNOWN'
+  | 'NOT_APPLICABLE'
+  | 'MANUAL_REVIEW';
 
 export interface AdsComplianceCheck {
   status: AdsComplianceStatus;

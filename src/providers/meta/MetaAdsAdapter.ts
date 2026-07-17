@@ -2,7 +2,11 @@ import { getAdCreativeMapping } from '../../tools/getAdCreativeMapping.js';
 import { getAdDestinations } from '../../tools/getAdDestinations.js';
 import type { AdCreativeMappingResult } from '../../broker/types.js';
 import { MetaClient } from '../../metaClient.js';
-import { evaluateMetaCreativeCompliance } from './creativeCompliance.js';
+import {
+  deriveMetaActivePlacements,
+  evaluateMetaCreativeCompliance,
+  type MetaActivePlacements,
+} from './creativeCompliance.js';
 import { getAdAccounts } from '../../tools/getAdAccounts.js';
 import { getAccountInsights } from '../../tools/getAccountInsights.js';
 import { getCampaigns } from '../../tools/getCampaigns.js';
@@ -66,6 +70,7 @@ import { redactErrorMessage } from '../../broker/credentials.js';
 import { assertLocationBreakdowns } from '../../utils/locationBreakdowns.js';
 import { MetaApiError } from '../../utils/metaError.js';
 import { normalizeMetaInsights } from './normalizer.js';
+import { normalizeAccountId } from '../../utils/normalizeAccountId.js';
 
 interface MetaActivityRecord {
   event_time?: string;
@@ -105,6 +110,29 @@ interface MetaCreativeRecord {
     video_data?: {
       call_to_action?: { type?: string; value?: { link?: string } };
     };
+  };
+}
+
+interface MetaActiveAdCreativeRecord {
+  id?: string;
+  name?: string;
+  status?: string;
+  effective_status?: string;
+  adset?: {
+    id?: string;
+    name?: string;
+    targeting?: unknown;
+  };
+  creative?: MetaCreativeRecord;
+}
+
+interface MetaCreativeAuditContext {
+  ad?: MetaActiveAdCreativeRecord;
+  activePlacements?: MetaActivePlacements;
+  requestedFields: {
+    degrees_of_freedom_spec: boolean;
+    media_sourcing_spec: boolean;
+    asset_feed_spec: boolean;
   };
 }
 
@@ -327,28 +355,56 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
 
     try {
       const client = this.createClient(context.credential);
-      const creativeFields = [
-        'id',
-        'name',
-        'title',
-        'body',
-        'thumbnail_url',
-        'image_url',
-        'image_hash',
-        'video_id',
-        'object_type',
-        'object_story_spec',
-        'status',
-        'degrees_of_freedom_spec',
-        'asset_feed_spec',
-        'platform_customizations',
-        'portrait_customizations',
-        'image_crops',
-      ];
-      if (supportsMediaSourcingSpec(context.credential.apiVersion)) {
-        creativeFields.push('media_sourcing_spec');
-      }
+      const mediaSourcingSupported = supportsMediaSourcingSpec(context.credential.apiVersion);
+      const creativeFields = getMetaCreativeFields(mediaSourcingSupported);
       const fields = creativeFields.join(',');
+      const auditContext: MetaCreativeAuditContext = {
+        requestedFields: {
+          degrees_of_freedom_spec: true,
+          media_sourcing_spec: mediaSourcingSupported,
+          asset_feed_spec: true,
+        },
+      };
+
+      if (request.params.complianceAudit === true && !creativeId) {
+        const effectiveStatuses = Array.isArray(request.params.effectiveStatus)
+          ? request.params.effectiveStatus.filter(
+              (status): status is string => typeof status === 'string'
+            )
+          : ['ACTIVE'];
+        const response = await client.metaGet<{
+          data: MetaActiveAdCreativeRecord[];
+          paging?: { cursors?: { after?: string } };
+        }>(`/act_${normalizeAccountId(accountId)}/ads`, {
+          fields: `id,name,status,effective_status,adset{id,name,targeting},creative{${fields}}`,
+          filtering: JSON.stringify([
+            {
+              field: 'effective_status',
+              operator: 'IN',
+              value: effectiveStatuses,
+            },
+          ]),
+          limit: typeof request.params.limit === 'number' ? request.params.limit : 100,
+          after: typeof request.params.cursor === 'string' ? request.params.cursor : undefined,
+        });
+
+        return {
+          ok: true,
+          provider: 'meta',
+          data: (response.data ?? [])
+            .filter((ad): ad is MetaActiveAdCreativeRecord & { creative: MetaCreativeRecord } =>
+              ad.creative !== undefined
+            )
+            .map((ad) =>
+              this.normalizeCreative(accountId, ad.creative, request, {
+                ...auditContext,
+                ad,
+                activePlacements: deriveMetaActivePlacements(ad.adset?.targeting),
+              })
+            ),
+          meta: { nextCursor: response.paging?.cursors?.after ?? null },
+        };
+      }
 
       if (creativeId) {
         const creative = await client.metaGetObject<MetaCreativeRecord>(`/${creativeId}`, { fields });
@@ -356,7 +412,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
         return {
           ok: true,
           provider: 'meta',
-          data: [this.normalizeCreative(accountId, creative, request)],
+          data: [this.normalizeCreative(accountId, creative, request, auditContext)],
           meta: { nextCursor: null },
         };
       }
@@ -364,7 +420,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       const response = await client.metaGet<{
         data: MetaCreativeRecord[];
         paging?: { cursors?: { after?: string } };
-      }>(`/act_${accountId}/adcreatives`, {
+      }>(`/act_${normalizeAccountId(accountId)}/adcreatives`, {
         fields,
         limit: typeof request.params.limit === 'number' ? request.params.limit : 100,
         after: typeof request.params.cursor === 'string' ? request.params.cursor : undefined,
@@ -373,7 +429,9 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       return {
         ok: true,
         provider: 'meta',
-        data: (response.data ?? []).map((creative) => this.normalizeCreative(accountId, creative, request)),
+        data: (response.data ?? []).map((creative) =>
+          this.normalizeCreative(accountId, creative, request, auditContext)
+        ),
         meta: { nextCursor: response.paging?.cursors?.after ?? null },
       };
     } catch (error) {
@@ -384,7 +442,8 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
   private normalizeCreative(
     accountId: string,
     creative: MetaCreativeRecord,
-    request: AdsBrokerRequest
+    request: AdsBrokerRequest,
+    auditContext?: MetaCreativeAuditContext
   ): AdsMetricRecord {
     const callToAction = creative.object_story_spec?.link_data?.call_to_action ?? creative.object_story_spec?.video_data?.call_to_action;
     const destinationUrl = creative.object_story_spec?.link_data?.link ?? callToAction?.value?.link;
@@ -394,6 +453,10 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       level: 'creative',
       identity: {
         account_id: accountId,
+        adset_or_adgroup_id: auditContext?.ad?.adset?.id,
+        adset_or_adgroup_name: auditContext?.ad?.adset?.name,
+        ad_id: auditContext?.ad?.id,
+        ad_name: auditContext?.ad?.name,
         creative_id: creative.id,
         creative_name: creative.name,
       },
@@ -401,6 +464,12 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
         date_start: request.since ?? '',
         date_stop: request.until ?? '',
       },
+      setup: auditContext?.ad
+        ? {
+            status: auditContext.ad.status,
+            effective_status: auditContext.ad.effective_status,
+          }
+        : undefined,
       delivery: {
         spend: 0,
         impressions: 0,
@@ -416,7 +485,11 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
         primary_text: creative.body,
         call_to_action: callToAction?.type,
         destination_url: destinationUrl,
-        setup_compliance: evaluateMetaCreativeCompliance(creative),
+        setup_compliance: evaluateMetaCreativeCompliance({
+          ...creative,
+          requested_fields: auditContext?.requestedFields,
+          active_placements: auditContext?.activePlacements,
+        }),
       },
       raw: request.params.includeRaw === true ? creative : undefined,
     };
@@ -1674,6 +1747,29 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function supportsMediaSourcingSpec(apiVersion: string | undefined): boolean {
   const match = /^v(\d+)(?:\.|$)/i.exec(apiVersion ?? 'v20.0');
   return match !== null && Number(match[1]) >= 23;
+}
+
+function getMetaCreativeFields(mediaSourcingSupported: boolean): string[] {
+  const fields = [
+    'id',
+    'name',
+    'title',
+    'body',
+    'thumbnail_url',
+    'image_url',
+    'image_hash',
+    'video_id',
+    'object_type',
+    'object_story_spec',
+    'status',
+    'degrees_of_freedom_spec',
+    'asset_feed_spec',
+    'platform_customizations',
+    'portrait_customizations',
+    'image_crops',
+  ];
+  if (mediaSourcingSupported) fields.push('media_sourcing_spec');
+  return fields;
 }
 
 function inferMetaCreativeType(creative: MetaCreativeRecord): string | undefined {
