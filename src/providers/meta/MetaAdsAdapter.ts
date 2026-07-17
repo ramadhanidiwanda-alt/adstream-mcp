@@ -2,6 +2,7 @@ import { getAdCreativeMapping } from '../../tools/getAdCreativeMapping.js';
 import { getAdDestinations } from '../../tools/getAdDestinations.js';
 import type { AdCreativeMappingResult } from '../../broker/types.js';
 import { MetaClient } from '../../metaClient.js';
+import { evaluateMetaCreativeCompliance } from './creativeCompliance.js';
 import { getAdAccounts } from '../../tools/getAdAccounts.js';
 import { getAccountInsights } from '../../tools/getAccountInsights.js';
 import { getCampaigns } from '../../tools/getCampaigns.js';
@@ -88,7 +89,14 @@ interface MetaCreativeRecord {
   image_hash?: string;
   video_id?: string;
   source?: string;
+  status?: string;
   object_type?: string;
+  degrees_of_freedom_spec?: unknown;
+  media_sourcing_spec?: unknown;
+  asset_feed_spec?: unknown;
+  platform_customizations?: unknown;
+  portrait_customizations?: unknown;
+  image_crops?: unknown;
   object_story_spec?: {
     link_data?: {
       link?: string;
@@ -319,7 +327,25 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
 
     try {
       const client = this.createClient(context.credential);
-      const fields = 'id,name,title,body,thumbnail_url,image_url,image_hash,video_id,object_type,object_story_spec';
+      const fields = [
+        'id',
+        'name',
+        'title',
+        'body',
+        'thumbnail_url',
+        'image_url',
+        'image_hash',
+        'video_id',
+        'object_type',
+        'object_story_spec',
+        'status',
+        'degrees_of_freedom_spec',
+        'media_sourcing_spec',
+        'asset_feed_spec',
+        'platform_customizations',
+        'portrait_customizations',
+        'image_crops',
+      ].join(',');
 
       if (creativeId) {
         const creative = await client.metaGetObject<MetaCreativeRecord>(`/${creativeId}`, { fields });
@@ -387,6 +413,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
         primary_text: creative.body,
         call_to_action: callToAction?.type,
         destination_url: destinationUrl,
+        setup_compliance: evaluateMetaCreativeCompliance(creative),
       },
       raw: request.params.includeRaw === true ? creative : undefined,
     };

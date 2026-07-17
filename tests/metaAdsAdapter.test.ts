@@ -202,6 +202,35 @@ describe('MetaAdsAdapter', () => {
               thumbnail_url: 'https://example.test/thumb.jpg',
               image_url: 'https://example.test/image.jpg',
               image_hash: 'hash_1',
+              degrees_of_freedom_spec: {
+                creative_features_spec: {
+                  image_auto_crop: { enroll_status: 'OPT_OUT' },
+                  text_generation: { enroll_status: 'OPT_OUT' },
+                },
+              },
+              media_sourcing_spec: { related_media: [] },
+              asset_feed_spec: {
+                images: [
+                  { hash: 'feed_hash', adlabels: [{ name: 'feed_asset' }] },
+                  { hash: 'vertical_hash', adlabels: [{ name: 'vertical_asset' }] },
+                ],
+                asset_customization_rules: [
+                  {
+                    image_label: { name: 'feed_asset' },
+                    customization_spec: {
+                      facebook_positions: ['feed'],
+                      instagram_positions: ['stream'],
+                    },
+                  },
+                  {
+                    image_label: { name: 'vertical_asset' },
+                    customization_spec: {
+                      facebook_positions: ['facebook_reels', 'story'],
+                      instagram_positions: ['reels', 'story'],
+                    },
+                  },
+                ],
+              },
               object_story_spec: {
                 link_data: {
                   link: 'https://example.test/product',
@@ -226,6 +255,15 @@ describe('MetaAdsAdapter', () => {
 
     expect(capturedPath).toBe('/act_act_123/adcreatives');
     expect(capturedParams).toMatchObject({ limit: 25, after: 'prev_cursor' });
+    expect(capturedParams).toMatchObject({
+      fields: expect.stringContaining('degrees_of_freedom_spec'),
+    });
+    expect(capturedParams).toMatchObject({
+      fields: expect.stringContaining('media_sourcing_spec'),
+    });
+    expect(capturedParams).toMatchObject({
+      fields: expect.stringContaining('asset_feed_spec'),
+    });
     expect(response.ok).toBe(true);
     expect(response.meta).toMatchObject({ nextCursor: 'creative_cursor' });
     expect(response.data?.[0]).toMatchObject({
@@ -241,6 +279,17 @@ describe('MetaAdsAdapter', () => {
         primary_text: 'Best seller this week',
         call_to_action: 'SHOP_NOW',
         destination_url: 'https://example.test/product',
+        setup_compliance: {
+          ai_creative: { status: 'PASS', enabled_features: [] },
+          related_media: { status: 'PASS' },
+          placement_customization: {
+            status: 'PASS',
+            feed: 'PASS',
+            reels: 'PASS',
+            story: 'PASS',
+            preview_required: true,
+          },
+        },
       },
       delivery: { spend: 0, impressions: 0 },
     });
@@ -346,6 +395,15 @@ describe('MetaAdsAdapter', () => {
 
     expect(capturedPath).toBe('/1031745992699354');
     expect(capturedParams).toMatchObject({ fields: expect.stringContaining('video_id') });
+    expect(capturedParams).toMatchObject({
+      fields: expect.stringContaining('degrees_of_freedom_spec'),
+    });
+    expect(capturedParams).toMatchObject({
+      fields: expect.stringContaining('media_sourcing_spec'),
+    });
+    expect(capturedParams).toMatchObject({
+      fields: expect.stringContaining('asset_feed_spec'),
+    });
     expect(response.ok).toBe(true);
     expect(response.meta).toMatchObject({ nextCursor: null });
     expect(response.data?.[0]).toMatchObject({
@@ -360,6 +418,14 @@ describe('MetaAdsAdapter', () => {
         primary_text: 'Back in stock soon',
         call_to_action: 'SHOP_NOW',
         destination_url: 'https://example.test/product',
+        setup_compliance: {
+          ai_creative: { status: 'UNKNOWN' },
+          related_media: { status: 'UNKNOWN' },
+          placement_customization: {
+            status: 'UNKNOWN',
+            preview_required: true,
+          },
+        },
       },
     });
   });
