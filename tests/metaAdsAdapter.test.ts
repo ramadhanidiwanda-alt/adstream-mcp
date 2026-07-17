@@ -49,12 +49,7 @@ describe('MetaAdsAdapter', () => {
       since: '2026-05-01',
       until: '2026-05-07',
       params: { limit: 50, cursor: 'prev_cursor' },
-      credentials: {
-        provider: 'meta',
-        accessToken: 'secret-token',
-        accountId: 'act_123',
-        source: 'test',
-      },
+      credentials: { provider: 'meta', accessToken: 'secret-token', accountId: 'act_123', source: 'test' },
     });
 
     expect(capturedPath).toBe('/act_act_123/activities');
@@ -178,7 +173,12 @@ describe('MetaAdsAdapter', () => {
       since: '2026-05-01',
       until: '2026-05-07',
       params: { cursor: 'prev_cursor' },
-      credentials: { provider: 'meta', accessToken: 'secret-token', accountId: 'act_123', source: 'test' },
+      credentials: {
+        provider: 'meta',
+        accessToken: 'secret-token',
+        accountId: 'act_123',
+        source: 'test',
+      },
     });
 
     expect(receivedOptions).toMatchObject({ cursor: 'prev_cursor' });
@@ -252,7 +252,13 @@ describe('MetaAdsAdapter', () => {
       since: '2026-05-01',
       until: '2026-05-07',
       params: { limit: 25, cursor: 'prev_cursor' },
-      credentials: { provider: 'meta', accessToken: 'secret-token', accountId: 'act_123', source: 'test' },
+      credentials: {
+        provider: 'meta',
+        accessToken: 'secret-token',
+        accountId: 'act_123',
+        apiVersion: 'v23.0',
+        source: 'test',
+      },
     });
 
     expect(capturedPath).toBe('/act_act_123/adcreatives');
@@ -298,6 +304,34 @@ describe('MetaAdsAdapter', () => {
       delivery: { spend: 0, impressions: 0 },
     });
     expect(JSON.stringify(response)).not.toContain('secret-token');
+  });
+
+  it('omits media_sourcing_spec on Meta API versions that do not support it', async () => {
+    let capturedParams: Record<string, unknown> | undefined;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: () => ({
+        metaGet: async (_path: string, params: Record<string, unknown>) => {
+          capturedParams = params;
+          return { data: [{ id: 'creative_legacy', name: 'Legacy Creative' }] };
+        },
+      }) as never,
+    });
+
+    const response = await adapter.getCreativePerformance({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {},
+      credentials: {
+        provider: 'meta',
+        accessToken: 'secret-token',
+        accountId: 'act_123',
+        apiVersion: 'v20.0',
+        source: 'test',
+      },
+    });
+
+    expect(capturedParams?.fields).not.toContain('media_sourcing_spec');
+    expect(response.data?.[0]?.creative?.setup_compliance?.related_media.status).toBe('UNKNOWN');
   });
 
   it('enables CPAS mode as Meta campaign performance parameters', async () => {
@@ -394,7 +428,13 @@ describe('MetaAdsAdapter', () => {
     const response = await adapter.getCreativePerformance({
       provider: 'meta',
       params: { creativeId: '1031745992699354' },
-      credentials: { provider: 'meta', accessToken: 'secret-token', accountId: 'act_123', source: 'test' },
+      credentials: {
+        provider: 'meta',
+        accessToken: 'secret-token',
+        accountId: 'act_123',
+        apiVersion: 'v23.0',
+        source: 'test',
+      },
     });
 
     expect(capturedPath).toBe('/1031745992699354');

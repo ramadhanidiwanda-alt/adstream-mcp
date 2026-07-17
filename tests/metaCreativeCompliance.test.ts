@@ -204,6 +204,56 @@ describe('evaluateMetaCreativeCompliance', () => {
     expect(result.placement_customization.status).toBe('UNKNOWN');
   });
 
+  it('ignores valid Messenger and Audience Network rules when audited placements are missing', () => {
+    const result = evaluateMetaCreativeCompliance({
+      asset_feed_spec: {
+        images: completePlacementSpec.images,
+        asset_customization_rules: [
+          {
+            image_label: { name: 'feed_asset' },
+            customization_spec: {
+              publisher_platforms: ['messenger', 'audience_network'],
+              messenger_positions: ['messenger_home'],
+              audience_network_positions: ['classic', 'rewarded_video'],
+            },
+          },
+        ],
+      },
+    });
+
+    expect(result.placement_customization).toMatchObject({
+      status: 'FAIL',
+      feed: 'FAIL',
+      reels: 'FAIL',
+      story: 'FAIL',
+    });
+  });
+
+  it('ignores valid non-audited Facebook and Instagram positions', () => {
+    const result = evaluateMetaCreativeCompliance({
+      asset_feed_spec: {
+        images: completePlacementSpec.images,
+        asset_customization_rules: [
+          {
+            image_label: { name: 'feed_asset' },
+            customization_spec: {
+              publisher_platforms: ['facebook', 'instagram'],
+              facebook_positions: ['feed', 'marketplace', 'right_hand_column'],
+              instagram_positions: ['explore', 'profile_feed'],
+            },
+          },
+        ],
+      },
+    });
+
+    expect(result.placement_customization).toMatchObject({
+      status: 'FAIL',
+      feed: 'PASS',
+      reels: 'FAIL',
+      story: 'FAIL',
+    });
+  });
+
   it('ignores positions for a platform excluded by publisher_platforms', () => {
     const result = evaluateMetaCreativeCompliance({
       asset_feed_spec: {

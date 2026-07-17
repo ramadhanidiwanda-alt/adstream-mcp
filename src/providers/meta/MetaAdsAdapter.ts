@@ -327,7 +327,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
 
     try {
       const client = this.createClient(context.credential);
-      const fields = [
+      const creativeFields = [
         'id',
         'name',
         'title',
@@ -340,12 +340,15 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
         'object_story_spec',
         'status',
         'degrees_of_freedom_spec',
-        'media_sourcing_spec',
         'asset_feed_spec',
         'platform_customizations',
         'portrait_customizations',
         'image_crops',
-      ].join(',');
+      ];
+      if (supportsMediaSourcingSpec(context.credential.apiVersion)) {
+        creativeFields.push('media_sourcing_spec');
+      }
+      const fields = creativeFields.join(',');
 
       if (creativeId) {
         const creative = await client.metaGetObject<MetaCreativeRecord>(`/${creativeId}`, { fields });
@@ -1666,6 +1669,11 @@ function parseIdParam(value: unknown): string | string[] | undefined {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function supportsMediaSourcingSpec(apiVersion: string | undefined): boolean {
+  const match = /^v(\d+)(?:\.|$)/i.exec(apiVersion ?? 'v20.0');
+  return match !== null && Number(match[1]) >= 23;
 }
 
 function inferMetaCreativeType(creative: MetaCreativeRecord): string | undefined {

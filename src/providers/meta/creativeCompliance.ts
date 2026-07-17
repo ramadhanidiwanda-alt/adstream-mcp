@@ -29,6 +29,30 @@ const INSTAGRAM_POSITIONS: Record<PlacementFamily, Set<string>> = {
   story: new Set(['story', 'stories']),
 };
 
+const NON_AUDITED_POSITIONS = {
+  facebook: new Set([
+    'right_hand_column',
+    'marketplace',
+    'video_feeds',
+    'search',
+    'instream_video',
+    'profile_feed',
+    'profile_reels',
+    'groups_feed',
+  ]),
+  instagram: new Set([
+    'explore',
+    'explore_home',
+    'profile_feed',
+    'profile_reels',
+    'ig_search',
+    'shop',
+  ]),
+  messenger: new Set(['messenger_home', 'sponsored_messages', 'story']),
+  audience_network: new Set(['classic', 'instream_video', 'rewarded_video']),
+  threads: new Set(['feed']),
+};
+
 export function evaluateMetaCreativeCompliance(
   input: MetaCreativeComplianceInput
 ): AdsCreativeSetupCompliance {
@@ -201,6 +225,7 @@ function evaluatePlacementCustomization(
           collectPlatformPositions(
             customizationSpec.facebook_positions,
             FACEBOOK_POSITIONS,
+            NON_AUDITED_POSITIONS.facebook,
             coveredFamilies
           ) || hasAmbiguousConfiguration;
       } else if (publisherPlatform === 'instagram') {
@@ -208,7 +233,26 @@ function evaluatePlacementCustomization(
           collectPlatformPositions(
             customizationSpec.instagram_positions,
             INSTAGRAM_POSITIONS,
+            NON_AUDITED_POSITIONS.instagram,
             coveredFamilies
+          ) || hasAmbiguousConfiguration;
+      } else if (publisherPlatform === 'messenger') {
+        hasAmbiguousConfiguration =
+          hasUnrecognizedPositions(
+            customizationSpec.messenger_positions,
+            NON_AUDITED_POSITIONS.messenger
+          ) || hasAmbiguousConfiguration;
+      } else if (publisherPlatform === 'audience_network') {
+        hasAmbiguousConfiguration =
+          hasUnrecognizedPositions(
+            customizationSpec.audience_network_positions,
+            NON_AUDITED_POSITIONS.audience_network
+          ) || hasAmbiguousConfiguration;
+      } else if (publisherPlatform === 'threads') {
+        hasAmbiguousConfiguration =
+          hasUnrecognizedPositions(
+            customizationSpec.threads_positions,
+            NON_AUDITED_POSITIONS.threads
           ) || hasAmbiguousConfiguration;
       } else {
         hasAmbiguousConfiguration = true;
@@ -306,6 +350,7 @@ function readTypedRuleLabel(
 function collectPlatformPositions(
   value: unknown,
   acceptedPositions: Record<PlacementFamily, Set<string>>,
+  ignoredPositions: Set<string>,
   coveredFamilies: Set<PlacementFamily>
 ): boolean {
   if (value === undefined) return false;
@@ -324,12 +369,21 @@ function collectPlatformPositions(
     );
     if (matchedFamily) {
       coveredFamilies.add(matchedFamily);
-    } else {
+    } else if (!ignoredPositions.has(normalizedPosition)) {
       hasUnrecognizedPosition = true;
     }
   }
 
   return hasUnrecognizedPosition;
+}
+
+function hasUnrecognizedPositions(value: unknown, knownPositions: Set<string>): boolean {
+  if (value === undefined) return false;
+  if (!Array.isArray(value)) return true;
+
+  return value.some(
+    (position) => typeof position !== 'string' || !knownPositions.has(position.toLowerCase())
+  );
 }
 
 function familyStatus(
