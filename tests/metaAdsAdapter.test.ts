@@ -218,6 +218,7 @@ describe('MetaAdsAdapter', () => {
                   {
                     image_label: { name: 'feed_asset' },
                     customization_spec: {
+                      publisher_platforms: ['facebook', 'instagram'],
                       facebook_positions: ['feed'],
                       instagram_positions: ['stream'],
                     },
@@ -225,6 +226,7 @@ describe('MetaAdsAdapter', () => {
                   {
                     image_label: { name: 'vertical_asset' },
                     customization_spec: {
+                      publisher_platforms: ['facebook', 'instagram'],
                       facebook_positions: ['facebook_reels', 'story'],
                       instagram_positions: ['reels', 'story'],
                     },
@@ -255,15 +257,17 @@ describe('MetaAdsAdapter', () => {
 
     expect(capturedPath).toBe('/act_act_123/adcreatives');
     expect(capturedParams).toMatchObject({ limit: 25, after: 'prev_cursor' });
-    expect(capturedParams).toMatchObject({
-      fields: expect.stringContaining('degrees_of_freedom_spec'),
-    });
-    expect(capturedParams).toMatchObject({
-      fields: expect.stringContaining('media_sourcing_spec'),
-    });
-    expect(capturedParams).toMatchObject({
-      fields: expect.stringContaining('asset_feed_spec'),
-    });
+    for (const field of [
+      'status',
+      'degrees_of_freedom_spec',
+      'media_sourcing_spec',
+      'asset_feed_spec',
+      'platform_customizations',
+      'portrait_customizations',
+      'image_crops',
+    ]) {
+      expect(capturedParams).toMatchObject({ fields: expect.stringContaining(field) });
+    }
     expect(response.ok).toBe(true);
     expect(response.meta).toMatchObject({ nextCursor: 'creative_cursor' });
     expect(response.data?.[0]).toMatchObject({
@@ -395,15 +399,17 @@ describe('MetaAdsAdapter', () => {
 
     expect(capturedPath).toBe('/1031745992699354');
     expect(capturedParams).toMatchObject({ fields: expect.stringContaining('video_id') });
-    expect(capturedParams).toMatchObject({
-      fields: expect.stringContaining('degrees_of_freedom_spec'),
-    });
-    expect(capturedParams).toMatchObject({
-      fields: expect.stringContaining('media_sourcing_spec'),
-    });
-    expect(capturedParams).toMatchObject({
-      fields: expect.stringContaining('asset_feed_spec'),
-    });
+    for (const field of [
+      'status',
+      'degrees_of_freedom_spec',
+      'media_sourcing_spec',
+      'asset_feed_spec',
+      'platform_customizations',
+      'portrait_customizations',
+      'image_crops',
+    ]) {
+      expect(capturedParams).toMatchObject({ fields: expect.stringContaining(field) });
+    }
     expect(response.ok).toBe(true);
     expect(response.meta).toMatchObject({ nextCursor: null });
     expect(response.data?.[0]).toMatchObject({

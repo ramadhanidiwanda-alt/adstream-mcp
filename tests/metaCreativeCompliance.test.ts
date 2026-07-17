@@ -101,6 +101,24 @@ describe('evaluateMetaCreativeCompliance', () => {
     expect(result.related_media.status).toBe('FAIL');
   });
 
+  it('fails related media when Meta returns a non-empty related media object', () => {
+    const result = evaluateMetaCreativeCompliance({
+      media_sourcing_spec: {
+        related_media: { images: [{ id: 'media_1' }] },
+      },
+    });
+
+    expect(result.related_media.status).toBe('FAIL');
+  });
+
+  it('passes related media when Meta returns an empty related media object', () => {
+    const result = evaluateMetaCreativeCompliance({
+      media_sourcing_spec: { related_media: {} },
+    });
+
+    expect(result.related_media.status).toBe('PASS');
+  });
+
   it('passes related media when the media sourcing spec has no related media', () => {
     const result = evaluateMetaCreativeCompliance({ media_sourcing_spec: {} });
 
@@ -135,7 +153,7 @@ describe('evaluateMetaCreativeCompliance', () => {
     });
   });
 
-  it('does not count a placement rule whose label is missing from the assets', () => {
+  it('returns unknown when a placement rule label is missing from the assets', () => {
     const result = evaluateMetaCreativeCompliance({
       asset_feed_spec: {
         ...completePlacementSpec,
@@ -144,10 +162,111 @@ describe('evaluateMetaCreativeCompliance', () => {
     });
 
     expect(result.placement_customization).toMatchObject({
-      status: 'FAIL',
-      feed: 'FAIL',
-      reels: 'FAIL',
-      story: 'FAIL',
+      status: 'UNKNOWN',
+      feed: 'UNKNOWN',
+      reels: 'UNKNOWN',
+      story: 'UNKNOWN',
+    });
+  });
+
+  it('returns unknown for malformed customization rules', () => {
+    const result = evaluateMetaCreativeCompliance({
+      asset_feed_spec: {
+        images: completePlacementSpec.images,
+        asset_customization_rules: [null],
+      },
+    });
+
+    expect(result.placement_customization).toMatchObject({
+      status: 'UNKNOWN',
+      feed: 'UNKNOWN',
+      reels: 'UNKNOWN',
+      story: 'UNKNOWN',
+    });
+  });
+
+  it('returns unknown when Meta returns unrecognized placement values', () => {
+    const result = evaluateMetaCreativeCompliance({
+      asset_feed_spec: {
+        images: completePlacementSpec.images,
+        asset_customization_rules: [
+          {
+            image_label: { name: 'feed_asset' },
+            customization_spec: {
+              publisher_platforms: ['facebook'],
+              facebook_positions: ['future_surface'],
+            },
+          },
+        ],
+      },
+    });
+
+    expect(result.placement_customization.status).toBe('UNKNOWN');
+  });
+
+  it('ignores positions for a platform excluded by publisher_platforms', () => {
+    const result = evaluateMetaCreativeCompliance({
+      asset_feed_spec: {
+        images: completePlacementSpec.images,
+        asset_customization_rules: [
+          {
+            image_label: { name: 'feed_asset' },
+            customization_spec: {
+              publisher_platforms: ['instagram'],
+              facebook_positions: ['feed'],
+              instagram_positions: [],
+            },
+          },
+        ],
+      },
+    });
+
+    expect(result.placement_customization.feed).toBe('FAIL');
+  });
+
+  it('does not allow an image rule to resolve a label that exists only on a video', () => {
+    const result = evaluateMetaCreativeCompliance({
+      asset_feed_spec: {
+        videos: [{ video_id: 'video_1', adlabels: [{ name: 'shared_asset' }] }],
+        asset_customization_rules: [
+          {
+            image_label: { name: 'shared_asset' },
+            customization_spec: {
+              publisher_platforms: ['facebook'],
+              facebook_positions: ['feed'],
+            },
+          },
+        ],
+      },
+    });
+
+    expect(result.placement_customization).toMatchObject({
+      status: 'UNKNOWN',
+      feed: 'UNKNOWN',
+    });
+  });
+
+  it('accepts a video rule when its label resolves to a video asset', () => {
+    const result = evaluateMetaCreativeCompliance({
+      asset_feed_spec: {
+        videos: [{ video_id: 'video_1', adlabels: [{ name: 'video_asset' }] }],
+        asset_customization_rules: [
+          {
+            video_label: { name: 'video_asset' },
+            customization_spec: {
+              publisher_platforms: ['facebook'],
+              facebook_positions: ['feed', 'facebook_reels', 'story'],
+            },
+          },
+        ],
+      },
+    });
+
+    expect(result.placement_customization).toMatchObject({
+      status: 'PASS',
+      feed: 'PASS',
+      reels: 'PASS',
+      story: 'PASS',
     });
   });
 });

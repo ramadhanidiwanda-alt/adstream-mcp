@@ -13,6 +13,9 @@ export interface MetaCreativeComplianceInput {
 
 type UnknownRecord = Record<string, unknown>;
 type PlacementFamily = 'feed' | 'reels' | 'story';
+type AssetType = 'image' | 'video';
+
+const PLACEMENT_FAMILIES = ['feed', 'reels', 'story'] as const;
 
 const FACEBOOK_POSITIONS: Record<PlacementFamily, Set<string>> = {
   feed: new Set(['feed']),
@@ -112,17 +115,23 @@ function evaluateRelatedMedia(mediaSourcingSpec: unknown): AdsComplianceCheck {
     };
   }
 
-  if (!Array.isArray(relatedMedia)) {
+  const relatedMediaCount = Array.isArray(relatedMedia)
+    ? relatedMedia.length
+    : isRecord(relatedMedia)
+      ? Object.keys(relatedMedia).length
+      : undefined;
+
+  if (relatedMediaCount === undefined) {
     return {
       status: 'UNKNOWN',
       reasons: ['Meta returned related_media in an unrecognized format.'],
     };
   }
 
-  return relatedMedia.length > 0
+  return relatedMediaCount > 0
     ? {
         status: 'FAIL',
-        reasons: [`Meta returned ${relatedMedia.length} related media item(s).`],
+        reasons: [`Meta returned ${relatedMediaCount} related media item(s).`],
       }
     : {
         status: 'PASS',
@@ -160,54 +169,114 @@ function evaluatePlacementCustomization(
 
   const assetLabels = collectAssetLabels(assetFeedSpec);
   const coveredFamilies = new Set<PlacementFamily>();
+  let hasAmbiguousConfiguration = assetLabels.hasMalformedAssets;
 
   for (const rule of customizationRules) {
-    if (!isRecord(rule)) continue;
+    if (!isRecord(rule)) {
+      hasAmbiguousConfiguration = true;
+      continue;
+    }
+
     const ruleLabel = readRuleLabel(rule);
-    if (!ruleLabel || !assetLabels.has(ruleLabel)) continue;
+    if (!ruleLabel || !assetLabels[ruleLabel.assetType].has(ruleLabel.name)) {
+      hasAmbiguousConfiguration = true;
+      continue;
+    }
 
     const customizationSpec = rule.customization_spec;
-    if (!isRecord(customizationSpec)) continue;
+    if (!isRecord(customizationSpec)) {
+      hasAmbiguousConfiguration = true;
+      continue;
+    }
 
-    for (const family of ['feed', 'reels', 'story'] as const) {
-      if (hasFamilyPosition(customizationSpec, family)) {
-        coveredFamilies.add(family);
+    const publisherPlatforms = customizationSpec.publisher_platforms;
+    if (!Array.isArray(publisherPlatforms) || publisherPlatforms.length === 0) {
+      hasAmbiguousConfiguration = true;
+      continue;
+    }
+
+    for (const publisherPlatform of publisherPlatforms) {
+      if (publisherPlatform === 'facebook') {
+        hasAmbiguousConfiguration =
+          collectPlatformPositions(
+            customizationSpec.facebook_positions,
+            FACEBOOK_POSITIONS,
+            coveredFamilies
+          ) || hasAmbiguousConfiguration;
+      } else if (publisherPlatform === 'instagram') {
+        hasAmbiguousConfiguration =
+          collectPlatformPositions(
+            customizationSpec.instagram_positions,
+            INSTAGRAM_POSITIONS,
+            coveredFamilies
+          ) || hasAmbiguousConfiguration;
+      } else {
+        hasAmbiguousConfiguration = true;
       }
     }
   }
 
-  const feed = familyStatus(coveredFamilies, 'feed');
-  const reels = familyStatus(coveredFamilies, 'reels');
-  const story = familyStatus(coveredFamilies, 'story');
-  const missingFamilies = (['feed', 'reels', 'story'] as const).filter(
-    (family) => !coveredFamilies.has(family)
-  );
+  const feed = familyStatus(coveredFamilies, 'feed', hasAmbiguousConfiguration);
+  const reels = familyStatus(coveredFamilies, 'reels', hasAmbiguousConfiguration);
+  const story = familyStatus(coveredFamilies, 'story', hasAmbiguousConfiguration);
+  const statuses = [feed, reels, story];
+  const status = aggregatePlacementStatus(statuses);
+  const uncoveredFamilies = PLACEMENT_FAMILIES.filter((family) => !coveredFamilies.has(family));
 
   return {
-    status: missingFamilies.length === 0 ? 'PASS' : 'FAIL',
+    status,
     feed,
     reels,
     story,
     reasons:
-      missingFamilies.length === 0
+      status === 'PASS'
         ? ['Feed, Reels, and Story each have an explicit labeled asset rule.']
-        : [`Missing explicit labeled asset rules for: ${missingFamilies.join(', ')}.`],
+        : status === 'UNKNOWN'
+          ? [
+              `Meta returned unrecognized placement configuration; cannot safely assess: ${uncoveredFamilies.join(', ')}.`,
+            ]
+          : [`Missing explicit labeled asset rules for: ${uncoveredFamilies.join(', ')}.`],
     preview_required: true,
   };
 }
 
-function collectAssetLabels(assetFeedSpec: UnknownRecord): Set<string> {
-  const labels = new Set<string>();
+function collectAssetLabels(assetFeedSpec: UnknownRecord): {
+  image: Set<string>;
+  video: Set<string>;
+  hasMalformedAssets: boolean;
+} {
+  const labels = {
+    image: new Set<string>(),
+    video: new Set<string>(),
+    hasMalformedAssets: false,
+  };
 
-  for (const assetType of ['images', 'videos'] as const) {
-    const assets = assetFeedSpec[assetType];
-    if (!Array.isArray(assets)) continue;
+  for (const { field, assetType } of [
+    { field: 'images', assetType: 'image' },
+    { field: 'videos', assetType: 'video' },
+  ] as const) {
+    const assets = assetFeedSpec[field];
+    if (assets === undefined) continue;
+    if (!Array.isArray(assets)) {
+      labels.hasMalformedAssets = true;
+      continue;
+    }
 
     for (const asset of assets) {
-      if (!isRecord(asset) || !Array.isArray(asset.adlabels)) continue;
+      if (!isRecord(asset)) {
+        labels.hasMalformedAssets = true;
+        continue;
+      }
+      if (asset.adlabels === undefined) continue;
+      if (!Array.isArray(asset.adlabels)) {
+        labels.hasMalformedAssets = true;
+        continue;
+      }
       for (const label of asset.adlabels) {
         if (isRecord(label) && typeof label.name === 'string' && label.name.length > 0) {
-          labels.add(label.name);
+          labels[assetType].add(label.name);
+        } else {
+          labels.hasMalformedAssets = true;
         }
       }
     }
@@ -216,37 +285,66 @@ function collectAssetLabels(assetFeedSpec: UnknownRecord): Set<string> {
   return labels;
 }
 
-function readRuleLabel(rule: UnknownRecord): string | undefined {
-  for (const field of ['image_label', 'video_label'] as const) {
-    const label = rule[field];
-    if (isRecord(label) && typeof label.name === 'string' && label.name.length > 0) {
-      return label.name;
+function readRuleLabel(rule: UnknownRecord): { assetType: AssetType; name: string } | undefined {
+  const labels = [
+    readTypedRuleLabel(rule.image_label, 'image'),
+    readTypedRuleLabel(rule.video_label, 'video'),
+  ].filter((label): label is { assetType: AssetType; name: string } => label !== undefined);
+
+  return labels.length === 1 ? labels[0] : undefined;
+}
+
+function readTypedRuleLabel(
+  value: unknown,
+  assetType: AssetType
+): { assetType: AssetType; name: string } | undefined {
+  return isRecord(value) && typeof value.name === 'string' && value.name.length > 0
+    ? { assetType, name: value.name }
+    : undefined;
+}
+
+function collectPlatformPositions(
+  value: unknown,
+  acceptedPositions: Record<PlacementFamily, Set<string>>,
+  coveredFamilies: Set<PlacementFamily>
+): boolean {
+  if (value === undefined) return false;
+  if (!Array.isArray(value)) return true;
+
+  let hasUnrecognizedPosition = false;
+  for (const position of value) {
+    if (typeof position !== 'string') {
+      hasUnrecognizedPosition = true;
+      continue;
+    }
+
+    const normalizedPosition = position.toLowerCase();
+    const matchedFamily = PLACEMENT_FAMILIES.find((family) =>
+      acceptedPositions[family].has(normalizedPosition)
+    );
+    if (matchedFamily) {
+      coveredFamilies.add(matchedFamily);
+    } else {
+      hasUnrecognizedPosition = true;
     }
   }
-  return undefined;
-}
 
-function hasFamilyPosition(customizationSpec: UnknownRecord, family: PlacementFamily): boolean {
-  return (
-    containsPosition(customizationSpec.facebook_positions, FACEBOOK_POSITIONS[family]) ||
-    containsPosition(customizationSpec.instagram_positions, INSTAGRAM_POSITIONS[family])
-  );
-}
-
-function containsPosition(value: unknown, acceptedPositions: Set<string>): boolean {
-  return (
-    Array.isArray(value) &&
-    value.some(
-      (position) => typeof position === 'string' && acceptedPositions.has(position.toLowerCase())
-    )
-  );
+  return hasUnrecognizedPosition;
 }
 
 function familyStatus(
   coveredFamilies: Set<PlacementFamily>,
-  family: PlacementFamily
+  family: PlacementFamily,
+  hasAmbiguousConfiguration: boolean
 ): AdsComplianceStatus {
-  return coveredFamilies.has(family) ? 'PASS' : 'FAIL';
+  if (coveredFamilies.has(family)) return 'PASS';
+  return hasAmbiguousConfiguration ? 'UNKNOWN' : 'FAIL';
+}
+
+function aggregatePlacementStatus(statuses: AdsComplianceStatus[]): AdsComplianceStatus {
+  if (statuses.every((status) => status === 'PASS')) return 'PASS';
+  if (statuses.some((status) => status === 'UNKNOWN')) return 'UNKNOWN';
+  return 'FAIL';
 }
 
 function isRecord(value: unknown): value is UnknownRecord {
