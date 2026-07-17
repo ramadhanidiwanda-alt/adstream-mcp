@@ -200,7 +200,7 @@ See [Remote Mode](#configuration--remote-mode-with-cuan-insight) for full setup.
 |----------|----------|---------|-------------|
 | `META_ACCESS_TOKEN` | ✅ | — | Meta Ads access token |
 | `META_AD_ACCOUNT_ID` | ❌ | — | Default ad account (optional, AI can pick via `ads_list_accounts`) |
-| `META_API_VERSION` | ❌ | `v20.0` | Meta Graph API version |
+| `META_API_VERSION` | ❌ | `v23.0` | Meta Graph API version |
 | `TIKTOK_ACCESS_TOKEN` | ❌ | — | TikTok Ads access token |
 | `MCP_HTTP_ENABLED` | ❌ | `false` | Enable HTTP transport |
 | `ADSTREAM_ENABLE_WRITES` | ❌ | `false` | Expose the optional write tools; off by default so only read tools appear |
