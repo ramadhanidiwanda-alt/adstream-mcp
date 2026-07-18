@@ -172,21 +172,18 @@ function buildCreativePayload(options: CreateAdCreativeOptions): Record<string, 
   if (options.objectStorySpec) {
     payload.object_story_spec = options.objectStorySpec;
   } else if (options.linkData) {
-    // For WHATSAPP_MESSAGE CTA, use the type directly without generating wa.me URL.
+    // For WHATSAPP_MESSAGE CTA, omit value entirely — empty string/link can be rejected.
     // wa.me requires display_phone_number (formatted international, no +/spaces),
     // not phone_number_id (Graph API internal ID). Let Meta handle the destination.
-    const ctaType = (options.destinationType === 'WHATSAPP' || options.linkData.callToAction.type === 'WHATSAPP_MESSAGE')
-      ? 'WHATSAPP_MESSAGE'
-      : options.linkData.callToAction.type;
-    const ctaValue = options.linkData.callToAction.value;
+    const isWhatsApp = options.destinationType === 'WHATSAPP' || options.linkData.callToAction.type === 'WHATSAPP_MESSAGE';
+    const ctaType = isWhatsApp ? 'WHATSAPP_MESSAGE' : options.linkData.callToAction.type;
 
     const linkData: Record<string, unknown> = {
       link: options.linkData.link,
       message: options.linkData.message,
-      call_to_action: {
-        type: ctaType,
-        value: ctaValue,
-      },
+      call_to_action: isWhatsApp
+        ? { type: ctaType }
+        : { type: ctaType, value: options.linkData.callToAction.value },
     };
 
     if (options.linkData.name) linkData.name = options.linkData.name;
