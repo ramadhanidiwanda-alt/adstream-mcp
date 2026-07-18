@@ -77,6 +77,54 @@ describe('formatMetaWriteError', () => {
     });
   });
 
+  it('redacts credentials from generic write errors and structured messages', () => {
+    const token = 'task8_super_secret_token_123456789';
+    const error = new Error(
+      `Provider failed: access_token=${token}; Authorization: Bearer ${token}`
+    );
+
+    const plain = formatMetaWriteError(error);
+    const structured = formatStructuredMetaWriteError(error);
+    const json = JSON.stringify({ plain, structured });
+
+    expect(plain).toContain('[REDACTED]');
+    expect(structured.message).toContain('[REDACTED]');
+    expect(json).not.toContain(token);
+    expect(json).not.toContain(`access_token=${token}`);
+    expect(json).not.toContain(`Authorization: Bearer ${token}`);
+  });
+
+  it('redacts credentials from provider-native Meta detail fields', () => {
+    const token = 'task8_meta_secret_token_123456789';
+    const error = new MetaApiError({
+      message: `Invalid parameter access_token=${token}`,
+      type: 'OAuthException',
+      code: 100,
+      error_user_title: `Authorization: Bearer ${token}`,
+      error_user_msg: `Catalog lookup failed for ${token}`,
+    });
+
+    const structured = formatStructuredMetaWriteError(error);
+    const json = JSON.stringify(structured);
+
+    expect(structured.providerTitle).toContain('[REDACTED]');
+    expect(structured.providerMessage).toContain('[REDACTED]');
+    expect(json).not.toContain(token);
+  });
+
+  it('removes signed asset URLs from write errors', () => {
+    const signature = 'task8_asset_signature_123456789';
+    const signedUrl =
+      `https://cdn.example.test/private/creative.jpg?X-Amz-Signature=${signature}&expires=60`;
+
+    const formatted = formatMetaWriteError(new Error(`Creative fetch failed: ${signedUrl}`));
+
+    expect(formatted).toContain('[REDACTED_SIGNED_URL]');
+    expect(formatted).not.toContain(signedUrl);
+    expect(formatted).not.toContain('cdn.example.test/private/creative.jpg');
+    expect(formatted).not.toContain(signature);
+  });
+
   it('explains when Meta blocks a Dynamic Creative request at the application capability layer', () => {
     const error = new MetaApiError({
       message: 'Application does not have the capability to make this API call.',

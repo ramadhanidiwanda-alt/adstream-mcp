@@ -1,5 +1,8 @@
 import { MetaApiError } from './metaError.js';
 import type { StructuredMutationError } from '../types.js';
+import { redactErrorMessage } from '../broker/credentials.js';
+
+const SIGNED_URL_PATTERN = /https?:\/\/[^\s"'<>]*[?&](?:x-amz-signature|signature|sig|access_token|token)=[^\s"'<>]*/gi;
 
 /**
  * Build a descriptive error message from a Meta write failure.
@@ -14,9 +17,9 @@ export function formatMetaWriteError(error: unknown): string {
     if (error.userTitle) parts.push(`(${error.userTitle})`);
     if (error.userMessage && error.userMessage !== error.userTitle) parts.push(error.userMessage);
     if (error.subcode) parts.push(`[subcode ${error.subcode}]`);
-    return parts.join(' ');
+    return redactWriteErrorMessage(parts.join(' '));
   }
-  return error instanceof Error ? error.message : String(error);
+  return redactWriteErrorMessage(error instanceof Error ? error.message : String(error));
 }
 
 export function formatStructuredMetaWriteError(error: unknown): StructuredMutationError {
@@ -28,8 +31,8 @@ export function formatStructuredMetaWriteError(error: unknown): StructuredMutati
       provider: 'meta',
       providerCode: error.code !== undefined ? String(error.code) : undefined,
       providerSubcode: error.subcode !== undefined ? String(error.subcode) : undefined,
-      providerTitle: error.userTitle,
-      providerMessage: error.userMessage,
+      providerTitle: redactOptionalMessage(error.userTitle),
+      providerMessage: redactOptionalMessage(error.userMessage),
       traceId: error.fbtraceId,
       actionableFix: getActionableFix(error, message),
     };
@@ -40,6 +43,15 @@ export function formatStructuredMetaWriteError(error: unknown): StructuredMutati
     message: formatMetaWriteError(error),
     actionableFix: 'Retry the request. If the issue persists, inspect server logs without exposing credentials.',
   };
+}
+
+function redactOptionalMessage(message: string | undefined): string | undefined {
+  return message === undefined ? undefined : redactWriteErrorMessage(message);
+}
+
+function redactWriteErrorMessage(message: string): string {
+  const signedUrlsRemoved = message.replace(SIGNED_URL_PATTERN, '__URL__');
+  return redactErrorMessage(signedUrlsRemoved).replaceAll('__URL__', '[REDACTED_SIGNED_URL]');
 }
 
 function mapMetaErrorCode(error: MetaApiError): string {

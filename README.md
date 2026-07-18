@@ -72,7 +72,7 @@ Standard Ads support `single_image`, `video`, `carousel`, `catalog`, `collection
 
 Use the same four tools for either mode: create the campaign with `ads_create_campaign`, create one ad set with `ads_create_adset`, create each format separately with `ads_create_adcreative`, then connect each creative to that ad set with `ads_create_ad`. For example, one `adsetId` can be reused by an image ad and a video ad; the format belongs to each creative, not to a duplicate ad set. A `collection` creative must reuse an existing `instantExperienceId`—the connector does not build Instant Experience content.
 
-Every write is a dry run unless `dryRun=false` and `confirmed=true` are both supplied. Campaigns, ad sets, and ads default to `PAUSED`, so review the returned preview and IDs in Meta Ads Manager before activation.
+The four creation tools above use dry-run by default and execute only when `dryRun=false` and `confirmed=true` are both supplied. Created campaigns, ad sets, and ads default to `PAUSED`, so review the returned preview and IDs in Meta Ads Manager before activation.
 
 ### Dynamic Creative with multiple texts and headlines
 

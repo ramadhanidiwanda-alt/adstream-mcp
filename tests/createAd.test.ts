@@ -64,12 +64,17 @@ describe('createAd', () => {
   });
 
   it('returns failed on error', async () => {
-    mockMetaPost.mockRejectedValueOnce(new Error('ad error'));
+    const token = 'task8_create_ad_secret_123456789';
+    mockMetaPost.mockRejectedValueOnce(
+      new Error(`Ad failed: access_token=${token}; Authorization: Bearer ${token}`)
+    );
     const r = await createAd(mockClient, baseOpts, { dryRun: false, confirmed: true });
     expect(r.status).toBe('failed');
     const json = JSON.stringify(r);
-    expect(json).not.toContain('access_token');
-    expect(json).not.toContain('Authorization');
-    expect(json).not.toContain('task-8-token-fixture');
+    expect(r.error).toContain('[REDACTED]');
+    expect(r.structuredError?.message).toContain('[REDACTED]');
+    expect(json).not.toContain(token);
+    expect(json).not.toContain(`access_token=${token}`);
+    expect(json).not.toContain(`Authorization: Bearer ${token}`);
   });
 });

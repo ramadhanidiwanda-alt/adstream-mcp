@@ -113,6 +113,30 @@ describe('createEcommerceCampaignBundle', () => {
     expect(mockPost.mock.calls[3][0]).toContain('/ads');
   });
 
+  it('retains completed campaign and ad set IDs when creative creation fails', async () => {
+    const client = createMockClient();
+    const mockPost = client.metaPost as MetaPostMock;
+    mockPost
+      .mockResolvedValueOnce({ id: 'cmp_partial' })
+      .mockResolvedValueOnce({ id: 'adset_partial' })
+      .mockRejectedValueOnce(new Error('creative rejected'));
+
+    const result = await createEcommerceCampaignBundle(client, payload, {
+      dryRun: false,
+      confirmed: true,
+    });
+
+    expect(result.status).toBe('failed');
+    expect(result.executed).toBe(false);
+    expect(result.ids).toEqual({
+      campaignId: 'cmp_partial',
+      adSetId: 'adset_partial',
+    });
+    expect(result.ids).not.toHaveProperty('creativeId');
+    expect(result.ids).not.toHaveProperty('adId');
+    expect(mockPost).toHaveBeenCalledTimes(3);
+  });
+
   it('refuses execution without explicit confirmation', async () => {
     const client = createMockClient();
 

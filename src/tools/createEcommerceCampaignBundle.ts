@@ -116,6 +116,14 @@ export async function createEcommerceCampaignBundle(
     };
   }
 
+  const ids: NonNullable<EcommerceCampaignBundleResult['ids']> = {};
+  const failedResult = (error: string): EcommerceCampaignBundleResult => ({
+    ...baseResult,
+    status: 'failed',
+    ...(Object.keys(ids).length > 0 ? { ids: { ...ids } } : {}),
+    error,
+  });
+
   try {
     // Step 1: Create campaign (PAUSED, OUTCOME_SALES)
     const campaignResult = await createCampaign(client, {
@@ -129,9 +137,10 @@ export async function createEcommerceCampaignBundle(
     }, { dryRun: false, confirmed: true, maxRetries });
 
     if (campaignResult.status === 'failed' || !campaignResult.id) {
-      return { ...baseResult, status: 'failed', error: `Campaign creation failed: ${campaignResult.error}` };
+      return failedResult(`Campaign creation failed: ${campaignResult.error}`);
     }
     const campaignId = campaignResult.id;
+    ids.campaignId = campaignId;
 
     // Step 2: Create ad set
     const adSetResult = await createAdSet(client, {
@@ -155,9 +164,10 @@ export async function createEcommerceCampaignBundle(
     }, { dryRun: false, confirmed: true, maxRetries });
 
     if (adSetResult.status === 'failed' || !adSetResult.id) {
-      return { ...baseResult, status: 'failed', error: `Ad set creation failed: ${adSetResult.error}` };
+      return failedResult(`Ad set creation failed: ${adSetResult.error}`);
     }
     const adSetId = adSetResult.id;
+    ids.adSetId = adSetId;
 
     // Step 3: Upload image if filePath provided
     let imageHash = payload.imageHash?.trim();
@@ -168,7 +178,7 @@ export async function createEcommerceCampaignBundle(
         maxRetries,
       });
       if (uploadResult.status === 'failed' || !uploadResult.image_hash) {
-        return { ...baseResult, status: 'failed', error: `Image upload failed: ${uploadResult.error ?? 'unknown error'}` };
+        return failedResult(`Image upload failed: ${uploadResult.error ?? 'unknown error'}`);
       }
       imageHash = uploadResult.image_hash;
     } else if (payload.videoFilePath?.trim() && !payload.videoId?.trim()) {
@@ -178,7 +188,7 @@ export async function createEcommerceCampaignBundle(
         maxRetries,
       });
       if (uploadResult.status === 'failed' || !uploadResult.video_id) {
-        return { ...baseResult, status: 'failed', error: `Video upload failed: ${uploadResult.error ?? 'unknown error'}` };
+        return failedResult(`Video upload failed: ${uploadResult.error ?? 'unknown error'}`);
       }
     }
 
@@ -203,9 +213,10 @@ export async function createEcommerceCampaignBundle(
     }, { dryRun: false, confirmed: true, maxRetries });
 
     if (creativeResult.status === 'failed' || !creativeResult.id) {
-      return { ...baseResult, status: 'failed', error: `Creative creation failed: ${creativeResult.error}` };
+      return failedResult(`Creative creation failed: ${creativeResult.error}`);
     }
     const creativeId = creativeResult.id;
+    ids.creativeId = creativeId;
 
     // Step 5: Create ad
     const adResult = await createAd(client, {
@@ -217,15 +228,16 @@ export async function createEcommerceCampaignBundle(
     }, { dryRun: false, confirmed: true, maxRetries });
 
     if (adResult.status === 'failed' || !adResult.id) {
-      return { ...baseResult, status: 'failed', error: `Ad creation failed: ${adResult.error}` };
+      return failedResult(`Ad creation failed: ${adResult.error}`);
     }
     const adId = adResult.id;
+    ids.adId = adId;
 
     return {
       ...baseResult,
       status: 'executed',
       executed: true,
-      ids: { campaignId, adSetId, creativeId, adId },
+      ids,
       responses: {
         campaign: campaignResult.response,
         adSet: adSetResult.response,
@@ -234,11 +246,7 @@ export async function createEcommerceCampaignBundle(
       },
     };
   } catch (error) {
-    return {
-      ...baseResult,
-      status: 'failed',
-      error: error instanceof Error ? error.message : String(error),
-    };
+    return failedResult(error instanceof Error ? error.message : String(error));
   }
 }
 
