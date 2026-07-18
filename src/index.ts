@@ -152,6 +152,8 @@ export {
   assertMetaCreativeCompatibility,
   getMetaCreativeRequirements,
 } from './providers/meta/creativeFormatCompatibility.js';
+export { buildMetaCreativeFormatPayload } from './providers/meta/buildCreativeFormatPayload.js';
+export type { BuildMetaCreativeFormatPayloadInput } from './providers/meta/buildCreativeFormatPayload.js';
 export type * from './broker/types.js';
 export {
   VideoSourceResult,
