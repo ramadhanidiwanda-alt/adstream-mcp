@@ -91,6 +91,9 @@ export type { WhatsAppTemplateResult, WhatsAppTemplateComponent } from './tools/
 export { getAdDestinations } from './tools/getAdDestinations.js';
 export type { GetAdDestinationsOptions, AdDestinationInfo, AdDestinationPage } from './tools/getAdDestinations.js';
 
+export { readAdCreativeFull } from './tools/readAdCreativeFull.js';
+export type { ReadAdCreativeFullOptions, AdCreativeFull } from './tools/readAdCreativeFull.js';
+
 // --- Mutation Tools ---
 export { pauseCampaign } from './tools/pauseCampaign.js';
 export type * from './tools/pauseCampaign.js';
@@ -135,6 +138,7 @@ export {
   VideoSourceResult,
   AdCreativeMappingResult,
   AdDestinationResult,
+  AdCreativeFullResult,
   AdImageResult,
   AdVideoResult,
   AdPreviewResult,

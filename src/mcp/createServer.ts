@@ -414,6 +414,11 @@ export function createMetaAdsMcpServer(
         title: z.string().optional().describe('Optional title for video uploads.'),
         description: z.string().optional().describe('Optional description for video uploads.'),
       };
+    } else if (toolDefinition.name === 'ads_read_creative_full') {
+      inputSchema = {
+        ...adsBaseInputSchema,
+        creativeId: z.string().describe('Meta Ad Creative ID to read (e.g. 120330899389530268).'),
+      };
     } else if (hasCreativeId) {
       inputSchema = {
         ...adsBaseInputSchema,

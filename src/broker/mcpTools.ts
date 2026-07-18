@@ -43,6 +43,7 @@ export const ADS_MCP_TOOL_NAMES = [
   'ads_list_advideos',
   'ads_get_ad_preview',
   'ads_get_ad_destinations',
+  'ads_read_creative_full',
   'ads_list_pages',
   'ads_list_instagram_accounts',
   'ads_list_threads_profiles',
@@ -323,6 +324,11 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
     inputSchema: createAdsInputSchema([]),
   },
   {
+    name: 'ads_read_creative_full',
+    description: 'Read the full configuration of a Meta Ad Creative — a reverse engineering tool that returns ALL fields from the /{creative_id}?fields=... Graph API endpoint. Use this to inspect a working ad creative from Meta Ads Manager and see its complete payload (object_story_spec, asset_feed_spec, call_to_action, page_welcome_message, tracking_specs, degrees_of_freedom_spec, etc.). Ideal for reverse engineering new ad features (CTWA, Carousel, DCO, Catalog, Advantage+). Requires creativeId.',
+    inputSchema: createReadCreativeFullInputSchema(),
+  },
+  {
     name: 'ads_list_pages',
     description: 'List Meta Pages accessible by the token for selecting a valid pageId for ad creative object_story_spec.',
     inputSchema: createAdsInputSchema([]),
@@ -583,6 +589,8 @@ function callBrokerMethod(
       return broker.getAdCreativeMapping(request);
     case 'ads_get_ad_destinations':
       return broker.getAdDestinations(request);
+    case 'ads_read_creative_full':
+      return broker.readAdCreativeFull(request);
     case 'ads_list_pages':
       return broker.listPages(request);
     case 'ads_list_instagram_accounts':
@@ -993,6 +1001,22 @@ function createPreviewInputSchema() {
       },
     },
     required: ['creativeId', 'adFormat'],
+  };
+}
+
+function createReadCreativeFullInputSchema() {
+  const schema = createAdsInputSchema([]);
+
+  return {
+    type: 'object',
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      creativeId: {
+        type: 'string',
+        description: 'Meta Ad Creative ID to read (e.g. 120330899389530268). Get this from ads_list_advideos, ads_get_ad_creative_mapping, or Meta Ads Manager.',
+      },
+    },
+    required: ['creativeId'],
   };
 }
 

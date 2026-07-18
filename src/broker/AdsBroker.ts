@@ -37,6 +37,7 @@ import type {
   WhatsAppAccountResult,
   WhatsAppPhoneNumberResult,
   WhatsAppTemplateResult,
+  AdCreativeFullResult,
 } from './types.js';
 import { defaultDenyWritePermissionPolicy, isAdsProviderId } from './types.js';
 import type { CredentialResolverContract } from './credentials.js';
@@ -69,7 +70,8 @@ type AdapterMethod =
   | 'listAdVideos'
   | 'getAdPreview'
   | 'getTargetingOptions'
-  | 'getAdDestinations';
+  | 'getAdDestinations'
+  | 'readAdCreativeFull';
 
 type AdapterWriteMethod =
   | 'pauseCampaign'
@@ -147,6 +149,10 @@ export class AdsBroker {
 
   getAdDestinations(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdDestinationResult[]>> {
     return this.executeRead(request, 'getAdDestinations');
+  }
+
+  readAdCreativeFull(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdCreativeFullResult>> {
+    return this.executeRead<AdCreativeFullResult>(request, 'readAdCreativeFull');
   }
 
   getAccountInfo(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AccountInfoResult>> {

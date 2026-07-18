@@ -22,6 +22,7 @@ import type {
   AdVideoResult,
   AdPreviewResult,
   AdDestinationResult,
+  AdCreativeFullResult,
 } from '../../broker/types.js';
 import { ADS_PROVIDER_CAPABILITY_MATRIX } from '../../broker/types.js';
 import { redactErrorMessage } from '../../broker/credentials.js';
@@ -109,6 +110,10 @@ export class GoogleAdsAdapter implements AdsProviderAdapter {
 
   async getAdDestinations(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdDestinationResult[]>> {
     return Promise.resolve(this.notImplemented('Google ad destinations are not implemented yet') as unknown as AdsBrokerResponse<AdDestinationResult[]>);
+  }
+
+  async readAdCreativeFull(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdCreativeFullResult>> {
+    return Promise.resolve(this.notImplemented('Google readAdCreativeFull is not implemented yet') as unknown as AdsBrokerResponse<AdCreativeFullResult>);
   }
 
   async pauseCampaign(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>> {
