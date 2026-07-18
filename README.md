@@ -37,7 +37,7 @@ The intended public API should stay small:
 | `ads_get_capabilities` | Discover supported providers, metrics, breakdowns, levels, and writes |
 | `commerce_get_performance` | Fetch commerce/SKU/product/order performance when available |
 
-## Write tools (scoped mutations with dry-run + confirmation):
+## Write tools (scoped mutations; creation tools use dry-run + confirmation):
 
 | Tool | Purpose |
 |------|---------|
@@ -61,8 +61,6 @@ The intended public API should stay small:
 | `ads_list_whatsapp_accounts` | Discover WhatsApp Business Accounts (owned + client-shared) |
 | `ads_list_whatsapp_phone_numbers` | List phone numbers per WABA (get `phone_number_id` for CTWA) |
 | `ads_list_whatsapp_message_templates` | List WhatsApp message templates (filter by name/status) |
-
-All write tools use dry-run by default. Set `dryRun=false` + `confirmed=true` to execute.
 
 ### Standard and Collaborative Ads creative formats
 
@@ -508,7 +506,7 @@ MIT License - see [LICENSE](LICENSE) file for details.
 | AI Skills | ✅ | ✅ | ❌ |
 | Self-hosted MCP | ✅ | ❌ (cloud) | N/A |
 | Read Operations | ✅ | ✅ | ✅ |
-| Write Operations | ✅ (dry-run + confirmed) | ✅ | ✅ |
+| Write Operations | ✅ (creation tools: dry-run + confirmed) | ✅ | ✅ |
 | Rule Engine | ✅ | ❌ | ❌ |
 | Open Source | ✅ | ✅ | ✅ |
 | Target Audience | Both | End users | Developers |
@@ -520,7 +518,7 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 - **"Should I use skills or library?"** — Skills for ad-hoc analysis, library for automation
 - **"Can I use both?"** — Yes! They're complementary
-- **"Is this production-ready?"** — Yes. Read tools stable, write tools with dry-run + confirmation for safety. Pre-flight bid validation included.
+- **"Is this production-ready?"** — Yes. Read tools are stable, write tools have operation-specific safety checks, and the four creation tools use dry-run plus confirmation. Pre-flight bid validation is included.
 - **"Does this work with other AI agents?"** — Yes, any MCP-compatible agent
 - **"Can I self-host everything?"** — Yes, no external dependencies
 - **"Connection Key vs MCP Token?"** — Connection Key is recommended for end-user AI connector setups; MCP Token for developer self-host
