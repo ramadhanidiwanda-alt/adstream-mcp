@@ -52,6 +52,23 @@ describe('createCampaign', () => {
       expect(result.preview.daily_budget).toBe(50000);
       expect(result.preview.bid_strategy).toBe('LOWEST_COST_WITHOUT_CAP');
     });
+
+    it('returns mode as local metadata without sending it in the Meta payload', async () => {
+      const result = await createCampaign(mockClient, {
+        ...validOptions,
+        mode: 'collaborative_ads',
+      });
+
+      expect(result.mode).toBe('collaborative_ads');
+      expect(result.preview).toEqual({
+        name: 'Test Campaign',
+        objective: 'OUTCOME_TRAFFIC',
+        status: 'PAUSED',
+        special_ad_categories: [],
+        buying_type: 'AUCTION',
+      });
+      expect(result.preview).not.toHaveProperty('mode');
+    });
   });
 
   describe('pending_confirmation', () => {

@@ -775,6 +775,305 @@ describe('MetaAdsAdapter', () => {
     });
   });
 
+  it('forwards canonical campaign and ad set fields as typed options', async () => {
+    let campaignOptions: Record<string, unknown> | undefined;
+    let adSetOptions: Record<string, unknown> | undefined;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        createCampaign: async (_client, options) => {
+          campaignOptions = options as unknown as Record<string, unknown>;
+          return {
+            operation: 'create_campaign',
+            status: 'dry_run',
+            executed: false,
+            preview: {},
+            mode: options.mode ?? 'standard',
+          };
+        },
+        createAdSet: async (_client, options) => {
+          adSetOptions = options as unknown as Record<string, unknown>;
+          return { operation: 'create_adset', status: 'dry_run', executed: false, preview: {} };
+        },
+      },
+    });
+
+    const credentials = {
+      provider: 'meta' as const,
+      accessToken: 'secret-token',
+      source: 'test',
+    };
+    const campaignResponse = await adapter.createCampaign({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {
+        name: 'Collaborative campaign',
+        objective: 'OUTCOME_SALES',
+        mode: 'collaborative_ads',
+      },
+      credentials,
+    });
+    await adapter.createAdSet({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {
+        campaignId: 'campaign-1',
+        name: 'Collaborative ad set',
+        mode: 'collaborative_ads',
+        collaborativeCatalog: {
+          productSetId: 'set-1',
+          pixelId: 'pixel-1',
+          customEventType: 'PURCHASE',
+          destinationUrl: 'https://example.com/catalog',
+        },
+      },
+      credentials,
+    });
+
+    expect(campaignOptions).toMatchObject({ mode: 'collaborative_ads' });
+    expect(campaignResponse.data?.mode).toBe('collaborative_ads');
+    expect(adSetOptions).toMatchObject({
+      mode: 'collaborative_ads',
+      collaborativeCatalog: {
+        productSetId: 'set-1',
+        pixelId: 'pixel-1',
+        customEventType: 'PURCHASE',
+        destinationUrl: 'https://example.com/catalog',
+      },
+    });
+  });
+
+  const canonicalCreativeCases: Array<{
+    creativeFormat: string;
+    creativeSpec: Record<string, unknown>;
+  }> = [
+    {
+      creativeFormat: 'single_image',
+      creativeSpec: {
+        imageHash: 'image-1',
+        primaryText: 'Single image copy',
+        destinationUrl: 'https://example.com/image',
+        headline: 'Image headline',
+      },
+    },
+    {
+      creativeFormat: 'video',
+      creativeSpec: {
+        videoId: 'video-1',
+        primaryText: 'Video copy',
+        destinationUrl: 'https://example.com/video',
+        thumbnailImageHash: 'thumb-1',
+      },
+    },
+    {
+      creativeFormat: 'carousel',
+      creativeSpec: {
+        primaryText: 'Carousel copy',
+        cards: [
+          {
+            imageHash: 'image-1',
+            headline: 'Card one',
+            destinationUrl: 'https://example.com/one',
+          },
+          {
+            videoId: 'video-2',
+            headline: 'Card two',
+            destinationUrl: 'https://example.com/two',
+          },
+        ],
+      },
+    },
+    {
+      creativeFormat: 'catalog',
+      creativeSpec: { productSetId: 'set-1', primaryText: 'Catalog copy' },
+    },
+    {
+      creativeFormat: 'collection',
+      creativeSpec: {
+        instantExperienceId: 'canvas-1',
+        coverImageHash: 'image-1',
+        primaryText: 'Collection copy',
+      },
+    },
+    {
+      creativeFormat: 'flexible',
+      creativeSpec: {
+        primaryText: 'Flexible copy',
+        primaryTexts: ['Flexible copy', 'Alternate copy'],
+        imageHashes: ['image-1'],
+        videoIds: ['video-1'],
+        headlines: ['Headline one'],
+        descriptions: ['Description one'],
+        destinationUrl: 'https://example.com/flexible',
+      },
+    },
+    {
+      creativeFormat: 'existing_post',
+      creativeSpec: { objectStoryId: 'page-1_post-1' },
+    },
+  ];
+
+  it.each(canonicalCreativeCases)(
+    'strictly parses $creativeFormat as a canonical creative option',
+    async ({ creativeFormat, creativeSpec }) => {
+      let receivedOptions: Record<string, unknown> | undefined;
+      const adapter = new MetaAdsAdapter({
+        clientFactory: (config) => ({ config }) as never,
+        tools: {
+          createAdCreative: async (_client, options) => {
+            receivedOptions = options as unknown as Record<string, unknown>;
+            return {
+              operation: 'create_adcreative',
+              status: 'dry_run',
+              executed: false,
+              preview: {},
+            };
+          },
+        },
+      });
+
+      const response = await adapter.createAdCreative({
+        provider: 'meta',
+        accountId: 'act_123',
+        params: {
+          name: `${creativeFormat} creative`,
+          ...(creativeFormat === 'existing_post' ? {} : { pageId: 'page-1' }),
+          mode: 'standard',
+          creativeFormat,
+          creativeSpec,
+          collaborativeProductSetId: 'set-1',
+        },
+        credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+      });
+
+      expect(response.ok).toBe(true);
+      expect(receivedOptions).toMatchObject({
+        mode: 'standard',
+        collaborativeProductSetId: 'set-1',
+        creative: { creativeFormat, creativeSpec },
+      });
+      expect(receivedOptions).not.toHaveProperty('creativeFormat');
+      expect(receivedOptions).not.toHaveProperty('creativeSpec');
+    }
+  );
+
+  it('prefers a complete canonical creative pair over legacy fields', async () => {
+    let receivedOptions: Record<string, unknown> | undefined;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        createAdCreative: async (_client, options) => {
+          receivedOptions = options as unknown as Record<string, unknown>;
+          return { operation: 'create_adcreative', status: 'dry_run', executed: false, preview: {} };
+        },
+      },
+    });
+
+    const response = await adapter.createAdCreative({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {
+        name: 'Canonical wins',
+        pageId: 'page-1',
+        creativeFormat: 'single_image',
+        creativeSpec: {
+          imageHash: 'canonical-image',
+          primaryText: 'Canonical copy',
+          destinationUrl: 'https://example.com/canonical',
+        },
+        link: 'https://example.com/legacy',
+        message: 'Legacy copy',
+      },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    });
+
+    expect(response.ok).toBe(true);
+    expect(receivedOptions).toMatchObject({
+      creative: {
+        creativeFormat: 'single_image',
+        creativeSpec: { imageHash: 'canonical-image', primaryText: 'Canonical copy' },
+      },
+    });
+    expect(receivedOptions?.linkData).toBeUndefined();
+  });
+
+  it.each([
+    { creativeFormat: 'single_image' },
+    {
+      creativeSpec: {
+        imageHash: 'image-1',
+        primaryText: 'Copy',
+        destinationUrl: 'https://example.com',
+      },
+    },
+  ])('rejects an incomplete canonical creative pair before calling the tool: %o', async (params) => {
+    let calls = 0;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        createAdCreative: async () => {
+          calls += 1;
+          return { operation: 'create_adcreative', status: 'dry_run', executed: false, preview: {} };
+        },
+      },
+    });
+
+    const response = await adapter.createAdCreative({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {
+        name: 'Incomplete canonical pair',
+        pageId: 'page-1',
+        link: 'https://example.com/legacy',
+        message: 'Legacy copy',
+        ...params,
+      },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    });
+
+    expect(response).toMatchObject({
+      ok: false,
+      errors: [{ provider: 'meta', code: 'VALIDATION_ERROR' }],
+    });
+    expect(calls).toBe(0);
+  });
+
+  it('rejects malformed canonical array fields before calling the creative tool', async () => {
+    let calls = 0;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        createAdCreative: async () => {
+          calls += 1;
+          return { operation: 'create_adcreative', status: 'dry_run', executed: false, preview: {} };
+        },
+      },
+    });
+
+    const response = await adapter.createAdCreative({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {
+        name: 'Malformed flexible creative',
+        pageId: 'page-1',
+        creativeFormat: 'flexible',
+        creativeSpec: {
+          primaryText: 'Copy',
+          primaryTexts: ['Copy'],
+          imageHashes: ['image-1', 2],
+          destinationUrl: 'https://example.com',
+        },
+      },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    });
+
+    expect(response).toMatchObject({
+      ok: false,
+      errors: [{ provider: 'meta', code: 'VALIDATION_ERROR' }],
+    });
+    expect(calls).toBe(0);
+  });
+
   it('explains that official assetFeedSpec requires objectStorySpec', async () => {
     const adapter = new MetaAdsAdapter({
       clientFactory: (config) => ({ config }) as never,

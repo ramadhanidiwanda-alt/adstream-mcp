@@ -25,6 +25,139 @@ describe('createAdCreative', () => {
     expect(r.preview.name).toBe('Test Creative'); expect(mockMetaPost).not.toHaveBeenCalled();
   });
 
+  it('uses creativeFormat and creativeSpec instead of legacy linkData', async () => {
+    const result = await createAdCreative(
+      mockClient,
+      {
+        adAccountId: 'act_1',
+        name: 'Poster Payday',
+        pageId: 'page-1',
+        mode: 'standard',
+        creative: {
+          creativeFormat: 'single_image',
+          creativeSpec: {
+            imageHash: 'image-1',
+            primaryText: 'Promo Payday',
+            destinationUrl: 'https://example.com',
+            callToAction: 'SHOP_NOW',
+          },
+        },
+        linkData: {
+          link: 'https://legacy.example.com',
+          message: 'Legacy copy',
+          callToAction: {
+            type: 'LEARN_MORE',
+            value: { link: 'https://legacy.example.com' },
+          },
+        },
+      },
+      { dryRun: true }
+    );
+
+    expect(result.preview).toMatchObject({
+      name: 'Poster Payday',
+      object_story_spec: {
+        page_id: 'page-1',
+        link_data: { image_hash: 'image-1' },
+      },
+    });
+    expect(result.preview).not.toHaveProperty(
+      'object_story_spec.link_data.message',
+      'Legacy copy'
+    );
+  });
+
+  it('allows existing_post to omit pageId', async () => {
+    const result = await createAdCreative(mockClient, {
+      adAccountId: 'act_1',
+      name: 'Existing winner',
+      creative: {
+        creativeFormat: 'existing_post',
+        creativeSpec: { objectStoryId: 'page-1_123' },
+      },
+    });
+
+    expect(result).toMatchObject({
+      status: 'dry_run',
+      preview: { name: 'Existing winner', object_story_id: 'page-1_123' },
+    });
+  });
+
+  it('returns a structured validation error when a canonical creative requires pageId', async () => {
+    const result = await createAdCreative(mockClient, {
+      adAccountId: 'act_1',
+      name: 'Missing identity',
+      creative: {
+        creativeFormat: 'single_image',
+        creativeSpec: {
+          imageHash: 'image-1',
+          primaryText: 'Promo Payday',
+          destinationUrl: 'https://example.com',
+        },
+      },
+    });
+
+    expect(result).toMatchObject({
+      status: 'failed',
+      structuredError: {
+        provider: 'meta',
+        code: 'VALIDATION_ERROR',
+        message: expect.stringContaining('pageId'),
+      },
+    });
+    expect(mockMetaPost).not.toHaveBeenCalled();
+  });
+
+  it('enforces pageId for legacy creative paths', async () => {
+    const result = await createAdCreative(mockClient, {
+      adAccountId: 'act_1',
+      name: 'Legacy without identity',
+      linkData: baseOpts.linkData,
+    });
+
+    expect(result).toMatchObject({
+      status: 'failed',
+      structuredError: {
+        provider: 'meta',
+        code: 'VALIDATION_ERROR',
+        message: expect.stringContaining('pageId'),
+      },
+    });
+    expect(mockMetaPost).not.toHaveBeenCalled();
+  });
+
+  it('rejects a mismatched Collaborative Ads product set before POST', async () => {
+    const result = await createAdCreative(
+      mockClient,
+      {
+        adAccountId: 'act_1',
+        name: 'Catalog mismatch',
+        pageId: 'page-1',
+        mode: 'collaborative_ads',
+        collaborativeProductSetId: 'set-from-adset',
+        creative: {
+          creativeFormat: 'catalog',
+          creativeSpec: {
+            productSetId: 'set-from-creative',
+            primaryText: 'Shop now',
+            destinationUrl: 'https://example.com/catalog',
+          },
+        },
+      },
+      { dryRun: false, confirmed: true }
+    );
+
+    expect(result).toMatchObject({
+      status: 'failed',
+      structuredError: {
+        provider: 'meta',
+        code: 'VALIDATION_ERROR',
+        message: 'Product set creative dan ad set harus sama.',
+      },
+    });
+    expect(mockMetaPost).not.toHaveBeenCalled();
+  });
+
 
   it('includes Instagram and Threads identities in object_story_spec preview', async () => {
     const r = await createAdCreative(mockClient, {

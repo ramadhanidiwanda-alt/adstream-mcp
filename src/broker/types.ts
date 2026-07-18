@@ -1,3 +1,5 @@
+import type { MetaAdsMode } from '../types.js';
+
 export const ADS_PROVIDER_IDS = ['meta', 'tiktok', 'google'] as const;
 export type AdsProviderId = (typeof ADS_PROVIDER_IDS)[number];
 
@@ -709,6 +711,7 @@ export interface CreateCampaignResult {
   operation: 'create_campaign';
   status: CreateCampaignStatus;
   executed: boolean;
+  mode?: MetaAdsMode;
   preview: Record<string, unknown>;
   id?: string;
   response?: Record<string, unknown>;

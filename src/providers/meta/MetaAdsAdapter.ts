@@ -16,7 +16,20 @@ import { getAdsetInsights } from '../../tools/getAdsetInsights.js';
 import { getCampaignInsights } from '../../tools/getCampaignInsights.js';
 import { getMetaPlacementPerformance } from '../../tools/getMetaPlacementPerformance.js';
 import type { GetMetaPlacementPerformanceOptions } from '../../tools/getMetaPlacementPerformance.js';
-import type { AccountInsight, AdAccount, AdInsight, AdsetInsight, Campaign, CampaignInsight, MetaConfig, PlacementPerformanceReport } from '../../types.js';
+import type {
+  AccountInsight,
+  AdAccount,
+  AdInsight,
+  AdsetInsight,
+  Campaign,
+  CampaignInsight,
+  MetaAdsMode,
+  MetaCollaborativeCatalogContext,
+  MetaConfig,
+  MetaCreativeFormat,
+  MetaCreativeSpec,
+  PlacementPerformanceReport,
+} from '../../types.js';
 import type { MutationResult } from '../../types.js';
 import type { LocationBreakdown } from '../../types.js';
 import { pauseCampaign as pauseCampaignTool } from '../../tools/pauseCampaign.js';
@@ -937,12 +950,20 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       };
     }
 
+    let mode: MetaAdsMode | undefined;
+    try {
+      mode = parseMetaAdsMode(request.params.mode);
+    } catch (error) {
+      return validationResponse(error);
+    }
+
     try {
       const client = this.createClient(context.credential);
       const result = await this.tools.createCampaign(client, {
         adAccountId,
         name,
         objective: objective as import('../../tools/createCampaign.js').MetaCampaignObjective,
+        mode,
         status: typeof request.params.status === 'string' ? request.params.status as import('../../tools/createCampaign.js').CampaignStatus : undefined,
         specialAdCategories: Array.isArray(request.params.specialAdCategories) ? request.params.specialAdCategories.map(String) : undefined,
         buyType: typeof request.params.buyType === 'string' ? request.params.buyType as 'AUCTION' | 'RESERVED' : undefined,
@@ -985,12 +1006,23 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       };
     }
 
+    let mode: MetaAdsMode | undefined;
+    let collaborativeCatalog: MetaCollaborativeCatalogContext | undefined;
+    try {
+      mode = parseMetaAdsMode(request.params.mode);
+      collaborativeCatalog = parseCollaborativeCatalog(request.params.collaborativeCatalog);
+    } catch (error) {
+      return validationResponse(error);
+    }
+
     try {
       const client = this.createClient(context.credential);
       const result = await this.tools.createAdSet(client, {
         adAccountId,
         campaignId,
         name,
+        mode,
+        collaborativeCatalog,
         status: typeof request.params.status === 'string' ? request.params.status as import('../../tools/createAdSet.js').AdSetStatus : undefined,
         dailyBudget: typeof request.params.dailyBudget === 'number' ? request.params.dailyBudget : undefined,
         lifetimeBudget: typeof request.params.lifetimeBudget === 'number' ? request.params.lifetimeBudget : undefined,
@@ -1030,11 +1062,43 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
     const name = typeof request.params.name === 'string' ? request.params.name : undefined;
     const pageId = typeof request.params.pageId === 'string' ? request.params.pageId : undefined;
 
-    if (!adAccountId || !name || !pageId) {
+    if (!adAccountId || !name) {
       return {
         ok: false, provider: 'meta',
-        errors: [{ provider: 'meta', code: 'MISSING_REQUIRED_PARAMS', message: 'accountId, name, and pageId are required' }],
+        errors: [{ provider: 'meta', code: 'MISSING_REQUIRED_PARAMS', message: 'accountId and name are required' }],
       };
+    }
+
+    const hasCreativeFormat = request.params.creativeFormat !== undefined;
+    const hasCreativeSpec = request.params.creativeSpec !== undefined;
+    if (hasCreativeFormat !== hasCreativeSpec) {
+      return validationResponse(
+        new Error('creativeFormat dan creativeSpec wajib diberikan bersama-sama.')
+      );
+    }
+
+    let mode: MetaAdsMode | undefined;
+    let creative: MetaCreativeSpec | undefined;
+    let collaborativeProductSetId: string | undefined;
+    try {
+      mode = parseMetaAdsMode(request.params.mode);
+      collaborativeProductSetId = optionalString(
+        request.params.collaborativeProductSetId,
+        'collaborativeProductSetId'
+      );
+      if (hasCreativeFormat && hasCreativeSpec) {
+        const creativeFormat = parseMetaCreativeFormat(request.params.creativeFormat);
+        creative = parseMetaCreativeSpec(
+          creativeFormat,
+          requireRecord(request.params.creativeSpec, 'creativeSpec')
+        );
+      }
+    } catch (error) {
+      return validationResponse(error);
+    }
+
+    if (!pageId && creative?.creativeFormat !== 'existing_post') {
+      return validationResponse(new Error('pageId wajib diisi.'));
     }
 
     try {
@@ -1050,7 +1114,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
         : undefined;
       const ctaType = typeof request.params.callToActionType === 'string' ? request.params.callToActionType : 'SHOP_NOW';
 
-      if (assetFeedSpec && !objectStorySpec) {
+      if (!creative && assetFeedSpec && !objectStorySpec) {
         return {
           ok: false,
           provider: 'meta',
@@ -1062,7 +1126,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
         };
       }
 
-      if (!objectStorySpec && (!link || !message)) {
+      if (!creative && !objectStorySpec && (!link || !message)) {
         return {
           ok: false,
           provider: 'meta',
@@ -1074,7 +1138,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
         };
       }
 
-      const linkData = link && message ? {
+      const linkData = !creative && link && message ? {
         link, message,
         name: headline,
         description: typeof request.params.description === 'string' ? request.params.description : undefined,
@@ -1083,7 +1147,15 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       } : undefined;
 
       const result = await this.tools.createAdCreative(client, {
-        adAccountId, name, pageId, linkData, objectStorySpec, assetFeedSpec,
+        adAccountId,
+        name,
+        pageId,
+        mode,
+        creative,
+        collaborativeProductSetId,
+        linkData,
+        objectStorySpec: creative ? undefined : objectStorySpec,
+        assetFeedSpec: creative ? undefined : assetFeedSpec,
         imageHash: typeof request.params.imageHash === 'string' ? request.params.imageHash : undefined,
         instagramUserId: typeof request.params.instagramUserId === 'string' ? request.params.instagramUserId : undefined,
         threadsProfileId: typeof request.params.threadsProfileId === 'string' ? request.params.threadsProfileId : undefined,
@@ -1856,6 +1928,268 @@ function parseIdParam(value: unknown): string | string[] | undefined {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function parseMetaAdsMode(value: unknown): MetaAdsMode | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value !== 'string') {
+    throw new Error('mode harus berupa standard atau collaborative_ads.');
+  }
+  switch (value) {
+    case 'standard':
+    case 'collaborative_ads':
+      return value;
+    default:
+      throw new Error('mode harus berupa standard atau collaborative_ads.');
+  }
+}
+
+function parseMetaCreativeFormat(value: unknown): MetaCreativeFormat {
+  switch (value) {
+    case 'single_image':
+    case 'video':
+    case 'carousel':
+    case 'catalog':
+    case 'collection':
+    case 'flexible':
+    case 'existing_post':
+      return value;
+    default:
+      throw new Error(
+        'creativeFormat harus berupa single_image, video, carousel, catalog, collection, flexible, atau existing_post.'
+      );
+  }
+}
+
+function parseCollaborativeCatalog(
+  value: unknown
+): MetaCollaborativeCatalogContext | undefined {
+  if (value === undefined) return undefined;
+  const catalog = requireRecord(value, 'collaborativeCatalog');
+  return {
+    productSetId: requireString(
+      catalog.productSetId,
+      'collaborativeCatalog.productSetId'
+    ),
+    pixelId: optionalString(catalog.pixelId, 'collaborativeCatalog.pixelId'),
+    customEventType: optionalString(
+      catalog.customEventType,
+      'collaborativeCatalog.customEventType'
+    ),
+    destinationUrl: optionalString(
+      catalog.destinationUrl,
+      'collaborativeCatalog.destinationUrl'
+    ),
+  };
+}
+
+function parseMetaCreativeSpec(
+  format: MetaCreativeFormat,
+  spec: Record<string, unknown>
+): MetaCreativeSpec {
+  switch (format) {
+    case 'single_image':
+      return {
+        creativeFormat: 'single_image',
+        creativeSpec: {
+          imageHash: requireString(spec.imageHash, 'creativeSpec.imageHash'),
+          primaryText: requireString(spec.primaryText, 'creativeSpec.primaryText'),
+          destinationUrl: requireString(
+            spec.destinationUrl,
+            'creativeSpec.destinationUrl'
+          ),
+          headline: optionalString(spec.headline, 'creativeSpec.headline'),
+          description: optionalString(spec.description, 'creativeSpec.description'),
+          callToAction: optionalString(spec.callToAction, 'creativeSpec.callToAction'),
+        },
+      };
+    case 'video':
+      return {
+        creativeFormat: 'video',
+        creativeSpec: {
+          videoId: requireString(spec.videoId, 'creativeSpec.videoId'),
+          thumbnailImageHash: optionalString(
+            spec.thumbnailImageHash,
+            'creativeSpec.thumbnailImageHash'
+          ),
+          primaryText: requireString(spec.primaryText, 'creativeSpec.primaryText'),
+          destinationUrl: requireString(
+            spec.destinationUrl,
+            'creativeSpec.destinationUrl'
+          ),
+          headline: optionalString(spec.headline, 'creativeSpec.headline'),
+          description: optionalString(spec.description, 'creativeSpec.description'),
+          callToAction: optionalString(spec.callToAction, 'creativeSpec.callToAction'),
+        },
+      };
+    case 'carousel':
+      return {
+        creativeFormat: 'carousel',
+        creativeSpec: {
+          primaryText: requireString(spec.primaryText, 'creativeSpec.primaryText'),
+          destinationUrl: optionalString(
+            spec.destinationUrl,
+            'creativeSpec.destinationUrl'
+          ),
+          headline: optionalString(spec.headline, 'creativeSpec.headline'),
+          description: optionalString(spec.description, 'creativeSpec.description'),
+          callToAction: optionalString(spec.callToAction, 'creativeSpec.callToAction'),
+          cards: requireRecordArray(spec.cards, 'creativeSpec.cards').map((card, index) => ({
+            imageHash: optionalString(
+              card.imageHash,
+              `creativeSpec.cards[${index}].imageHash`
+            ),
+            videoId: optionalString(
+              card.videoId,
+              `creativeSpec.cards[${index}].videoId`
+            ),
+            headline: requireString(
+              card.headline,
+              `creativeSpec.cards[${index}].headline`
+            ),
+            description: optionalString(
+              card.description,
+              `creativeSpec.cards[${index}].description`
+            ),
+            destinationUrl: requireString(
+              card.destinationUrl,
+              `creativeSpec.cards[${index}].destinationUrl`
+            ),
+          })),
+        },
+      };
+    case 'catalog':
+      return {
+        creativeFormat: 'catalog',
+        creativeSpec: {
+          productSetId: requireString(spec.productSetId, 'creativeSpec.productSetId'),
+          primaryText: requireString(spec.primaryText, 'creativeSpec.primaryText'),
+          destinationUrl: optionalString(
+            spec.destinationUrl,
+            'creativeSpec.destinationUrl'
+          ),
+          headline: optionalString(spec.headline, 'creativeSpec.headline'),
+          description: optionalString(spec.description, 'creativeSpec.description'),
+          callToAction: optionalString(spec.callToAction, 'creativeSpec.callToAction'),
+          templateUrl: optionalString(spec.templateUrl, 'creativeSpec.templateUrl'),
+          fallbackImageHash: optionalString(
+            spec.fallbackImageHash,
+            'creativeSpec.fallbackImageHash'
+          ),
+        },
+      };
+    case 'collection':
+      return {
+        creativeFormat: 'collection',
+        creativeSpec: {
+          instantExperienceId: requireString(
+            spec.instantExperienceId,
+            'creativeSpec.instantExperienceId'
+          ),
+          coverImageHash: optionalString(
+            spec.coverImageHash,
+            'creativeSpec.coverImageHash'
+          ),
+          coverVideoId: optionalString(
+            spec.coverVideoId,
+            'creativeSpec.coverVideoId'
+          ),
+          productSetId: optionalString(spec.productSetId, 'creativeSpec.productSetId'),
+          primaryText: requireString(spec.primaryText, 'creativeSpec.primaryText'),
+          destinationUrl: optionalString(
+            spec.destinationUrl,
+            'creativeSpec.destinationUrl'
+          ),
+          headline: optionalString(spec.headline, 'creativeSpec.headline'),
+          description: optionalString(spec.description, 'creativeSpec.description'),
+          callToAction: optionalString(spec.callToAction, 'creativeSpec.callToAction'),
+        },
+      };
+    case 'flexible':
+      return {
+        creativeFormat: 'flexible',
+        creativeSpec: {
+          primaryText: requireString(spec.primaryText, 'creativeSpec.primaryText'),
+          primaryTexts: requireStringArray(
+            spec.primaryTexts,
+            'creativeSpec.primaryTexts'
+          ),
+          imageHashes: optionalStringArray(
+            spec.imageHashes,
+            'creativeSpec.imageHashes'
+          ),
+          videoIds: optionalStringArray(spec.videoIds, 'creativeSpec.videoIds'),
+          headlines: optionalStringArray(spec.headlines, 'creativeSpec.headlines'),
+          descriptions: optionalStringArray(
+            spec.descriptions,
+            'creativeSpec.descriptions'
+          ),
+          destinationUrl: requireString(
+            spec.destinationUrl,
+            'creativeSpec.destinationUrl'
+          ),
+          headline: optionalString(spec.headline, 'creativeSpec.headline'),
+          description: optionalString(spec.description, 'creativeSpec.description'),
+          callToAction: optionalString(spec.callToAction, 'creativeSpec.callToAction'),
+        },
+      };
+    case 'existing_post':
+      return {
+        creativeFormat: 'existing_post',
+        creativeSpec: {
+          objectStoryId: requireString(
+            spec.objectStoryId,
+            'creativeSpec.objectStoryId'
+          ),
+        },
+      };
+  }
+}
+
+function requireRecord(value: unknown, path: string): Record<string, unknown> {
+  if (!isRecord(value)) throw new Error(`${path} harus berupa object.`);
+  return value;
+}
+
+function requireRecordArray(value: unknown, path: string): Record<string, unknown>[] {
+  if (!Array.isArray(value)) throw new Error(`${path} harus berupa array.`);
+  return value.map((item, index) => requireRecord(item, `${path}[${index}]`));
+}
+
+function requireString(value: unknown, path: string): string {
+  if (typeof value !== 'string' || !value.trim()) {
+    throw new Error(`${path} wajib berupa string yang tidak kosong.`);
+  }
+  return value.trim();
+}
+
+function optionalString(value: unknown, path: string): string | undefined {
+  if (value === undefined) return undefined;
+  return requireString(value, path);
+}
+
+function requireStringArray(value: unknown, path: string): string[] {
+  if (!Array.isArray(value)) throw new Error(`${path} harus berupa array string.`);
+  return value.map((item, index) => requireString(item, `${path}[${index}]`));
+}
+
+function optionalStringArray(value: unknown, path: string): string[] | undefined {
+  if (value === undefined) return undefined;
+  return requireStringArray(value, path);
+}
+
+function validationResponse(error: unknown): AdsBrokerResponse<never> {
+  return {
+    ok: false,
+    provider: 'meta',
+    errors: [
+      {
+        provider: 'meta',
+        code: 'VALIDATION_ERROR',
+        message: error instanceof Error ? error.message : String(error),
+      },
+    ],
+  };
 }
 
 function supportsMediaSourcingSpec(apiVersion: string | undefined): boolean {

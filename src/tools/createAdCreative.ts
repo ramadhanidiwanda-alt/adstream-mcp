@@ -1,5 +1,10 @@
 import type { MetaClient } from '../metaClient.js';
-import type { StructuredMutationError } from '../types.js';
+import type {
+  MetaAdsMode,
+  MetaCreativeSpec,
+  StructuredMutationError,
+} from '../types.js';
+import { buildMetaCreativeFormatPayload } from '../providers/meta/buildCreativeFormatPayload.js';
 import { normalizeAccountPath } from '../utils/normalizeAccountId.js';
 import { formatMetaWriteError, formatStructuredMetaWriteError } from '../utils/formatMetaWriteError.js';
 
@@ -10,7 +15,10 @@ export type CreativeDestinationType = 'WEB' | 'WHATSAPP' | 'MESSENGER' | 'INSTAG
 export interface CreateAdCreativeOptions {
   adAccountId: string;
   name: string;
-  pageId: string;
+  pageId?: string;
+  mode?: MetaAdsMode;
+  creative?: MetaCreativeSpec;
+  collaborativeProductSetId?: string;
   linkData?: {
     link: string;
     message: string;
@@ -72,7 +80,20 @@ export async function createAdCreative(
 ): Promise<CreateAdCreativeResult> {
   const { dryRun = true, confirmed = false, maxRetries = 3 } = execOptions;
 
-  const preview = buildCreativePayload(options);
+  let preview: Record<string, unknown>;
+  try {
+    preview = buildCreativePayload(options);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return {
+      operation: 'create_adcreative',
+      status: 'failed',
+      executed: false,
+      preview: { name: options.name.trim() },
+      error: message,
+      structuredError: validationError(message),
+    };
+  }
   if (options.externalReference) {
     preview.external_reference = options.externalReference;
   }
@@ -170,10 +191,22 @@ function buildCreativePayload(options: CreateAdCreativeOptions): Record<string, 
     name: options.name.trim(),
   };
 
-  if (options.objectStorySpec) {
+  if (options.creative) {
+    Object.assign(
+      payload,
+      buildMetaCreativeFormatPayload({
+        mode: options.mode ?? 'standard',
+        pageId: options.pageId ?? '',
+        ...options.creative,
+        instagramUserId: options.instagramUserId,
+        collaborativeProductSetId: options.collaborativeProductSetId,
+      })
+    );
+  } else if (options.objectStorySpec) {
+    const pageId = requireLegacyPageId(options.pageId);
     const { asset_feed_spec: nestedAssetFeedSpec, ...objectStorySpec } = options.objectStorySpec;
     if (typeof objectStorySpec.page_id !== 'string' || !objectStorySpec.page_id.trim()) {
-      objectStorySpec.page_id = options.pageId.trim();
+      objectStorySpec.page_id = pageId;
     }
     payload.object_story_spec = objectStorySpec;
     const assetFeedSpec = options.assetFeedSpec ?? nestedAssetFeedSpec;
@@ -181,6 +214,7 @@ function buildCreativePayload(options: CreateAdCreativeOptions): Record<string, 
       payload.asset_feed_spec = assetFeedSpec;
     }
   } else if (options.linkData) {
+    const pageId = requireLegacyPageId(options.pageId);
     // For WHATSAPP_MESSAGE CTA, omit value entirely — empty string/link can be rejected.
     // wa.me requires display_phone_number (formatted international, no +/spaces),
     // not phone_number_id (Graph API internal ID). Let Meta handle the destination.
@@ -207,7 +241,7 @@ function buildCreativePayload(options: CreateAdCreativeOptions): Record<string, 
     }
 
     const objectStorySpec: Record<string, unknown> = {
-      page_id: options.pageId.trim(),
+      page_id: pageId,
       link_data: linkData,
     };
 
@@ -234,4 +268,19 @@ function buildCreativePayload(options: CreateAdCreativeOptions): Record<string, 
   if (options.urlTags) payload.url_tags = options.urlTags;
 
   return payload;
+}
+
+function requireLegacyPageId(pageId: string | undefined): string {
+  const normalized = pageId?.trim();
+  if (!normalized) throw new Error('pageId wajib diisi.');
+  return normalized;
+}
+
+function validationError(message: string): StructuredMutationError {
+  return {
+    provider: 'meta',
+    code: 'VALIDATION_ERROR',
+    message,
+    actionableFix: 'Perbaiki input creative pada dry-run sebelum menjalankan perubahan.',
+  };
 }

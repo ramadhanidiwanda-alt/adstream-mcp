@@ -1,5 +1,5 @@
 import type { MetaClient } from '../metaClient.js';
-import type { StructuredMutationError } from '../types.js';
+import type { MetaAdsMode, StructuredMutationError } from '../types.js';
 import { normalizeAccountPath } from '../utils/normalizeAccountId.js';
 import { formatMetaWriteError, formatStructuredMetaWriteError } from '../utils/formatMetaWriteError.js';
 
@@ -26,6 +26,7 @@ export interface CreateCampaignOptions {
   adAccountId: string;
   name: string;
   objective: MetaCampaignObjective;
+  mode?: MetaAdsMode;
   status?: CampaignStatus;
   specialAdCategories?: string[];
   buyType?: 'AUCTION' | 'RESERVED';
@@ -42,6 +43,7 @@ export interface CreateCampaignResult {
   operation: 'create_campaign';
   status: CreateCampaignStatus;
   executed: boolean;
+  mode: MetaAdsMode;
   preview: Record<string, unknown>;
   id?: string;
   response?: Record<string, unknown>;
@@ -78,6 +80,7 @@ export async function createCampaign(
     operation: 'create_campaign',
     status: 'dry_run',
     executed: false,
+    mode: options.mode ?? 'standard',
     preview,
   };
 
