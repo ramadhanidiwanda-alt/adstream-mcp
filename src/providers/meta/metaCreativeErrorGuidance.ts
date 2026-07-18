@@ -2,7 +2,7 @@ import type { StructuredMutationError } from '../../types.js';
 
 type CreativeErrorDetails = Pick<
   StructuredMutationError,
-  'code' | 'message' | 'providerCode' | 'providerSubcode'
+  'code' | 'message' | 'provider' | 'providerCode' | 'providerSubcode'
 >;
 
 const PROVIDER_GUIDANCE: Readonly<Record<string, string>> = {
@@ -16,8 +16,12 @@ const PROVIDER_GUIDANCE: Readonly<Record<string, string>> = {
 export function getMetaCreativeErrorGuidance(
   error: Partial<CreativeErrorDetails> & Pick<CreativeErrorDetails, 'message'>
 ): string {
+  if (error.code === 'INTERNAL_ERROR' || (!error.provider && error.code !== 'VALIDATION_ERROR')) {
+    return 'Terjadi kegagalan internal saat memproses creative. Coba lagi; jika tetap gagal, periksa log server tanpa mengekspos kredensial.';
+  }
+
   const providerKey = `${error.providerCode ?? ''}:${error.providerSubcode ?? ''}`;
-  const providerGuidance = PROVIDER_GUIDANCE[providerKey];
+  const providerGuidance = error.provider === 'meta' ? PROVIDER_GUIDANCE[providerKey] : undefined;
   if (providerGuidance) return providerGuidance;
 
   if (error.code === 'VALIDATION_ERROR') {
@@ -25,6 +29,10 @@ export function getMetaCreativeErrorGuidance(
       return 'Periksa product set creative dan ad set, lalu pastikan katalog yang dipakai sudah dibagikan ke akun iklan.';
     }
     return 'Periksa kembali input creative yang ditandai, perbaiki nilainya, lalu ulangi dry-run.';
+  }
+
+  if (error.provider !== 'meta') {
+    return 'Terjadi kegagalan saat memproses creative. Periksa detail error, lalu coba lagi.';
   }
 
   return 'Meta menolak pembuatan creative. Periksa detail asli Meta di bawah, perbaiki input yang disebutkan, lalu coba lagi.';

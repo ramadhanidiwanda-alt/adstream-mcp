@@ -171,10 +171,11 @@ export async function createAdCreative(
     const original = formatMetaWriteError(error);
     const structuredError = formatStructuredMetaWriteError(error);
     const guidance = getMetaCreativeErrorGuidance(structuredError);
+    const detailLabel = structuredError.provider === 'meta' ? 'Detail Meta' : 'Detail error';
     return {
       ...baseResult,
       status: 'failed',
-      error: `${guidance} Detail Meta: ${original}`,
+      error: `${guidance} ${detailLabel}: ${original}`,
       structuredError,
     };
   }
@@ -195,16 +196,21 @@ async function verifyCreatedCreative(
       { fields: CREATIVE_READ_BACK_FIELDS },
       maxRetries
     );
-    const effectiveFormat = classifyCreativeFormat(fields);
+    const matchesIntendedFormat = matchesCreativeFormat(fields, intendedFormat);
 
-    if (effectiveFormat === intendedFormat) {
+    if (matchesIntendedFormat) {
       return {
         status: 'verified',
         creativeId,
-        effectiveFormat,
+        effectiveFormat: intendedFormat,
         fields,
       };
     }
+
+    const matchingFormats = META_CREATIVE_FORMATS.filter((format) =>
+      matchesCreativeFormat(fields, format)
+    );
+    const effectiveFormat = matchingFormats.length === 1 ? matchingFormats[0] : undefined;
 
     return {
       status: 'warning',
@@ -225,26 +231,46 @@ async function verifyCreatedCreative(
   }
 }
 
-function classifyCreativeFormat(fields: Record<string, unknown>): MetaCreativeFormat | undefined {
-  if (hasNonBlankString(fields.object_story_id) || hasNonBlankString(fields.effective_object_story_id)) {
-    return 'existing_post';
-  }
-  if (isRecord(fields.asset_feed_spec)) return 'flexible';
+const META_CREATIVE_FORMATS: readonly MetaCreativeFormat[] = [
+  'single_image',
+  'video',
+  'carousel',
+  'catalog',
+  'collection',
+  'flexible',
+  'existing_post',
+];
 
+function matchesCreativeFormat(
+  fields: Record<string, unknown>,
+  intendedFormat: MetaCreativeFormat
+): boolean {
   const storySpec = isRecord(fields.object_story_spec) ? fields.object_story_spec : undefined;
-  if (!storySpec) return undefined;
+  const linkData = storySpec && isRecord(storySpec.link_data) ? storySpec.link_data : undefined;
+  const videoData = storySpec && isRecord(storySpec.video_data) ? storySpec.video_data : undefined;
 
-  if (hasNonBlankString(fields.product_set_id) && isRecord(storySpec.template_data)) {
-    return 'catalog';
+  switch (intendedFormat) {
+    case 'existing_post':
+      return (
+        hasNonBlankString(fields.object_story_id) ||
+        hasNonBlankString(fields.effective_object_story_id)
+      );
+    case 'flexible':
+      return isRecord(fields.asset_feed_spec);
+    case 'catalog':
+      return (
+        hasNonBlankString(fields.product_set_id) &&
+        Boolean(storySpec && isRecord(storySpec.template_data))
+      );
+    case 'collection':
+      return containsCanvasUrl(linkData) || containsCanvasUrl(videoData);
+    case 'carousel':
+      return Array.isArray(linkData?.child_attachments);
+    case 'video':
+      return Boolean(videoData);
+    case 'single_image':
+      return hasNonBlankString(linkData?.image_hash);
   }
-
-  const linkData = isRecord(storySpec.link_data) ? storySpec.link_data : undefined;
-  const videoData = isRecord(storySpec.video_data) ? storySpec.video_data : undefined;
-  if (containsCanvasUrl(linkData) || containsCanvasUrl(videoData)) return 'collection';
-  if (Array.isArray(linkData?.child_attachments)) return 'carousel';
-  if (videoData) return 'video';
-  if (hasNonBlankString(linkData?.image_hash)) return 'single_image';
-  return undefined;
 }
 
 function containsCanvasUrl(value: unknown): boolean {

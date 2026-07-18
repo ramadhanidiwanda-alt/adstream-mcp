@@ -329,6 +329,50 @@ describe('createAdCreative', () => {
     );
   });
 
+  it('verifies an intended catalog despite overlapping Meta response fields', async () => {
+    mockMetaPost.mockResolvedValueOnce({ id: 'creative-1' });
+    mockMetaGetObject.mockResolvedValueOnce({
+      id: 'creative-1',
+      effective_object_story_id: 'page-1_story-1',
+      asset_feed_spec: { images: [{ hash: 'fallback-image' }] },
+      product_set_id: 'product-set-1',
+      object_story_spec: { template_data: { message: 'Shop the catalog' } },
+    });
+
+    const result = await createAdCreative(
+      mockClient,
+      collaborativeCatalogOptions,
+      { dryRun: false, confirmed: true }
+    );
+
+    expect(result.verification).toMatchObject({
+      status: 'verified',
+      creativeId: 'creative-1',
+      effectiveFormat: 'catalog',
+    });
+  });
+
+  it('checks story IDs only when existing_post is the intended format', async () => {
+    mockMetaPost.mockResolvedValueOnce({ id: 'creative-1' });
+    mockMetaGetObject.mockResolvedValueOnce({
+      id: 'creative-1',
+      effective_object_story_id: 'page-1_story-1',
+      object_story_spec: { link_data: { image_hash: 'image-hash-1' } },
+    });
+
+    const result = await createAdCreative(
+      mockClient,
+      standardImageOptions,
+      { dryRun: false, confirmed: true }
+    );
+
+    expect(result.verification).toMatchObject({
+      status: 'verified',
+      creativeId: 'creative-1',
+      effectiveFormat: 'single_image',
+    });
+  });
+
   it('keeps successful creation when read-back temporarily fails', async () => {
     mockMetaPost.mockResolvedValueOnce({ id: 'creative-1' });
     mockMetaGetObject.mockRejectedValueOnce(new Error('temporary read failure'));
@@ -481,7 +525,10 @@ describe('createAdCreative', () => {
   it('returns failed on API error', async () => {
     mockMetaPost.mockRejectedValueOnce(new Error('creative error'));
     const r = await createAdCreative(mockClient, standardImageOptions, { dryRun: false, confirmed: true });
-    expect(r.status).toBe('failed'); expect(r.error).toContain('creative error');
+    expect(r.status).toBe('failed');
+    expect(r.error).toBe(
+      'Terjadi kegagalan internal saat memproses creative. Coba lagi; jika tetap gagal, periksa log server tanpa mengekspos kredensial. Detail error: creative error'
+    );
     expect(mockMetaGetObject).not.toHaveBeenCalled();
   });
 
