@@ -492,6 +492,36 @@ describe('buildMetaCreativeFormatPayload', () => {
     });
   });
 
+  it('normalizes and emits product_set_id for a standard Collection creative', () => {
+    const result = buildMetaCreativeFormatPayload({
+      mode: 'standard',
+      pageId: 'page-1',
+      creativeFormat: 'collection',
+      creativeSpec: {
+        instantExperienceId: 'canvas-1',
+        coverImageHash: 'cover-1',
+        productSetId: ' standard-collection-set ',
+        primaryText: 'Buka koleksi',
+      },
+    });
+
+    expect(result).toEqual({
+      product_set_id: 'standard-collection-set',
+      object_story_spec: {
+        page_id: 'page-1',
+        link_data: {
+          image_hash: 'cover-1',
+          message: 'Buka koleksi',
+          link: 'https://fb.com/canvas_doc/canvas-1',
+          call_to_action: {
+            type: 'LEARN_MORE',
+            value: { link: 'https://fb.com/canvas_doc/canvas-1' },
+          },
+        },
+      },
+    });
+  });
+
   it('requires exactly one Collection cover asset', () => {
     expect(() =>
       buildMetaCreativeFormatPayload({
@@ -527,6 +557,57 @@ describe('buildMetaCreativeFormatPayload', () => {
         web: { url: 'https://fb.com/canvas_doc/canvas-1' },
       },
     });
+  });
+
+  it('uses one matching product set and the shared envelope for collaborative Collection', () => {
+    const result = buildMetaCreativeFormatPayload({
+      mode: 'collaborative_ads',
+      pageId: 'page-1',
+      collaborativeProductSetId: ' shared-collection-set ',
+      creativeFormat: 'collection',
+      creativeSpec: {
+        instantExperienceId: 'canvas-1',
+        coverVideoId: 'cover-video-1',
+        productSetId: 'shared-collection-set',
+        primaryText: 'Buka koleksi video',
+      },
+    });
+
+    expect(result).toEqual({
+      product_set_id: 'shared-collection-set',
+      omnichannel_link_spec: {
+        web: { url: 'https://fb.com/canvas_doc/canvas-1' },
+      },
+      object_story_spec: {
+        page_id: 'page-1',
+        video_data: {
+          video_id: 'cover-video-1',
+          message: 'Buka koleksi video',
+          call_to_action: {
+            type: 'LEARN_MORE',
+            value: { link: 'https://fb.com/canvas_doc/canvas-1' },
+          },
+        },
+      },
+    });
+    expect(result).not.toHaveProperty('asset_feed_spec');
+  });
+
+  it('rejects mismatched collaborative Collection product sets locally', () => {
+    expect(() =>
+      buildMetaCreativeFormatPayload({
+        mode: 'collaborative_ads',
+        pageId: 'page-1',
+        collaborativeProductSetId: 'adset-collection-set',
+        creativeFormat: 'collection',
+        creativeSpec: {
+          instantExperienceId: 'canvas-1',
+          coverImageHash: 'cover-1',
+          productSetId: 'creative-collection-set',
+          primaryText: 'Buka koleksi',
+        },
+      })
+    ).toThrow(/product set.*harus sama/i);
   });
 
   it('builds standard flexible asset_feed_spec', () => {

@@ -1,4 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { createEcommerceCampaignBundle } from '../src/tools/createEcommerceCampaignBundle.js';
 import type { MetaClient } from '../src/metaClient.js';
 
@@ -135,6 +138,48 @@ describe('createEcommerceCampaignBundle', () => {
     expect(result.ids).not.toHaveProperty('creativeId');
     expect(result.ids).not.toHaveProperty('adId');
     expect(mockPost).toHaveBeenCalledTimes(3);
+  });
+
+  it('redacts credentials and signed URLs from generic bundle errors', async () => {
+    const credentialFixture = 'final_review_bundle_credential_123456789';
+    const signedUrl =
+      `https://cdn.example.test/private/bundle.mp4?X-Amz-Signature=${credentialFixture}&expires=60`;
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'adstream-bundle-redaction-'));
+    const videoFilePath = path.join(tempDir, 'creative.mp4');
+    fs.writeFileSync(videoFilePath, 'video-fixture');
+
+    try {
+      const client = createMockClient();
+      const mockPost = client.metaPost as MetaPostMock;
+      mockPost
+        .mockResolvedValueOnce({ id: 'cmp_redaction' })
+        .mockResolvedValueOnce({ id: 'adset_redaction' });
+      client.metaUploadMultipart = vi.fn().mockRejectedValueOnce(
+        new Error(
+          `Bundle provider failed: access_token=${credentialFixture}; asset=${signedUrl}`
+        )
+      ) as MetaClient['metaUploadMultipart'];
+
+      const result = await createEcommerceCampaignBundle(
+        client,
+        {
+          ...payload,
+          imageHash: undefined,
+          videoFilePath,
+        },
+        { dryRun: false, confirmed: true }
+      );
+      const serialized = JSON.stringify(result);
+
+      expect(result.status).toBe('failed');
+      expect(result.error).toContain('[REDACTED]');
+      expect(result.error).toContain('[REDACTED_SIGNED_URL]');
+      expect(serialized).not.toContain(credentialFixture);
+      expect(serialized).not.toContain(signedUrl);
+      expect(serialized).not.toContain('cdn.example.test/private/bundle.mp4');
+    } finally {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    }
   });
 
   it('refuses execution without explicit confirmation', async () => {

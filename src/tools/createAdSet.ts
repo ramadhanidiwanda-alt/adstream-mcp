@@ -119,6 +119,13 @@ interface CampaignInfo {
   lifetime_budget?: number;
 }
 
+interface CollaborativeProductSetInfo {
+  id?: string;
+  name?: string;
+  product_catalog?: unknown;
+  product_count?: number | string;
+}
+
 /** Bid strategies that require bid_amount */
 const STRATEGIES_REQUIRING_BID_AMOUNT = ['COST_CAP', 'LOWEST_COST_WITH_BID_CAP', 'TARGET_COST'];
 
@@ -258,6 +265,70 @@ export async function createAdSet(
     };
   }
 
+  // --- PRE-FLIGHT CHECK: prove the shared retailer product set is readable ---
+  if (options.mode === 'collaborative_ads' && collaborativeProductSetId) {
+    let productSet: CollaborativeProductSetInfo;
+    try {
+      productSet = await client.metaGetObject<CollaborativeProductSetInfo>(
+        `/${collaborativeProductSetId}`,
+        { fields: 'id,name,product_catalog,product_count' },
+        maxRetries
+      );
+    } catch (error) {
+      const detail = formatMetaWriteError(error);
+      const structuredError = formatStructuredMetaWriteError(error);
+      return {
+        ...baseResult,
+        status: 'failed',
+        error:
+          `Product set Collaborative Ads tidak dapat diakses. ` +
+          `Pastikan retailer sudah membagikan product set ini ke akun iklan. Detail Meta: ${detail}`,
+        structuredError: {
+          ...structuredError,
+          provider: 'meta',
+          code: 'COLLABORATIVE_PRODUCT_SET_UNAVAILABLE',
+          actionableFix:
+            'Pastikan product set retailer sudah dibagikan ke akun iklan dan dapat dibaca oleh koneksi Meta ini.',
+        },
+      };
+    }
+
+    if (productSet.id?.trim() !== collaborativeProductSetId) {
+      const message =
+        'Product set Collaborative Ads tidak dapat diverifikasi dari respons Meta.';
+      return {
+        ...baseResult,
+        status: 'failed',
+        error: message,
+        structuredError: {
+          provider: 'meta',
+          code: 'COLLABORATIVE_PRODUCT_SET_UNAVAILABLE',
+          message,
+          actionableFix:
+            'Pastikan product set retailer sudah dibagikan ke akun iklan dan gunakan ID product set yang benar.',
+        },
+      };
+    }
+
+    const productCount = parseOptionalProductCount(productSet.product_count);
+    if (productCount !== undefined && productCount <= 0) {
+      const message =
+        'Product set Collaborative Ads tidak memiliki produk aktif untuk dipromosikan.';
+      return {
+        ...baseResult,
+        status: 'failed',
+        error: message,
+        structuredError: {
+          provider: 'meta',
+          code: 'COLLABORATIVE_PRODUCT_SET_INELIGIBLE',
+          message,
+          actionableFix:
+            'Pastikan product set retailer memiliki minimal satu produk aktif sebelum membuat ad set.',
+        },
+      };
+    }
+  }
+
   // --- PRE-FLIGHT CHECK: fetch campaign data ---
   try {
     const campaign = await client.metaGetObject<CampaignInfo>(
@@ -350,7 +421,7 @@ export async function createAdSet(
     };
   } catch (error) {
     // Try to extract subcode for better error message
-    let errorMsg = error instanceof Error ? error.message : String(error);
+    let errorMsg = formatMetaWriteError(error);
     if (error instanceof MetaApiError) {
       const mapped = mapSubcodeError(error.subcode, preview.bid_strategy as string | undefined);
       if (mapped) {
@@ -398,6 +469,13 @@ function validationError(code: string, message: string): StructuredMutationError
     provider: 'meta',
     actionableFix: 'Review the dry-run preview and update the invalid ad set input before executing.',
   };
+}
+
+function parseOptionalProductCount(value: number | string | undefined): number | undefined {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : undefined;
+  if (typeof value !== 'string' || !value.trim()) return undefined;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
 }
 
 function buildAdSetPayload(options: CreateAdSetOptions): Record<string, unknown> {

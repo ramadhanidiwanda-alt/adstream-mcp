@@ -5,6 +5,7 @@ import { createCampaign } from './createCampaign.js';
 import { createAdSet } from './createAdSet.js';
 import { createAdCreative } from './createAdCreative.js';
 import { createAd } from './createAd.js';
+import { formatMetaWriteError } from '../utils/formatMetaWriteError.js';
 
 export type EcommerceLaunchStatus = 'dry_run' | 'pending_confirmation' | 'executed' | 'failed';
 export type MetaEcommerceCallToActionType = 'SHOP_NOW' | 'LEARN_MORE' | 'SIGN_UP' | 'GET_OFFER';
@@ -117,11 +118,11 @@ export async function createEcommerceCampaignBundle(
   }
 
   const ids: NonNullable<EcommerceCampaignBundleResult['ids']> = {};
-  const failedResult = (error: string): EcommerceCampaignBundleResult => ({
+  const failedResult = (error: unknown): EcommerceCampaignBundleResult => ({
     ...baseResult,
     status: 'failed',
     ...(Object.keys(ids).length > 0 ? { ids: { ...ids } } : {}),
-    error,
+    error: formatMetaWriteError(error),
   });
 
   try {
@@ -246,7 +247,7 @@ export async function createEcommerceCampaignBundle(
       },
     };
   } catch (error) {
-    return failedResult(error instanceof Error ? error.message : String(error));
+    return failedResult(error);
   }
 }
 

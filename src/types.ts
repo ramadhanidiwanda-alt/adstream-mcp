@@ -215,8 +215,22 @@ export interface MetaCreativeVerification {
   status: 'verified' | 'warning';
   creativeId: string;
   effectiveFormat?: MetaCreativeFormat;
-  fields?: Record<string, unknown>;
+  summary?: MetaCreativeVerificationSummary;
   warning?: string;
+}
+
+export interface MetaCreativeVerificationSummary {
+  productSetId?: string;
+  hasObjectStoryId: boolean;
+  hasEffectiveObjectStoryId: boolean;
+  hasObjectStorySpec: boolean;
+  hasLinkData: boolean;
+  hasVideoData: boolean;
+  hasTemplateData: boolean;
+  hasChildAttachments: boolean;
+  hasAssetFeedSpec: boolean;
+  hasOmnichannelLinkSpec: boolean;
+  hasCanvasReference: boolean;
 }
 
 export interface MutationEnvelope<TPreview = Record<string, unknown>, TResponse = Record<string, unknown>> {

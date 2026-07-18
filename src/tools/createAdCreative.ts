@@ -4,6 +4,7 @@ import type {
   MetaCreativeFormat,
   MetaCreativeSpec,
   MetaCreativeVerification,
+  MetaCreativeVerificationSummary,
   StructuredMutationError,
 } from '../types.js';
 import { buildMetaCreativeFormatPayload } from '../providers/meta/buildCreativeFormatPayload.js';
@@ -197,13 +198,14 @@ async function verifyCreatedCreative(
       maxRetries
     );
     const matchesIntendedFormat = matchesCreativeFormat(fields, intendedFormat);
+    const summary = summarizeCreativeVerification(fields);
 
     if (matchesIntendedFormat) {
       return {
         status: 'verified',
         creativeId,
         effectiveFormat: intendedFormat,
-        fields,
+        summary,
       };
     }
 
@@ -216,7 +218,7 @@ async function verifyCreatedCreative(
       status: 'warning',
       creativeId,
       effectiveFormat,
-      fields,
+      summary,
       warning: effectiveFormat
         ? `Creative berhasil dibuat, tetapi format hasil read-back (${effectiveFormat}) tidak cocok dengan format yang diminta (${intendedFormat}).`
         : `Creative berhasil dibuat, tetapi field read-back belum cukup untuk memverifikasi format ${intendedFormat}.`,
@@ -229,6 +231,31 @@ async function verifyCreatedCreative(
         'Creative berhasil dibuat, tetapi read-back Meta belum tersedia. Coba verifikasi kembali creative ini nanti.',
     };
   }
+}
+
+function summarizeCreativeVerification(
+  fields: Record<string, unknown>
+): MetaCreativeVerificationSummary {
+  const storySpec = isRecord(fields.object_story_spec) ? fields.object_story_spec : undefined;
+  const linkData = storySpec && isRecord(storySpec.link_data) ? storySpec.link_data : undefined;
+  const videoData = storySpec && isRecord(storySpec.video_data) ? storySpec.video_data : undefined;
+  const productSetId = hasNonBlankString(fields.product_set_id)
+    ? fields.product_set_id.trim()
+    : undefined;
+
+  return {
+    ...(productSetId ? { productSetId } : {}),
+    hasObjectStoryId: hasNonBlankString(fields.object_story_id),
+    hasEffectiveObjectStoryId: hasNonBlankString(fields.effective_object_story_id),
+    hasObjectStorySpec: Boolean(storySpec),
+    hasLinkData: Boolean(linkData),
+    hasVideoData: Boolean(videoData),
+    hasTemplateData: Boolean(storySpec && isRecord(storySpec.template_data)),
+    hasChildAttachments: Array.isArray(linkData?.child_attachments),
+    hasAssetFeedSpec: isRecord(fields.asset_feed_spec),
+    hasOmnichannelLinkSpec: isRecord(fields.omnichannel_link_spec),
+    hasCanvasReference: containsCanvasUrl(linkData) || containsCanvasUrl(videoData),
+  };
 }
 
 const META_CREATIVE_FORMATS: readonly MetaCreativeFormat[] = [
@@ -314,6 +341,12 @@ async function findExistingCreativeByName(
 }
 
 function buildCreativePayload(options: CreateAdCreativeOptions): Record<string, unknown> {
+  if (!options.creative && !options.objectStorySpec && !options.linkData) {
+    throw new Error(
+      'Konten creative wajib diisi melalui creative, objectStorySpec, atau linkData.'
+    );
+  }
+
   const payload: Record<string, unknown> = {
     name: options.name.trim(),
   };

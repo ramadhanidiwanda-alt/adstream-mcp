@@ -216,6 +216,38 @@ describe('createAdSet — bid strategy + pre-flight validation', () => {
       expect(result.status).toBe('pending_confirmation');
       expect(result.error).toContain('confirmation');
     });
+
+    it('redacts credentials and signed URLs from generic ad-set POST errors', async () => {
+      const credentialFixture = 'final_review_adset_credential_123456789';
+      const signedUrl =
+        `https://cdn.example.test/private/adset.jpg?X-Amz-Signature=${credentialFixture}&expires=60`;
+      const client = createMockClient({
+        bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+        daily_budget: undefined,
+      });
+      vi.mocked(client.metaPost).mockRejectedValueOnce(
+        new Error(
+          `Ad-set provider failed: access_token=${credentialFixture}; asset=${signedUrl}`
+        )
+      );
+
+      const result = await createAdSet(
+        client,
+        defaultOptions,
+        { dryRun: false, confirmed: true }
+      );
+      const serialized = JSON.stringify(result);
+
+      expect(result).toMatchObject({
+        status: 'failed',
+        structuredError: { code: 'INTERNAL_ERROR' },
+      });
+      expect(result.error).toContain('[REDACTED]');
+      expect(result.error).toContain('[REDACTED_SIGNED_URL]');
+      expect(serialized).not.toContain(credentialFixture);
+      expect(serialized).not.toContain(signedUrl);
+      expect(serialized).not.toContain('cdn.example.test/private/adset.jpg');
+    });
   });
 
   describe('new fields in payload', () => {
@@ -236,10 +268,171 @@ describe('createAdSet — bid strategy + pre-flight validation', () => {
   });
 
   describe('collaborative catalog context', () => {
+    it('reads an accessible collaborative product set before creating the ad set', async () => {
+      const client = createMockClient({
+        bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+        daily_budget: undefined,
+      });
+      vi.mocked(client.metaGetObject).mockImplementation(async (path) => {
+        if (path === '/product-set-1') {
+          return {
+            id: 'product-set-1',
+            name: 'Retailer best sellers',
+            product_catalog: { id: 'catalog-1' },
+            product_count: 24,
+          };
+        }
+        return {
+          id: '120000000000000001',
+          bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+        };
+      });
+
+      const result = await createAdSet(
+        client,
+        {
+          ...defaultOptions,
+          mode: 'collaborative_ads',
+          collaborativeCatalog: { productSetId: ' product-set-1 ' },
+        },
+        { dryRun: false, confirmed: true }
+      );
+
+      expect(result.status).toBe('executed');
+      expect(client.metaGetObject).toHaveBeenNthCalledWith(
+        1,
+        '/product-set-1',
+        { fields: 'id,name,product_catalog,product_count' },
+        3
+      );
+      expect(client.metaPost).toHaveBeenCalledTimes(1);
+    });
+
+    it('returns Indonesian structured guidance and does not POST when the product set is inaccessible', async () => {
+      const client = createMockClient({
+        bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+        daily_budget: undefined,
+      });
+      vi.mocked(client.metaGetObject).mockImplementation(async (path) => {
+        if (path === '/inaccessible-set') {
+          throw new Error('Object does not exist or is not accessible');
+        }
+        return {
+          id: '120000000000000001',
+          bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+        };
+      });
+
+      const result = await createAdSet(
+        client,
+        {
+          ...defaultOptions,
+          mode: 'collaborative_ads',
+          collaborativeCatalog: { productSetId: 'inaccessible-set' },
+        },
+        { dryRun: false, confirmed: true }
+      );
+
+      expect(result).toMatchObject({
+        status: 'failed',
+        executed: false,
+        structuredError: {
+          provider: 'meta',
+          code: 'COLLABORATIVE_PRODUCT_SET_UNAVAILABLE',
+          actionableFix: expect.stringMatching(/pastikan.*product set.*dibagikan/i),
+        },
+      });
+      expect(result.error).toMatch(/product set.*tidak dapat diakses/i);
+      expect(client.metaPost).not.toHaveBeenCalled();
+    });
+
+    it('rejects an explicitly empty collaborative product set before POST', async () => {
+      const client = createMockClient({
+        bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+        daily_budget: undefined,
+      });
+      vi.mocked(client.metaGetObject).mockImplementation(async (path) => {
+        if (path === '/empty-set') {
+          return {
+            id: 'empty-set',
+            name: 'Empty retailer segment',
+            product_catalog: { id: 'catalog-1' },
+            product_count: 0,
+          };
+        }
+        return {
+          id: '120000000000000001',
+          bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+        };
+      });
+
+      const result = await createAdSet(
+        client,
+        {
+          ...defaultOptions,
+          mode: 'collaborative_ads',
+          collaborativeCatalog: { productSetId: 'empty-set' },
+        },
+        { dryRun: false, confirmed: true }
+      );
+
+      expect(result).toMatchObject({
+        status: 'failed',
+        structuredError: {
+          provider: 'meta',
+          code: 'COLLABORATIVE_PRODUCT_SET_INELIGIBLE',
+          actionableFix: expect.stringMatching(/produk.*aktif/i),
+        },
+      });
+      expect(result.error).toMatch(/tidak memiliki produk/i);
+      expect(client.metaPost).not.toHaveBeenCalled();
+    });
+
+    it('does not treat absent optional product-set eligibility fields as ineligible', async () => {
+      const client = createMockClient({
+        bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+        daily_budget: undefined,
+      });
+      vi.mocked(client.metaGetObject).mockImplementation(async (path) => {
+        if (path === '/accessible-without-optionals') {
+          return { id: 'accessible-without-optionals', name: 'Retailer segment' };
+        }
+        return {
+          id: '120000000000000001',
+          bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+        };
+      });
+
+      const result = await createAdSet(
+        client,
+        {
+          ...defaultOptions,
+          mode: 'collaborative_ads',
+          collaborativeCatalog: { productSetId: 'accessible-without-optionals' },
+        },
+        { dryRun: true }
+      );
+
+      expect(result.status).toBe('dry_run');
+      expect(client.metaGetObject).toHaveBeenCalledWith(
+        '/accessible-without-optionals',
+        { fields: 'id,name,product_catalog,product_count' },
+        3
+      );
+      expect(client.metaPost).not.toHaveBeenCalled();
+    });
+
     it('places a collaborative product set in promoted_object', async () => {
       const client = createMockClient({
         bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
         daily_budget: undefined,
+      });
+      vi.mocked(client.metaGetObject).mockImplementation(async (path) => {
+        if (path === '/product-set-1') return { id: 'product-set-1' };
+        return {
+          id: '120000000000000001',
+          bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+        };
       });
       const result = await createAdSet(
         client,

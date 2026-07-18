@@ -232,6 +232,16 @@ function buildCollection(
   input: Extract<BuildMetaCreativeFormatPayloadInput, { creativeFormat: 'collection' }>
 ): Record<string, unknown> {
   const { creativeSpec } = input;
+  const productSetId = optional(creativeSpec.productSetId, 'Product set Collection');
+  if (input.mode === 'collaborative_ads' && productSetId) {
+    const collaborativeProductSetId = required(
+      input.collaborativeProductSetId,
+      'Product set Collaborative Ads'
+    );
+    if (productSetId !== collaborativeProductSetId) {
+      throw new Error('Product set creative dan ad set harus sama.');
+    }
+  }
   const instantExperienceUrl = `https://fb.com/canvas_doc/${encodeURIComponent(
     required(creativeSpec.instantExperienceId, 'instantExperienceId')
   )}`;
@@ -272,7 +282,14 @@ function buildCollection(
   const destinationUrl =
     optional(creativeSpec.destinationUrl, 'destinationUrl') ?? instantExperienceUrl;
 
-  return withCollaborativeCatalogContext(input, { object_story_spec: storySpec }, destinationUrl);
+  return withCollaborativeCatalogContext(
+    input,
+    {
+      ...(productSetId ? { product_set_id: productSetId } : {}),
+      object_story_spec: storySpec,
+    },
+    destinationUrl
+  );
 }
 
 function buildFlexible(

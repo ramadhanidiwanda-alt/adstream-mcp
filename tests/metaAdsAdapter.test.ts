@@ -1289,6 +1289,59 @@ describe('MetaAdsAdapter', () => {
     expect(postCalls).toBe(0);
   });
 
+  it('does not expose nested signed creative read-back URLs at the adapter response boundary', async () => {
+    const signedUrl =
+      'https://cdn.example.test/private/adapter-creative.jpg?X-Amz-Signature=adapter-boundary-secret&expires=60';
+    const adapter = new MetaAdsAdapter({
+      clientFactory: () => ({
+        metaPost: async () => ({ id: 'creative-adapter-safe' }),
+        metaGetObject: async () => ({
+          id: 'creative-adapter-safe',
+          product_set_id: 'set-1',
+          object_story_spec: {
+            template_data: { image_url: signedUrl },
+          },
+          asset_feed_spec: {
+            images: [{ url: signedUrl }],
+          },
+        }),
+      }) as never,
+    });
+
+    const response = await adapter.createAdCreative({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {
+        name: 'Safe adapter catalog',
+        pageId: 'page-1',
+        creativeFormat: 'catalog',
+        creativeSpec: {
+          productSetId: 'set-1',
+          primaryText: 'Catalog copy',
+          destinationUrl: 'https://example.com/catalog',
+        },
+        dryRun: false,
+        confirmed: true,
+      },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    });
+    const serialized = JSON.stringify(response);
+
+    expect(response.ok).toBe(true);
+    expect(response.data?.verification).toMatchObject({
+      creativeId: 'creative-adapter-safe',
+      summary: {
+        productSetId: 'set-1',
+        hasObjectStorySpec: true,
+        hasTemplateData: true,
+        hasAssetFeedSpec: true,
+      },
+    });
+    expect(response.data?.verification).not.toHaveProperty('fields');
+    expect(serialized).not.toContain(signedUrl);
+    expect(serialized).not.toContain('adapter-boundary-secret');
+  });
+
   it.each([
     { creativeFormat: 'single_image' },
     {

@@ -165,6 +165,33 @@ describe('createAdCreative', () => {
     expect(mockMetaPost).not.toHaveBeenCalled();
   });
 
+  it.each([
+    { label: 'dry-run', execOptions: { dryRun: true } },
+    { label: 'confirmed execution', execOptions: { dryRun: false, confirmed: true } },
+  ])('rejects an empty direct creative call during $label without POST', async ({ execOptions }) => {
+    const result = await createAdCreative(
+      mockClient,
+      {
+        adAccountId: 'act_1',
+        name: 'Name only is not a creative',
+      },
+      execOptions
+    );
+
+    expect(result).toMatchObject({
+      status: 'failed',
+      executed: false,
+      preview: { name: 'Name only is not a creative' },
+      structuredError: {
+        provider: 'meta',
+        code: 'VALIDATION_ERROR',
+        message: expect.stringMatching(/konten creative.*wajib/i),
+      },
+    });
+    expect(result.error).toMatch(/creative.*objectStorySpec.*linkData/i);
+    expect(mockMetaPost).not.toHaveBeenCalled();
+  });
+
   it('enforces pageId for legacy creative paths', async () => {
     const result = await createAdCreative(mockClient, {
       adAccountId: 'act_1',
@@ -347,6 +374,52 @@ describe('createAdCreative', () => {
       },
       3
     );
+  });
+
+  it('returns only a bounded verification summary when Meta read-back contains nested signed URLs', async () => {
+    const signedUrl =
+      'https://cdn.example.test/private/creative.jpg?X-Amz-Signature=direct-boundary-secret&expires=60';
+    mockMetaPost.mockResolvedValueOnce({ id: 'creative-safe-summary' });
+    mockMetaGetObject.mockResolvedValueOnce({
+      id: 'creative-safe-summary',
+      product_set_id: 'product-set-1',
+      object_story_spec: {
+        template_data: {
+          message: 'Shop the catalog',
+          image_url: signedUrl,
+        },
+      },
+      asset_feed_spec: {
+        images: [{ url: signedUrl }],
+      },
+      omnichannel_link_spec: {
+        web: { url: signedUrl },
+      },
+    });
+
+    const result = await createAdCreative(
+      mockClient,
+      collaborativeCatalogOptions,
+      { dryRun: false, confirmed: true }
+    );
+    const serialized = JSON.stringify(result);
+
+    expect(result.verification).toMatchObject({
+      status: 'verified',
+      creativeId: 'creative-safe-summary',
+      effectiveFormat: 'catalog',
+      summary: {
+        productSetId: 'product-set-1',
+        hasObjectStorySpec: true,
+        hasTemplateData: true,
+        hasAssetFeedSpec: true,
+        hasOmnichannelLinkSpec: true,
+      },
+    });
+    expect(result.verification).not.toHaveProperty('fields');
+    expect(serialized).not.toContain(signedUrl);
+    expect(serialized).not.toContain('direct-boundary-secret');
+    expect(serialized).not.toContain('cdn.example.test/private/creative.jpg');
   });
 
   it('verifies an intended catalog despite overlapping Meta response fields', async () => {
