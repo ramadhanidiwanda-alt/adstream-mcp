@@ -43,7 +43,7 @@ The intended public API should stay small:
 |------|---------|
 | `ads_create_campaign` | Create a campaign under an ad account |
 | `ads_create_adset` | Create an ad set with pre-flight validation (bid strategy, CBO, budget) |
-| `ads_create_adcreative` | Create ad creative with page link or media |
+| `ads_create_adcreative` | Create ad creative with page link, media, or **Click-to-WhatsApp** (`destinationType`, `pageWelcomeMessage`, `whatsappPhoneNumberId`) |
 | `ads_create_ad` | Create an ad linking ad set and creative |
 | `ads_update_adset` | Update ad set settings (budget, status, targeting) |
 | `ads_pause_campaign` | Pause an active campaign |
@@ -53,6 +53,14 @@ The intended public API should stay small:
 | `ads_archive_ad` | Archive an ad or campaign |
 | `ads_upload_image` | Upload image to Meta Ads Image Library |
 | `ads_upload_video` | Upload video to Meta Ads Video Library |
+
+## WhatsApp Discovery Tools (read-only, Meta-specific)
+
+| Tool | Purpose |
+|------|---------|
+| `ads_list_whatsapp_accounts` | Discover WhatsApp Business Accounts (owned + client-shared) |
+| `ads_list_whatsapp_phone_numbers` | List phone numbers per WABA (get `phone_number_id` for CTWA) |
+| `ads_list_whatsapp_message_templates` | List WhatsApp message templates (filter by name/status) |
 
 All write tools use dry-run by default. Set `dryRun=false` + `confirmed=true` to execute.
 

@@ -46,6 +46,10 @@ export const ADS_MCP_TOOL_NAMES = [
   'ads_list_pages',
   'ads_list_instagram_accounts',
   'ads_list_threads_profiles',
+  // --- WhatsApp Discovery ---
+  'ads_list_whatsapp_accounts',
+  'ads_list_whatsapp_phone_numbers',
+  'ads_list_whatsapp_message_templates',
   // --- TikTok GMV Max ---
   'tiktok_gmv_max_create_campaign',
   'tiktok_gmv_max_update_campaign',
@@ -333,6 +337,21 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
     description: 'List Threads profiles connected to the user\'s Facebook Pages.',
     inputSchema: createAdsInputSchema([]),
   },
+  {
+    name: 'ads_list_whatsapp_accounts',
+    description: 'Discover WhatsApp Business Accounts (WABA) — both owned and client-shared. Calls GET /{businessId}/owned_whatsapp_business_accounts and /{businessId}/client_whatsapp_business_accounts.',
+    inputSchema: createAdsInputSchema([]),
+  },
+  {
+    name: 'ads_list_whatsapp_phone_numbers',
+    description: 'List phone numbers associated with a WhatsApp Business Account (WABA). Returns phone_number_id needed for CTWA creative setup. Calls GET /{wabaId}/phone_numbers.',
+    inputSchema: createAdsInputSchema([]),
+  },
+  {
+    name: 'ads_list_whatsapp_message_templates',
+    description: 'List WhatsApp message templates for a WABA. Supports filtering by name and status (APPROVED, PENDING, REJECTED). Calls GET /{wabaId}/message_templates.',
+    inputSchema: createAdsInputSchema([]),
+  },
   // --- TikTok GMV Max ---
   {
     name: 'tiktok_gmv_max_create_campaign',
@@ -570,6 +589,12 @@ function callBrokerMethod(
       return broker.listInstagramAccounts(request);
     case 'ads_list_threads_profiles':
       return broker.listThreadsProfiles(request);
+    case 'ads_list_whatsapp_accounts':
+      return broker.listWhatsAppAccounts(request);
+    case 'ads_list_whatsapp_phone_numbers':
+      return broker.listWhatsAppPhoneNumbers(request);
+    case 'ads_list_whatsapp_message_templates':
+      return broker.listWhatsAppMessageTemplates(request);
     case 'ads_upload_image':
       return broker.uploadImage(request);
     case 'ads_upload_video':

@@ -5,6 +5,8 @@ import { formatMetaWriteError, formatStructuredMetaWriteError } from '../utils/f
 
 export type CreativeStatus = 'ACTIVE' | 'PAUSED' | 'DELETED';
 
+export type CreativeDestinationType = 'WEB' | 'WHATSAPP' | 'MESSENGER' | 'INSTAGRAM_DIRECT' | 'APP';
+
 export interface CreateAdCreativeOptions {
   adAccountId: string;
   name: string;
@@ -29,6 +31,11 @@ export interface CreateAdCreativeOptions {
   objectStorySpec?: Record<string, unknown>;
   dedupeByName?: boolean;
   externalReference?: string;
+  // --- CTWA (Click-to-WhatsApp) Support ---
+  destinationType?: CreativeDestinationType;
+  whatsappPhoneNumberId?: string;
+  pageWelcomeMessage?: string;
+  whatsappWelcomeMessageSequenceId?: string;
 }
 
 export type CreateAdCreativeStatus = 'dry_run' | 'pending_confirmation' | 'executed' | 'failed' | 'deduped';
@@ -165,10 +172,27 @@ function buildCreativePayload(options: CreateAdCreativeOptions): Record<string, 
   if (options.objectStorySpec) {
     payload.object_story_spec = options.objectStorySpec;
   } else if (options.linkData) {
+    // Determine effective CTA type and value
+    let ctaType = options.linkData.callToAction.type;
+    let ctaValue = { ...options.linkData.callToAction.value };
+
+    if (options.destinationType === 'WHATSAPP' || ctaType === 'WHATSAPP_MESSAGE') {
+      ctaType = 'WHATSAPP_MESSAGE';
+      ctaValue = {
+        ...ctaValue,
+        link: options.whatsappPhoneNumberId
+          ? `https://wa.me/${options.whatsappPhoneNumberId}`
+          : ctaValue.link,
+      };
+    }
+
     const linkData: Record<string, unknown> = {
       link: options.linkData.link,
       message: options.linkData.message,
-      call_to_action: options.linkData.callToAction,
+      call_to_action: {
+        type: ctaType,
+        value: ctaValue,
+      },
     };
 
     if (options.linkData.name) linkData.name = options.linkData.name;
@@ -176,6 +200,11 @@ function buildCreativePayload(options: CreateAdCreativeOptions): Record<string, 
     if (options.imageHash) linkData.image_hash = options.imageHash;
     if (options.linkData.imageHash) linkData.image_hash = options.linkData.imageHash;
     if (options.linkData.attachmentStyle) linkData.attachment_style = options.linkData.attachmentStyle;
+
+    // WhatsApp welcome message
+    if (options.pageWelcomeMessage) {
+      linkData.page_welcome_message = options.pageWelcomeMessage;
+    }
 
     const objectStorySpec: Record<string, unknown> = {
       page_id: options.pageId.trim(),
@@ -190,6 +219,16 @@ function buildCreativePayload(options: CreateAdCreativeOptions): Record<string, 
     }
 
     payload.object_story_spec = objectStorySpec;
+  }
+
+  // WhatsApp welcome message sequence / partner flow
+  if (options.whatsappWelcomeMessageSequenceId) {
+    payload.asset_feed_spec = {
+      ...(payload.asset_feed_spec as Record<string, unknown> || {}),
+      additional_data: {
+        partner_app_welcome_message_flow_id: options.whatsappWelcomeMessageSequenceId,
+      },
+    };
   }
 
   if (options.urlTags) payload.url_tags = options.urlTags;

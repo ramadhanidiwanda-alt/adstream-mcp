@@ -211,6 +211,10 @@ const createAdCreativeInputSchema = {
   callToActionType: z.enum(['SHOP_NOW', 'LEARN_MORE', 'SIGN_UP', 'GET_OFFER', 'BOOK_NOW', 'DOWNLOAD', 'CONTACT_US', 'SUBSCRIBE', 'INSTALL_APP']).optional().describe('Call to action button type.'),
   instagramUserId: z.string().optional().describe('Instagram user ID for IG posting.'),
   threadsProfileId: z.string().optional().describe('Threads profile ID for Threads posting.'),
+  // --- CTWA (Click-to-WhatsApp) Support ---
+  destinationType: z.enum(['WEB', 'WHATSAPP', 'MESSENGER', 'INSTAGRAM_DIRECT', 'APP']).optional().describe('Destination type for the ad. Use WHATSAPP for Click-to-WhatsApp ads.'),
+  whatsappPhoneNumberId: z.string().optional().describe('WhatsApp Phone Number ID (from ads_list_whatsapp_phone_numbers). Required when destinationType=WHATSAPP.'),
+  pageWelcomeMessage: z.string().optional().describe('Welcome message sent when user clicks the WhatsApp CTA. E.g. "Halo, saya tertarik dengan produk ini."'),
   dedupeByName: z.boolean().optional().describe('Check for an existing creative with the same name before creating.'),
   externalReference: z.string().optional().describe('Caller-provided reference for duplicate prevention and audit correlation.'),
   dryRun: z.boolean().optional().describe('Defaults to true. Set false only after preview.'),
