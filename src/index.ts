@@ -133,6 +133,25 @@ export {
 } from './utils/locationBreakdowns.js';
 
 export type * from './types.js';
+export type {
+  MetaAdsMode,
+  MetaCreativeFormat,
+  MetaCreativeCopy,
+  MetaSingleImageCreativeSpec,
+  MetaVideoCreativeSpec,
+  MetaCarouselCard,
+  MetaCarouselCreativeSpec,
+  MetaCatalogCreativeSpec,
+  MetaCollectionCreativeSpec,
+  MetaFlexibleCreativeSpec,
+  MetaExistingPostCreativeSpec,
+  MetaCreativeSpec,
+  MetaCollaborativeCatalogContext,
+} from './types.js';
+export {
+  assertMetaCreativeCompatibility,
+  getMetaCreativeRequirements,
+} from './providers/meta/creativeFormatCompatibility.js';
 export type * from './broker/types.js';
 export {
   VideoSourceResult,
