@@ -848,6 +848,39 @@ export interface ThreadsProfileResult {
   pageName: string;
 }
 
+// ── WhatsApp / CTWA Types ──
+
+export interface WhatsAppAccountResult {
+  waba_id: string;
+  name: string;
+  currency?: string;
+  timezone_id?: string;
+  owner_business_id?: string;
+  owner_type: 'owned' | 'client';
+  account_status?: string;
+}
+
+export interface WhatsAppPhoneNumberResult {
+  phone_number_id: string;
+  display_phone_number: string;
+  verified_name: string;
+  quality_rating?: string;
+  code_verification_status?: string;
+}
+
+export interface WhatsAppTemplateResult {
+  id: string;
+  name: string;
+  status: string;
+  category: string;
+  language: string;
+  components?: Array<{
+    type: string;
+    text?: string;
+    buttons?: Array<{ type: string; text?: string }>;
+  }>;
+}
+
 export interface AdsProviderAdapter {
   id: AdsProviderId;
   displayName: string;
@@ -886,6 +919,10 @@ export interface AdsProviderAdapter {
   listPages?(request: AdsBrokerRequest): Promise<AdsBrokerResponse<MetaPageResult[]>>;
   listInstagramAccounts?(request: AdsBrokerRequest): Promise<AdsBrokerResponse<InstagramAccountResult[]>>;
   listThreadsProfiles?(request: AdsBrokerRequest): Promise<AdsBrokerResponse<ThreadsProfileResult[]>>;
+  // --- WhatsApp Discovery (Meta-specific, optional) ---
+  listWhatsAppAccounts?(request: AdsBrokerRequest): Promise<AdsBrokerResponse<WhatsAppAccountResult[]>>;
+  listWhatsAppPhoneNumbers?(request: AdsBrokerRequest): Promise<AdsBrokerResponse<WhatsAppPhoneNumberResult[]>>;
+  listWhatsAppMessageTemplates?(request: AdsBrokerRequest): Promise<AdsBrokerResponse<WhatsAppTemplateResult[]>>;
   // --- TikTok GMV Max (TikTok-specific) ---
   gmvMaxCreateCampaign?(request: AdsBrokerRequest): Promise<AdsBrokerResponse<EcommerceCampaignBundleResult>>;
   gmvMaxUpdateCampaign?(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>>;

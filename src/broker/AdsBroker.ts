@@ -34,6 +34,9 @@ import type {
   MetaPageResult,
   InstagramAccountResult,
   ThreadsProfileResult,
+  WhatsAppAccountResult,
+  WhatsAppPhoneNumberResult,
+  WhatsAppTemplateResult,
 } from './types.js';
 import { defaultDenyWritePermissionPolicy, isAdsProviderId } from './types.js';
 import type { CredentialResolverContract } from './credentials.js';
@@ -174,9 +177,21 @@ export class AdsBroker {
     return this.callOptionalReadMethod(request, 'listThreadsProfiles');
   }
 
+  listWhatsAppAccounts(request: AdsBrokerRequest): Promise<AdsBrokerResponse<WhatsAppAccountResult[]>> {
+    return this.callOptionalReadMethod(request, 'listWhatsAppAccounts');
+  }
+
+  listWhatsAppPhoneNumbers(request: AdsBrokerRequest): Promise<AdsBrokerResponse<WhatsAppPhoneNumberResult[]>> {
+    return this.callOptionalReadMethod(request, 'listWhatsAppPhoneNumbers');
+  }
+
+  listWhatsAppMessageTemplates(request: AdsBrokerRequest): Promise<AdsBrokerResponse<WhatsAppTemplateResult[]>> {
+    return this.callOptionalReadMethod(request, 'listWhatsAppMessageTemplates');
+  }
+
   private async callOptionalReadMethod<TData>(
     request: AdsBrokerRequest,
-    method: keyof Pick<AdsProviderAdapter, 'listPages' | 'listInstagramAccounts' | 'listThreadsProfiles'>
+    method: keyof Pick<AdsProviderAdapter, 'listPages' | 'listInstagramAccounts' | 'listThreadsProfiles' | 'listWhatsAppAccounts' | 'listWhatsAppPhoneNumbers' | 'listWhatsAppMessageTemplates'>
   ): Promise<AdsBrokerResponse<TData>> {
     const provider = this.resolveProviderId(request);
     if (!provider.ok) return provider.response;

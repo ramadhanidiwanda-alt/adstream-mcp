@@ -45,7 +45,7 @@ export { createAdSet } from './tools/createAdSet.js';
 export type { CreateAdSetOptions, CreateAdSetResult, CreateAdSetStatus, AdSetStatus, AdSetTargeting, BillingEvent, OptimizationGoal } from './tools/createAdSet.js';
 
 export { createAdCreative } from './tools/createAdCreative.js';
-export type { CreateAdCreativeOptions, CreateAdCreativeResult, CreateAdCreativeStatus, CreativeStatus } from './tools/createAdCreative.js';
+export type { CreateAdCreativeOptions, CreateAdCreativeResult, CreateAdCreativeStatus, CreativeStatus, CreativeDestinationType } from './tools/createAdCreative.js';
 
 export { createAd } from './tools/createAd.js';
 export type { CreateAdOptions, CreateAdResult, CreateAdStatus, AdStatus } from './tools/createAd.js';
@@ -79,6 +79,14 @@ export { listInstagramAccounts } from './tools/listInstagramAccounts.js';
 export type { InstagramAccountResult } from './tools/listInstagramAccounts.js';
 export { listThreadsProfiles } from './tools/listThreadsProfiles.js';
 export type { ThreadsProfileResult } from './tools/listThreadsProfiles.js';
+
+// --- WhatsApp Discovery ---
+export { listWhatsAppAccounts } from './tools/listWhatsAppAccounts.js';
+export type { WhatsAppAccountResult } from './tools/listWhatsAppAccounts.js';
+export { listWhatsAppPhoneNumbers } from './tools/listWhatsAppPhoneNumbers.js';
+export type { WhatsAppPhoneNumberResult } from './tools/listWhatsAppPhoneNumbers.js';
+export { listWhatsAppMessageTemplates } from './tools/listWhatsAppMessageTemplates.js';
+export type { WhatsAppTemplateResult, WhatsAppTemplateComponent } from './tools/listWhatsAppMessageTemplates.js';
 
 export { getAdDestinations } from './tools/getAdDestinations.js';
 export type { GetAdDestinationsOptions, AdDestinationInfo, AdDestinationPage } from './tools/getAdDestinations.js';

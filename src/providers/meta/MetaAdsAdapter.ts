@@ -43,6 +43,9 @@ import { getAdPreview } from '../../tools/getAdPreview.js';
 import { listPages as listPagesTool } from '../../tools/listPages.js';
 import { listInstagramAccounts as listInstagramAccountsTool } from '../../tools/listInstagramAccounts.js';
 import { listThreadsProfiles as listThreadsProfilesTool } from '../../tools/listThreadsProfiles.js';
+import { listWhatsAppAccounts as listWhatsAppAccountsTool } from '../../tools/listWhatsAppAccounts.js';
+import { listWhatsAppPhoneNumbers as listWhatsAppPhoneNumbersTool } from '../../tools/listWhatsAppPhoneNumbers.js';
+import { listWhatsAppMessageTemplates as listWhatsAppMessageTemplatesTool } from '../../tools/listWhatsAppMessageTemplates.js';
 import type {
   AdsBrokerRequest,
   AdsBrokerResponse,
@@ -64,6 +67,9 @@ import type {
   MetaPageResult,
   InstagramAccountResult,
   ThreadsProfileResult,
+  WhatsAppAccountResult,
+  WhatsAppPhoneNumberResult,
+  WhatsAppTemplateResult,
 } from '../../broker/types.js';
 import { ADS_PROVIDER_CAPABILITY_MATRIX } from '../../broker/types.js';
 import { redactErrorMessage } from '../../broker/credentials.js';
@@ -226,6 +232,9 @@ export interface MetaAdsAdapterTools {
   listPages(client: MetaClient, options?: { limit?: number }): Promise<import('../../tools/listPages.js').MetaPageResult[]>;
   listInstagramAccounts(client: MetaClient, options?: { limit?: number }): Promise<InstagramAccountResult[]>;
   listThreadsProfiles(client: MetaClient, options?: { limit?: number }): Promise<ThreadsProfileResult[]>;
+  listWhatsAppAccounts(client: MetaClient, options?: { businessId?: string; limit?: number }): Promise<WhatsAppAccountResult[]>;
+  listWhatsAppPhoneNumbers(client: MetaClient, options: { wabaId: string; limit?: number }): Promise<WhatsAppPhoneNumberResult[]>;
+  listWhatsAppMessageTemplates(client: MetaClient, options: { wabaId: string; name?: string; status?: string; limit?: number }): Promise<WhatsAppTemplateResult[]>;
 }
 
 export interface MetaAdsAdapterOptions {
@@ -271,6 +280,9 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       listPages: listPagesTool,
       listInstagramAccounts: listInstagramAccountsTool,
       listThreadsProfiles: listThreadsProfilesTool,
+      listWhatsAppAccounts: listWhatsAppAccountsTool,
+      listWhatsAppPhoneNumbers: listWhatsAppPhoneNumbersTool,
+      listWhatsAppMessageTemplates: listWhatsAppMessageTemplatesTool,
       ...options.tools,
     };
   }
@@ -1574,6 +1586,46 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       const limit = typeof request.params.limit === 'number' ? request.params.limit : undefined;
       const profiles = await this.tools.listThreadsProfiles(client, { limit });
       return { ok: true, provider: 'meta', data: profiles };
+    } catch (error) { return this.errorResponse(error); }
+  }
+
+  async listWhatsAppAccounts(request: AdsBrokerRequest): Promise<AdsBrokerResponse<WhatsAppAccountResult[]>> {
+    const context = this.getCredentialContext(request);
+    if (!context.ok) return context.response;
+    try {
+      const client = this.createClient(context.credential);
+      const businessId = typeof request.params.businessId === 'string' ? request.params.businessId : undefined;
+      const limit = typeof request.params.limit === 'number' ? request.params.limit : undefined;
+      const accounts = await this.tools.listWhatsAppAccounts(client, { businessId, limit });
+      return { ok: true, provider: 'meta', data: accounts };
+    } catch (error) { return this.errorResponse(error); }
+  }
+
+  async listWhatsAppPhoneNumbers(request: AdsBrokerRequest): Promise<AdsBrokerResponse<WhatsAppPhoneNumberResult[]>> {
+    const context = this.getCredentialContext(request);
+    if (!context.ok) return context.response;
+    try {
+      const client = this.createClient(context.credential);
+      const wabaId = typeof request.params.wabaId === 'string' ? request.params.wabaId : '';
+      if (!wabaId) return { ok: false, errors: [{ code: 'MISSING_WABA_ID', message: 'wabaId is required' }] };
+      const limit = typeof request.params.limit === 'number' ? request.params.limit : undefined;
+      const numbers = await this.tools.listWhatsAppPhoneNumbers(client, { wabaId, limit });
+      return { ok: true, provider: 'meta', data: numbers };
+    } catch (error) { return this.errorResponse(error); }
+  }
+
+  async listWhatsAppMessageTemplates(request: AdsBrokerRequest): Promise<AdsBrokerResponse<WhatsAppTemplateResult[]>> {
+    const context = this.getCredentialContext(request);
+    if (!context.ok) return context.response;
+    try {
+      const client = this.createClient(context.credential);
+      const wabaId = typeof request.params.wabaId === 'string' ? request.params.wabaId : '';
+      if (!wabaId) return { ok: false, errors: [{ code: 'MISSING_WABA_ID', message: 'wabaId is required' }] };
+      const name = typeof request.params.name === 'string' ? request.params.name : undefined;
+      const status = typeof request.params.status === 'string' ? request.params.status : undefined;
+      const limit = typeof request.params.limit === 'number' ? request.params.limit : undefined;
+      const templates = await this.tools.listWhatsAppMessageTemplates(client, { wabaId, name, status, limit });
+      return { ok: true, provider: 'meta', data: templates };
     } catch (error) { return this.errorResponse(error); }
   }
 

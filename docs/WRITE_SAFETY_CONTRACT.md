@@ -13,15 +13,15 @@ This contract defines the minimum safety behavior for every Meta Ads mutation ex
 
 Full campaign creation lifecycle with pre-flight validation:
 
-| Tool | Domain | Pre-flight |
-|------|--------|------------|
-| `ads_create_campaign` | Campaign | None (campaign-level params validated at schema) |
-| `ads_create_adset` | Ad Set | Campaign fetch (CBO conflict, bid strategy requirement, `targeting_automation`) |
-| `ads_create_adcreative` | Creative | None (page/link/media validated at Meta) |
-| `ads_create_ad` | Ad | None (adset + creative existence validated at Meta) |
-| `ads_upload_image` | Media | File existence, type (jpg/png), size (< 30MB) |
-| `ads_upload_video` | Media | File existence, type, size (< 1GB) |
-| `ads_get_ad_preview` | Preview | None (read-only render check) |
+| Tool | Domain | Pre-flight | CTWA |
+|------|--------|------------|------|
+| `ads_create_campaign` | Campaign | None (campaign-level params validated at schema) | — |
+| `ads_create_adset` | Ad Set | Campaign fetch (CBO conflict, bid strategy requirement, `targeting_automation`) | — |
+| `ads_create_adcreative` | Creative | None (page/link/media validated at Meta) | ✅ `destinationType`, `pageWelcomeMessage`, `whatsappPhoneNumberId` |
+| `ads_create_ad` | Ad | None (adset + creative existence validated at Meta) | — |
+| `ads_upload_image` | Media | File existence, type (jpg/png), size (< 30MB) | — |
+| `ads_upload_video` | Media | File existence, type, size (< 1GB) | — |
+| `ads_get_ad_preview` | Preview | None (read-only render check) | — |
 
 ### ✅ Supported — Batch 2 (Light Mutation)
 
