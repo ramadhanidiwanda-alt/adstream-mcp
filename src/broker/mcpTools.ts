@@ -160,7 +160,7 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
   },
   {
     name: 'ads_get_creatives',
-    description: 'Canonical read tool for creative metadata and creative-level metrics. Returns the standard performance envelope with level creative.',
+    description: 'Canonical read tool for creative metadata and creative-level metrics. Returns the standard performance envelope with level creative. For Meta setup checks, pass params.complianceAudit=true to audit active ads with their Ad Set placements.',
     inputSchema: createPerformanceInputSchema(['since', 'until']),
   },
   {

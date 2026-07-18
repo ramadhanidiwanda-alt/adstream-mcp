@@ -123,6 +123,35 @@ export interface AdsEngagementMetrics {
   follows?: number;
 }
 
+export type AdsComplianceStatus =
+  | 'PASS'
+  | 'FAIL'
+  | 'UNKNOWN'
+  | 'NOT_APPLICABLE'
+  | 'MANUAL_REVIEW';
+
+export interface AdsComplianceCheck {
+  status: AdsComplianceStatus;
+  reasons: string[];
+}
+
+export interface AdsAiCreativeCompliance extends AdsComplianceCheck {
+  enabled_features: string[];
+}
+
+export interface AdsPlacementCustomizationCompliance extends AdsComplianceCheck {
+  feed: AdsComplianceStatus;
+  reels: AdsComplianceStatus;
+  story: AdsComplianceStatus;
+  preview_required: boolean;
+}
+
+export interface AdsCreativeSetupCompliance {
+  ai_creative: AdsAiCreativeCompliance;
+  related_media: AdsComplianceCheck;
+  placement_customization: AdsPlacementCustomizationCompliance;
+}
+
 export interface AdsCreativeMetadata {
   creative_type?: string;
   creative_url?: string;
@@ -135,6 +164,7 @@ export interface AdsCreativeMetadata {
   description?: string;
   call_to_action?: string;
   destination_url?: string;
+  setup_compliance?: AdsCreativeSetupCompliance;
 }
 
 export interface AdsDiagnostics {

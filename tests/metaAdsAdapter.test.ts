@@ -49,12 +49,7 @@ describe('MetaAdsAdapter', () => {
       since: '2026-05-01',
       until: '2026-05-07',
       params: { limit: 50, cursor: 'prev_cursor' },
-      credentials: {
-        provider: 'meta',
-        accessToken: 'secret-token',
-        accountId: 'act_123',
-        source: 'test',
-      },
+      credentials: { provider: 'meta', accessToken: 'secret-token', accountId: 'act_123', source: 'test' },
     });
 
     expect(capturedPath).toBe('/act_act_123/activities');
@@ -178,7 +173,12 @@ describe('MetaAdsAdapter', () => {
       since: '2026-05-01',
       until: '2026-05-07',
       params: { cursor: 'prev_cursor' },
-      credentials: { provider: 'meta', accessToken: 'secret-token', accountId: 'act_123', source: 'test' },
+      credentials: {
+        provider: 'meta',
+        accessToken: 'secret-token',
+        accountId: 'act_123',
+        source: 'test',
+      },
     });
 
     expect(receivedOptions).toMatchObject({ cursor: 'prev_cursor' });
@@ -202,6 +202,37 @@ describe('MetaAdsAdapter', () => {
               thumbnail_url: 'https://example.test/thumb.jpg',
               image_url: 'https://example.test/image.jpg',
               image_hash: 'hash_1',
+              degrees_of_freedom_spec: {
+                creative_features_spec: {
+                  image_auto_crop: { enroll_status: 'OPT_OUT' },
+                  text_generation: { enroll_status: 'OPT_OUT' },
+                },
+              },
+              media_sourcing_spec: { related_media: [] },
+              asset_feed_spec: {
+                images: [
+                  { hash: 'feed_hash', adlabels: [{ name: 'feed_asset' }] },
+                  { hash: 'vertical_hash', adlabels: [{ name: 'vertical_asset' }] },
+                ],
+                asset_customization_rules: [
+                  {
+                    image_label: { name: 'feed_asset' },
+                    customization_spec: {
+                      publisher_platforms: ['facebook', 'instagram'],
+                      facebook_positions: ['feed'],
+                      instagram_positions: ['stream'],
+                    },
+                  },
+                  {
+                    image_label: { name: 'vertical_asset' },
+                    customization_spec: {
+                      publisher_platforms: ['facebook', 'instagram'],
+                      facebook_positions: ['facebook_reels', 'story'],
+                      instagram_positions: ['reels', 'story'],
+                    },
+                  },
+                ],
+              },
               object_story_spec: {
                 link_data: {
                   link: 'https://example.test/product',
@@ -221,11 +252,28 @@ describe('MetaAdsAdapter', () => {
       since: '2026-05-01',
       until: '2026-05-07',
       params: { limit: 25, cursor: 'prev_cursor' },
-      credentials: { provider: 'meta', accessToken: 'secret-token', accountId: 'act_123', source: 'test' },
+      credentials: {
+        provider: 'meta',
+        accessToken: 'secret-token',
+        accountId: 'act_123',
+        apiVersion: 'v23.0',
+        source: 'test',
+      },
     });
 
-    expect(capturedPath).toBe('/act_act_123/adcreatives');
+    expect(capturedPath).toBe('/act_123/adcreatives');
     expect(capturedParams).toMatchObject({ limit: 25, after: 'prev_cursor' });
+    for (const field of [
+      'status',
+      'degrees_of_freedom_spec',
+      'media_sourcing_spec',
+      'asset_feed_spec',
+      'platform_customizations',
+      'portrait_customizations',
+      'image_crops',
+    ]) {
+      expect(capturedParams).toMatchObject({ fields: expect.stringContaining(field) });
+    }
     expect(response.ok).toBe(true);
     expect(response.meta).toMatchObject({ nextCursor: 'creative_cursor' });
     expect(response.data?.[0]).toMatchObject({
@@ -241,10 +289,134 @@ describe('MetaAdsAdapter', () => {
         primary_text: 'Best seller this week',
         call_to_action: 'SHOP_NOW',
         destination_url: 'https://example.test/product',
+        setup_compliance: {
+          ai_creative: { status: 'PASS', enabled_features: [] },
+          related_media: { status: 'PASS' },
+          placement_customization: {
+            status: 'PASS',
+            feed: 'PASS',
+            reels: 'PASS',
+            story: 'PASS',
+            preview_required: true,
+          },
+        },
       },
       delivery: { spend: 0, impressions: 0 },
     });
     expect(JSON.stringify(response)).not.toContain('secret-token');
+  });
+
+  it('omits media_sourcing_spec on Meta API versions that do not support it', async () => {
+    let capturedParams: Record<string, unknown> | undefined;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: () => ({
+        metaGet: async (_path: string, params: Record<string, unknown>) => {
+          capturedParams = params;
+          return { data: [{ id: 'creative_legacy', name: 'Legacy Creative' }] };
+        },
+      }) as never,
+    });
+
+    const response = await adapter.getCreativePerformance({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {},
+      credentials: {
+        provider: 'meta',
+        accessToken: 'secret-token',
+        accountId: 'act_123',
+        apiVersion: 'v20.0',
+        source: 'test',
+      },
+    });
+
+    expect(capturedParams?.fields).not.toContain('media_sourcing_spec');
+    expect(response.data?.[0]?.creative?.setup_compliance?.related_media.status).toBe('UNKNOWN');
+  });
+
+  it('audits active ads with their ad set placement targeting', async () => {
+    let capturedPath: string | undefined;
+    let capturedParams: Record<string, unknown> | undefined;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: () => ({
+        metaGet: async (path: string, params: Record<string, unknown>) => {
+          capturedPath = path;
+          capturedParams = params;
+          return {
+            data: [
+              {
+                id: 'ad_1',
+                name: 'Active Ad',
+                status: 'ACTIVE',
+                effective_status: 'ACTIVE',
+                adset: {
+                  id: 'adset_1',
+                  name: 'Main Ad Set',
+                  targeting: {
+                    publisher_platforms: ['facebook', 'instagram'],
+                    facebook_positions: ['feed', 'facebook_reels'],
+                    instagram_positions: ['stream', 'reels'],
+                  },
+                },
+                creative: {
+                  id: 'creative_1',
+                  name: 'Hero Creative',
+                  degrees_of_freedom_spec: {
+                    creative_features_spec: {
+                      standard_enhancements: { enroll_status: 'OPT_OUT' },
+                    },
+                  },
+                },
+              },
+            ],
+            paging: { cursors: { after: 'next_active_ad' } },
+          };
+        },
+      }) as never,
+    });
+
+    const response = await adapter.getCreativePerformance({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: { complianceAudit: true, limit: 10 },
+      credentials: {
+        provider: 'meta',
+        accessToken: 'secret-token',
+        accountId: 'act_123',
+        apiVersion: 'v23.0',
+        source: 'test',
+      },
+    });
+
+    expect(capturedPath).toBe('/act_123/ads');
+    expect(capturedParams).toMatchObject({
+      limit: 10,
+      fields: expect.stringContaining('adset{id,name,targeting}'),
+      filtering: expect.stringContaining('ACTIVE'),
+    });
+    expect(response.data?.[0]).toMatchObject({
+      identity: {
+        ad_id: 'ad_1',
+        ad_name: 'Active Ad',
+        adset_or_adgroup_id: 'adset_1',
+        adset_or_adgroup_name: 'Main Ad Set',
+        creative_id: 'creative_1',
+      },
+      setup: { status: 'ACTIVE', effective_status: 'ACTIVE' },
+      creative: {
+        setup_compliance: {
+          ai_creative: { status: 'PASS' },
+          related_media: { status: 'PASS' },
+          placement_customization: {
+            status: 'FAIL',
+            feed: 'FAIL',
+            reels: 'FAIL',
+            story: 'NOT_APPLICABLE',
+          },
+        },
+      },
+    });
+    expect(response.meta).toMatchObject({ nextCursor: 'next_active_ad' });
   });
 
   it('enables CPAS mode as Meta campaign performance parameters', async () => {
@@ -341,11 +513,28 @@ describe('MetaAdsAdapter', () => {
     const response = await adapter.getCreativePerformance({
       provider: 'meta',
       params: { creativeId: '1031745992699354' },
-      credentials: { provider: 'meta', accessToken: 'secret-token', accountId: 'act_123', source: 'test' },
+      credentials: {
+        provider: 'meta',
+        accessToken: 'secret-token',
+        accountId: 'act_123',
+        apiVersion: 'v23.0',
+        source: 'test',
+      },
     });
 
     expect(capturedPath).toBe('/1031745992699354');
     expect(capturedParams).toMatchObject({ fields: expect.stringContaining('video_id') });
+    for (const field of [
+      'status',
+      'degrees_of_freedom_spec',
+      'media_sourcing_spec',
+      'asset_feed_spec',
+      'platform_customizations',
+      'portrait_customizations',
+      'image_crops',
+    ]) {
+      expect(capturedParams).toMatchObject({ fields: expect.stringContaining(field) });
+    }
     expect(response.ok).toBe(true);
     expect(response.meta).toMatchObject({ nextCursor: null });
     expect(response.data?.[0]).toMatchObject({
@@ -360,6 +549,14 @@ describe('MetaAdsAdapter', () => {
         primary_text: 'Back in stock soon',
         call_to_action: 'SHOP_NOW',
         destination_url: 'https://example.test/product',
+        setup_compliance: {
+          ai_creative: { status: 'NOT_APPLICABLE' },
+          related_media: { status: 'PASS' },
+          placement_customization: {
+            status: 'UNKNOWN',
+            preview_required: true,
+          },
+        },
       },
     });
   });
