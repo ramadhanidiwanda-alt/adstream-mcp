@@ -46,6 +46,7 @@ export type { CreateAdSetOptions, CreateAdSetResult, CreateAdSetStatus, AdSetSta
 
 export { createAdCreative } from './tools/createAdCreative.js';
 export type { CreateAdCreativeOptions, CreateAdCreativeResult, CreateAdCreativeStatus, CreativeStatus, CreativeDestinationType } from './tools/createAdCreative.js';
+export { getMetaCreativeErrorGuidance } from './providers/meta/metaCreativeErrorGuidance.js';
 
 export { createAd } from './tools/createAd.js';
 export type { CreateAdOptions, CreateAdResult, CreateAdStatus, AdStatus } from './tools/createAd.js';

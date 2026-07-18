@@ -28,6 +28,8 @@ export function formatStructuredMetaWriteError(error: unknown): StructuredMutati
       provider: 'meta',
       providerCode: error.code !== undefined ? String(error.code) : undefined,
       providerSubcode: error.subcode !== undefined ? String(error.subcode) : undefined,
+      providerTitle: error.userTitle,
+      providerMessage: error.userMessage,
       traceId: error.fbtraceId,
       actionableFix: getActionableFix(error, message),
     };

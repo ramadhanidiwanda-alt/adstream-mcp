@@ -205,8 +205,18 @@ export interface StructuredMutationError {
   provider?: string;
   providerCode?: string;
   providerSubcode?: string;
+  providerTitle?: string;
+  providerMessage?: string;
   traceId?: string;
   actionableFix?: string;
+}
+
+export interface MetaCreativeVerification {
+  status: 'verified' | 'warning';
+  creativeId: string;
+  effectiveFormat?: MetaCreativeFormat;
+  fields?: Record<string, unknown>;
+  warning?: string;
 }
 
 export interface MutationEnvelope<TPreview = Record<string, unknown>, TResponse = Record<string, unknown>> {

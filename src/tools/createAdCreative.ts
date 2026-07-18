@@ -1,10 +1,13 @@
 import type { MetaClient } from '../metaClient.js';
 import type {
   MetaAdsMode,
+  MetaCreativeFormat,
   MetaCreativeSpec,
+  MetaCreativeVerification,
   StructuredMutationError,
 } from '../types.js';
 import { buildMetaCreativeFormatPayload } from '../providers/meta/buildCreativeFormatPayload.js';
+import { getMetaCreativeErrorGuidance } from '../providers/meta/metaCreativeErrorGuidance.js';
 import { normalizeAccountPath } from '../utils/normalizeAccountId.js';
 import { formatMetaWriteError, formatStructuredMetaWriteError } from '../utils/formatMetaWriteError.js';
 
@@ -58,6 +61,7 @@ export interface CreateAdCreativeResult {
   response?: Record<string, unknown>;
   error?: string;
   structuredError?: StructuredMutationError;
+  verification?: MetaCreativeVerification;
 }
 
 interface MetaIdResponse extends Record<string, unknown> {
@@ -85,13 +89,15 @@ export async function createAdCreative(
     preview = buildCreativePayload(options);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
+    const structuredError = validationError(message);
+    const guidance = getMetaCreativeErrorGuidance(structuredError);
     return {
       operation: 'create_adcreative',
       status: 'failed',
       executed: false,
       preview: { name: options.name.trim() },
-      error: message,
-      structuredError: validationError(message),
+      error: `${guidance} Detail validasi: ${message}`,
+      structuredError,
     };
   }
   if (options.externalReference) {
@@ -144,21 +150,116 @@ export async function createAdCreative(
       };
     }
 
+    const verification = options.creative
+      ? await verifyCreatedCreative(
+          client,
+          response.id,
+          options.creative.creativeFormat,
+          maxRetries
+        )
+      : undefined;
+
     return {
       ...baseResult,
       status: 'executed',
       executed: true,
       id: response.id,
       response,
+      verification,
     };
   } catch (error) {
+    const original = formatMetaWriteError(error);
+    const structuredError = formatStructuredMetaWriteError(error);
+    const guidance = getMetaCreativeErrorGuidance(structuredError);
     return {
       ...baseResult,
       status: 'failed',
-      error: formatMetaWriteError(error),
-      structuredError: formatStructuredMetaWriteError(error),
+      error: `${guidance} Detail Meta: ${original}`,
+      structuredError,
     };
   }
+}
+
+const CREATIVE_READ_BACK_FIELDS =
+  'id,name,object_story_id,object_story_spec,asset_feed_spec,product_set_id,omnichannel_link_spec,effective_object_story_id';
+
+async function verifyCreatedCreative(
+  client: MetaClient,
+  creativeId: string,
+  intendedFormat: MetaCreativeFormat,
+  maxRetries: number
+): Promise<MetaCreativeVerification> {
+  try {
+    const fields = await client.metaGetObject<Record<string, unknown>>(
+      `/${creativeId}`,
+      { fields: CREATIVE_READ_BACK_FIELDS },
+      maxRetries
+    );
+    const effectiveFormat = classifyCreativeFormat(fields);
+
+    if (effectiveFormat === intendedFormat) {
+      return {
+        status: 'verified',
+        creativeId,
+        effectiveFormat,
+        fields,
+      };
+    }
+
+    return {
+      status: 'warning',
+      creativeId,
+      effectiveFormat,
+      fields,
+      warning: effectiveFormat
+        ? `Creative berhasil dibuat, tetapi format hasil read-back (${effectiveFormat}) tidak cocok dengan format yang diminta (${intendedFormat}).`
+        : `Creative berhasil dibuat, tetapi field read-back belum cukup untuk memverifikasi format ${intendedFormat}.`,
+    };
+  } catch {
+    return {
+      status: 'warning',
+      creativeId,
+      warning:
+        'Creative berhasil dibuat, tetapi read-back Meta belum tersedia. Coba verifikasi kembali creative ini nanti.',
+    };
+  }
+}
+
+function classifyCreativeFormat(fields: Record<string, unknown>): MetaCreativeFormat | undefined {
+  if (hasNonBlankString(fields.object_story_id) || hasNonBlankString(fields.effective_object_story_id)) {
+    return 'existing_post';
+  }
+  if (isRecord(fields.asset_feed_spec)) return 'flexible';
+
+  const storySpec = isRecord(fields.object_story_spec) ? fields.object_story_spec : undefined;
+  if (!storySpec) return undefined;
+
+  if (hasNonBlankString(fields.product_set_id) && isRecord(storySpec.template_data)) {
+    return 'catalog';
+  }
+
+  const linkData = isRecord(storySpec.link_data) ? storySpec.link_data : undefined;
+  const videoData = isRecord(storySpec.video_data) ? storySpec.video_data : undefined;
+  if (containsCanvasUrl(linkData) || containsCanvasUrl(videoData)) return 'collection';
+  if (Array.isArray(linkData?.child_attachments)) return 'carousel';
+  if (videoData) return 'video';
+  if (hasNonBlankString(linkData?.image_hash)) return 'single_image';
+  return undefined;
+}
+
+function containsCanvasUrl(value: unknown): boolean {
+  if (typeof value === 'string') return /\/canvas_doc\//i.test(value);
+  if (Array.isArray(value)) return value.some(containsCanvasUrl);
+  if (!isRecord(value)) return false;
+  return Object.values(value).some(containsCanvasUrl);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function hasNonBlankString(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0;
 }
 
 interface ExistingNamedCreative extends Record<string, unknown> {

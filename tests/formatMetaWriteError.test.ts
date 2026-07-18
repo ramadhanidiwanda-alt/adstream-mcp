@@ -44,6 +44,26 @@ describe('formatMetaWriteError', () => {
     });
   });
 
+  it('preserves every provider-native Meta error detail separately', () => {
+    const error = new MetaApiError({
+      message: 'Invalid parameter',
+      type: 'OAuthException',
+      code: 100,
+      error_subcode: 2310068,
+      error_user_title: 'Product set is not available',
+      error_user_msg: 'The product set is not shared with this ad account.',
+      fbtrace_id: 'trace_native_123',
+    });
+
+    expect(formatStructuredMetaWriteError(error)).toMatchObject({
+      providerCode: '100',
+      providerSubcode: '2310068',
+      providerTitle: 'Product set is not available',
+      providerMessage: 'The product set is not shared with this ad account.',
+      traceId: 'trace_native_123',
+    });
+  });
+
   it('falls back to plain message for non-Meta errors', () => {
     expect(formatMetaWriteError(new Error('network down'))).toBe('network down');
     expect(formatMetaWriteError('raw string')).toBe('raw string');
