@@ -1,4 +1,4 @@
-import type { MetaAdsMode } from '../types.js';
+import type { MetaAdsMode, StructuredMutationError } from '../types.js';
 
 export const ADS_PROVIDER_IDS = ['meta', 'tiktok', 'google'] as const;
 export type AdsProviderId = (typeof ADS_PROVIDER_IDS)[number];
@@ -740,6 +740,7 @@ export interface CreateAdCreativeResult {
   id?: string;
   response?: Record<string, unknown>;
   error?: string;
+  structuredError?: StructuredMutationError;
 }
 
 export type CreateAdStatus = 'dry_run' | 'pending_confirmation' | 'executed' | 'failed' | 'deduped';

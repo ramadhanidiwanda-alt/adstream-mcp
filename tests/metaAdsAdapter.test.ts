@@ -997,6 +997,46 @@ describe('MetaAdsAdapter', () => {
     expect(receivedOptions?.linkData).toBeUndefined();
   });
 
+  it('exposes structured local validation errors without posting to Meta', async () => {
+    let postCalls = 0;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: () => ({
+        metaPost: async () => {
+          postCalls += 1;
+          return { id: 'unexpected-creative' };
+        },
+      }) as never,
+    });
+
+    const response = await adapter.createAdCreative({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {
+        name: 'Mismatched catalog creative',
+        pageId: 'page-1',
+        mode: 'collaborative_ads',
+        creativeFormat: 'catalog',
+        creativeSpec: {
+          productSetId: 'creative-set',
+          primaryText: 'Catalog copy',
+          destinationUrl: 'https://example.com/catalog',
+        },
+        collaborativeProductSetId: 'adset-set',
+        dryRun: false,
+        confirmed: true,
+      },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    });
+
+    expect(response.ok).toBe(false);
+    expect(response.data?.structuredError).toMatchObject({
+      provider: 'meta',
+      code: 'VALIDATION_ERROR',
+      message: 'Product set creative dan ad set harus sama.',
+    });
+    expect(postCalls).toBe(0);
+  });
+
   it.each([
     { creativeFormat: 'single_image' },
     {
