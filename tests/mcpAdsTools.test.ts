@@ -345,10 +345,13 @@ describe('ads MCP broker tools', () => {
       since: '2026-05-01',
       until: '2026-05-07',
       limit: 10,
+      complianceAudit: true,
     });
 
     expect(parseToolResponse(response).data).toMatchObject({ level: 'creative' });
-    expect(receivedRequest).toMatchObject({ params: { level: 'creative', limit: 10 } });
+    expect(receivedRequest).toMatchObject({
+      params: { level: 'creative', limit: 10, complianceAudit: true },
+    });
   });
 
   it('returns canonical change history response for Meta and structured fallback for other providers', async () => {

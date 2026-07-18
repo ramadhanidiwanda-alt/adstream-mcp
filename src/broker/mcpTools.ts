@@ -164,7 +164,7 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
   },
   {
     name: 'ads_get_creatives',
-    description: 'Canonical read tool for creative metadata and creative-level metrics. Returns the standard performance envelope with level creative.',
+    description: 'Canonical read tool for creative metadata and creative-level metrics. Returns the standard performance envelope with level creative. For Meta setup checks, pass params.complianceAudit=true to audit active ads with their Ad Set placements.',
     inputSchema: createPerformanceInputSchema(['since', 'until']),
   },
   {
@@ -249,7 +249,7 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
   },
   {
     name: 'ads_create_adcreative',
-    description: 'Create a Meta ad creative with image/video, headline, body, and CTA. Dry-run by default. Set dryRun=false and confirmed=true to execute.',
+    description: 'Create a Meta ad creative with image/video, headline, body, CTA, or official Dynamic Creative inputs: objectStorySpec plus top-level assetFeedSpec. assetFeedSpec supports multiple primary texts and headlines. Dry-run by default. Set dryRun=false and confirmed=true to execute.',
     inputSchema: createCreateAdCreativeInputSchema(),
   },
   {
@@ -1162,6 +1162,36 @@ function createCreateAdCreativeInputSchema() {
       },
       instagramUserId: { type: 'string', description: 'Instagram user ID for IG posting.' },
       threadsProfileId: { type: 'string', description: 'Threads profile ID for Threads posting.' },
+      objectStorySpec: {
+        type: 'object',
+        description: 'Meta object_story_spec. For Dynamic Creative, use this with top-level assetFeedSpec. Nested asset_feed_spec remains supported for compatibility.',
+        properties: {
+          asset_feed_spec: {
+            type: 'object',
+            properties: {
+              bodies: { type: 'array', minItems: 1, items: { type: 'object', properties: { text: { type: 'string', minLength: 1 } }, required: ['text'] } },
+              titles: { type: 'array', minItems: 1, items: { type: 'object', properties: { text: { type: 'string', minLength: 1 } }, required: ['text'] } },
+              link_urls: { type: 'array', minItems: 1, items: { type: 'object', properties: { website_url: { type: 'string', format: 'uri' } }, required: ['website_url'] } },
+            },
+            required: ['bodies', 'titles', 'link_urls'],
+          },
+        },
+        additionalProperties: true,
+      },
+      assetFeedSpec: {
+        type: 'object',
+        description: 'Official Meta asset_feed_spec for Dynamic Creative. Requires ad_formats, images, bodies, titles, link_urls, and call_to_action_types.',
+        properties: {
+          ad_formats: { type: 'array', minItems: 1, items: { type: 'string', enum: ['AUTOMATIC_FORMAT'] } },
+          bodies: { type: 'array', minItems: 1, items: { type: 'object', properties: { text: { type: 'string', minLength: 1 } }, required: ['text'] } },
+          titles: { type: 'array', minItems: 1, items: { type: 'object', properties: { text: { type: 'string', minLength: 1 } }, required: ['text'] } },
+          images: { type: 'array', minItems: 1, items: { type: 'object', properties: { hash: { type: 'string', minLength: 1 } }, required: ['hash'] } },
+          link_urls: { type: 'array', minItems: 1, items: { type: 'object', properties: { website_url: { type: 'string', format: 'uri' } }, required: ['website_url'] } },
+          call_to_action_types: { type: 'array', minItems: 1, items: { type: 'string' } },
+        },
+        required: ['ad_formats', 'bodies', 'titles', 'images', 'link_urls', 'call_to_action_types'],
+        additionalProperties: true,
+      },
       dedupeByName: {
         type: 'boolean',
         description: 'Check for an existing creative with the same name before creating.',
@@ -1173,7 +1203,7 @@ function createCreateAdCreativeInputSchema() {
       dryRun: { type: 'boolean', description: 'Defaults to true. Set false only after preview.' },
       confirmed: { type: 'boolean', description: 'Must be true to execute after preview.' },
     },
-    required: ['accountId', 'name', 'pageId', 'message'],
+    required: ['accountId', 'name', 'pageId'],
   };
 }
 

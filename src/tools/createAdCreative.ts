@@ -29,6 +29,7 @@ export interface CreateAdCreativeOptions {
   threadsProfileId?: string;
   urlTags?: string;
   objectStorySpec?: Record<string, unknown>;
+  assetFeedSpec?: Record<string, unknown>;
   dedupeByName?: boolean;
   externalReference?: string;
   // --- CTWA (Click-to-WhatsApp) Support ---
@@ -170,7 +171,15 @@ function buildCreativePayload(options: CreateAdCreativeOptions): Record<string, 
   };
 
   if (options.objectStorySpec) {
-    payload.object_story_spec = options.objectStorySpec;
+    const { asset_feed_spec: nestedAssetFeedSpec, ...objectStorySpec } = options.objectStorySpec;
+    if (typeof objectStorySpec.page_id !== 'string' || !objectStorySpec.page_id.trim()) {
+      objectStorySpec.page_id = options.pageId.trim();
+    }
+    payload.object_story_spec = objectStorySpec;
+    const assetFeedSpec = options.assetFeedSpec ?? nestedAssetFeedSpec;
+    if (assetFeedSpec !== undefined) {
+      payload.asset_feed_spec = assetFeedSpec;
+    }
   } else if (options.linkData) {
     // For WHATSAPP_MESSAGE CTA, omit value entirely — empty string/link can be rejected.
     // wa.me requires display_phone_number (formatted international, no +/spaces),

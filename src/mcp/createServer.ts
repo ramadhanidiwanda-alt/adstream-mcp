@@ -197,13 +197,34 @@ const createAdSetInputSchema = {
   confirmed: z.boolean().optional().describe('Must be true to execute after preview.'),
 };
 
+const legacyDynamicCreativeAssetFeedSpecSchema = z.object({
+  bodies: z.array(z.object({ text: z.string().min(1) }).passthrough()).min(1),
+  titles: z.array(z.object({ text: z.string().min(1) }).passthrough()).min(1),
+  link_urls: z.array(z.object({ website_url: z.string().url() }).passthrough()).min(1),
+}).passthrough();
+
+const dynamicCreativeAssetFeedSpecSchema = z.object({
+  ad_formats: z.array(z.literal('AUTOMATIC_FORMAT')).min(1),
+  bodies: z.array(z.object({ text: z.string().min(1) }).passthrough()).min(1),
+  titles: z.array(z.object({ text: z.string().min(1) }).passthrough()).min(1),
+  images: z.array(z.object({ hash: z.string().min(1) }).passthrough()).min(1),
+  link_urls: z.array(z.object({ website_url: z.string().url() }).passthrough()).min(1),
+  call_to_action_types: z.array(z.string().min(1)).min(1),
+}).passthrough();
+
+const objectStorySpecInputSchema = z.object({
+  asset_feed_spec: legacyDynamicCreativeAssetFeedSpecSchema.optional(),
+}).passthrough().describe(
+  'Meta object_story_spec. Legacy Dynamic Creative input may include asset_feed_spec here; prefer the top-level assetFeedSpec input.'
+);
+
 const createAdCreativeInputSchema = {
   ...adsBaseInputSchema,
   accountId: z.string().describe('Provider account id. Required for creative creation.'),
   name: z.string().describe('Creative name.'),
   pageId: z.string().describe('Meta Page ID used in object_story_spec.'),
   link: z.string().optional().describe('Destination URL for the link ad.'),
-  message: z.string().describe('Primary ad text (message).'),
+  message: z.string().optional().describe('Primary ad text (message). Required with link unless objectStorySpec is provided.'),
   headline: z.string().optional().describe('Ad headline.'),
   description: z.string().optional().describe('Optional ad description.'),
   imageHash: z.string().optional().describe('Uploaded Meta image hash.'),
@@ -213,8 +234,10 @@ const createAdCreativeInputSchema = {
   threadsProfileId: z.string().optional().describe('Threads profile ID for Threads posting.'),
   // --- CTWA (Click-to-WhatsApp) Support ---
   destinationType: z.enum(['WEB', 'WHATSAPP', 'MESSENGER', 'INSTAGRAM_DIRECT', 'APP']).optional().describe('Destination type for the ad. Use WHATSAPP for Click-to-WhatsApp ads.'),
-  whatsappPhoneNumberId: z.string().optional().describe('WhatsApp Phone Number ID (from ads_list_whatsapp_phone_numbers). Required when destinationType=WHATSAPP.'),
-  pageWelcomeMessage: z.string().optional().describe('Welcome message sent when user clicks the WhatsApp CTA. E.g. "Halo, saya tertarik dengan produk ini."'),
+  whatsappPhoneNumberId: z.string().optional().describe('WhatsApp Phone Number ID (from ads_list_whatsapp_phone_numbers).'),
+  pageWelcomeMessage: z.string().optional().describe('Welcome message sent when user clicks the WhatsApp CTA.'),
+  objectStorySpec: objectStorySpecInputSchema.optional(),
+  assetFeedSpec: dynamicCreativeAssetFeedSpecSchema.optional().describe('Official Meta asset_feed_spec for Dynamic Creative.'),
   dedupeByName: z.boolean().optional().describe('Check for an existing creative with the same name before creating.'),
   externalReference: z.string().optional().describe('Caller-provided reference for duplicate prevention and audit correlation.'),
   dryRun: z.boolean().optional().describe('Defaults to true. Set false only after preview.'),

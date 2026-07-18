@@ -40,6 +40,80 @@ describe('createAdCreative', () => {
     });
   });
 
+  it('moves a Dynamic Creative asset_feed_spec out of object_story_spec without losing variants', async () => {
+    const assetFeedSpec = {
+      bodies: [{ text: 'Primary text A' }, { text: 'Primary text B' }],
+      titles: [{ text: 'Headline A' }, { text: 'Headline B' }],
+      link_urls: [{ website_url: 'https://example.com/product' }],
+    };
+
+    const result = await createAdCreative(mockClient, {
+      adAccountId: 'act_123',
+      name: 'Dynamic Creative',
+      pageId: '1001',
+      objectStorySpec: {
+        asset_feed_spec: assetFeedSpec,
+      },
+    });
+
+    expect(result.preview).toMatchObject({
+      name: 'Dynamic Creative',
+      object_story_spec: { page_id: '1001' },
+      asset_feed_spec: assetFeedSpec,
+    });
+    expect(result.preview.object_story_spec).not.toHaveProperty('asset_feed_spec');
+  });
+
+  it('sends every Dynamic Creative variant to Meta on execution', async () => {
+    const assetFeedSpec = {
+      bodies: [{ text: 'Primary text A' }, { text: 'Primary text B' }],
+      titles: [{ text: 'Headline A' }, { text: 'Headline B' }],
+      link_urls: [{ website_url: 'https://example.com/product' }],
+    };
+    mockMetaPost.mockResolvedValueOnce({ id: 'creative_dynamic_123' });
+
+    const result = await createAdCreative(mockClient, {
+      adAccountId: 'act_123',
+      name: 'Dynamic Creative',
+      pageId: '1001',
+      objectStorySpec: { page_id: '1001', asset_feed_spec: assetFeedSpec },
+    }, { dryRun: false, confirmed: true });
+
+    expect(result).toMatchObject({ status: 'executed', id: 'creative_dynamic_123' });
+    expect(mockMetaPost).toHaveBeenCalledWith(
+      '/act_123/adcreatives',
+      expect.objectContaining({
+        object_story_spec: { page_id: '1001' },
+        asset_feed_spec: assetFeedSpec,
+      }),
+      3
+    );
+  });
+
+  it('accepts the official top-level assetFeedSpec input for Dynamic Creative', async () => {
+    const assetFeedSpec = {
+      ad_formats: ['AUTOMATIC_FORMAT'],
+      bodies: [{ text: 'Primary text A' }, { text: 'Primary text B' }],
+      titles: [{ text: 'Headline A' }, { text: 'Headline B' }],
+      images: [{ hash: 'image_hash_1' }],
+      link_urls: [{ website_url: 'https://example.com/product' }],
+      call_to_action_types: ['LEARN_MORE'],
+    };
+
+    const result = await createAdCreative(mockClient, {
+      adAccountId: 'act_123',
+      name: 'Official Dynamic Creative',
+      pageId: '1001',
+      objectStorySpec: { page_id: '1001' },
+      assetFeedSpec,
+    });
+
+    expect(result.preview).toMatchObject({
+      object_story_spec: { page_id: '1001' },
+      asset_feed_spec: assetFeedSpec,
+    });
+  });
+
   it('returns pending_confirmation when not confirmed', async () => {
     const r = await createAdCreative(mockClient, baseOpts, { dryRun: false, confirmed: false });
     expect(r.status).toBe('pending_confirmation'); expect(r.error).toContain('confirmation');
