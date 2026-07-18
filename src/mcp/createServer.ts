@@ -236,7 +236,7 @@ const createAdCreativeInputSchema = {
   ...adsBaseInputSchema,
   accountId: z.string().describe('Provider account id. Required for creative creation.'),
   name: z.string().describe('Creative name.'),
-  pageId: z.string().describe('Meta Page ID used in object_story_spec.'),
+  pageId: z.string().optional().describe('Meta Page ID used in object_story_spec. Tidak diperlukan untuk creativeFormat=existing_post.'),
   mode: z.enum(['standard', 'collaborative_ads']).optional().describe(
     'standard untuk iklan Meta biasa; collaborative_ads untuk katalog retailer yang sudah dibagikan.'
   ),
@@ -244,7 +244,7 @@ const createAdCreativeInputSchema = {
     'Format materi iklan: gambar tunggal, video, carousel, katalog, collection, flexible, atau postingan yang sudah ada.'
   ),
   creativeSpec: z.record(z.unknown()).optional().describe(
-    'Detail materi sesuai creativeFormat. Field yang diisi bergantung pada format: single_image memakai imageHash, primaryText, destinationUrl; video memakai videoId; carousel memakai cards; catalog memakai productSetId; collection memakai instantExperienceId; flexible memakai variasi gambar/video dan teks; existing_post memakai objectStoryId.'
+    'Detail materi sesuai creativeFormat. Field per format: single_image memakai imageHash, primaryText, destinationUrl, headline, description, callToAction; video memakai videoId, thumbnailImageHash, primaryText, destinationUrl, headline, description, callToAction; carousel memakai primaryText, destinationUrl, cards (imageHash atau videoId, headline, description, destinationUrl); catalog memakai productSetId, primaryText, destinationUrl, templateUrl, fallbackImageHash; collection memakai instantExperienceId, coverImageHash atau coverVideoId, productSetId, primaryText, destinationUrl; flexible memakai primaryText, primaryTexts, imageHashes dan/atau videoIds, headlines, descriptions, destinationUrl; existing_post memakai objectStoryId.'
   ),
   collaborativeProductSetId: z.string().optional().describe(
     'Harus sama dengan product set yang dipilih di ad set, dan wajib untuk setiap format creative Collaborative Ads yang didukung pada rilis ini.'

@@ -200,6 +200,7 @@ describe('MCP server builder', () => {
       'ads_create_adset',
       'ads_create_adcreative',
       'ads_create_ad',
+      'ads_create_ecommerce_campaign_bundle',
     ]);
 
     expect(campaignProperties.mode).toMatchObject({
@@ -219,17 +220,62 @@ describe('MCP server builder', () => {
       },
     });
     expect(adsetProperties.collaborativeCatalog.description).toMatch(/katalog.*retailer/i);
+    expect(adsetProperties.mode).toMatchObject({
+      type: 'string',
+      enum: ['standard', 'collaborative_ads'],
+    });
 
     expect(creativeProperties.creativeFormat).toMatchObject({
       type: 'string',
       enum: ['single_image', 'video', 'carousel', 'catalog', 'collection', 'flexible', 'existing_post'],
     });
+    expect(creativeProperties.mode).toMatchObject({
+      type: 'string',
+      enum: ['standard', 'collaborative_ads'],
+    });
     expect(creativeProperties.creativeSpec).toMatchObject({ type: 'object' });
-    expect(creativeProperties.creativeSpec.description).toMatch(/format.*field/i);
+    const creativeSpecDescription = creativeProperties.creativeSpec.description as string;
+    expect(creativeSpecDescription).toMatch(/format.*field/i);
+    for (const fieldName of [
+      'imageHash', 'primaryText', 'destinationUrl', 'videoId', 'thumbnailImageHash',
+      'cards', 'productSetId', 'templateUrl', 'fallbackImageHash', 'instantExperienceId',
+      'coverImageHash', 'coverVideoId', 'imageHashes', 'videoIds', 'primaryTexts',
+      'headlines', 'descriptions', 'objectStoryId',
+    ]) {
+      expect(creativeSpecDescription).toContain(fieldName);
+    }
     expect(creativeProperties.collaborativeProductSetId).toMatchObject({ type: 'string' });
     expect(creativeProperties.collaborativeProductSetId.description).toMatch(/ad set.*Collaborative Ads/i);
     expect(creativeProperties.message.description).toMatch(/legacy|backward-compatible/i);
     expect(creativeProperties.objectStorySpec.description).toMatch(/advanced|backward-compatible/i);
+  });
+
+  it('accepts an existing_post creative without pageId at the MCP schema boundary', async () => {
+    process.env.ADSTREAM_ENABLE_WRITES = 'true';
+    const adsBroker = createBrokerStub();
+    const { client, server } = await createConnectedClient({
+      config: { adAccountId: 'act_123' },
+      adsBroker,
+    });
+
+    try {
+      const response = await client.callTool({
+        name: 'ads_create_adcreative',
+        arguments: {
+          accountId: 'act_123',
+          name: 'Existing post creative',
+          creativeFormat: 'existing_post',
+          creativeSpec: { objectStoryId: 'page-1_post-1' },
+        },
+      });
+
+      expect(response.isError).not.toBe(true);
+      expect(adsBroker.createAdCreative).toHaveBeenCalledWith(expect.objectContaining({
+        params: expect.objectContaining({ creativeFormat: 'existing_post' }),
+      }));
+    } finally {
+      await Promise.all([client.close(), server.close()]);
+    }
   });
 
   it('rejects a Dynamic Creative payload without headline variants', async () => {

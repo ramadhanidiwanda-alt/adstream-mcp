@@ -219,6 +219,7 @@ describe('ads MCP broker tools', () => {
       'ads_archive_ad',
       'ads_update_adset',
       'ads_get_targeting_options',
+      'ads_create_ecommerce_campaign_bundle',
       'ads_get_video_source',
       'ads_get_ad_creative_mapping',
       'ads_upload_image',
@@ -521,6 +522,52 @@ describe('ads MCP broker tools', () => {
 
     expect(parseToolResponse(response).ok).toBe(true);
     expect(receivedRequest).toMatchObject({ provider: 'meta', accountId: 'act_123', params: { limit: 10 } });
+  });
+
+  it('routes ads_create_ecommerce_campaign_bundle through AdsBroker with top-level params', async () => {
+    const previousEnableWrites = process.env.ADSTREAM_ENABLE_WRITES;
+    process.env.ADSTREAM_ENABLE_WRITES = 'true';
+    let receivedRequest: AdsBrokerRequest | undefined;
+    const broker = {
+      ...createBrokerStub(),
+      createEcommerceCampaignBundle: async (request: AdsBrokerRequest) => {
+        receivedRequest = request;
+        return {
+          ok: true,
+          provider: 'meta' as const,
+          data: {
+            operation: 'create_ecommerce_campaign_bundle' as const,
+            status: 'dry_run' as const,
+            executed: false,
+            preview: { campaign: {}, adSet: {}, creative: {}, ad: {} },
+            warnings: [],
+          },
+        };
+      },
+    } as unknown as AdsBroker;
+
+    try {
+      const response = await handleAdsMcpToolCall(broker, 'ads_create_ecommerce_campaign_bundle' as never, {
+        provider: 'meta',
+        accountId: 'act_123',
+        campaignName: 'Sales Campaign',
+        dailyBudget: 150000,
+        dryRun: true,
+      });
+
+      expect(parseToolResponse(response).ok).toBe(true);
+      expect(receivedRequest).toMatchObject({
+        provider: 'meta',
+        accountId: 'act_123',
+        params: { campaignName: 'Sales Campaign', dailyBudget: 150000, dryRun: true },
+      });
+    } finally {
+      if (previousEnableWrites === undefined) {
+        delete process.env.ADSTREAM_ENABLE_WRITES;
+      } else {
+        process.env.ADSTREAM_ENABLE_WRITES = previousEnableWrites;
+      }
+    }
   });
 
   it('routes adset/adgroup and ad performance through AdsBroker', async () => {
