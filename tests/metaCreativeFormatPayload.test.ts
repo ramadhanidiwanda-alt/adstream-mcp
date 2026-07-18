@@ -464,4 +464,143 @@ describe('buildMetaCreativeFormatPayload', () => {
       },
     });
   });
+
+  it('links collection cover media to an existing Instant Experience', () => {
+    expect(
+      buildMetaCreativeFormatPayload({
+        mode: 'standard',
+        pageId: 'page-1',
+        creativeFormat: 'collection',
+        creativeSpec: {
+          instantExperienceId: 'canvas-1',
+          coverImageHash: 'cover-1',
+          primaryText: 'Buka koleksi',
+          headline: 'Koleksi Payday',
+          callToAction: 'SHOP_NOW',
+        },
+      })
+    ).toMatchObject({
+      object_story_spec: {
+        page_id: 'page-1',
+        link_data: {
+          link: 'https://fb.com/canvas_doc/canvas-1',
+          image_hash: 'cover-1',
+          message: 'Buka koleksi',
+          name: 'Koleksi Payday',
+        },
+      },
+    });
+  });
+
+  it('requires exactly one Collection cover asset', () => {
+    expect(() =>
+      buildMetaCreativeFormatPayload({
+        mode: 'standard',
+        pageId: 'page-1',
+        creativeFormat: 'collection',
+        creativeSpec: {
+          instantExperienceId: 'canvas-1',
+          coverImageHash: 'image-1',
+          coverVideoId: 'video-1',
+          primaryText: 'Koleksi',
+        },
+      })
+    ).toThrow(/pilih salah satu.*cover/i);
+  });
+
+  it('wraps collaborative collection in catalog context with the Instant Experience URL', () => {
+    const result = buildMetaCreativeFormatPayload({
+      mode: 'collaborative_ads',
+      pageId: 'page-1',
+      collaborativeProductSetId: 'product-set-1',
+      creativeFormat: 'collection',
+      creativeSpec: {
+        instantExperienceId: 'canvas-1',
+        coverImageHash: 'cover-1',
+        primaryText: 'Buka koleksi',
+      },
+    });
+
+    expect(result).toMatchObject({
+      product_set_id: 'product-set-1',
+      omnichannel_link_spec: {
+        web: { url: 'https://fb.com/canvas_doc/canvas-1' },
+      },
+    });
+  });
+
+  it('builds standard flexible asset_feed_spec', () => {
+    const result = buildMetaCreativeFormatPayload({
+      mode: 'standard',
+      pageId: 'page-1',
+      creativeFormat: 'flexible',
+      creativeSpec: {
+        imageHashes: ['image-1', 'image-2'],
+        videoIds: ['video-1'],
+        primaryTexts: ['Copy A', 'Copy B'],
+        headlines: ['Headline A'],
+        destinationUrl: 'https://example.com/flexible',
+        callToAction: 'SHOP_NOW',
+      },
+    });
+
+    expect(result).toMatchObject({
+      object_story_spec: { page_id: 'page-1' },
+      asset_feed_spec: {
+        images: [{ hash: 'image-1' }, { hash: 'image-2' }],
+        videos: [{ video_id: 'video-1' }],
+        bodies: [{ text: 'Copy A' }, { text: 'Copy B' }],
+        titles: [{ text: 'Headline A' }],
+        link_urls: [{ website_url: 'https://example.com/flexible' }],
+        call_to_action_types: ['SHOP_NOW'],
+        ad_formats: ['SINGLE_IMAGE', 'SINGLE_VIDEO'],
+      },
+    });
+  });
+
+  it('rejects flexible creatives without usable media', () => {
+    expect(() =>
+      buildMetaCreativeFormatPayload({
+        mode: 'standard',
+        pageId: 'page-1',
+        creativeFormat: 'flexible',
+        creativeSpec: {
+          imageHashes: [' '],
+          videoIds: [],
+          primaryTexts: ['Copy'],
+          destinationUrl: 'https://example.com/flexible',
+        },
+      })
+    ).toThrow(/media/i);
+  });
+
+  it('rejects flexible creatives without usable primary text', () => {
+    expect(() =>
+      buildMetaCreativeFormatPayload({
+        mode: 'standard',
+        pageId: 'page-1',
+        creativeFormat: 'flexible',
+        creativeSpec: {
+          imageHashes: ['image-1'],
+          primaryTexts: [' '],
+          destinationUrl: 'https://example.com/flexible',
+        },
+      })
+    ).toThrow(/primary text/i);
+  });
+
+  it('rejects flexible creatives in Collaborative Ads mode locally', () => {
+    expect(() =>
+      buildMetaCreativeFormatPayload({
+        mode: 'collaborative_ads',
+        pageId: 'page-1',
+        creativeFormat: 'flexible',
+        creativeSpec: {
+          imageHashes: ['image-1'],
+          primaryTexts: ['Copy'],
+          destinationUrl: 'https://example.com/flexible',
+        },
+      })
+    ).toThrow(/belum didukung.*collaborative ads/i);
+  });
 });

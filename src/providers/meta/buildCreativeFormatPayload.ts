@@ -23,9 +23,9 @@ export function buildMetaCreativeFormatPayload(
     case 'catalog':
       return buildCatalog(input);
     case 'collection':
-      return buildCollection();
+      return buildCollection(input);
     case 'flexible':
-      return buildFlexible();
+      return buildFlexible(input);
     case 'existing_post':
       return buildExistingPost(input);
   }
@@ -228,10 +228,100 @@ function withCollaborativeCatalogContext(
   };
 }
 
-function buildCollection(): Record<string, unknown> {
-  throw new Error('Unsupported format in this delivery step');
+function buildCollection(
+  input: Extract<BuildMetaCreativeFormatPayloadInput, { creativeFormat: 'collection' }>
+): Record<string, unknown> {
+  const { creativeSpec } = input;
+  const instantExperienceUrl = `https://fb.com/canvas_doc/${encodeURIComponent(
+    required(creativeSpec.instantExperienceId, 'instantExperienceId')
+  )}`;
+  const coverImageHash = optional(creativeSpec.coverImageHash, 'coverImageHash');
+  const coverVideoId = optional(creativeSpec.coverVideoId, 'coverVideoId');
+
+  if (Boolean(coverImageHash) === Boolean(coverVideoId)) {
+    throw new Error('Pilih salah satu cover image atau cover video untuk Collection.');
+  }
+
+  const primaryText = required(creativeSpec.primaryText, 'primaryText');
+  const headline = optional(creativeSpec.headline, 'headline');
+  const description = optional(creativeSpec.description, 'description');
+  const pageId = required(input.pageId, 'pageId');
+  const storySpec: Record<string, unknown> = { page_id: pageId };
+
+  if (coverImageHash) {
+    const linkData: Record<string, unknown> = {
+      image_hash: coverImageHash,
+      message: primaryText,
+      link: instantExperienceUrl,
+      call_to_action: cta(creativeSpec.callToAction, instantExperienceUrl),
+    };
+    if (headline) linkData.name = headline;
+    if (description) linkData.description = description;
+    storySpec.link_data = linkData;
+  } else {
+    const videoData: Record<string, unknown> = {
+      video_id: coverVideoId,
+      message: primaryText,
+      call_to_action: cta(creativeSpec.callToAction, instantExperienceUrl),
+    };
+    if (headline) videoData.title = headline;
+    if (description) videoData.description = description;
+    storySpec.video_data = videoData;
+  }
+
+  const destinationUrl =
+    optional(creativeSpec.destinationUrl, 'destinationUrl') ?? instantExperienceUrl;
+
+  return withCollaborativeCatalogContext(input, { object_story_spec: storySpec }, destinationUrl);
 }
 
-function buildFlexible(): Record<string, unknown> {
-  throw new Error('Unsupported format in this delivery step');
+function buildFlexible(
+  input: Extract<BuildMetaCreativeFormatPayloadInput, { creativeFormat: 'flexible' }>
+): Record<string, unknown> {
+  const { creativeSpec } = input;
+  const imageHashes = nonBlankValues(creativeSpec.imageHashes);
+  const videoIds = nonBlankValues(creativeSpec.videoIds);
+  const primaryTexts = nonBlankValues(creativeSpec.primaryTexts);
+
+  if (imageHashes.length === 0 && videoIds.length === 0) {
+    throw new Error('Flexible creative wajib memiliki minimal satu media.');
+  }
+  if (primaryTexts.length === 0) {
+    throw new Error('Flexible creative wajib memiliki minimal satu primary text.');
+  }
+
+  const assetFeedSpec: Record<string, unknown> = {
+    bodies: primaryTexts.map((text) => ({ text })),
+    link_urls: [{ website_url: required(creativeSpec.destinationUrl, 'destinationUrl') }],
+    call_to_action_types: [creativeSpec.callToAction?.trim() || 'LEARN_MORE'],
+    ad_formats: [
+      ...(imageHashes.length > 0 ? ['SINGLE_IMAGE'] : []),
+      ...(videoIds.length > 0 ? ['SINGLE_VIDEO'] : []),
+    ],
+  };
+  const headlines = nonBlankValues(creativeSpec.headlines);
+  const descriptions = nonBlankValues(creativeSpec.descriptions);
+
+  if (imageHashes.length > 0) assetFeedSpec.images = imageHashes.map((hash) => ({ hash }));
+  if (videoIds.length > 0) assetFeedSpec.videos = videoIds.map((video_id) => ({ video_id }));
+  if (headlines.length > 0) assetFeedSpec.titles = headlines.map((text) => ({ text }));
+  if (descriptions.length > 0) assetFeedSpec.descriptions = descriptions.map((text) => ({ text }));
+
+  const objectStorySpec: Record<string, unknown> = {
+    page_id: required(input.pageId, 'pageId'),
+  };
+  const instagramUserId = optional(input.instagramUserId, 'instagramUserId');
+  if (instagramUserId) objectStorySpec.instagram_actor_id = instagramUserId;
+
+  return {
+    object_story_spec: objectStorySpec,
+    asset_feed_spec: assetFeedSpec,
+  };
+}
+
+function nonBlankValues(values: string[] | undefined): string[] {
+  return (values ?? []).flatMap((value) => {
+    const normalized = value.trim();
+    return normalized ? [normalized] : [];
+  });
 }
