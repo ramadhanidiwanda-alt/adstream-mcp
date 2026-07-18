@@ -114,7 +114,7 @@ describe('buildMetaCreativeFormatPayload', () => {
     ).toEqual({
       object_story_spec: {
         page_id: 'page-1',
-        carousel_data: {
+        link_data: {
           message: 'Pilih produk',
           attachment_style: 'link',
           child_attachments: [
@@ -271,5 +271,197 @@ describe('buildMetaCreativeFormatPayload', () => {
         creativeSpec: { objectStoryId: 'page-1_post-1' },
       })
     ).toEqual({ object_story_id: 'page-1_post-1' });
+  });
+
+  it('builds a catalog template with top-level product_set_id', () => {
+    const result = buildMetaCreativeFormatPayload({
+      mode: 'standard',
+      pageId: 'page-1',
+      creativeFormat: 'catalog',
+      creativeSpec: {
+        productSetId: ' product-set-1 ',
+        primaryText: 'Produk pilihan',
+        headline: '{{product.name}}',
+        destinationUrl: 'https://example.com/products',
+        callToAction: 'SHOP_NOW',
+        templateUrl: 'https://example.com/template',
+        fallbackImageHash: 'fallback-hash',
+      },
+    });
+
+    expect(result).toMatchObject({
+      product_set_id: 'product-set-1',
+      object_story_spec: {
+        page_id: 'page-1',
+        template_data: {
+          message: 'Produk pilihan',
+          name: '{{product.name}}',
+          link: 'https://example.com/products',
+          template_url: 'https://example.com/template',
+          image_hash: 'fallback-hash',
+        },
+      },
+    });
+    expect(result.object_story_spec).not.toHaveProperty('link_data');
+    expect(result).not.toHaveProperty('asset_feed_spec');
+    expect(result).not.toHaveProperty('omnichannel_link_spec');
+  });
+
+  it('adds omnichannel_link_spec for collaborative catalog creative', () => {
+    const result = buildMetaCreativeFormatPayload({
+      mode: 'collaborative_ads',
+      pageId: 'page-1',
+      collaborativeProductSetId: 'product-set-1',
+      creativeFormat: 'catalog',
+      creativeSpec: {
+        productSetId: 'product-set-1',
+        primaryText: 'Belanja di Shopee',
+        destinationUrl: 'https://shopee.example/store',
+        callToAction: 'SHOP_NOW',
+      },
+    });
+
+    expect(result).toMatchObject({
+      product_set_id: 'product-set-1',
+      omnichannel_link_spec: {
+        web: { url: 'https://shopee.example/store' },
+      },
+    });
+    expect(result).not.toHaveProperty('asset_feed_spec');
+  });
+
+  it('rejects mismatched collaborative product sets', () => {
+    expect(() =>
+      buildMetaCreativeFormatPayload({
+        mode: 'collaborative_ads',
+        pageId: 'page-1',
+        collaborativeProductSetId: 'adset-product-set',
+        creativeFormat: 'catalog',
+        creativeSpec: {
+          productSetId: 'creative-product-set',
+          primaryText: 'Produk',
+          destinationUrl: 'https://example.com',
+        },
+      })
+    ).toThrow(/product set.*harus sama/i);
+  });
+
+  it.each([
+    {
+      label: 'poster',
+      expectedDestinationUrl: 'https://example.com/poster',
+      expectedStory: {
+        link_data: {
+          image_hash: 'poster-hash',
+          link: 'https://example.com/poster',
+        },
+      },
+      input: {
+        mode: 'collaborative_ads' as const,
+        pageId: 'page-1',
+        collaborativeProductSetId: 'product-set-1',
+        creativeFormat: 'single_image' as const,
+        creativeSpec: {
+          imageHash: 'poster-hash',
+          primaryText: 'Poster',
+          destinationUrl: 'https://example.com/poster',
+        },
+      },
+    },
+    {
+      label: 'video',
+      expectedDestinationUrl: 'https://example.com/video',
+      expectedStory: {
+        video_data: {
+          video_id: 'video-1',
+        },
+      },
+      input: {
+        mode: 'collaborative_ads' as const,
+        pageId: 'page-1',
+        collaborativeProductSetId: 'product-set-1',
+        creativeFormat: 'video' as const,
+        creativeSpec: {
+          videoId: 'video-1',
+          primaryText: 'Video',
+          destinationUrl: 'https://example.com/video',
+        },
+      },
+    },
+    {
+      label: 'carousel',
+      expectedDestinationUrl: 'https://example.com/carousel',
+      expectedStory: {
+        link_data: {
+          child_attachments: [{ image_hash: 'one' }, { video_id: 'two' }],
+        },
+      },
+      input: {
+        mode: 'collaborative_ads' as const,
+        pageId: 'page-1',
+        collaborativeProductSetId: 'product-set-1',
+        creativeFormat: 'carousel' as const,
+        creativeSpec: {
+          primaryText: 'Carousel',
+          destinationUrl: 'https://example.com/carousel',
+          cards: [
+            {
+              imageHash: 'one',
+              headline: 'Satu',
+              destinationUrl: 'https://example.com/one',
+            },
+            {
+              videoId: 'two',
+              headline: 'Dua',
+              destinationUrl: 'https://example.com/two',
+            },
+          ],
+        },
+      },
+    },
+  ])(
+    'wraps collaborative $label creative in shared catalog context',
+    ({ input, expectedDestinationUrl, expectedStory }) => {
+      const result = buildMetaCreativeFormatPayload(input);
+
+      expect(result).toMatchObject({
+        product_set_id: 'product-set-1',
+        omnichannel_link_spec: {
+          web: { url: expectedDestinationUrl },
+        },
+        object_story_spec: expectedStory,
+      });
+      expect(result).not.toHaveProperty('asset_feed_spec');
+    }
+  );
+
+  it('uses the first carousel card destination for collaborative context when top-level URL is omitted', () => {
+    const result = buildMetaCreativeFormatPayload({
+      mode: 'collaborative_ads',
+      pageId: 'page-1',
+      collaborativeProductSetId: 'product-set-1',
+      creativeFormat: 'carousel',
+      creativeSpec: {
+        primaryText: 'Carousel',
+        cards: [
+          {
+            imageHash: 'one',
+            headline: 'Satu',
+            destinationUrl: 'https://example.com/first',
+          },
+          {
+            imageHash: 'two',
+            headline: 'Dua',
+            destinationUrl: 'https://example.com/second',
+          },
+        ],
+      },
+    });
+
+    expect(result).toMatchObject({
+      omnichannel_link_spec: {
+        web: { url: 'https://example.com/first' },
+      },
+    });
   });
 });

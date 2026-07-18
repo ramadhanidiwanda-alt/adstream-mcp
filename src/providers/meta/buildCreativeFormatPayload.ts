@@ -21,7 +21,7 @@ export function buildMetaCreativeFormatPayload(
     case 'carousel':
       return buildCarousel(input);
     case 'catalog':
-      return buildCatalog();
+      return buildCatalog(input);
     case 'collection':
       return buildCollection();
     case 'flexible':
@@ -66,12 +66,16 @@ function buildSingleImage(
   if (headline) linkData.name = headline;
   if (description) linkData.description = description;
 
-  return {
-    object_story_spec: {
-      page_id: required(input.pageId, 'pageId'),
-      link_data: linkData,
+  return withCollaborativeCatalogContext(
+    input,
+    {
+      object_story_spec: {
+        page_id: required(input.pageId, 'pageId'),
+        link_data: linkData,
+      },
     },
-  };
+    destinationUrl
+  );
 }
 
 function buildVideo(
@@ -92,12 +96,16 @@ function buildVideo(
   if (headline) videoData.title = headline;
   if (description) videoData.description = description;
 
-  return {
-    object_story_spec: {
-      page_id: required(input.pageId, 'pageId'),
-      video_data: videoData,
+  return withCollaborativeCatalogContext(
+    input,
+    {
+      object_story_spec: {
+        page_id: required(input.pageId, 'pageId'),
+        video_data: videoData,
+      },
     },
-  };
+    destinationUrl
+  );
 }
 
 function buildCarousel(
@@ -130,16 +138,23 @@ function buildCarousel(
     return attachment;
   });
 
-  return {
-    object_story_spec: {
-      page_id: required(input.pageId, 'pageId'),
-      carousel_data: {
-        message: required(creativeSpec.primaryText, 'primaryText'),
-        attachment_style: 'link',
-        child_attachments: childAttachments,
+  const destinationUrl =
+    creativeSpec.destinationUrl?.trim() || creativeSpec.cards[0]?.destinationUrl;
+
+  return withCollaborativeCatalogContext(
+    input,
+    {
+      object_story_spec: {
+        page_id: required(input.pageId, 'pageId'),
+        link_data: {
+          message: required(creativeSpec.primaryText, 'primaryText'),
+          attachment_style: 'link',
+          child_attachments: childAttachments,
+        },
       },
     },
-  };
+    destinationUrl ?? ''
+  );
 }
 
 function buildExistingPost(
@@ -148,8 +163,69 @@ function buildExistingPost(
   return { object_story_id: required(input.creativeSpec.objectStoryId, 'objectStoryId') };
 }
 
-function buildCatalog(): Record<string, unknown> {
-  throw new Error('Unsupported format in this delivery step');
+function buildCatalog(
+  input: Extract<BuildMetaCreativeFormatPayloadInput, { creativeFormat: 'catalog' }>
+): Record<string, unknown> {
+  const { creativeSpec } = input;
+  const productSetId = required(creativeSpec.productSetId, 'Product set catalog');
+  const destinationUrl = creativeSpec.destinationUrl?.trim() ?? '';
+
+  if (input.mode === 'collaborative_ads') {
+    const collaborativeProductSetId = required(
+      input.collaborativeProductSetId,
+      'Product set Collaborative Ads'
+    );
+    if (productSetId !== collaborativeProductSetId) {
+      throw new Error('Product set creative dan ad set harus sama.');
+    }
+  }
+
+  const templateData: Record<string, unknown> = {
+    message: required(creativeSpec.primaryText, 'primaryText'),
+  };
+  const headline = optional(creativeSpec.headline, 'headline');
+  const description = optional(creativeSpec.description, 'description');
+  const templateUrl = optional(creativeSpec.templateUrl, 'templateUrl');
+  const fallbackImageHash = optional(creativeSpec.fallbackImageHash, 'fallbackImageHash');
+
+  if (headline) templateData.name = headline;
+  if (description) templateData.description = description;
+  if (destinationUrl) {
+    templateData.link = destinationUrl;
+    templateData.call_to_action = cta(creativeSpec.callToAction, destinationUrl);
+  }
+  if (templateUrl) templateData.template_url = templateUrl;
+  if (fallbackImageHash) templateData.image_hash = fallbackImageHash;
+
+  return withCollaborativeCatalogContext(
+    input,
+    {
+      product_set_id: productSetId,
+      object_story_spec: {
+        page_id: required(input.pageId, 'pageId'),
+        template_data: templateData,
+      },
+    },
+    destinationUrl
+  );
+}
+
+function withCollaborativeCatalogContext(
+  input: BuildMetaCreativeFormatPayloadInput,
+  payload: Record<string, unknown>,
+  destinationUrl: string
+): Record<string, unknown> {
+  if (input.mode !== 'collaborative_ads') return payload;
+
+  const productSetId = required(input.collaborativeProductSetId, 'Product set Collaborative Ads');
+
+  return {
+    ...payload,
+    product_set_id: productSetId,
+    omnichannel_link_spec: {
+      web: { url: required(destinationUrl, 'Destination URL Collaborative Ads') },
+    },
+  };
 }
 
 function buildCollection(): Record<string, unknown> {

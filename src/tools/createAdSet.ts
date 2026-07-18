@@ -1,8 +1,15 @@
 import type { MetaClient } from '../metaClient.js';
-import type { StructuredMutationError } from '../types.js';
+import type {
+  MetaAdsMode,
+  MetaCollaborativeCatalogContext,
+  StructuredMutationError,
+} from '../types.js';
 import { normalizeAccountPath } from '../utils/normalizeAccountId.js';
 import { MetaApiError } from '../utils/metaError.js';
-import { formatMetaWriteError, formatStructuredMetaWriteError } from '../utils/formatMetaWriteError.js';
+import {
+  formatMetaWriteError,
+  formatStructuredMetaWriteError,
+} from '../utils/formatMetaWriteError.js';
 
 export type AdSetStatus = 'ACTIVE' | 'PAUSED';
 
@@ -54,6 +61,8 @@ export interface CreateAdSetOptions {
   adAccountId: string;
   campaignId: string;
   name: string;
+  mode?: MetaAdsMode;
+  collaborativeCatalog?: MetaCollaborativeCatalogContext;
   status?: AdSetStatus;
   dailyBudget?: number;
   lifetimeBudget?: number;
@@ -164,6 +173,36 @@ export async function createAdSet(
     executed: false,
     preview,
   };
+
+  const collaborativeProductSetId = options.collaborativeCatalog?.productSetId.trim();
+  if (options.mode === 'collaborative_ads' && !collaborativeProductSetId) {
+    return {
+      ...baseResult,
+      status: 'failed',
+      error: 'Product set Collaborative Ads wajib diisi.',
+      structuredError: validationError(
+        'MISSING_COLLABORATIVE_PRODUCT_SET',
+        'Product set Collaborative Ads wajib diisi.'
+      ),
+    };
+  }
+
+  const legacyProductSetId = options.promotedObject?.product_set_id;
+  if (
+    collaborativeProductSetId &&
+    typeof legacyProductSetId === 'string' &&
+    legacyProductSetId.trim() !== collaborativeProductSetId
+  ) {
+    return {
+      ...baseResult,
+      status: 'failed',
+      error: 'Product set collaborativeCatalog dan promotedObject harus sama.',
+      structuredError: validationError(
+        'MISMATCHED_COLLABORATIVE_PRODUCT_SET',
+        'Product set collaborativeCatalog dan promotedObject harus sama.'
+      ),
+    };
+  }
 
   if (!dryRun && !confirmed) {
     return {
@@ -398,8 +437,20 @@ function buildAdSetPayload(options: CreateAdSetOptions): Record<string, unknown>
     payload.targeting = buildTargetingPayload(options.targeting);
   }
 
-  if (options.promotedObject) {
-    payload.promoted_object = options.promotedObject;
+  const collaborativePromotedObject = options.collaborativeCatalog
+    ? {
+        product_set_id: options.collaborativeCatalog.productSetId.trim(),
+        ...(options.collaborativeCatalog.pixelId?.trim()
+          ? { pixel_id: options.collaborativeCatalog.pixelId.trim() }
+          : {}),
+        ...(options.collaborativeCatalog.customEventType?.trim()
+          ? { custom_event_type: options.collaborativeCatalog.customEventType.trim() }
+          : {}),
+      }
+    : undefined;
+
+  if (collaborativePromotedObject || options.promotedObject) {
+    payload.promoted_object = collaborativePromotedObject ?? options.promotedObject;
   }
 
   if (options.startTime) {

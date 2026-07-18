@@ -235,6 +235,72 @@ describe('createAdSet — bid strategy + pre-flight validation', () => {
     });
   });
 
+  describe('collaborative catalog context', () => {
+    it('places a collaborative product set in promoted_object', async () => {
+      const client = createMockClient({
+        bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+        daily_budget: undefined,
+      });
+      const result = await createAdSet(
+        client,
+        {
+          adAccountId: 'act_1',
+          campaignId: 'campaign-1',
+          name: 'Shopee Product Set',
+          mode: 'collaborative_ads',
+          collaborativeCatalog: {
+            productSetId: ' product-set-1 ',
+            pixelId: ' pixel-1 ',
+            customEventType: ' PURCHASE ',
+          },
+        },
+        { dryRun: true }
+      );
+
+      expect(result.preview.promoted_object).toEqual({
+        product_set_id: 'product-set-1',
+        pixel_id: 'pixel-1',
+        custom_event_type: 'PURCHASE',
+      });
+    });
+
+    it('rejects collaborative ad sets without a product set before POST', async () => {
+      const client = createMockClient();
+      const result = await createAdSet(
+        client,
+        {
+          adAccountId: 'act_1',
+          campaignId: 'campaign-1',
+          name: 'Missing Product Set',
+          mode: 'collaborative_ads',
+        },
+        { dryRun: true }
+      );
+
+      expect(result.status).toBe('failed');
+      expect(result.error).toMatch(/product set.*wajib/i);
+      expect(client.metaPost).not.toHaveBeenCalled();
+    });
+
+    it('rejects mismatched collaborative and legacy promoted product sets', async () => {
+      const client = createMockClient();
+      const result = await createAdSet(
+        client,
+        {
+          ...defaultOptions,
+          mode: 'collaborative_ads',
+          collaborativeCatalog: { productSetId: 'collaborative-product-set' },
+          promotedObject: { product_set_id: 'legacy-product-set' },
+        },
+        { dryRun: true }
+      );
+
+      expect(result.status).toBe('failed');
+      expect(result.error).toMatch(/product set.*harus sama/i);
+      expect(client.metaPost).not.toHaveBeenCalled();
+    });
+  });
+
   describe('targeting_automation default', () => {
     it('should add targeting_automation.advantage_audience: 0 when targeting provided', async () => {
       const client = createMockClient();
