@@ -1,4 +1,5 @@
 import { getAdCreativeMapping } from '../../tools/getAdCreativeMapping.js';
+import { readAdCreativeFull as readAdCreativeFullTool } from '../../tools/readAdCreativeFull.js';
 import { getAdDestinations } from '../../tools/getAdDestinations.js';
 import type { AdCreativeMappingResult } from '../../broker/types.js';
 import { MetaClient } from '../../metaClient.js';
@@ -54,6 +55,7 @@ import type {
   AdsMetricRecord,
   AdsMutationResult,
   AdDestinationResult,
+  AdCreativeFullResult,
   AdsProviderAdapter,
   CredentialContext,
   EcommerceCampaignBundlePayload,
@@ -1466,6 +1468,66 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       };
     } catch (error) {
       return this.errorResponse(error);
+    }
+  }
+
+  async readAdCreativeFull(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdCreativeFullResult>> {
+    const context = this.getCredentialContext(request);
+    if (!context.ok) return context.response;
+
+    const creativeId = typeof request.params.creativeId === 'string' ? request.params.creativeId : undefined;
+    if (!creativeId) {
+      return {
+        ok: false,
+        provider: 'meta',
+        errors: [{
+          provider: 'meta',
+          code: 'MISSING_CREATIVE_ID',
+          message: 'creativeId is required to read ad creative full details',
+        }],
+      };
+    }
+
+    try {
+      const client = this.createClient(context.credential);
+      const rawCreative = await readAdCreativeFullTool(client, { creativeId });
+
+      // Determine which fields were retrieved vs missing
+      const allRequestedFields = [
+        'id', 'name', 'status', 'object_type', 'object_story_id',
+        'effective_object_story_id', 'actor_id', 'instagram_actor_id',
+        'instagram_permalink_url', 'authorization_category', 'destination_type',
+        'thumbnail_url', 'title', 'body', 'link', 'url_tags',
+        'image_hash', 'image_url', 'video_id',
+        'object_story_spec', 'asset_feed_spec', 'call_to_action',
+        'degrees_of_freedom_spec', 'tracking_specs', 'branded_content',
+        'contextual_multi_ads', 'asset_customization_rules', 'template_data',
+        'link_data', 'photo_data', 'video_data', 'page_welcome_message',
+      ];
+
+      const fieldsRetrieved = allRequestedFields.filter((f) => rawCreative[f] !== undefined);
+      const fieldsMissing = allRequestedFields.filter((f) => rawCreative[f] === undefined);
+
+      const result: AdCreativeFullResult = {
+        operation: 'read_ad_creative_full',
+        status: 'executed',
+        creative_id: creativeId,
+        creative: rawCreative,
+        fields_retrieved: fieldsRetrieved,
+        fields_missing: fieldsMissing,
+      };
+
+      return { ok: true, provider: 'meta', data: result };
+    } catch (error) {
+      return {
+        ok: false,
+        provider: 'meta',
+        errors: [{
+          provider: 'meta',
+          code: 'CREATIVE_READ_ERROR',
+          message: error instanceof Error ? error.message : String(error),
+        }],
+      };
     }
   }
 

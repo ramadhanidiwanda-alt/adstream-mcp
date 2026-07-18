@@ -118,6 +118,18 @@ function createBrokerStub(): AdsBroker {
         resolution_method: 'link_data.link',
       }],
     }),
+    readAdCreativeFull: async () => ({
+      ok: true,
+      provider: 'meta',
+      data: {
+        operation: 'read_ad_creative_full',
+        status: 'executed',
+        creative_id: 'cr_123',
+        creative: { id: 'cr_123', name: 'Test Creative', object_type: 'SHARE' },
+        fields_retrieved: ['id', 'name', 'object_type'],
+        fields_missing: [],
+      },
+    }),
   } as unknown as AdsBroker;
 }
 
@@ -217,6 +229,7 @@ describe('ads MCP broker tools', () => {
       'ads_list_advideos',
       'ads_get_ad_preview',
       'ads_get_ad_destinations',
+      'ads_read_creative_full',
       'ads_list_pages',
       'ads_list_instagram_accounts',
       'ads_list_threads_profiles',

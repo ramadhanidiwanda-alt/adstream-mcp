@@ -664,6 +664,19 @@ export interface AdDestinationResult {
   warning?: string;
 }
 
+export interface AdCreativeFullResult {
+  operation: 'read_ad_creative_full';
+  status: 'executed' | 'failed';
+  creative_id: string;
+  /** Full raw payload from Meta Graph API for the creative */
+  creative: Record<string, unknown>;
+  /** List of fields that were successfully retrieved */
+  fields_retrieved: string[];
+  /** List of fields that were requested but not returned by Meta */
+  fields_missing: string[];
+  error?: string;
+}
+
 export interface VideoSourceResult {
   provider: AdsProviderId;
   video_id: string;
@@ -897,6 +910,7 @@ export interface AdsProviderAdapter {
   getVideoSource(request: AdsBrokerRequest): Promise<AdsBrokerResponse<VideoSourceResult>>;
   getAdCreativeMapping(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdCreativeMappingResult[]>>;
   getAdDestinations(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdDestinationResult[]>>;
+  readAdCreativeFull(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdCreativeFullResult>>;
   // --- Write Operations ---
   pauseCampaign(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>>;
   resumeCampaign(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>>;
