@@ -142,6 +142,9 @@ const createCampaignInputSchema = {
   ...adsBaseInputSchema,
   accountId: z.string().describe('Provider account id. Required for campaign creation.'),
   name: z.string().describe('Campaign name.'),
+  mode: z.enum(['standard', 'collaborative_ads']).optional().describe(
+    'standard untuk iklan Meta biasa; collaborative_ads untuk katalog retailer yang sudah dibagikan.'
+  ),
   objective: z.enum([
     'OUTCOME_SALES', 'OUTCOME_TRAFFIC', 'OUTCOME_ENGAGEMENT',
     'OUTCOME_LEADS', 'OUTCOME_AWARENESS', 'OUTCOME_APP_PROMOTION',
@@ -167,6 +170,17 @@ const createAdSetInputSchema = {
   accountId: z.string().describe('Provider account id. Required for ad set creation.'),
   campaignId: z.string().describe('The campaign ID to create the ad set under.'),
   name: z.string().describe('Ad set name.'),
+  mode: z.enum(['standard', 'collaborative_ads']).optional().describe(
+    'standard untuk iklan Meta biasa; collaborative_ads untuk katalog retailer yang sudah dibagikan.'
+  ),
+  collaborativeCatalog: z.object({
+    productSetId: z.string().describe('ID product set dari katalog retailer yang dibagikan.'),
+    pixelId: z.string().optional().describe('ID Meta Pixel untuk mengukur event konversi, jika digunakan.'),
+    customEventType: z.string().optional().describe('Event konversi Meta, misalnya PURCHASE, jika digunakan.'),
+    destinationUrl: z.string().optional().describe('URL tujuan katalog atau toko retailer, jika digunakan.'),
+  }).optional().describe(
+    'Konteks katalog retailer untuk Collaborative Ads. Isi product set yang dibagikan retailer, lalu tambahkan pixel, event, atau URL tujuan bila diperlukan.'
+  ),
   status: z.enum(['ACTIVE', 'PAUSED']).optional().describe('Ad set status. Defaults to PAUSED.'),
   dailyBudget: z.number().optional().describe('Daily budget in local currency minor units. Do NOT set if campaign uses CBO.'),
   lifetimeBudget: z.number().optional().describe('Lifetime budget in local currency minor units. Do NOT set if campaign uses CBO.'),
@@ -215,7 +229,7 @@ const dynamicCreativeAssetFeedSpecSchema = z.object({
 const objectStorySpecInputSchema = z.object({
   asset_feed_spec: legacyDynamicCreativeAssetFeedSpecSchema.optional(),
 }).passthrough().describe(
-  'Meta object_story_spec. Legacy Dynamic Creative input may include asset_feed_spec here; prefer the top-level assetFeedSpec input.'
+  'Input advanced/backward-compatible Meta object_story_spec. Dynamic Creative legacy dapat memakai asset_feed_spec di sini; sebaiknya gunakan assetFeedSpec tingkat atas.'
 );
 
 const createAdCreativeInputSchema = {
@@ -223,13 +237,25 @@ const createAdCreativeInputSchema = {
   accountId: z.string().describe('Provider account id. Required for creative creation.'),
   name: z.string().describe('Creative name.'),
   pageId: z.string().describe('Meta Page ID used in object_story_spec.'),
-  link: z.string().optional().describe('Destination URL for the link ad.'),
-  message: z.string().optional().describe('Primary ad text (message). Required with link unless objectStorySpec is provided.'),
-  headline: z.string().optional().describe('Ad headline.'),
-  description: z.string().optional().describe('Optional ad description.'),
-  imageHash: z.string().optional().describe('Uploaded Meta image hash.'),
-  videoId: z.string().optional().describe('Uploaded Meta video ID.'),
-  callToActionType: z.enum(['SHOP_NOW', 'LEARN_MORE', 'SIGN_UP', 'GET_OFFER', 'BOOK_NOW', 'DOWNLOAD', 'CONTACT_US', 'SUBSCRIBE', 'INSTALL_APP']).optional().describe('Call to action button type.'),
+  mode: z.enum(['standard', 'collaborative_ads']).optional().describe(
+    'standard untuk iklan Meta biasa; collaborative_ads untuk katalog retailer yang sudah dibagikan.'
+  ),
+  creativeFormat: z.enum(['single_image', 'video', 'carousel', 'catalog', 'collection', 'flexible', 'existing_post']).optional().describe(
+    'Format materi iklan: gambar tunggal, video, carousel, katalog, collection, flexible, atau postingan yang sudah ada.'
+  ),
+  creativeSpec: z.record(z.unknown()).optional().describe(
+    'Detail materi sesuai creativeFormat. Field yang diisi bergantung pada format: single_image memakai imageHash, primaryText, destinationUrl; video memakai videoId; carousel memakai cards; catalog memakai productSetId; collection memakai instantExperienceId; flexible memakai variasi gambar/video dan teks; existing_post memakai objectStoryId.'
+  ),
+  collaborativeProductSetId: z.string().optional().describe(
+    'Harus sama dengan product set yang dipilih di ad set, dan wajib untuk setiap format creative Collaborative Ads yang didukung pada rilis ini.'
+  ),
+  link: z.string().optional().describe('Field legacy/backward-compatible untuk URL tujuan iklan link sederhana.'),
+  message: z.string().optional().describe('Field legacy/backward-compatible untuk teks utama iklan.'),
+  headline: z.string().optional().describe('Field legacy/backward-compatible untuk headline iklan.'),
+  description: z.string().optional().describe('Field legacy/backward-compatible untuk deskripsi iklan opsional.'),
+  imageHash: z.string().optional().describe('Field legacy/backward-compatible untuk hash gambar Meta yang sudah diunggah.'),
+  videoId: z.string().optional().describe('Field legacy/backward-compatible untuk ID video Meta yang sudah diunggah.'),
+  callToActionType: z.enum(['SHOP_NOW', 'LEARN_MORE', 'SIGN_UP', 'GET_OFFER', 'BOOK_NOW', 'DOWNLOAD', 'CONTACT_US', 'SUBSCRIBE', 'INSTALL_APP']).optional().describe('Field legacy/backward-compatible untuk tombol ajakan bertindak.'),
   instagramUserId: z.string().optional().describe('Instagram user ID for IG posting.'),
   threadsProfileId: z.string().optional().describe('Threads profile ID for Threads posting.'),
   // --- CTWA (Click-to-WhatsApp) Support ---
@@ -237,7 +263,7 @@ const createAdCreativeInputSchema = {
   whatsappPhoneNumberId: z.string().optional().describe('WhatsApp Phone Number ID (from ads_list_whatsapp_phone_numbers).'),
   pageWelcomeMessage: z.string().optional().describe('Welcome message sent when user clicks the WhatsApp CTA.'),
   objectStorySpec: objectStorySpecInputSchema.optional(),
-  assetFeedSpec: dynamicCreativeAssetFeedSpecSchema.optional().describe('Official Meta asset_feed_spec for Dynamic Creative.'),
+  assetFeedSpec: dynamicCreativeAssetFeedSpecSchema.optional().describe('Input advanced/backward-compatible Meta asset_feed_spec untuk Dynamic Creative.'),
   dedupeByName: z.boolean().optional().describe('Check for an existing creative with the same name before creating.'),
   externalReference: z.string().optional().describe('Caller-provided reference for duplicate prevention and audit correlation.'),
   dryRun: z.boolean().optional().describe('Defaults to true. Set false only after preview.'),

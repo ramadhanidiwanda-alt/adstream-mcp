@@ -33,7 +33,6 @@ export const ADS_MCP_TOOL_NAMES = [
   'ads_archive_ad',
   'ads_update_adset',
   'ads_get_targeting_options',
-  'ads_create_ecommerce_campaign_bundle',
   'ads_get_video_source',
   'ads_get_ad_creative_mapping',
   'ads_upload_image',
@@ -96,7 +95,6 @@ const ADDITIVE_WRITE_TOOLS = new Set<AdsMcpToolName>([
   'ads_create_adset',
   'ads_create_adcreative',
   'ads_create_ad',
-  'ads_create_ecommerce_campaign_bundle',
   'ads_upload_image',
   'ads_upload_video',
   'ads_rename_campaign',
@@ -272,11 +270,6 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
     name: 'ads_get_targeting_options',
     description: 'Search Meta targeting options (interests, behaviors, demographics) for ad set creation.',
     inputSchema: createGetTargetingOptionsInputSchema(),
-  },
-  {
-    name: 'ads_create_ecommerce_campaign_bundle',
-    description: 'Create a PAUSED Meta ecommerce sales campaign bundle (campaign, ad set, creative, ad) after dry-run preview and explicit confirmation.',
-    inputSchema: createEcommerceLaunchInputSchema(),
   },
   {
     name: 'ads_get_video_source',
@@ -581,8 +574,6 @@ function callBrokerMethod(
       return broker.updateAdSet(request);
     case 'ads_get_targeting_options':
       return broker.getTargetingOptions(request);
-    case 'ads_create_ecommerce_campaign_bundle':
-      return broker.createEcommerceCampaignBundle(request);
     case 'ads_get_video_source':
       return broker.getVideoSource(request);
     case 'ads_get_ad_creative_mapping':
@@ -1028,6 +1019,11 @@ function createCreateCampaignInputSchema() {
     properties: {
       ...(schema.properties as Record<string, unknown>),
       name: { type: 'string', description: 'Campaign name.' },
+      mode: {
+        type: 'string',
+        enum: ['standard', 'collaborative_ads'],
+        description: 'standard untuk iklan Meta biasa; collaborative_ads untuk katalog retailer yang sudah dibagikan.',
+      },
       objective: {
         type: 'string',
         enum: [
@@ -1097,6 +1093,23 @@ function createCreateAdSetInputSchema() {
       ...(schema.properties as Record<string, unknown>),
       campaignId: { type: 'string', description: 'The campaign ID to create the ad set under.' },
       name: { type: 'string', description: 'Ad set name.' },
+      mode: {
+        type: 'string',
+        enum: ['standard', 'collaborative_ads'],
+        description: 'standard untuk iklan Meta biasa; collaborative_ads untuk katalog retailer yang sudah dibagikan.',
+      },
+      collaborativeCatalog: {
+        type: 'object',
+        description: 'Konteks katalog retailer untuk Collaborative Ads. Isi product set yang dibagikan retailer, lalu tambahkan pixel, event, atau URL tujuan bila diperlukan.',
+        properties: {
+          productSetId: { type: 'string', description: 'ID product set dari katalog retailer yang dibagikan.' },
+          pixelId: { type: 'string', description: 'ID Meta Pixel untuk mengukur event konversi, jika digunakan.' },
+          customEventType: { type: 'string', description: 'Event konversi Meta, misalnya PURCHASE, jika digunakan.' },
+          destinationUrl: { type: 'string', description: 'URL tujuan katalog atau toko retailer, jika digunakan.' },
+        },
+        required: ['productSetId'],
+        additionalProperties: false,
+      },
       status: {
         type: 'string',
         enum: ['ACTIVE', 'PAUSED'],
@@ -1173,22 +1186,41 @@ function createCreateAdCreativeInputSchema() {
       ...(schema.properties as Record<string, unknown>),
       name: { type: 'string', description: 'Creative name.' },
       pageId: { type: 'string', description: 'Meta Page ID used in object_story_spec.' },
-      link: { type: 'string', description: 'Destination URL for the link ad.' },
-      message: { type: 'string', description: 'Primary ad text (message).' },
-      headline: { type: 'string', description: 'Ad headline.' },
-      description: { type: 'string', description: 'Optional ad description.' },
-      imageHash: { type: 'string', description: 'Uploaded Meta image hash.' },
-      videoId: { type: 'string', description: 'Uploaded Meta video ID.' },
+      mode: {
+        type: 'string',
+        enum: ['standard', 'collaborative_ads'],
+        description: 'standard untuk iklan Meta biasa; collaborative_ads untuk katalog retailer yang sudah dibagikan.',
+      },
+      creativeFormat: {
+        type: 'string',
+        enum: ['single_image', 'video', 'carousel', 'catalog', 'collection', 'flexible', 'existing_post'],
+        description: 'Format materi iklan: gambar tunggal, video, carousel, katalog, collection, flexible, atau postingan yang sudah ada.',
+      },
+      creativeSpec: {
+        type: 'object',
+        description: 'Detail materi sesuai creativeFormat. Field yang diisi bergantung pada format: single_image memakai imageHash, primaryText, destinationUrl; video memakai videoId; carousel memakai cards; catalog memakai productSetId; collection memakai instantExperienceId; flexible memakai variasi gambar/video dan teks; existing_post memakai objectStoryId.',
+        additionalProperties: true,
+      },
+      collaborativeProductSetId: {
+        type: 'string',
+        description: 'Harus sama dengan product set yang dipilih di ad set, dan wajib untuk setiap format creative Collaborative Ads yang didukung pada rilis ini.',
+      },
+      link: { type: 'string', description: 'Field legacy/backward-compatible untuk URL tujuan iklan link sederhana.' },
+      message: { type: 'string', description: 'Field legacy/backward-compatible untuk teks utama iklan.' },
+      headline: { type: 'string', description: 'Field legacy/backward-compatible untuk headline iklan.' },
+      description: { type: 'string', description: 'Field legacy/backward-compatible untuk deskripsi iklan opsional.' },
+      imageHash: { type: 'string', description: 'Field legacy/backward-compatible untuk hash gambar Meta yang sudah diunggah.' },
+      videoId: { type: 'string', description: 'Field legacy/backward-compatible untuk ID video Meta yang sudah diunggah.' },
       callToActionType: {
         type: 'string',
         enum: ['SHOP_NOW', 'LEARN_MORE', 'SIGN_UP', 'GET_OFFER', 'BOOK_NOW', 'DOWNLOAD', 'CONTACT_US', 'SUBSCRIBE', 'INSTALL_APP'],
-        description: 'Call to action button type.',
+        description: 'Field legacy/backward-compatible untuk tombol ajakan bertindak.',
       },
       instagramUserId: { type: 'string', description: 'Instagram user ID for IG posting.' },
       threadsProfileId: { type: 'string', description: 'Threads profile ID for Threads posting.' },
       objectStorySpec: {
         type: 'object',
-        description: 'Meta object_story_spec. For Dynamic Creative, use this with top-level assetFeedSpec. Nested asset_feed_spec remains supported for compatibility.',
+        description: 'Input advanced/backward-compatible Meta object_story_spec. Untuk Dynamic Creative, gunakan bersama assetFeedSpec tingkat atas; asset_feed_spec bersarang tetap didukung untuk kompatibilitas.',
         properties: {
           asset_feed_spec: {
             type: 'object',
@@ -1204,7 +1236,7 @@ function createCreateAdCreativeInputSchema() {
       },
       assetFeedSpec: {
         type: 'object',
-        description: 'Official Meta asset_feed_spec for Dynamic Creative. Requires ad_formats, images, bodies, titles, link_urls, and call_to_action_types.',
+        description: 'Input advanced/backward-compatible Meta asset_feed_spec untuk Dynamic Creative. Memerlukan ad_formats, images, bodies, titles, link_urls, dan call_to_action_types.',
         properties: {
           ad_formats: { type: 'array', minItems: 1, items: { type: 'string', enum: ['AUTOMATIC_FORMAT'] } },
           bodies: { type: 'array', minItems: 1, items: { type: 'object', properties: { text: { type: 'string', minLength: 1 } }, required: ['text'] } },
@@ -1335,41 +1367,6 @@ function createGetTargetingOptionsInputSchema() {
       limit: { type: 'number', description: 'Maximum results to return (default: 25).' },
     },
     required: ['type'],
-  };
-}
-
-function createEcommerceLaunchInputSchema() {
-  const schema = createAdsInputSchema([]);
-
-  return {
-    type: 'object',
-    properties: {
-      ...(schema.properties as Record<string, unknown>),
-      campaignName: { type: 'string', description: 'Campaign name. MVP uses OUTCOME_SALES.' },
-      adSetName: { type: 'string', description: 'Ad set name.' },
-      adName: { type: 'string', description: 'Ad name.' },
-      pageId: { type: 'string', description: 'Meta Page ID used in object_story_spec.' },
-      pixelId: { type: 'string', description: 'Meta Pixel ID for ecommerce conversion optimization.' },
-      destinationUrl: { type: 'string', description: 'Product or landing page URL.' },
-      dailyBudget: { type: 'number', description: 'Daily budget in account minor currency units.' },
-      countries: { type: 'array', items: { type: 'string' }, description: 'ISO country codes, e.g. ["ID"].' },
-      primaryText: { type: 'string', description: 'Primary ad text.' },
-      headline: { type: 'string', description: 'Ad headline.' },
-      description: { type: 'string', description: 'Optional ad description.' },
-      imageHash: { type: 'string', description: 'Uploaded Meta image hash. Required for static creative unless imageFilePath is provided.' },
-      imageFilePath: { type: 'string', description: 'Local image file path. Alternative to imageHash — auto-uploads before creative creation.' },
-      videoFilePath: { type: 'string', description: 'Local video file path. Alternative to videoId — auto-uploads before creative creation.' },
-      callToActionType: { type: 'string', enum: ['SHOP_NOW', 'LEARN_MORE', 'SIGN_UP', 'GET_OFFER'] },
-      specialAdCategories: { type: 'array', items: { type: 'string' }, description: 'Meta special ad categories. Defaults to [] only when not applicable.' },
-      ageMin: { type: 'number' },
-      ageMax: { type: 'number' },
-      publisherPlatforms: { type: 'array', items: { type: 'string' } },
-      instagramUserId: { type: 'string', description: 'Instagram user ID for IG posting.' },
-      threadsProfileId: { type: 'string', description: 'Threads profile ID for Threads posting.' },
-      dryRun: { type: 'boolean', description: 'Defaults to true. Set false only after preview.' },
-      confirmed: { type: 'boolean', description: 'Must be true to execute after preview.' },
-    },
-    required: ['accountId', 'campaignName', 'adSetName', 'adName', 'pageId', 'pixelId', 'destinationUrl', 'dailyBudget', 'countries', 'primaryText', 'headline'],
   };
 }
 

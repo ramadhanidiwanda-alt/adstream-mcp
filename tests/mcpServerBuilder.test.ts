@@ -180,6 +180,58 @@ describe('MCP server builder', () => {
     expect(creativeTool?.description).toContain('Dynamic Creative');
   });
 
+  it('exposes canonical Collaborative Ads and creative-format fields without adding create tools', async () => {
+    process.env.ADSTREAM_ENABLE_WRITES = 'true';
+    const response = await listRegisteredTools();
+    const toolNames = response.tools.map((tool) => tool.name);
+    const campaignTool = response.tools.find((tool) => tool.name === 'ads_create_campaign');
+    const adsetTool = response.tools.find((tool) => tool.name === 'ads_create_adset');
+    const creativeTool = response.tools.find((tool) => tool.name === 'ads_create_adcreative');
+    const campaignProperties = campaignTool?.inputSchema.properties as Record<string, Record<string, unknown>>;
+    const adsetProperties = adsetTool?.inputSchema.properties as Record<string, Record<string, unknown>>;
+    const creativeProperties = creativeTool?.inputSchema.properties as Record<string, Record<string, unknown>>;
+
+    expect(campaignProperties).toHaveProperty('mode');
+    expect(adsetProperties).toHaveProperty('collaborativeCatalog');
+    expect(creativeProperties).toHaveProperty('creativeFormat');
+    expect(creativeProperties).toHaveProperty('creativeSpec');
+    expect(toolNames.filter((name) => name.startsWith('ads_create_'))).toEqual([
+      'ads_create_campaign',
+      'ads_create_adset',
+      'ads_create_adcreative',
+      'ads_create_ad',
+    ]);
+
+    expect(campaignProperties.mode).toMatchObject({
+      type: 'string',
+      enum: ['standard', 'collaborative_ads'],
+    });
+    expect(campaignProperties.mode.description).toMatch(/iklan Meta biasa.*katalog retailer/i);
+
+    expect(adsetProperties.collaborativeCatalog).toMatchObject({
+      type: 'object',
+      required: ['productSetId'],
+      properties: {
+        productSetId: { type: 'string' },
+        pixelId: { type: 'string' },
+        customEventType: { type: 'string' },
+        destinationUrl: { type: 'string' },
+      },
+    });
+    expect(adsetProperties.collaborativeCatalog.description).toMatch(/katalog.*retailer/i);
+
+    expect(creativeProperties.creativeFormat).toMatchObject({
+      type: 'string',
+      enum: ['single_image', 'video', 'carousel', 'catalog', 'collection', 'flexible', 'existing_post'],
+    });
+    expect(creativeProperties.creativeSpec).toMatchObject({ type: 'object' });
+    expect(creativeProperties.creativeSpec.description).toMatch(/format.*field/i);
+    expect(creativeProperties.collaborativeProductSetId).toMatchObject({ type: 'string' });
+    expect(creativeProperties.collaborativeProductSetId.description).toMatch(/ad set.*Collaborative Ads/i);
+    expect(creativeProperties.message.description).toMatch(/legacy|backward-compatible/i);
+    expect(creativeProperties.objectStorySpec.description).toMatch(/advanced|backward-compatible/i);
+  });
+
   it('rejects a Dynamic Creative payload without headline variants', async () => {
     process.env.ADSTREAM_ENABLE_WRITES = 'true';
     const { client, server } = await createConnectedClient();
