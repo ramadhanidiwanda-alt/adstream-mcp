@@ -61,6 +61,26 @@ describe('createAdCreative', () => {
     expect(r.preview.name).toBe('Test Creative'); expect(mockMetaPost).not.toHaveBeenCalled();
   });
 
+  it('keeps the legacy linkData dry-run preview backward-compatible', async () => {
+    const result = await createAdCreative(mockClient, baseOpts);
+
+    expect(result.preview).toEqual({
+      name: 'Test Creative',
+      object_story_spec: {
+        page_id: '1001',
+        link_data: {
+          link: 'https://example.com',
+          message: 'Buy now',
+          call_to_action: {
+            type: 'SHOP_NOW',
+            value: { link: 'https://example.com' },
+          },
+        },
+      },
+    });
+    expect(mockMetaPost).not.toHaveBeenCalled();
+  });
+
   it('uses creativeFormat and creativeSpec instead of legacy linkData', async () => {
     const result = await createAdCreative(
       mockClient,

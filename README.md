@@ -64,6 +64,16 @@ The intended public API should stay small:
 
 All write tools use dry-run by default. Set `dryRun=false` + `confirmed=true` to execute.
 
+### Standard and Collaborative Ads creative formats
+
+**Standard Ads** are regular Meta campaigns that use the advertiser's own assets and destinations. **Collaborative Ads** use a catalog or product set that a retailer has already shared with the advertiser; this connector does not request the partnership or create the shared product set.
+
+Standard Ads support `single_image`, `video`, `carousel`, `catalog`, `collection`, `flexible`, and `existing_post`. The initial Collaborative Ads support covers `single_image`, `video`, `carousel`, `catalog`, and `collection`. Collaborative `flexible` and `existing_post` remain unsupported because their account- and catalog-specific compatibility cannot yet be validated safely.
+
+Use the same four tools for either mode: create the campaign with `ads_create_campaign`, create one ad set with `ads_create_adset`, create each format separately with `ads_create_adcreative`, then connect each creative to that ad set with `ads_create_ad`. For example, one `adsetId` can be reused by an image ad and a video ad; the format belongs to each creative, not to a duplicate ad set. A `collection` creative must reuse an existing `instantExperienceId`—the connector does not build Instant Experience content.
+
+Every write is a dry run unless `dryRun=false` and `confirmed=true` are both supplied. Campaigns, ad sets, and ads default to `PAUSED`, so review the returned preview and IDs in Meta Ads Manager before activation.
+
 ### Dynamic Creative with multiple texts and headlines
 
 `ads_create_adcreative` accepts the official Meta Dynamic Creative shape: `objectStorySpec` and `assetFeedSpec` are separate MCP inputs. The server sends them as Meta's separate `object_story_spec` and `asset_feed_spec` fields, so none of the variants are removed.

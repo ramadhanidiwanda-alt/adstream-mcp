@@ -18,13 +18,18 @@ describe('createAd', () => {
 
   it('returns dry_run without calling API', async () => {
     const r = await createAd(mockClient, baseOpts);
-    expect(r.status).toBe('dry_run'); expect(r.preview.adset_id).toBe('as456');
+    expect(r.status).toBe('dry_run');
+    expect(r.preview.adset_id).toBe('as456');
     expect(r.preview.creative).toContain('c789');
+    expect(r.preview.status).toBe('PAUSED');
+    expect(mockMetaPost).not.toHaveBeenCalled();
   });
 
   it('returns pending_confirmation when not confirmed', async () => {
     const r = await createAd(mockClient, baseOpts, { dryRun: false, confirmed: false });
     expect(r.status).toBe('pending_confirmation');
+    expect(r.executed).toBe(false);
+    expect(mockMetaPost).not.toHaveBeenCalled();
   });
 
   it('executes and returns id on success', async () => {
@@ -33,6 +38,7 @@ describe('createAd', () => {
     expect(r.status).toBe('executed'); expect(r.id).toBe('ad123');
     const payload = mockMetaPost.mock.calls[0][1];
     expect(payload.adset_id).toBe('as456');
+    expect(payload.status).toBe('PAUSED');
   });
 
   it('handles ACTIVE status', async () => {
@@ -61,5 +67,9 @@ describe('createAd', () => {
     mockMetaPost.mockRejectedValueOnce(new Error('ad error'));
     const r = await createAd(mockClient, baseOpts, { dryRun: false, confirmed: true });
     expect(r.status).toBe('failed');
+    const json = JSON.stringify(r);
+    expect(json).not.toContain('access_token');
+    expect(json).not.toContain('Authorization');
+    expect(json).not.toContain('task-8-token-fixture');
   });
 });

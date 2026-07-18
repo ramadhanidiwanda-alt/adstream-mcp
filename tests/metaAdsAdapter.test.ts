@@ -957,6 +957,258 @@ describe('MetaAdsAdapter', () => {
     }
   );
 
+  it('attaches image and video creatives to separate ads in the same ad set', async () => {
+    const adCreateCalls: Array<{ adsetId: string; creativeId: string }> = [];
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        createAdCreative: async (_client, options) => {
+          const format = options.creative?.creativeFormat;
+          const id = format === 'single_image' ? 'creative-image' : 'creative-video';
+          return {
+            operation: 'create_adcreative',
+            status: 'executed',
+            executed: true,
+            id,
+            preview: {},
+          };
+        },
+        createAd: async (_client, options) => {
+          adCreateCalls.push({ adsetId: options.adSetId, creativeId: options.creativeId });
+          return {
+            operation: 'create_ad',
+            status: 'executed',
+            executed: true,
+            id: `ad-${options.creativeId}`,
+            preview: {},
+          };
+        },
+      },
+    });
+    const credentials = {
+      provider: 'meta' as const,
+      accessToken: 'workflow-credential',
+      source: 'test',
+    };
+
+    const imageCreative = await adapter.createAdCreative({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {
+        name: 'Image creative',
+        pageId: 'page-1',
+        creativeFormat: 'single_image',
+        creativeSpec: {
+          imageHash: 'image-1',
+          primaryText: 'Image copy',
+          destinationUrl: 'https://example.com/image',
+        },
+        dryRun: false,
+        confirmed: true,
+      },
+      credentials,
+    });
+    const videoCreative = await adapter.createAdCreative({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {
+        name: 'Video creative',
+        pageId: 'page-1',
+        creativeFormat: 'video',
+        creativeSpec: {
+          videoId: 'video-1',
+          primaryText: 'Video copy',
+          destinationUrl: 'https://example.com/video',
+        },
+        dryRun: false,
+        confirmed: true,
+      },
+      credentials,
+    });
+
+    for (const [name, creativeId] of [
+      ['Image ad', imageCreative.data?.id],
+      ['Video ad', videoCreative.data?.id],
+    ] as const) {
+      expect(creativeId).toBeDefined();
+      await adapter.createAd({
+        provider: 'meta',
+        accountId: 'act_123',
+        params: {
+          name,
+          adSetId: 'adset-1',
+          creativeId,
+          dryRun: false,
+          confirmed: true,
+        },
+        credentials,
+      });
+    }
+
+    expect(adCreateCalls).toEqual([
+      expect.objectContaining({ adsetId: 'adset-1', creativeId: 'creative-image' }),
+      expect.objectContaining({ adsetId: 'adset-1', creativeId: 'creative-video' }),
+    ]);
+  });
+
+  it('preserves completed IDs when the legacy bundle reports a later partial failure', async () => {
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        createEcommerceCampaignBundle: async () => ({
+          operation: 'create_ecommerce_campaign_bundle',
+          status: 'failed',
+          executed: false,
+          preview: { campaign: {}, adSet: {}, creative: {}, ad: {} },
+          ids: { campaignId: 'campaign-1', adSetId: 'adset-1', creativeId: 'creative-1' },
+          error: 'Ad creation failed.',
+          warnings: [],
+        }),
+      },
+    });
+
+    const response = await adapter.createEcommerceCampaignBundle({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {
+        campaignName: 'Campaign',
+        adSetName: 'Ad set',
+        adName: 'Ad',
+        pageId: 'page-1',
+        pixelId: 'pixel-1',
+        destinationUrl: 'https://example.com',
+        dailyBudget: 100_000,
+        countries: ['ID'],
+        primaryText: 'Copy',
+        headline: 'Headline',
+        imageHash: 'image-1',
+        dryRun: false,
+        confirmed: true,
+      },
+      credentials: {
+        provider: 'meta',
+        accessToken: 'partial-workflow-credential',
+        source: 'test',
+      },
+    });
+
+    expect(response.ok).toBe(false);
+    expect(response.data?.ids).toEqual({
+      campaignId: 'campaign-1',
+      adSetId: 'adset-1',
+      creativeId: 'creative-1',
+    });
+  });
+
+  it.each([
+    {
+      name: 'invalid mode',
+      operation: 'campaign',
+      params: { name: 'Campaign', objective: 'OUTCOME_SALES', mode: 'invalid-mode' },
+    },
+    {
+      name: 'non-object collaborativeCatalog',
+      operation: 'adset',
+      params: { campaignId: 'campaign-1', name: 'Ad set', collaborativeCatalog: [] },
+    },
+    {
+      name: 'invalid creative format',
+      operation: 'creative',
+      params: {
+        name: 'Creative',
+        pageId: 'page-1',
+        creativeFormat: 'invalid-format',
+        creativeSpec: {},
+      },
+    },
+    {
+      name: 'non-object creativeSpec',
+      operation: 'creative',
+      params: {
+        name: 'Creative',
+        pageId: 'page-1',
+        creativeFormat: 'single_image',
+        creativeSpec: 'not-an-object',
+      },
+    },
+    {
+      name: 'malformed carousel cards',
+      operation: 'creative',
+      params: {
+        name: 'Creative',
+        pageId: 'page-1',
+        creativeFormat: 'carousel',
+        creativeSpec: { primaryText: 'Copy', cards: 'not-an-array' },
+      },
+    },
+    {
+      name: 'malformed scalar creative field',
+      operation: 'creative',
+      params: {
+        name: 'Creative',
+        pageId: 'page-1',
+        creativeFormat: 'single_image',
+        creativeSpec: {
+          imageHash: 123,
+          primaryText: 'Copy',
+          destinationUrl: 'https://example.com',
+        },
+      },
+    },
+  ])('rejects $name before calling a create tool', async ({ operation, params }) => {
+    let createCalls = 0;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        createCampaign: async () => {
+          createCalls += 1;
+          return {
+            operation: 'create_campaign',
+            status: 'dry_run',
+            executed: false,
+            preview: {},
+            mode: 'standard',
+          };
+        },
+        createAdSet: async () => {
+          createCalls += 1;
+          return { operation: 'create_adset', status: 'dry_run', executed: false, preview: {} };
+        },
+        createAdCreative: async () => {
+          createCalls += 1;
+          return {
+            operation: 'create_adcreative',
+            status: 'dry_run',
+            executed: false,
+            preview: {},
+          };
+        },
+      },
+    });
+    const request = {
+      provider: 'meta' as const,
+      accountId: 'act_123',
+      params,
+      credentials: {
+        provider: 'meta' as const,
+        accessToken: 'malformed-input-credential',
+        source: 'test',
+      },
+    };
+
+    const response = operation === 'campaign'
+      ? await adapter.createCampaign(request)
+      : operation === 'adset'
+        ? await adapter.createAdSet(request)
+        : await adapter.createAdCreative(request);
+
+    expect(response).toMatchObject({
+      ok: false,
+      errors: [{ provider: 'meta', code: 'VALIDATION_ERROR' }],
+    });
+    expect(createCalls).toBe(0);
+  });
+
   it('prefers a complete canonical creative pair over legacy fields', async () => {
     let receivedOptions: Record<string, unknown> | undefined;
     const adapter = new MetaAdsAdapter({

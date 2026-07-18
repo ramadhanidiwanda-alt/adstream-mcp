@@ -195,11 +195,17 @@ describe('MCP server builder', () => {
     expect(adsetProperties).toHaveProperty('collaborativeCatalog');
     expect(creativeProperties).toHaveProperty('creativeFormat');
     expect(creativeProperties).toHaveProperty('creativeSpec');
-    expect(toolNames.filter((name) => name.startsWith('ads_create_'))).toEqual([
+    const canonicalCreateToolNames = [
       'ads_create_campaign',
       'ads_create_adset',
       'ads_create_adcreative',
       'ads_create_ad',
+    ];
+    expect(toolNames.filter((name) => canonicalCreateToolNames.includes(name))).toEqual(
+      canonicalCreateToolNames
+    );
+    expect(toolNames.filter((name) => name.startsWith('ads_create_'))).toEqual([
+      ...canonicalCreateToolNames,
       'ads_create_ecommerce_campaign_bundle',
     ]);
 
