@@ -1598,6 +1598,37 @@ describe('MetaAdsAdapter', () => {
     expect(targeting.excludedCustomAudiences).toEqual([{ id: 'aud_excl' }]);
   });
 
+  it('passes startTime and endTime into ad set updates', async () => {
+    let receivedOptions: Record<string, unknown> | undefined;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        updateAdSet: async (_client, options) => {
+          receivedOptions = options as unknown as Record<string, unknown>;
+          return { operation: 'update_adset', status: 'executed', preview: {}, mode: 'patch' };
+        },
+      },
+    });
+
+    const response = await adapter.updateAdSet({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {
+        adSetId: 'as_1',
+        status: 'ACTIVE',
+        startTime: '2026-07-20T01:00:00+0700',
+        endTime: '2026-07-27T23:59:00+0700',
+        dryRun: false,
+        confirmed: true,
+      },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    } as never);
+
+    expect(response.ok).toBe(true);
+    expect(receivedOptions?.startTime).toBe('2026-07-20T01:00:00+0700');
+    expect(receivedOptions?.endTime).toBe('2026-07-27T23:59:00+0700');
+  });
+
   it('lists Meta pages without exposing page access tokens', async () => {
     const adapter = new MetaAdsAdapter({
       clientFactory: (config) => ({ config }) as never,
