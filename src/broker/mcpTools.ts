@@ -48,6 +48,7 @@ export const ADS_MCP_TOOL_NAMES = [
   'ads_create_ad',
   'ads_archive_ad',
   'ads_update_adset',
+  'ads_clone_adset',
   'ads_get_targeting_options',
   'ads_create_ecommerce_campaign_bundle',
   'ads_get_video_source',
@@ -114,6 +115,7 @@ const ADDITIVE_WRITE_TOOLS = new Set<AdsMcpToolName>([
   'ads_create_adcreative',
   'ads_create_ad',
   'ads_create_ecommerce_campaign_bundle',
+  'ads_clone_adset',
   'ads_upload_image',
   'ads_upload_video',
   'ads_rename_campaign',
@@ -297,6 +299,23 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
     name: 'ads_archive_ad',
     description: 'Archive (soft-delete) a Meta ad. Sets status to ARCHIVED. Irreversible via API.',
     inputSchema: createArchiveAdInputSchema(),
+  },
+  {
+    name: 'ads_pause_ad',
+    description: 'Pause a Meta ad (sets status to PAUSED). Reversible with ads_resume_ad.',
+    inputSchema: createAdIdInputSchema(),
+  },
+  {
+    name: 'ads_resume_ad',
+    description:
+      'Resume/activate a paused Meta ad (sets status to ACTIVE). The ad delivers per its ad set schedule and budget once active.',
+    inputSchema: createAdIdInputSchema(),
+  },
+  {
+    name: 'ads_clone_adset',
+    description:
+      'Clone an existing Meta ad set into a new one, copying targeting, custom audiences, promoted object (CPAS/omnichannel), attribution, optimization, and bidding from a source ad set. Override name, campaignId, status, startTime, endTime, or budget. Dry-run by default; set dryRun=false and confirmed=true to execute. New ad set defaults to PAUSED.',
+    inputSchema: createCloneAdSetInputSchema(),
   },
   {
     name: 'ads_update_adset',
@@ -654,6 +673,12 @@ function callBrokerMethod(
       return broker.createAd(request);
     case 'ads_archive_ad':
       return broker.archiveAd(request);
+    case 'ads_pause_ad':
+      return broker.pauseAd(request);
+    case 'ads_resume_ad':
+      return broker.resumeAd(request);
+    case 'ads_clone_adset':
+      return broker.cloneAdSet(request);
     case 'ads_update_adset':
       return broker.updateAdSet(request);
     case 'ads_get_targeting_options':
@@ -1703,6 +1728,49 @@ function createArchiveAdInputSchema() {
       adId: { type: 'string', description: 'The ad ID to archive.' },
     },
     required: ['adId'],
+  };
+}
+
+function createAdIdInputSchema() {
+  const schema = createAdsInputSchema([]);
+
+  return {
+    type: 'object',
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      adId: { type: 'string', description: 'The ad ID to pause or resume.' },
+    },
+    required: ['adId'],
+  };
+}
+
+function createCloneAdSetInputSchema() {
+  const schema = createAdsInputSchema([]);
+
+  return {
+    type: 'object',
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      accountId: { type: 'string', description: 'Provider account id. Required to clone.' },
+      sourceAdSetId: {
+        type: 'string',
+        description: 'Ad set ID to copy configuration from.',
+      },
+      name: { type: 'string', description: 'New ad set name. Defaults to "<source> (copy)".' },
+      campaignId: {
+        type: 'string',
+        description: 'Target campaign ID. Defaults to the source ad set campaign.',
+      },
+      status: { type: 'string', enum: ['ACTIVE', 'PAUSED'], description: 'Defaults to PAUSED.' },
+      startTime: { type: 'string', description: 'Schedule start (ISO 8601).' },
+      endTime: { type: 'string', description: 'Schedule end (ISO 8601).' },
+      dailyBudget: { type: 'number', description: 'Override daily budget (minor units).' },
+      lifetimeBudget: { type: 'number', description: 'Override lifetime budget (minor units).' },
+      optimizationGoal: { type: 'string', description: 'Override optimization goal.' },
+      dryRun: { type: 'boolean', description: 'Defaults to true. Set false only after preview.' },
+      confirmed: { type: 'boolean', description: 'Must be true to execute after preview.' },
+    },
+    required: ['accountId', 'sourceAdSetId'],
   };
 }
 

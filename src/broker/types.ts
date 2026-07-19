@@ -785,6 +785,18 @@ export interface ArchiveAdResult {
   error?: string;
 }
 
+export interface CloneAdSetResult {
+  operation: 'clone_adset';
+  status: 'dry_run' | 'pending_confirmation' | 'executed' | 'failed';
+  executed: boolean;
+  sourceAdSetId: string;
+  preview: Record<string, unknown>;
+  id?: string;
+  response?: Record<string, unknown>;
+  error?: string;
+  structuredError?: StructuredMutationError;
+}
+
 export type UpdateAdSetStatus = 'dry_run' | 'pending_confirmation' | 'executed' | 'failed';
 
 export interface UpdateAdSetResult {
@@ -948,6 +960,9 @@ export interface AdsProviderAdapter {
   createAdCreative(request: AdsBrokerRequest): Promise<AdsBrokerResponse<CreateAdCreativeResult>>;
   createAd(request: AdsBrokerRequest): Promise<AdsBrokerResponse<CreateAdResult>>;
   archiveAd(request: AdsBrokerRequest): Promise<AdsBrokerResponse<ArchiveAdResult>>;
+  pauseAd(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>>;
+  resumeAd(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>>;
+  cloneAdSet(request: AdsBrokerRequest): Promise<AdsBrokerResponse<CloneAdSetResult>>;
   updateAdSet(request: AdsBrokerRequest): Promise<AdsBrokerResponse<UpdateAdSetResult>>;
   getTargetingOptions(request: AdsBrokerRequest): Promise<AdsBrokerResponse<GetTargetingOptionsResult>>;
   createEcommerceCampaignBundle(request: AdsBrokerRequest): Promise<AdsBrokerResponse<EcommerceCampaignBundleResult>>;

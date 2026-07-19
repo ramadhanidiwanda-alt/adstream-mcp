@@ -48,6 +48,9 @@ import { createAdSet as createAdSetTool } from '../../tools/createAdSet.js';
 import { createAdCreative as createAdCreativeTool } from '../../tools/createAdCreative.js';
 import { createAd as createAdTool } from '../../tools/createAd.js';
 import { archiveAd as archiveAdTool } from '../../tools/archiveAd.js';
+import { pauseAd as pauseAdTool } from '../../tools/pauseAd.js';
+import { resumeAd as resumeAdTool } from '../../tools/resumeAd.js';
+import { cloneAdSet as cloneAdSetTool } from '../../tools/cloneAdSet.js';
 import { updateAdSet as updateAdSetTool } from '../../tools/updateAdSet.js';
 import { getTargetingOptions as getTargetingOptionsTool } from '../../tools/getTargetingOptions.js';
 import type {
@@ -60,6 +63,7 @@ import type {
   CreateAdCreativeResult,
   CreateAdResult,
   ArchiveAdResult,
+  CloneAdSetResult,
   UpdateAdSetResult,
   GetTargetingOptionsResult,
 } from '../../broker/types.js';
@@ -258,6 +262,13 @@ export interface MetaAdsAdapterTools {
     options: import('../../tools/archiveAd.js').ArchiveAdOptions,
     maxRetries?: number
   ): Promise<import('../../tools/archiveAd.js').ArchiveAdResult>;
+  pauseAd(client: MetaClient, adId: string): Promise<MutationResult>;
+  resumeAd(client: MetaClient, adId: string): Promise<MutationResult>;
+  cloneAdSet(
+    client: MetaClient,
+    options: import('../../tools/cloneAdSet.js').CloneAdSetOptions,
+    execOptions?: { dryRun?: boolean; confirmed?: boolean; maxRetries?: number }
+  ): Promise<import('../../tools/cloneAdSet.js').CloneAdSetResult>;
   updateAdSet(
     client: MetaClient,
     options: import('../../tools/updateAdSet.js').UpdateAdSetOptions,
@@ -348,6 +359,9 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       createAdCreative: createAdCreativeTool,
       createAd: createAdTool,
       archiveAd: archiveAdTool,
+      pauseAd: pauseAdTool,
+      resumeAd: resumeAdTool,
+      cloneAdSet: cloneAdSetTool,
       updateAdSet: updateAdSetTool,
       getTargetingOptions: getTargetingOptionsTool,
       createEcommerceCampaignBundle: createEcommerceCampaignBundleTool,
@@ -1535,6 +1549,110 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
     try {
       const client = this.createClient(context.credential);
       const result = await this.tools.archiveAd(client, { adId });
+      return { ok: result.status !== 'failed', provider: 'meta', data: result };
+    } catch (error) {
+      return this.writeErrorResponse(error);
+    }
+  }
+
+  async pauseAd(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>> {
+    const context = this.getCredentialContext(request);
+    if (!context.ok) return context.response;
+
+    const adId = typeof request.params.adId === 'string' ? request.params.adId : undefined;
+    if (!adId) {
+      return {
+        ok: false,
+        provider: 'meta',
+        errors: [{ provider: 'meta', code: 'MISSING_AD_ID', message: 'adId is required in request.params' }],
+      };
+    }
+
+    try {
+      const client = this.createClient(context.credential);
+      const result = await this.tools.pauseAd(client, adId);
+      return { ok: true, provider: 'meta', data: this.toAdsMutationResult(result) };
+    } catch (error) {
+      return this.writeErrorResponse(error);
+    }
+  }
+
+  async resumeAd(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>> {
+    const context = this.getCredentialContext(request);
+    if (!context.ok) return context.response;
+
+    const adId = typeof request.params.adId === 'string' ? request.params.adId : undefined;
+    if (!adId) {
+      return {
+        ok: false,
+        provider: 'meta',
+        errors: [{ provider: 'meta', code: 'MISSING_AD_ID', message: 'adId is required in request.params' }],
+      };
+    }
+
+    try {
+      const client = this.createClient(context.credential);
+      const result = await this.tools.resumeAd(client, adId);
+      return { ok: true, provider: 'meta', data: this.toAdsMutationResult(result) };
+    } catch (error) {
+      return this.writeErrorResponse(error);
+    }
+  }
+
+  async cloneAdSet(request: AdsBrokerRequest): Promise<AdsBrokerResponse<CloneAdSetResult>> {
+    const context = this.getCredentialContext(request);
+    if (!context.ok) return context.response;
+
+    const accountId = request.accountId ?? context.credential.accountId;
+    const sourceAdSetId =
+      typeof request.params.sourceAdSetId === 'string' ? request.params.sourceAdSetId : undefined;
+    if (!accountId || !sourceAdSetId) {
+      return {
+        ok: false,
+        provider: 'meta',
+        errors: [
+          {
+            provider: 'meta',
+            code: 'MISSING_CLONE_TARGET',
+            message: 'accountId and sourceAdSetId are required to clone an ad set',
+          },
+        ],
+      };
+    }
+
+    try {
+      const client = this.createClient(context.credential);
+      const result = await this.tools.cloneAdSet(
+        client,
+        {
+          adAccountId: accountId,
+          sourceAdSetId,
+          name: typeof request.params.name === 'string' ? request.params.name : undefined,
+          campaignId:
+            typeof request.params.campaignId === 'string' ? request.params.campaignId : undefined,
+          status:
+            request.params.status === 'ACTIVE' || request.params.status === 'PAUSED'
+              ? request.params.status
+              : undefined,
+          startTime:
+            typeof request.params.startTime === 'string' ? request.params.startTime : undefined,
+          endTime: typeof request.params.endTime === 'string' ? request.params.endTime : undefined,
+          dailyBudget:
+            typeof request.params.dailyBudget === 'number' ? request.params.dailyBudget : undefined,
+          lifetimeBudget:
+            typeof request.params.lifetimeBudget === 'number'
+              ? request.params.lifetimeBudget
+              : undefined,
+          optimizationGoal:
+            typeof request.params.optimizationGoal === 'string'
+              ? request.params.optimizationGoal
+              : undefined,
+        },
+        {
+          dryRun: request.params.dryRun !== false,
+          confirmed: request.params.confirmed === true,
+        }
+      );
       return { ok: result.status !== 'failed', provider: 'meta', data: result };
     } catch (error) {
       return this.writeErrorResponse(error);

@@ -9,6 +9,7 @@ import type {
   AdsMutationResult,
   AdDestinationResult,
   ArchiveAdResult,
+  CloneAdSetResult,
   CreateAdCreativeResult,
   CreateAdResult,
   CreateAdSetResult,
@@ -85,6 +86,9 @@ type AdapterWriteMethod =
   | 'createAdCreative'
   | 'createAd'
   | 'archiveAd'
+  | 'pauseAd'
+  | 'resumeAd'
+  | 'cloneAdSet'
   | 'updateAdSet'
   | 'createEcommerceCampaignBundle'
   | 'uploadImage'
@@ -455,6 +459,18 @@ export class AdsBroker {
     return this.executeWrite<ArchiveAdResult>(request, 'archiveAd');
   }
 
+  pauseAd(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>> {
+    return this.executeWrite<AdsMutationResult>(request, 'pauseAd');
+  }
+
+  resumeAd(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>> {
+    return this.executeWrite<AdsMutationResult>(request, 'resumeAd');
+  }
+
+  cloneAdSet(request: AdsBrokerRequest): Promise<AdsBrokerResponse<CloneAdSetResult>> {
+    return this.executeWrite<CloneAdSetResult>(request, 'cloneAdSet');
+  }
+
   updateAdSet(request: AdsBrokerRequest): Promise<AdsBrokerResponse<UpdateAdSetResult>> {
     return this.executeWrite<UpdateAdSetResult>(request, 'updateAdSet');
   }
@@ -529,7 +545,7 @@ export class AdsBroker {
     return this.callOptionalMethod<AdsMutationResult>(request, 'smartPlusResumeAdGroup');
   }
 
-  private async executeWrite<TData extends AdsMutationResult | EcommerceCampaignBundleResult | CreateCampaignResult | CreateAdSetResult | CreateAdCreativeResult | CreateAdResult | ArchiveAdResult | UpdateAdSetResult | GetTargetingOptionsResult | ImageUploadResult | VideoUploadResult>(
+  private async executeWrite<TData extends AdsMutationResult | EcommerceCampaignBundleResult | CreateCampaignResult | CreateAdSetResult | CreateAdCreativeResult | CreateAdResult | ArchiveAdResult | CloneAdSetResult | UpdateAdSetResult | GetTargetingOptionsResult | ImageUploadResult | VideoUploadResult>(
     request: AdsBrokerRequest,
     method: AdapterWriteMethod
   ): Promise<AdsBrokerResponse<TData>> {
