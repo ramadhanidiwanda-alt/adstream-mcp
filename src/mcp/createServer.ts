@@ -729,6 +729,17 @@ export function createMetaAdsMcpServer(options: CreateMetaAdsMcpServerOptions = 
         title: z.string().optional().describe('Optional title for video uploads.'),
         description: z.string().optional().describe('Optional description for video uploads.'),
       };
+    } else if (toolDefinition.name === 'ads_read_adset_full') {
+      inputSchema = {
+        ...adsBaseInputSchema,
+        adsetId: z.string().optional().describe('Meta Ad Set ID to read in full (single mode).'),
+        campaignId: z
+          .string()
+          .optional()
+          .describe('Campaign ID to list all ad sets under (list mode).'),
+        limit: z.number().optional().describe('Page size for list mode (default 25).'),
+        cursor: z.string().optional().describe('Pagination cursor for list mode.'),
+      };
     } else if (toolDefinition.name === 'ads_read_creative_full') {
       inputSchema = {
         ...adsBaseInputSchema,
