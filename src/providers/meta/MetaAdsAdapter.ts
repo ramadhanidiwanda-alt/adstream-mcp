@@ -1578,6 +1578,10 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
               : undefined,
           bidStrategy:
             typeof request.params.bidStrategy === 'string' ? request.params.bidStrategy : undefined,
+          startTime:
+            typeof request.params.startTime === 'string' ? request.params.startTime : undefined,
+          endTime:
+            typeof request.params.endTime === 'string' ? request.params.endTime : undefined,
           mode: request.params.mode === 'replace' ? 'replace' : 'patch',
           replaceTargetingConfirmed: request.params.replaceTargetingConfirmed === true,
           targeting: this.parseAdSetTargeting(request) as
