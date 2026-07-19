@@ -88,6 +88,78 @@ describe('buildMetaCreativeFormatPayload', () => {
     });
   });
 
+  it('adds the Instagram identity and omits unsupported video_data description', () => {
+    const result = buildMetaCreativeFormatPayload({
+      mode: 'collaborative_ads',
+      pageId: 'page-1',
+      instagramUserId: 'ig-1',
+      collaborativeProductSetId: 'product-set-1',
+      collaborativeAppSpec: {
+        applicationId: '957549474255294',
+        android: { appName: 'Shopee ID', packageName: 'com.shopee.id' },
+        ios: { appName: 'Shopee ID', appStoreId: '959841443' },
+      },
+      creativeFormat: 'video',
+      creativeSpec: {
+        videoId: 'video-1',
+        primaryText: 'Tonton produknya',
+        headline: 'Promo Payday',
+        description: 'Deskripsi link',
+        destinationUrl: 'https://example.com/video',
+      },
+    });
+
+    expect(result.object_story_spec).toMatchObject({
+      page_id: 'page-1',
+      instagram_user_id: 'ig-1',
+      video_data: {
+        video_id: 'video-1',
+        title: 'Promo Payday',
+        call_to_action: {
+          value: {
+            application: '957549474255294',
+            object_store_urls: [
+              'http://play.google.com/store/apps/details?id=com.shopee.id',
+              'http://itunes.apple.com/app/id959841443',
+            ],
+          },
+        },
+      },
+    });
+    expect(result.object_story_spec.video_data).not.toHaveProperty('description');
+    expect(result.omnichannel_link_spec).toMatchObject({
+      app: {
+        application_id: '957549474255294',
+        platform_specs: {
+          android: { app_name: 'Shopee ID', package_name: 'com.shopee.id' },
+          ios: { app_name: 'Shopee ID', app_store_id: '959841443' },
+        },
+      },
+    });
+    expect(result.applink_treatment).toBe('automatic');
+    expect(result).not.toHaveProperty('product_set_id');
+  });
+
+  it('adds the Instagram identity to canonical single-image creatives', () => {
+    const result = buildMetaCreativeFormatPayload({
+      mode: 'collaborative_ads',
+      pageId: 'page-1',
+      instagramUserId: 'ig-1',
+      collaborativeProductSetId: 'product-set-1',
+      creativeFormat: 'single_image',
+      creativeSpec: {
+        imageHash: 'image-1',
+        primaryText: 'Belanja sekarang',
+        destinationUrl: 'https://example.com/product',
+      },
+    });
+
+    expect(result.object_story_spec).toMatchObject({
+      page_id: 'page-1',
+      instagram_user_id: 'ig-1',
+    });
+  });
+
   it('builds carousel link attachments with an independent CTA per card', () => {
     expect(
       buildMetaCreativeFormatPayload({
@@ -425,12 +497,12 @@ describe('buildMetaCreativeFormatPayload', () => {
       const result = buildMetaCreativeFormatPayload(input);
 
       expect(result).toMatchObject({
-        product_set_id: 'product-set-1',
         omnichannel_link_spec: {
           web: { url: expectedDestinationUrl },
         },
         object_story_spec: expectedStory,
       });
+      expect(result).not.toHaveProperty('product_set_id');
       expect(result).not.toHaveProperty('asset_feed_spec');
     }
   );

@@ -1,6 +1,7 @@
 import type { MetaClient } from '../metaClient.js';
 import type {
   MetaAdsMode,
+  MetaCollaborativeAppSpec,
   MetaCreativeFormat,
   MetaCreativeSpec,
   MetaCreativeVerification,
@@ -10,7 +11,10 @@ import type {
 import { buildMetaCreativeFormatPayload } from '../providers/meta/buildCreativeFormatPayload.js';
 import { getMetaCreativeErrorGuidance } from '../providers/meta/metaCreativeErrorGuidance.js';
 import { normalizeAccountPath } from '../utils/normalizeAccountId.js';
-import { formatMetaWriteError, formatStructuredMetaWriteError } from '../utils/formatMetaWriteError.js';
+import {
+  formatMetaWriteError,
+  formatStructuredMetaWriteError,
+} from '../utils/formatMetaWriteError.js';
 
 export type CreativeStatus = 'ACTIVE' | 'PAUSED' | 'DELETED';
 
@@ -23,6 +27,7 @@ export interface CreateAdCreativeOptions {
   mode?: MetaAdsMode;
   creative?: MetaCreativeSpec;
   collaborativeProductSetId?: string;
+  collaborativeAppSpec?: MetaCollaborativeAppSpec;
   linkData?: {
     link: string;
     message: string;
@@ -51,7 +56,12 @@ export interface CreateAdCreativeOptions {
   whatsappWelcomeMessageSequenceId?: string;
 }
 
-export type CreateAdCreativeStatus = 'dry_run' | 'pending_confirmation' | 'executed' | 'failed' | 'deduped';
+export type CreateAdCreativeStatus =
+  | 'dry_run'
+  | 'pending_confirmation'
+  | 'executed'
+  | 'failed'
+  | 'deduped';
 
 export interface CreateAdCreativeResult {
   operation: 'create_adcreative';
@@ -124,7 +134,12 @@ export async function createAdCreative(
   const accountPath = normalizeAccountPath(options.adAccountId);
 
   if (options.dedupeByName) {
-    const existing = await findExistingCreativeByName(client, accountPath, options.name, maxRetries);
+    const existing = await findExistingCreativeByName(
+      client,
+      accountPath,
+      options.name,
+      maxRetries
+    );
     if (existing) {
       return {
         ...baseResult,
@@ -332,9 +347,8 @@ async function findExistingCreativeByName(
     {
       fields: 'id,name,status',
       limit: 100,
-      filtering: [{ field: 'name', operator: 'EQUAL', value: name.trim() }],
     },
-    { maxRetries }
+    { maxRetries, paginate: true, maxPages: 20 }
   );
 
   return response.data?.find((creative) => creative.name === name.trim()) ?? null;
@@ -360,6 +374,7 @@ function buildCreativePayload(options: CreateAdCreativeOptions): Record<string, 
         ...options.creative,
         instagramUserId: options.instagramUserId,
         collaborativeProductSetId: options.collaborativeProductSetId,
+        collaborativeAppSpec: options.collaborativeAppSpec,
       })
     );
   } else if (options.objectStorySpec) {
@@ -378,7 +393,9 @@ function buildCreativePayload(options: CreateAdCreativeOptions): Record<string, 
     // For WHATSAPP_MESSAGE CTA, omit value entirely — empty string/link can be rejected.
     // wa.me requires display_phone_number (formatted international, no +/spaces),
     // not phone_number_id (Graph API internal ID). Let Meta handle the destination.
-    const isWhatsApp = options.destinationType === 'WHATSAPP' || options.linkData.callToAction.type === 'WHATSAPP_MESSAGE';
+    const isWhatsApp =
+      options.destinationType === 'WHATSAPP' ||
+      options.linkData.callToAction.type === 'WHATSAPP_MESSAGE';
     const ctaType = isWhatsApp ? 'WHATSAPP_MESSAGE' : options.linkData.callToAction.type;
 
     const linkData: Record<string, unknown> = {
@@ -393,7 +410,8 @@ function buildCreativePayload(options: CreateAdCreativeOptions): Record<string, 
     if (options.linkData.description) linkData.description = options.linkData.description;
     if (options.imageHash) linkData.image_hash = options.imageHash;
     if (options.linkData.imageHash) linkData.image_hash = options.linkData.imageHash;
-    if (options.linkData.attachmentStyle) linkData.attachment_style = options.linkData.attachmentStyle;
+    if (options.linkData.attachmentStyle)
+      linkData.attachment_style = options.linkData.attachmentStyle;
 
     // WhatsApp welcome message
     if (options.pageWelcomeMessage) {
@@ -418,7 +436,7 @@ function buildCreativePayload(options: CreateAdCreativeOptions): Record<string, 
   // WhatsApp welcome message sequence / partner flow
   if (options.whatsappWelcomeMessageSequenceId) {
     payload.asset_feed_spec = {
-      ...(payload.asset_feed_spec as Record<string, unknown> || {}),
+      ...((payload.asset_feed_spec as Record<string, unknown>) || {}),
       additional_data: {
         partner_app_welcome_message_flow_id: options.whatsappWelcomeMessageSequenceId,
       },

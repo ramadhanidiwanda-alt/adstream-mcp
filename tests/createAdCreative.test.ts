@@ -16,8 +16,14 @@ describe('createAdCreative', () => {
   } as unknown as MetaClient;
 
   const baseOpts = {
-    adAccountId: 'act_123', name: 'Test Creative', pageId: '1001',
-    linkData: { link: 'https://example.com', message: 'Buy now', callToAction: { type: 'SHOP_NOW' as const, value: { link: 'https://example.com' } } },
+    adAccountId: 'act_123',
+    name: 'Test Creative',
+    pageId: '1001',
+    linkData: {
+      link: 'https://example.com',
+      message: 'Buy now',
+      callToAction: { type: 'SHOP_NOW' as const, value: { link: 'https://example.com' } },
+    },
   };
 
   const collaborativeCatalogOptions = {
@@ -57,8 +63,10 @@ describe('createAdCreative', () => {
 
   it('returns dry_run without calling API', async () => {
     const r = await createAdCreative(mockClient, baseOpts);
-    expect(r.status).toBe('dry_run'); expect(r.executed).toBe(false);
-    expect(r.preview.name).toBe('Test Creative'); expect(mockMetaPost).not.toHaveBeenCalled();
+    expect(r.status).toBe('dry_run');
+    expect(r.executed).toBe(false);
+    expect(r.preview.name).toBe('Test Creative');
+    expect(mockMetaPost).not.toHaveBeenCalled();
   });
 
   it('keeps the legacy linkData dry-run preview backward-compatible', async () => {
@@ -117,10 +125,7 @@ describe('createAdCreative', () => {
         link_data: { image_hash: 'image-1' },
       },
     });
-    expect(result.preview).not.toHaveProperty(
-      'object_story_spec.link_data.message',
-      'Legacy copy'
-    );
+    expect(result.preview).not.toHaveProperty('object_story_spec.link_data.message', 'Legacy copy');
     expect(mockMetaGetObject).not.toHaveBeenCalled();
   });
 
@@ -168,29 +173,32 @@ describe('createAdCreative', () => {
   it.each([
     { label: 'dry-run', execOptions: { dryRun: true } },
     { label: 'confirmed execution', execOptions: { dryRun: false, confirmed: true } },
-  ])('rejects an empty direct creative call during $label without POST', async ({ execOptions }) => {
-    const result = await createAdCreative(
-      mockClient,
-      {
-        adAccountId: 'act_1',
-        name: 'Name only is not a creative',
-      },
-      execOptions
-    );
+  ])(
+    'rejects an empty direct creative call during $label without POST',
+    async ({ execOptions }) => {
+      const result = await createAdCreative(
+        mockClient,
+        {
+          adAccountId: 'act_1',
+          name: 'Name only is not a creative',
+        },
+        execOptions
+      );
 
-    expect(result).toMatchObject({
-      status: 'failed',
-      executed: false,
-      preview: { name: 'Name only is not a creative' },
-      structuredError: {
-        provider: 'meta',
-        code: 'VALIDATION_ERROR',
-        message: expect.stringMatching(/konten creative.*wajib/i),
-      },
-    });
-    expect(result.error).toMatch(/creative.*objectStorySpec.*linkData/i);
-    expect(mockMetaPost).not.toHaveBeenCalled();
-  });
+      expect(result).toMatchObject({
+        status: 'failed',
+        executed: false,
+        preview: { name: 'Name only is not a creative' },
+        structuredError: {
+          provider: 'meta',
+          code: 'VALIDATION_ERROR',
+          message: expect.stringMatching(/konten creative.*wajib/i),
+        },
+      });
+      expect(result.error).toMatch(/creative.*objectStorySpec.*linkData/i);
+      expect(mockMetaPost).not.toHaveBeenCalled();
+    }
+  );
 
   it('enforces pageId for legacy creative paths', async () => {
     const result = await createAdCreative(mockClient, {
@@ -242,7 +250,6 @@ describe('createAdCreative', () => {
     expect(mockMetaPost).not.toHaveBeenCalled();
   });
 
-
   it('includes Instagram and Threads identities in object_story_spec preview', async () => {
     const r = await createAdCreative(mockClient, {
       ...baseOpts,
@@ -289,12 +296,16 @@ describe('createAdCreative', () => {
     };
     mockMetaPost.mockResolvedValueOnce({ id: 'creative_dynamic_123' });
 
-    const result = await createAdCreative(mockClient, {
-      adAccountId: 'act_123',
-      name: 'Dynamic Creative',
-      pageId: '1001',
-      objectStorySpec: { page_id: '1001', asset_feed_spec: assetFeedSpec },
-    }, { dryRun: false, confirmed: true });
+    const result = await createAdCreative(
+      mockClient,
+      {
+        adAccountId: 'act_123',
+        name: 'Dynamic Creative',
+        pageId: '1001',
+        objectStorySpec: { page_id: '1001', asset_feed_spec: assetFeedSpec },
+      },
+      { dryRun: false, confirmed: true }
+    );
 
     expect(result).toMatchObject({ status: 'executed', id: 'creative_dynamic_123' });
     expect(mockMetaPost).toHaveBeenCalledWith(
@@ -332,15 +343,20 @@ describe('createAdCreative', () => {
   });
 
   it('returns pending_confirmation when not confirmed', async () => {
-    const r = await createAdCreative(mockClient, standardImageOptions, { dryRun: false, confirmed: false });
-    expect(r.status).toBe('pending_confirmation'); expect(r.error).toContain('confirmation');
+    const r = await createAdCreative(mockClient, standardImageOptions, {
+      dryRun: false,
+      confirmed: false,
+    });
+    expect(r.status).toBe('pending_confirmation');
+    expect(r.error).toContain('confirmation');
     expect(mockMetaGetObject).not.toHaveBeenCalled();
   });
 
   it('executes and returns id on success', async () => {
     mockMetaPost.mockResolvedValueOnce({ id: 'c123' });
     const r = await createAdCreative(mockClient, baseOpts, { dryRun: false, confirmed: true });
-    expect(r.status).toBe('executed'); expect(r.id).toBe('c123');
+    expect(r.status).toBe('executed');
+    expect(r.id).toBe('c123');
     expect(mockMetaPost).toHaveBeenCalledTimes(1);
     expect(mockMetaGetObject).not.toHaveBeenCalled();
   });
@@ -354,11 +370,10 @@ describe('createAdCreative', () => {
       omnichannel_link_spec: { web: { url: 'https://example.com' } },
     });
 
-    const result = await createAdCreative(
-      mockClient,
-      collaborativeCatalogOptions,
-      { dryRun: false, confirmed: true }
-    );
+    const result = await createAdCreative(mockClient, collaborativeCatalogOptions, {
+      dryRun: false,
+      confirmed: true,
+    });
 
     expect(result.status).toBe('executed');
     expect(result.verification).toMatchObject({
@@ -397,11 +412,10 @@ describe('createAdCreative', () => {
       },
     });
 
-    const result = await createAdCreative(
-      mockClient,
-      collaborativeCatalogOptions,
-      { dryRun: false, confirmed: true }
-    );
+    const result = await createAdCreative(mockClient, collaborativeCatalogOptions, {
+      dryRun: false,
+      confirmed: true,
+    });
     const serialized = JSON.stringify(result);
 
     expect(result.verification).toMatchObject({
@@ -432,11 +446,10 @@ describe('createAdCreative', () => {
       object_story_spec: { template_data: { message: 'Shop the catalog' } },
     });
 
-    const result = await createAdCreative(
-      mockClient,
-      collaborativeCatalogOptions,
-      { dryRun: false, confirmed: true }
-    );
+    const result = await createAdCreative(mockClient, collaborativeCatalogOptions, {
+      dryRun: false,
+      confirmed: true,
+    });
 
     expect(result.verification).toMatchObject({
       status: 'verified',
@@ -453,11 +466,10 @@ describe('createAdCreative', () => {
       object_story_spec: { link_data: { image_hash: 'image-hash-1' } },
     });
 
-    const result = await createAdCreative(
-      mockClient,
-      standardImageOptions,
-      { dryRun: false, confirmed: true }
-    );
+    const result = await createAdCreative(mockClient, standardImageOptions, {
+      dryRun: false,
+      confirmed: true,
+    });
 
     expect(result.verification).toMatchObject({
       status: 'verified',
@@ -470,11 +482,10 @@ describe('createAdCreative', () => {
     mockMetaPost.mockResolvedValueOnce({ id: 'creative-1' });
     mockMetaGetObject.mockRejectedValueOnce(new Error('temporary read failure'));
 
-    const result = await createAdCreative(
-      mockClient,
-      standardImageOptions,
-      { dryRun: false, confirmed: true }
-    );
+    const result = await createAdCreative(mockClient, standardImageOptions, {
+      dryRun: false,
+      confirmed: true,
+    });
 
     expect(result.status).toBe('executed');
     expect(result.id).toBe('creative-1');
@@ -577,11 +588,10 @@ describe('createAdCreative', () => {
       object_story_spec: { video_data: { video_id: 'video-1' } },
     });
 
-    const result = await createAdCreative(
-      mockClient,
-      standardImageOptions,
-      { dryRun: false, confirmed: true }
-    );
+    const result = await createAdCreative(mockClient, standardImageOptions, {
+      dryRun: false,
+      confirmed: true,
+    });
 
     expect(result).toMatchObject({ status: 'executed', id: 'creative-1' });
     expect(result.verification).toMatchObject({
@@ -596,28 +606,40 @@ describe('createAdCreative', () => {
       data: [{ id: 'existing_creative_1', name: 'Standard Image', status: 'ACTIVE' }],
     });
 
-    const r = await createAdCreative(mockClient, {
-      ...standardImageOptions,
-      dedupeByName: true,
-    }, { dryRun: false, confirmed: true });
+    const r = await createAdCreative(
+      mockClient,
+      {
+        ...standardImageOptions,
+        dedupeByName: true,
+      },
+      { dryRun: false, confirmed: true }
+    );
 
     expect(r.status).toBe('deduped');
     expect(r.executed).toBe(false);
     expect(r.id).toBe('existing_creative_1');
+    expect(mockMetaGet.mock.calls[0][1]).not.toHaveProperty('filtering');
+    expect(mockMetaGet.mock.calls[0][2]).toMatchObject({ paginate: true, maxPages: 20 });
     expect(mockMetaPost).not.toHaveBeenCalled();
     expect(mockMetaGetObject).not.toHaveBeenCalled();
   });
 
   it('returns failed when no id returned', async () => {
     mockMetaPost.mockResolvedValueOnce({});
-    const r = await createAdCreative(mockClient, standardImageOptions, { dryRun: false, confirmed: true });
+    const r = await createAdCreative(mockClient, standardImageOptions, {
+      dryRun: false,
+      confirmed: true,
+    });
     expect(r.status).toBe('failed');
     expect(mockMetaGetObject).not.toHaveBeenCalled();
   });
 
   it('returns failed on API error', async () => {
     mockMetaPost.mockRejectedValueOnce(new Error('creative error'));
-    const r = await createAdCreative(mockClient, standardImageOptions, { dryRun: false, confirmed: true });
+    const r = await createAdCreative(mockClient, standardImageOptions, {
+      dryRun: false,
+      confirmed: true,
+    });
     expect(r.status).toBe('failed');
     expect(r.error).toBe(
       'Terjadi kegagalan internal saat memproses creative. Coba lagi; jika tetap gagal, periksa log server tanpa mengekspos kredensial. Detail error: creative error'
@@ -638,11 +660,10 @@ describe('createAdCreative', () => {
       })
     );
 
-    const result = await createAdCreative(
-      mockClient,
-      standardImageOptions,
-      { dryRun: false, confirmed: true }
-    );
+    const result = await createAdCreative(mockClient, standardImageOptions, {
+      dryRun: false,
+      confirmed: true,
+    });
 
     expect(result.error).toMatch(/^Pastikan katalog.*Detail Meta: Invalid parameter/i);
     expect(result.error).toContain('Product set is unavailable');

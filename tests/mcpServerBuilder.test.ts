@@ -34,9 +34,10 @@ const envKeys = [
   'ADSTREAM_ENABLE_WRITES',
 ] as const;
 
-const originalEnv = Object.fromEntries(
-  envKeys.map((key) => [key, process.env[key]])
-) as Record<(typeof envKeys)[number], string | undefined>;
+const originalEnv = Object.fromEntries(envKeys.map((key) => [key, process.env[key]])) as Record<
+  (typeof envKeys)[number],
+  string | undefined
+>;
 
 function restoreEnv() {
   for (const key of envKeys) {
@@ -63,7 +64,11 @@ function useRemoteBrokerEnv() {
 function createBrokerStub(): AdsBroker {
   return {
     listAccounts: vi.fn(async () => ({ ok: true, provider: 'meta', data: [] })),
-    createAdCreative: vi.fn(async () => ({ ok: true, provider: 'meta', data: { status: 'dry_run' } })),
+    createAdCreative: vi.fn(async () => ({
+      ok: true,
+      provider: 'meta',
+      data: { status: 'dry_run' },
+    })),
     getCampaignPerformance: async () => ({ ok: true, provider: 'meta', data: [] }),
     getAdsetOrAdgroupPerformance: async () => ({ ok: true, provider: 'meta', data: [] }),
     getAdPerformance: async () => ({ ok: true, provider: 'meta', data: [] }),
@@ -80,16 +85,10 @@ async function createConnectedClient(
   }
 ) {
   const server = createMetaAdsMcpServer(options);
-  const client = new Client(
-    { name: 'test-client', version: '1.0.0' },
-    { capabilities: {} }
-  );
+  const client = new Client({ name: 'test-client', version: '1.0.0' }, { capabilities: {} });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
 
-  await Promise.all([
-    client.connect(clientTransport),
-    server.connect(serverTransport),
-  ]);
+  await Promise.all([client.connect(clientTransport), server.connect(serverTransport)]);
 
   return { client, server };
 }
@@ -136,9 +135,9 @@ describe('MCP server builder', () => {
     const response = await listRegisteredTools();
 
     expect(response.tools).toHaveLength(
-      getAdsMcpToolDefinitions({ includeWrites: false }).length
-      + COMMERCE_MCP_TOOL_DEFINITIONS.length
-      + legacyToolNames.length
+      getAdsMcpToolDefinitions({ includeWrites: false }).length +
+        COMMERCE_MCP_TOOL_DEFINITIONS.length +
+        legacyToolNames.length
     );
   });
 
@@ -187,11 +186,26 @@ describe('MCP server builder', () => {
     const campaignTool = response.tools.find((tool) => tool.name === 'ads_create_campaign');
     const adsetTool = response.tools.find((tool) => tool.name === 'ads_create_adset');
     const creativeTool = response.tools.find((tool) => tool.name === 'ads_create_adcreative');
-    const campaignProperties = campaignTool?.inputSchema.properties as Record<string, Record<string, unknown>>;
-    const adsetProperties = adsetTool?.inputSchema.properties as Record<string, Record<string, unknown>>;
-    const creativeProperties = creativeTool?.inputSchema.properties as Record<string, Record<string, unknown>>;
+    const campaignProperties = campaignTool?.inputSchema.properties as Record<
+      string,
+      Record<string, unknown>
+    >;
+    const adsetProperties = adsetTool?.inputSchema.properties as Record<
+      string,
+      Record<string, unknown>
+    >;
+    const creativeProperties = creativeTool?.inputSchema.properties as Record<
+      string,
+      Record<string, unknown>
+    >;
 
     expect(campaignProperties).toHaveProperty('mode');
+    expect(campaignProperties.isAdSetBudgetSharingEnabled).toMatchObject({
+      type: 'boolean',
+    });
+    expect(campaignProperties.isAdSetBudgetSharingEnabled.description).toMatch(
+      /berbagi.*20%|20%.*anggaran/i
+    );
     expect(adsetProperties).toHaveProperty('collaborativeCatalog');
     expect(creativeProperties).toHaveProperty('creativeFormat');
     expect(creativeProperties).toHaveProperty('creativeSpec');
@@ -233,7 +247,15 @@ describe('MCP server builder', () => {
 
     expect(creativeProperties.creativeFormat).toMatchObject({
       type: 'string',
-      enum: ['single_image', 'video', 'carousel', 'catalog', 'collection', 'flexible', 'existing_post'],
+      enum: [
+        'single_image',
+        'video',
+        'carousel',
+        'catalog',
+        'collection',
+        'flexible',
+        'existing_post',
+      ],
     });
     expect(creativeProperties.mode).toMatchObject({
       type: 'string',
@@ -243,15 +265,35 @@ describe('MCP server builder', () => {
     const creativeSpecDescription = creativeProperties.creativeSpec.description as string;
     expect(creativeSpecDescription).toMatch(/format.*field/i);
     for (const fieldName of [
-      'imageHash', 'primaryText', 'destinationUrl', 'videoId', 'thumbnailImageHash',
-      'cards', 'productSetId', 'templateUrl', 'fallbackImageHash', 'instantExperienceId',
-      'coverImageHash', 'coverVideoId', 'imageHashes', 'videoIds', 'primaryTexts',
-      'headlines', 'descriptions', 'objectStoryId',
+      'imageHash',
+      'primaryText',
+      'destinationUrl',
+      'videoId',
+      'thumbnailImageHash',
+      'cards',
+      'productSetId',
+      'templateUrl',
+      'fallbackImageHash',
+      'instantExperienceId',
+      'coverImageHash',
+      'coverVideoId',
+      'imageHashes',
+      'videoIds',
+      'primaryTexts',
+      'headlines',
+      'descriptions',
+      'objectStoryId',
     ]) {
       expect(creativeSpecDescription).toContain(fieldName);
     }
     expect(creativeProperties.collaborativeProductSetId).toMatchObject({ type: 'string' });
-    expect(creativeProperties.collaborativeProductSetId.description).toMatch(/ad set.*Collaborative Ads/i);
+    expect(creativeProperties.collaborativeProductSetId.description).toMatch(
+      /ad set.*Collaborative Ads/i
+    );
+    expect(creativeProperties.collaborativeAppSpec).toMatchObject({
+      type: 'object',
+      required: ['applicationId'],
+    });
     expect(creativeProperties.message.description).toMatch(/legacy|backward-compatible/i);
     expect(creativeProperties.objectStorySpec.description).toMatch(/advanced|backward-compatible/i);
   });
@@ -276,9 +318,11 @@ describe('MCP server builder', () => {
       });
 
       expect(response.isError).not.toBe(true);
-      expect(adsBroker.createAdCreative).toHaveBeenCalledWith(expect.objectContaining({
-        params: expect.objectContaining({ creativeFormat: 'existing_post' }),
-      }));
+      expect(adsBroker.createAdCreative).toHaveBeenCalledWith(
+        expect.objectContaining({
+          params: expect.objectContaining({ creativeFormat: 'existing_post' }),
+        })
+      );
     } finally {
       await Promise.all([client.close(), server.close()]);
     }
@@ -341,9 +385,11 @@ describe('MCP server builder', () => {
       });
 
       expect(response.isError).not.toBe(true);
-      expect(adsBroker.createAdCreative).toHaveBeenCalledWith(expect.objectContaining({
-        params: expect.objectContaining({ objectStorySpec, assetFeedSpec }),
-      }));
+      expect(adsBroker.createAdCreative).toHaveBeenCalledWith(
+        expect.objectContaining({
+          params: expect.objectContaining({ objectStorySpec, assetFeedSpec }),
+        })
+      );
     } finally {
       await Promise.all([client.close(), server.close()]);
     }
@@ -377,9 +423,11 @@ describe('MCP server builder', () => {
       });
 
       expect(response.isError).not.toBe(true);
-      expect(adsBroker.createAdCreative).toHaveBeenCalledWith(expect.objectContaining({
-        params: expect.objectContaining({ objectStorySpec }),
-      }));
+      expect(adsBroker.createAdCreative).toHaveBeenCalledWith(
+        expect.objectContaining({
+          params: expect.objectContaining({ objectStorySpec }),
+        })
+      );
     } finally {
       await Promise.all([client.close(), server.close()]);
     }
@@ -419,9 +467,7 @@ describe('MCP server builder', () => {
       await Promise.all([client.close(), server.close()]);
     }
 
-    expect(adsBroker.listAccounts).toHaveBeenCalledWith(
-      expect.objectContaining({ params: {} })
-    );
+    expect(adsBroker.listAccounts).toHaveBeenCalledWith(expect.objectContaining({ params: {} }));
   });
 
   it('routes meta_get_ad_accounts through remote-safe ads_list_accounts', async () => {

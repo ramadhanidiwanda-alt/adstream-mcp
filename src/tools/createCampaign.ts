@@ -1,7 +1,10 @@
 import type { MetaClient } from '../metaClient.js';
 import type { MetaAdsMode, StructuredMutationError } from '../types.js';
 import { normalizeAccountPath } from '../utils/normalizeAccountId.js';
-import { formatMetaWriteError, formatStructuredMetaWriteError } from '../utils/formatMetaWriteError.js';
+import {
+  formatMetaWriteError,
+  formatStructuredMetaWriteError,
+} from '../utils/formatMetaWriteError.js';
 
 export type MetaCampaignObjective =
   | 'OUTCOME_SALES'
@@ -30,6 +33,11 @@ export interface CreateCampaignOptions {
   status?: CampaignStatus;
   specialAdCategories?: string[];
   buyType?: 'AUCTION' | 'RESERVED';
+  /**
+   * Allow ad sets without campaign budget to share up to 20% of their budgets.
+   * Meta requires an explicit boolean for campaigns that do not use CBO.
+   */
+  isAdSetBudgetSharingEnabled?: boolean;
   dailyBudget?: number;
   lifetimeBudget?: number;
   bidStrategy?: string;
@@ -37,7 +45,12 @@ export interface CreateCampaignOptions {
   externalReference?: string;
 }
 
-export type CreateCampaignStatus = 'dry_run' | 'pending_confirmation' | 'executed' | 'failed' | 'deduped';
+export type CreateCampaignStatus =
+  | 'dry_run'
+  | 'pending_confirmation'
+  | 'executed'
+  | 'failed'
+  | 'deduped';
 
 export interface CreateCampaignResult {
   operation: 'create_campaign';
@@ -97,7 +110,12 @@ export async function createCampaign(
   const accountPath = normalizeAccountPath(options.adAccountId);
 
   if (options.dedupeByName) {
-    const existing = await findExistingCampaignByName(client, accountPath, options.name, maxRetries);
+    const existing = await findExistingCampaignByName(
+      client,
+      accountPath,
+      options.name,
+      maxRetries
+    );
     if (existing) {
       return {
         ...baseResult,
@@ -158,9 +176,8 @@ async function findExistingCampaignByName(
     {
       fields: 'id,name,status',
       limit: 100,
-      filtering: [{ field: 'name', operator: 'EQUAL', value: name.trim() }],
     },
-    { maxRetries }
+    { maxRetries, paginate: true, maxPages: 20 }
   );
 
   return response.data?.find((campaign) => campaign.name === name.trim()) ?? null;
@@ -181,6 +198,14 @@ function buildCampaignPayload(options: CreateCampaignOptions): Record<string, un
 
   if (options.lifetimeBudget !== undefined) {
     payload.lifetime_budget = options.lifetimeBudget;
+  }
+
+  const usesCampaignBudget =
+    options.dailyBudget !== undefined || options.lifetimeBudget !== undefined;
+  if (!usesCampaignBudget) {
+    payload.is_adset_budget_sharing_enabled = options.isAdSetBudgetSharingEnabled ?? false;
+  } else if (options.isAdSetBudgetSharingEnabled !== undefined) {
+    payload.is_adset_budget_sharing_enabled = options.isAdSetBudgetSharingEnabled;
   }
 
   if (options.bidStrategy) {

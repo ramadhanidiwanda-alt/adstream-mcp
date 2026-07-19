@@ -33,6 +33,7 @@ describe('createCampaign', () => {
       expect(result.preview.name).toBe('Test Campaign');
       expect(result.preview.objective).toBe('OUTCOME_TRAFFIC');
       expect(result.preview.status).toBe('PAUSED');
+      expect(result.preview.is_adset_budget_sharing_enabled).toBe(false);
       expect(mockClient.metaPost).not.toHaveBeenCalled();
     });
 
@@ -66,8 +67,27 @@ describe('createCampaign', () => {
         status: 'PAUSED',
         special_ad_categories: [],
         buying_type: 'AUCTION',
+        is_adset_budget_sharing_enabled: false,
       });
       expect(result.preview).not.toHaveProperty('mode');
+    });
+
+    it('allows marketers to enable ad set budget sharing explicitly', async () => {
+      const result = await createCampaign(mockClient, {
+        ...validOptions,
+        isAdSetBudgetSharingEnabled: true,
+      });
+
+      expect(result.preview.is_adset_budget_sharing_enabled).toBe(true);
+    });
+
+    it('omits the ad set budget sharing default when campaign budget is used', async () => {
+      const result = await createCampaign(mockClient, {
+        ...validOptions,
+        dailyBudget: 50000,
+      });
+
+      expect(result.preview).not.toHaveProperty('is_adset_budget_sharing_enabled');
     });
   });
 
@@ -91,18 +111,24 @@ describe('createCampaign', () => {
         data: [{ id: 'existing_campaign_1', name: 'Test Campaign', status: 'PAUSED' }],
       });
 
-      const result = await createCampaign(mockClient, {
-        ...validOptions,
-        dedupeByName: true,
-      }, {
-        dryRun: false,
-        confirmed: true,
-      });
+      const result = await createCampaign(
+        mockClient,
+        {
+          ...validOptions,
+          dedupeByName: true,
+        },
+        {
+          dryRun: false,
+          confirmed: true,
+        }
+      );
 
       expect(result.status).toBe('deduped');
       expect(result.executed).toBe(false);
       expect(result.id).toBe('existing_campaign_1');
       expect(result.response?.deduped).toBe(true);
+      expect(mockMetaGet.mock.calls[0][1]).not.toHaveProperty('filtering');
+      expect(mockMetaGet.mock.calls[0][2]).toMatchObject({ paginate: true, maxPages: 20 });
       expect(mockClient.metaPost).not.toHaveBeenCalled();
     });
 
@@ -124,6 +150,7 @@ describe('createCampaign', () => {
       expect(payload.name).toBe('Test Campaign');
       expect(payload.objective).toBe('OUTCOME_TRAFFIC');
       expect(payload.status).toBe('PAUSED');
+      expect(payload.is_adset_budget_sharing_enabled).toBe(false);
     });
 
     it('returns failed when Meta does not return an id', async () => {
@@ -154,10 +181,14 @@ describe('createCampaign', () => {
     it('handles ACTIVE status option', async () => {
       mockClient.metaPost.mockResolvedValueOnce({ id: '120248446250030169' });
 
-      const result = await createCampaign(mockClient, { ...validOptions, status: 'ACTIVE' }, {
-        dryRun: false,
-        confirmed: true,
-      });
+      const result = await createCampaign(
+        mockClient,
+        { ...validOptions, status: 'ACTIVE' },
+        {
+          dryRun: false,
+          confirmed: true,
+        }
+      );
 
       expect(result.status).toBe('executed');
       const payload = mockClient.metaPost.mock.calls[0][1];
@@ -167,10 +198,14 @@ describe('createCampaign', () => {
     it('handles specialAdCategories', async () => {
       mockClient.metaPost.mockResolvedValueOnce({ id: '120248446250030170' });
 
-      const result = await createCampaign(mockClient, { ...validOptions, specialAdCategories: ['CREDIT'] }, {
-        dryRun: false,
-        confirmed: true,
-      });
+      const result = await createCampaign(
+        mockClient,
+        { ...validOptions, specialAdCategories: ['CREDIT'] },
+        {
+          dryRun: false,
+          confirmed: true,
+        }
+      );
 
       expect(result.status).toBe('executed');
       const payload = mockClient.metaPost.mock.calls[0][1];
@@ -182,10 +217,14 @@ describe('createCampaign', () => {
     it('works with numeric accountId', async () => {
       mockClient.metaPost.mockResolvedValueOnce({ id: '120248446250030171' });
 
-      const result = await createCampaign(mockClient, {
-        ...validOptions,
-        adAccountId: '123456789',
-      }, { dryRun: false, confirmed: true });
+      const result = await createCampaign(
+        mockClient,
+        {
+          ...validOptions,
+          adAccountId: '123456789',
+        },
+        { dryRun: false, confirmed: true }
+      );
 
       expect(result.status).toBe('executed');
       const [path] = mockClient.metaPost.mock.calls[0];
@@ -195,12 +234,21 @@ describe('createCampaign', () => {
 
   describe('all objectives', () => {
     const allObjectives = [
-      'OUTCOME_SALES', 'OUTCOME_TRAFFIC', 'OUTCOME_ENGAGEMENT',
-      'OUTCOME_LEADS', 'OUTCOME_AWARENESS', 'OUTCOME_APP_PROMOTION',
-      'OUTCOME_CONVERSATIONS', 'OUTCOME_RESHARES', 'OUTCOME_VALUE',
-      'OUTCOME_VIDEO_VIEWS', 'OUTCOME_POST_ENGAGEMENT',
-      'OUTCOME_LANDING_PAGE_VIEWS', 'OUTCOME_REACH',
-      'OUTCOME_MESSAGES', 'OUTCOME_THRUPLAY',
+      'OUTCOME_SALES',
+      'OUTCOME_TRAFFIC',
+      'OUTCOME_ENGAGEMENT',
+      'OUTCOME_LEADS',
+      'OUTCOME_AWARENESS',
+      'OUTCOME_APP_PROMOTION',
+      'OUTCOME_CONVERSATIONS',
+      'OUTCOME_RESHARES',
+      'OUTCOME_VALUE',
+      'OUTCOME_VIDEO_VIEWS',
+      'OUTCOME_POST_ENGAGEMENT',
+      'OUTCOME_LANDING_PAGE_VIEWS',
+      'OUTCOME_REACH',
+      'OUTCOME_MESSAGES',
+      'OUTCOME_THRUPLAY',
     ] as const;
 
     for (const objective of allObjectives) {

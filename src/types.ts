@@ -85,6 +85,12 @@ export interface MetaCollaborativeCatalogContext {
   destinationUrl?: string;
 }
 
+export interface MetaCollaborativeAppSpec {
+  applicationId: string;
+  android?: { appName: string; packageName: string };
+  ios?: { appName: string; appStoreId: string };
+}
+
 export interface MetaErrorResponse {
   error: {
     message: string;
@@ -233,7 +239,10 @@ export interface MetaCreativeVerificationSummary {
   hasCanvasReference: boolean;
 }
 
-export interface MutationEnvelope<TPreview = Record<string, unknown>, TResponse = Record<string, unknown>> {
+export interface MutationEnvelope<
+  TPreview = Record<string, unknown>,
+  TResponse = Record<string, unknown>,
+> {
   operationId: string;
   provider: string;
   tool: string;

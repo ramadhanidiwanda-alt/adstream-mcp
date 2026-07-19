@@ -14,21 +14,49 @@ import {
 export type AdSetStatus = 'ACTIVE' | 'PAUSED';
 
 export type BillingEvent =
-  | 'IMPRESSIONS' | 'LINK_CLICKS' | 'PAGE_LIKES' | 'POST_ENGAGEMENT'
-  | 'VIDEO_VIEWS' | 'LEADS' | 'APP_INSTALLS' | 'MESSAGE_RESPONSES'
-  | 'RSVP' | 'THRUPLAY' | 'PURCHASE' | 'LISTING_INTERACTION'
-  | 'OFFSITE_CONVERSIONS' | 'ON_INSTALL' | 'ONSITE_CONVERSIONS'
-  | 'QUALITY_CALL' | 'REACH' | 'SOCIAL_IMPRESSIONS' | 'VALUE'
+  | 'IMPRESSIONS'
+  | 'LINK_CLICKS'
+  | 'PAGE_LIKES'
+  | 'POST_ENGAGEMENT'
+  | 'VIDEO_VIEWS'
+  | 'LEADS'
+  | 'APP_INSTALLS'
+  | 'MESSAGE_RESPONSES'
+  | 'RSVP'
+  | 'THRUPLAY'
+  | 'PURCHASE'
+  | 'LISTING_INTERACTION'
+  | 'OFFSITE_CONVERSIONS'
+  | 'ON_INSTALL'
+  | 'ONSITE_CONVERSIONS'
+  | 'QUALITY_CALL'
+  | 'REACH'
+  | 'SOCIAL_IMPRESSIONS'
+  | 'VALUE'
   | 'LANDING_PAGE_VIEWS';
 
 export type OptimizationGoal =
-  | 'NONE' | 'APP_INSTALLS' | 'APP_INSTALLS_AND_OFFSITE_CONVERSIONS'
-  | 'CONVERSATIONS' | 'DERIVED_EVENTS' | 'ENGAGED_USERS'
-  | 'EVENT_RESPONSES' | 'IMPRESSIONS' | 'LANDING_PAGE_VIEWS'
-  | 'LEAD_GENERATION' | 'LINK_CLICKS' | 'OFFSITE_CONVERSIONS'
-  | 'ONSITE_CONVERSIONS' | 'PAGE_LIKES' | 'POST_ENGAGEMENT'
-  | 'QUALITY_CALL' | 'REACH' | 'SOCIAL_IMPRESSIONS'
-  | 'THRUPLAY' | 'VALUE' | 'VISIT_INSTAGRAM_PROFILE';
+  | 'NONE'
+  | 'APP_INSTALLS'
+  | 'APP_INSTALLS_AND_OFFSITE_CONVERSIONS'
+  | 'CONVERSATIONS'
+  | 'DERIVED_EVENTS'
+  | 'ENGAGED_USERS'
+  | 'EVENT_RESPONSES'
+  | 'IMPRESSIONS'
+  | 'LANDING_PAGE_VIEWS'
+  | 'LEAD_GENERATION'
+  | 'LINK_CLICKS'
+  | 'OFFSITE_CONVERSIONS'
+  | 'ONSITE_CONVERSIONS'
+  | 'PAGE_LIKES'
+  | 'POST_ENGAGEMENT'
+  | 'QUALITY_CALL'
+  | 'REACH'
+  | 'SOCIAL_IMPRESSIONS'
+  | 'THRUPLAY'
+  | 'VALUE'
+  | 'VISIT_INSTAGRAM_PROFILE';
 
 export interface AdSetTargeting {
   geoLocations?: {
@@ -95,7 +123,12 @@ export interface CreateAdSetOptions {
   externalReference?: string;
 }
 
-export type CreateAdSetStatus = 'dry_run' | 'pending_confirmation' | 'executed' | 'failed' | 'deduped';
+export type CreateAdSetStatus =
+  | 'dry_run'
+  | 'pending_confirmation'
+  | 'executed'
+  | 'failed'
+  | 'deduped';
 
 export interface CreateAdSetResult {
   operation: 'create_adset';
@@ -294,8 +327,7 @@ export async function createAdSet(
     }
 
     if (productSet.id?.trim() !== collaborativeProductSetId) {
-      const message =
-        'Product set Collaborative Ads tidak dapat diverifikasi dari respons Meta.';
+      const message = 'Product set Collaborative Ads tidak dapat diverifikasi dari respons Meta.';
       return {
         ...baseResult,
         status: 'failed',
@@ -340,7 +372,10 @@ export async function createAdSet(
     // Check 1: CBO budget conflict
     // Meta doesn't allow budgets at both campaign and ad set level
     const campaignHasBudget = campaign.daily_budget || campaign.lifetime_budget;
-    if (campaignHasBudget && (options.dailyBudget !== undefined || options.lifetimeBudget !== undefined)) {
+    if (
+      campaignHasBudget &&
+      (options.dailyBudget !== undefined || options.lifetimeBudget !== undefined)
+    ) {
       return {
         ...baseResult,
         status: 'failed',
@@ -385,7 +420,12 @@ export async function createAdSet(
   const accountPath = normalizeAccountPath(options.adAccountId);
 
   if (options.dedupeByName) {
-    const existing = await findExistingAdSetByName(client, options.campaignId, options.name, maxRetries);
+    const existing = await findExistingAdSetByName(
+      client,
+      options.campaignId,
+      options.name,
+      maxRetries
+    );
     if (existing) {
       return {
         ...baseResult,
@@ -454,9 +494,8 @@ async function findExistingAdSetByName(
     {
       fields: 'id,name,status',
       limit: 100,
-      filtering: [{ field: 'name', operator: 'EQUAL', value: name.trim() }],
     },
-    { maxRetries }
+    { maxRetries, paginate: true, maxPages: 20 }
   );
 
   return response.data?.find((adSet) => adSet.name === name.trim()) ?? null;
@@ -467,7 +506,8 @@ function validationError(code: string, message: string): StructuredMutationError
     code,
     message,
     provider: 'meta',
-    actionableFix: 'Review the dry-run preview and update the invalid ad set input before executing.',
+    actionableFix:
+      'Review the dry-run preview and update the invalid ad set input before executing.',
   };
 }
 
@@ -585,16 +625,23 @@ function buildTargetingPayload(targeting: AdSetTargeting): Record<string, unknow
   if (targeting.interests !== undefined) result.interests = targeting.interests;
   if (targeting.behaviors !== undefined) result.behaviors = targeting.behaviors;
   if (targeting.customAudiences !== undefined) result.custom_audiences = targeting.customAudiences;
-  if (targeting.excludedCustomAudiences !== undefined) result.excluded_custom_audiences = targeting.excludedCustomAudiences;
-  if (targeting.publisherPlatforms !== undefined) result.publisher_platforms = targeting.publisherPlatforms;
-  if (targeting.facebookPositions !== undefined) result.facebook_positions = targeting.facebookPositions;
-  if (targeting.instagramPositions !== undefined) result.instagram_positions = targeting.instagramPositions;
-  if (targeting.messengerPositions !== undefined) result.messenger_positions = targeting.messengerPositions;
-  if (targeting.marketplacePositions !== undefined) result.marketplace_positions = targeting.marketplacePositions;
+  if (targeting.excludedCustomAudiences !== undefined)
+    result.excluded_custom_audiences = targeting.excludedCustomAudiences;
+  if (targeting.publisherPlatforms !== undefined)
+    result.publisher_platforms = targeting.publisherPlatforms;
+  if (targeting.facebookPositions !== undefined)
+    result.facebook_positions = targeting.facebookPositions;
+  if (targeting.instagramPositions !== undefined)
+    result.instagram_positions = targeting.instagramPositions;
+  if (targeting.messengerPositions !== undefined)
+    result.messenger_positions = targeting.messengerPositions;
+  if (targeting.marketplacePositions !== undefined)
+    result.marketplace_positions = targeting.marketplacePositions;
   if (targeting.devicePlatforms !== undefined) result.device_platforms = targeting.devicePlatforms;
   if (targeting.flexibleSpec !== undefined) result.flexible_spec = targeting.flexibleSpec;
   if (targeting.exclusions !== undefined) result.exclusions = targeting.exclusions;
-  if (targeting.targetingOptimization !== undefined) result.targeting_optimization = targeting.targetingOptimization;
+  if (targeting.targetingOptimization !== undefined)
+    result.targeting_optimization = targeting.targetingOptimization;
 
   if (targeting.targetingAutomation !== undefined) {
     result.targeting_automation = targeting.targetingAutomation;

@@ -26,10 +26,14 @@ describe('createAdSet — bid strategy + pre-flight validation', () => {
   describe('client-side validation (no API call)', () => {
     it('should reject invalid bidStrategy "LOWEST_COST"', async () => {
       const client = createMockClient();
-      const result = await createAdSet(client, {
-        ...defaultOptions,
-        bidStrategy: 'LOWEST_COST',
-      }, { dryRun: false, confirmed: true });
+      const result = await createAdSet(
+        client,
+        {
+          ...defaultOptions,
+          bidStrategy: 'LOWEST_COST',
+        },
+        { dryRun: false, confirmed: true }
+      );
       expect(result.status).toBe('failed');
       expect(result.error).toContain('LOWEST_COST');
       expect(client.metaPost).not.toHaveBeenCalled();
@@ -37,10 +41,14 @@ describe('createAdSet — bid strategy + pre-flight validation', () => {
 
     it('should reject LOWEST_COST_WITH_BID_CAP without bidAmount', async () => {
       const client = createMockClient();
-      const result = await createAdSet(client, {
-        ...defaultOptions,
-        bidStrategy: 'LOWEST_COST_WITH_BID_CAP',
-      }, { dryRun: false, confirmed: true });
+      const result = await createAdSet(
+        client,
+        {
+          ...defaultOptions,
+          bidStrategy: 'LOWEST_COST_WITH_BID_CAP',
+        },
+        { dryRun: false, confirmed: true }
+      );
       expect(result.status).toBe('failed');
       expect(result.error).toContain('bidAmount is required');
       expect(client.metaPost).not.toHaveBeenCalled();
@@ -48,40 +56,56 @@ describe('createAdSet — bid strategy + pre-flight validation', () => {
 
     it('should reject COST_CAP without bidAmount', async () => {
       const client = createMockClient();
-      const result = await createAdSet(client, {
-        ...defaultOptions,
-        bidStrategy: 'COST_CAP',
-      }, { dryRun: false, confirmed: true });
+      const result = await createAdSet(
+        client,
+        {
+          ...defaultOptions,
+          bidStrategy: 'COST_CAP',
+        },
+        { dryRun: false, confirmed: true }
+      );
       expect(result.status).toBe('failed');
       expect(result.error).toContain('bidAmount is required');
     });
 
     it('should reject TARGET_COST without bidAmount', async () => {
       const client = createMockClient();
-      const result = await createAdSet(client, {
-        ...defaultOptions,
-        bidStrategy: 'TARGET_COST',
-      }, { dryRun: false, confirmed: true });
+      const result = await createAdSet(
+        client,
+        {
+          ...defaultOptions,
+          bidStrategy: 'TARGET_COST',
+        },
+        { dryRun: false, confirmed: true }
+      );
       expect(result.status).toBe('failed');
       expect(result.error).toContain('bidAmount');
     });
 
     it('should reject LOWEST_COST_WITH_MIN_ROAS without bidConstraints', async () => {
       const client = createMockClient();
-      const result = await createAdSet(client, {
-        ...defaultOptions,
-        bidStrategy: 'LOWEST_COST_WITH_MIN_ROAS',
-      }, { dryRun: false, confirmed: true });
+      const result = await createAdSet(
+        client,
+        {
+          ...defaultOptions,
+          bidStrategy: 'LOWEST_COST_WITH_MIN_ROAS',
+        },
+        { dryRun: false, confirmed: true }
+      );
       expect(result.status).toBe('failed');
       expect(result.error).toContain('bidConstraints');
     });
 
     it('should accept LOWEST_COST_WITHOUT_CAP without bidAmount', async () => {
       const client = createMockClient();
-      const result = await createAdSet(client, {
-        ...defaultOptions,
-        bidStrategy: 'LOWEST_COST_WITHOUT_CAP',
-      }, { dryRun: false, confirmed: true });
+      const result = await createAdSet(
+        client,
+        {
+          ...defaultOptions,
+          bidStrategy: 'LOWEST_COST_WITHOUT_CAP',
+        },
+        { dryRun: false, confirmed: true }
+      );
       // After client-side validation, pre-flight runs and finds campaign has
       // LOWEST_COST_WITH_BID_CAP which requires bid_amount. But we explicitly
       // overrode with LOWEST_COST_WITHOUT_CAP, so it should proceed to metaPost
@@ -97,10 +121,14 @@ describe('createAdSet — bid strategy + pre-flight validation', () => {
   describe('pre-flight: CBO budget conflict', () => {
     it('should reject dailyBudget when campaign has CBO', async () => {
       const client = createMockClient({ daily_budget: 100000 });
-      const result = await createAdSet(client, {
-        ...defaultOptions,
-        dailyBudget: 50000,
-      }, { dryRun: false, confirmed: true });
+      const result = await createAdSet(
+        client,
+        {
+          ...defaultOptions,
+          dailyBudget: 50000,
+        },
+        { dryRun: false, confirmed: true }
+      );
       expect(result.status).toBe('failed');
       expect(result.error).toContain('Budget conflict');
       expect(result.error).toContain('CBO');
@@ -109,20 +137,28 @@ describe('createAdSet — bid strategy + pre-flight validation', () => {
 
     it('should reject lifetimeBudget when campaign has CBO', async () => {
       const client = createMockClient({ daily_budget: 100000 });
-      const result = await createAdSet(client, {
-        ...defaultOptions,
-        lifetimeBudget: 500000,
-      }, { dryRun: false, confirmed: true });
+      const result = await createAdSet(
+        client,
+        {
+          ...defaultOptions,
+          lifetimeBudget: 500000,
+        },
+        { dryRun: false, confirmed: true }
+      );
       expect(result.status).toBe('failed');
       expect(result.error).toContain('Budget conflict');
     });
 
     it('should allow no budget when campaign has CBO', async () => {
       const client = createMockClient({ daily_budget: 100000 });
-      const result = await createAdSet(client, {
-        ...defaultOptions,
-        // No dailyBudget or lifetimeBudget
-      }, { dryRun: false, confirmed: true });
+      const result = await createAdSet(
+        client,
+        {
+          ...defaultOptions,
+          // No dailyBudget or lifetimeBudget
+        },
+        { dryRun: false, confirmed: true }
+      );
       // Will proceed to pre-flight check 2 (campaign uses LOWEST_COST_WITH_BID_CAP)
       // Without bidAmount, this should fail
       expect(result.status).toBe('failed');
@@ -132,19 +168,31 @@ describe('createAdSet — bid strategy + pre-flight validation', () => {
 
   describe('pre-flight: campaign bid strategy requires bidAmount', () => {
     it('should not create duplicate ad set when dedupeByName finds an existing one', async () => {
-      const client = createMockClient({ bid_strategy: 'LOWEST_COST_WITHOUT_CAP', daily_budget: undefined });
+      const client = createMockClient({
+        bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+        daily_budget: undefined,
+      });
       vi.mocked(client.metaGet).mockResolvedValueOnce({
         data: [{ id: 'existing_adset_1', name: 'Test Ad Set', status: 'PAUSED' }],
       });
 
-      const result = await createAdSet(client, {
-        ...defaultOptions,
-        dedupeByName: true,
-      }, { dryRun: false, confirmed: true });
+      const result = await createAdSet(
+        client,
+        {
+          ...defaultOptions,
+          dedupeByName: true,
+        },
+        { dryRun: false, confirmed: true }
+      );
 
       expect(result.status).toBe('deduped');
       expect(result.executed).toBe(false);
       expect(result.id).toBe('existing_adset_1');
+      expect(vi.mocked(client.metaGet).mock.calls[0][1]).not.toHaveProperty('filtering');
+      expect(vi.mocked(client.metaGet).mock.calls[0][2]).toMatchObject({
+        paginate: true,
+        maxPages: 20,
+      });
       expect(client.metaPost).not.toHaveBeenCalled();
     });
 
@@ -165,11 +213,15 @@ describe('createAdSet — bid strategy + pre-flight validation', () => {
 
     it('should auto-set bid_strategy from campaign when only bidAmount provided', async () => {
       const client = createMockClient({ bid_strategy: 'COST_CAP' });
-      const result = await createAdSet(client, {
-        ...defaultOptions,
-        bidAmount: 500000,
-        // No bidStrategy — should auto-set from campaign
-      }, { dryRun: false, confirmed: true });
+      const result = await createAdSet(
+        client,
+        {
+          ...defaultOptions,
+          bidAmount: 500000,
+          // No bidStrategy — should auto-set from campaign
+        },
+        { dryRun: false, confirmed: true }
+      );
       // Should pass pre-flight, call metaPost
       if (result.status === 'executed') {
         expect(result.id).toBeTruthy();
@@ -200,7 +252,10 @@ describe('createAdSet — bid strategy + pre-flight validation', () => {
     });
 
     it('should return dry_run when read-only preflight passes', async () => {
-      const client = createMockClient({ bid_strategy: 'LOWEST_COST_WITHOUT_CAP', daily_budget: undefined });
+      const client = createMockClient({
+        bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+        daily_budget: undefined,
+      });
       const result = await createAdSet(client, defaultOptions, { dryRun: true });
       expect(result.status).toBe('dry_run');
       expect(result.executed).toBe(false);
@@ -219,23 +274,16 @@ describe('createAdSet — bid strategy + pre-flight validation', () => {
 
     it('redacts credentials and signed URLs from generic ad-set POST errors', async () => {
       const credentialFixture = 'final_review_adset_credential_123456789';
-      const signedUrl =
-        `https://cdn.example.test/private/adset.jpg?X-Amz-Signature=${credentialFixture}&expires=60`;
+      const signedUrl = `https://cdn.example.test/private/adset.jpg?X-Amz-Signature=${credentialFixture}&expires=60`;
       const client = createMockClient({
         bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
         daily_budget: undefined,
       });
       vi.mocked(client.metaPost).mockRejectedValueOnce(
-        new Error(
-          `Ad-set provider failed: access_token=${credentialFixture}; asset=${signedUrl}`
-        )
+        new Error(`Ad-set provider failed: access_token=${credentialFixture}; asset=${signedUrl}`)
       );
 
-      const result = await createAdSet(
-        client,
-        defaultOptions,
-        { dryRun: false, confirmed: true }
-      );
+      const result = await createAdSet(client, defaultOptions, { dryRun: false, confirmed: true });
       const serialized = JSON.stringify(result);
 
       expect(result).toMatchObject({
@@ -253,13 +301,17 @@ describe('createAdSet — bid strategy + pre-flight validation', () => {
   describe('new fields in payload', () => {
     it('should include new fields in preview when provided', async () => {
       const client = createMockClient();
-      const result = await createAdSet(client, {
-        ...defaultOptions,
-        destinationType: 'WEBSITE',
-        attributionSpec: [{ event_type: 'CLICK_THROUGH', window_days: 7 }],
-        frequencyControlSpecs: [{ event: 'IMPRESSIONS', interval_days: 7, max_frequency: 3 }],
-        isDynamicCreative: true,
-      }, { dryRun: true });
+      const result = await createAdSet(
+        client,
+        {
+          ...defaultOptions,
+          destinationType: 'WEBSITE',
+          attributionSpec: [{ event_type: 'CLICK_THROUGH', window_days: 7 }],
+          frequencyControlSpecs: [{ event: 'IMPRESSIONS', interval_days: 7, max_frequency: 3 }],
+          isDynamicCreative: true,
+        },
+        { dryRun: true }
+      );
       expect(result.preview.destination_type).toBe('WEBSITE');
       expect(result.preview.attribution_spec).toBeDefined();
       expect(result.preview.frequency_control_specs).toBeDefined();
@@ -497,23 +549,31 @@ describe('createAdSet — bid strategy + pre-flight validation', () => {
   describe('targeting_automation default', () => {
     it('should add targeting_automation.advantage_audience: 0 when targeting provided', async () => {
       const client = createMockClient();
-      const result = await createAdSet(client, {
-        ...defaultOptions,
-        targeting: { geoLocations: { countries: ['ID'] } },
-      }, { dryRun: true });
+      const result = await createAdSet(
+        client,
+        {
+          ...defaultOptions,
+          targeting: { geoLocations: { countries: ['ID'] } },
+        },
+        { dryRun: true }
+      );
       const targeting = result.preview.targeting as Record<string, unknown>;
       expect(targeting?.targeting_automation).toEqual({ advantage_audience: 0 });
     });
 
     it('should not override user-provided targeting_automation', async () => {
       const client = createMockClient();
-      const result = await createAdSet(client, {
-        ...defaultOptions,
-        targeting: {
-          geoLocations: { countries: ['ID'] },
-          targetingOptimization: 'none',
+      const result = await createAdSet(
+        client,
+        {
+          ...defaultOptions,
+          targeting: {
+            geoLocations: { countries: ['ID'] },
+            targetingOptimization: 'none',
+          },
         },
-      }, { dryRun: true });
+        { dryRun: true }
+      );
       const targeting = result.preview.targeting as Record<string, unknown>;
       expect(targeting?.targeting_automation).toEqual({ advantage_audience: 0 });
     });

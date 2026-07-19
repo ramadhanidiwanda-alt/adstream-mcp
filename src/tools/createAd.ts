@@ -1,7 +1,10 @@
 import type { MetaClient } from '../metaClient.js';
 import type { StructuredMutationError } from '../types.js';
 import { normalizeAccountPath } from '../utils/normalizeAccountId.js';
-import { formatMetaWriteError, formatStructuredMetaWriteError } from '../utils/formatMetaWriteError.js';
+import {
+  formatMetaWriteError,
+  formatStructuredMetaWriteError,
+} from '../utils/formatMetaWriteError.js';
 
 export type AdStatus = 'ACTIVE' | 'PAUSED';
 
@@ -135,9 +138,8 @@ async function findExistingAdByName(
     {
       fields: 'id,name,status',
       limit: 100,
-      filtering: [{ field: 'name', operator: 'EQUAL', value: name.trim() }],
     },
-    { maxRetries }
+    { maxRetries, paginate: true, maxPages: 20 }
   );
 
   return response.data?.find((ad) => ad.name === name.trim()) ?? null;

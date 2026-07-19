@@ -1,4 +1,4 @@
-import type { MetaAdsMode, MetaCreativeSpec } from '../../types.js';
+import type { MetaAdsMode, MetaCollaborativeAppSpec, MetaCreativeSpec } from '../../types.js';
 import { assertMetaCreativeCompatibility } from './creativeFormatCompatibility.js';
 
 export type BuildMetaCreativeFormatPayloadInput = MetaCreativeSpec & {
@@ -6,6 +6,7 @@ export type BuildMetaCreativeFormatPayloadInput = MetaCreativeSpec & {
   pageId: string;
   instagramUserId?: string;
   collaborativeProductSetId?: string;
+  collaborativeAppSpec?: MetaCollaborativeAppSpec;
 };
 
 export function buildMetaCreativeFormatPayload(
@@ -42,10 +43,38 @@ function optional(value: string | undefined, label: string): string | undefined 
   return required(value, label);
 }
 
-function cta(type: string | undefined, destinationUrl: string): Record<string, unknown> {
+function cta(
+  type: string | undefined,
+  destinationUrl: string,
+  collaborativeAppSpec?: MetaCollaborativeAppSpec
+): Record<string, unknown> {
+  const value: Record<string, unknown> = { link: destinationUrl };
+  if (collaborativeAppSpec) {
+    value.application = required(
+      collaborativeAppSpec.applicationId,
+      'collaborativeAppSpec.applicationId'
+    );
+    const objectStoreUrls = [
+      collaborativeAppSpec.android
+        ? `http://play.google.com/store/apps/details?id=${encodeURIComponent(
+            required(
+              collaborativeAppSpec.android.packageName,
+              'collaborativeAppSpec.android.packageName'
+            )
+          )}`
+        : undefined,
+      collaborativeAppSpec.ios
+        ? `http://itunes.apple.com/app/id${encodeURIComponent(
+            required(collaborativeAppSpec.ios.appStoreId, 'collaborativeAppSpec.ios.appStoreId')
+          )}`
+        : undefined,
+    ].filter((url): url is string => Boolean(url));
+    if (objectStoreUrls.length > 0) value.object_store_urls = objectStoreUrls;
+  }
+
   return {
     type: type?.trim() || 'LEARN_MORE',
-    value: { link: destinationUrl },
+    value,
   };
 }
 
@@ -58,7 +87,7 @@ function buildSingleImage(
     image_hash: required(creativeSpec.imageHash, 'imageHash'),
     message: required(creativeSpec.primaryText, 'primaryText'),
     link: destinationUrl,
-    call_to_action: cta(creativeSpec.callToAction, destinationUrl),
+    call_to_action: cta(creativeSpec.callToAction, destinationUrl, input.collaborativeAppSpec),
   };
   const headline = optional(creativeSpec.headline, 'headline');
   const description = optional(creativeSpec.description, 'description');
@@ -71,6 +100,7 @@ function buildSingleImage(
     {
       object_story_spec: {
         page_id: required(input.pageId, 'pageId'),
+        ...instagramIdentity(input),
         link_data: linkData,
       },
     },
@@ -86,21 +116,20 @@ function buildVideo(
   const videoData: Record<string, unknown> = {
     video_id: required(creativeSpec.videoId, 'videoId'),
     message: required(creativeSpec.primaryText, 'primaryText'),
-    call_to_action: cta(creativeSpec.callToAction, destinationUrl),
+    call_to_action: cta(creativeSpec.callToAction, destinationUrl, input.collaborativeAppSpec),
   };
   const thumbnailImageHash = optional(creativeSpec.thumbnailImageHash, 'thumbnailImageHash');
   const headline = optional(creativeSpec.headline, 'headline');
-  const description = optional(creativeSpec.description, 'description');
 
   if (thumbnailImageHash) videoData.image_hash = thumbnailImageHash;
   if (headline) videoData.title = headline;
-  if (description) videoData.description = description;
 
   return withCollaborativeCatalogContext(
     input,
     {
       object_story_spec: {
         page_id: required(input.pageId, 'pageId'),
+        ...instagramIdentity(input),
         video_data: videoData,
       },
     },
@@ -127,7 +156,7 @@ function buildCarousel(
     const attachment: Record<string, unknown> = {
       name: required(card.headline, `cards[${index}].headline`),
       link: destinationUrl,
-      call_to_action: cta(creativeSpec.callToAction, destinationUrl),
+      call_to_action: cta(creativeSpec.callToAction, destinationUrl, input.collaborativeAppSpec),
     };
     const description = optional(card.description, `cards[${index}].description`);
 
@@ -146,6 +175,7 @@ function buildCarousel(
     {
       object_story_spec: {
         page_id: required(input.pageId, 'pageId'),
+        ...instagramIdentity(input),
         link_data: {
           message: required(creativeSpec.primaryText, 'primaryText'),
           attachment_style: 'link',
@@ -192,7 +222,11 @@ function buildCatalog(
   if (description) templateData.description = description;
   if (destinationUrl) {
     templateData.link = destinationUrl;
-    templateData.call_to_action = cta(creativeSpec.callToAction, destinationUrl);
+    templateData.call_to_action = cta(
+      creativeSpec.callToAction,
+      destinationUrl,
+      input.collaborativeAppSpec
+    );
   }
   if (templateUrl) templateData.template_url = templateUrl;
   if (fallbackImageHash) templateData.image_hash = fallbackImageHash;
@@ -203,6 +237,7 @@ function buildCatalog(
       product_set_id: productSetId,
       object_story_spec: {
         page_id: required(input.pageId, 'pageId'),
+        ...instagramIdentity(input),
         template_data: templateData,
       },
     },
@@ -217,14 +252,51 @@ function withCollaborativeCatalogContext(
 ): Record<string, unknown> {
   if (input.mode !== 'collaborative_ads') return payload;
 
-  const productSetId = required(input.collaborativeProductSetId, 'Product set Collaborative Ads');
+  required(input.collaborativeProductSetId, 'Product set Collaborative Ads');
+
+  const omnichannelLinkSpec: Record<string, unknown> = {
+    web: { url: required(destinationUrl, 'Destination URL Collaborative Ads') },
+  };
+  if (input.collaborativeAppSpec) {
+    omnichannelLinkSpec.app = buildCollaborativeAppSpec(input.collaborativeAppSpec);
+  }
+
+  const usesProductTemplate =
+    input.creativeFormat === 'catalog' || input.creativeFormat === 'collection';
 
   return {
     ...payload,
-    product_set_id: productSetId,
-    omnichannel_link_spec: {
-      web: { url: required(destinationUrl, 'Destination URL Collaborative Ads') },
-    },
+    ...(usesProductTemplate
+      ? {
+          product_set_id: required(
+            input.collaborativeProductSetId,
+            'Product set Collaborative Ads'
+          ),
+        }
+      : {}),
+    ...(input.collaborativeAppSpec ? { applink_treatment: 'automatic' } : {}),
+    omnichannel_link_spec: omnichannelLinkSpec,
+  };
+}
+
+function buildCollaborativeAppSpec(spec: MetaCollaborativeAppSpec): Record<string, unknown> {
+  const platformSpecs: Record<string, unknown> = {};
+  if (spec.android) {
+    platformSpecs.android = {
+      app_name: required(spec.android.appName, 'collaborativeAppSpec.android.appName'),
+      package_name: required(spec.android.packageName, 'collaborativeAppSpec.android.packageName'),
+    };
+  }
+  if (spec.ios) {
+    platformSpecs.ios = {
+      app_name: required(spec.ios.appName, 'collaborativeAppSpec.ios.appName'),
+      app_store_id: required(spec.ios.appStoreId, 'collaborativeAppSpec.ios.appStoreId'),
+    };
+  }
+
+  return {
+    application_id: required(spec.applicationId, 'collaborativeAppSpec.applicationId'),
+    ...(Object.keys(platformSpecs).length > 0 ? { platform_specs: platformSpecs } : {}),
   };
 }
 
@@ -256,14 +328,21 @@ function buildCollection(
   const headline = optional(creativeSpec.headline, 'headline');
   const description = optional(creativeSpec.description, 'description');
   const pageId = required(input.pageId, 'pageId');
-  const storySpec: Record<string, unknown> = { page_id: pageId };
+  const storySpec: Record<string, unknown> = {
+    page_id: pageId,
+    ...instagramIdentity(input),
+  };
 
   if (coverImageHash) {
     const linkData: Record<string, unknown> = {
       image_hash: coverImageHash,
       message: primaryText,
       link: instantExperienceUrl,
-      call_to_action: cta(creativeSpec.callToAction, instantExperienceUrl),
+      call_to_action: cta(
+        creativeSpec.callToAction,
+        instantExperienceUrl,
+        input.collaborativeAppSpec
+      ),
     };
     if (headline) linkData.name = headline;
     if (description) linkData.description = description;
@@ -272,10 +351,13 @@ function buildCollection(
     const videoData: Record<string, unknown> = {
       video_id: coverVideoId,
       message: primaryText,
-      call_to_action: cta(creativeSpec.callToAction, instantExperienceUrl),
+      call_to_action: cta(
+        creativeSpec.callToAction,
+        instantExperienceUrl,
+        input.collaborativeAppSpec
+      ),
     };
     if (headline) videoData.title = headline;
-    if (description) videoData.description = description;
     storySpec.video_data = videoData;
   }
 
@@ -341,4 +423,11 @@ function nonBlankValues(values: string[] | undefined): string[] {
     const normalized = value.trim();
     return normalized ? [normalized] : [];
   });
+}
+
+function instagramIdentity(
+  input: Pick<BuildMetaCreativeFormatPayloadInput, 'instagramUserId'>
+): Record<string, string> {
+  const instagramUserId = optional(input.instagramUserId, 'instagramUserId');
+  return instagramUserId ? { instagram_user_id: instagramUserId } : {};
 }

@@ -9,7 +9,12 @@ describe('createAd', () => {
   const mockMetaGet: MetaPostMock = vi.fn();
   const mockClient = { metaPost: mockMetaPost, metaGet: mockMetaGet } as unknown as MetaClient;
 
-  const baseOpts = { adAccountId: 'act_123', name: 'Test Ad', adSetId: 'as456', creativeId: 'c789' };
+  const baseOpts = {
+    adAccountId: 'act_123',
+    name: 'Test Ad',
+    adSetId: 'as456',
+    creativeId: 'c789',
+  };
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -35,7 +40,8 @@ describe('createAd', () => {
   it('executes and returns id on success', async () => {
     mockMetaPost.mockResolvedValueOnce({ id: 'ad123' });
     const r = await createAd(mockClient, baseOpts, { dryRun: false, confirmed: true });
-    expect(r.status).toBe('executed'); expect(r.id).toBe('ad123');
+    expect(r.status).toBe('executed');
+    expect(r.id).toBe('ad123');
     const payload = mockMetaPost.mock.calls[0][1];
     expect(payload.adset_id).toBe('as456');
     expect(payload.status).toBe('PAUSED');
@@ -43,7 +49,11 @@ describe('createAd', () => {
 
   it('handles ACTIVE status', async () => {
     mockMetaPost.mockResolvedValueOnce({ id: 'ad124' });
-    await createAd(mockClient, { ...baseOpts, status: 'ACTIVE' }, { dryRun: false, confirmed: true });
+    await createAd(
+      mockClient,
+      { ...baseOpts, status: 'ACTIVE' },
+      { dryRun: false, confirmed: true }
+    );
     expect(mockMetaPost.mock.calls[0][1].status).toBe('ACTIVE');
   });
 
@@ -52,14 +62,20 @@ describe('createAd', () => {
       data: [{ id: 'existing_ad_1', name: 'Test Ad', status: 'PAUSED' }],
     });
 
-    const r = await createAd(mockClient, {
-      ...baseOpts,
-      dedupeByName: true,
-    }, { dryRun: false, confirmed: true });
+    const r = await createAd(
+      mockClient,
+      {
+        ...baseOpts,
+        dedupeByName: true,
+      },
+      { dryRun: false, confirmed: true }
+    );
 
     expect(r.status).toBe('deduped');
     expect(r.executed).toBe(false);
     expect(r.id).toBe('existing_ad_1');
+    expect(mockMetaGet.mock.calls[0][1]).not.toHaveProperty('filtering');
+    expect(mockMetaGet.mock.calls[0][2]).toMatchObject({ paginate: true, maxPages: 20 });
     expect(mockMetaPost).not.toHaveBeenCalled();
   });
 
