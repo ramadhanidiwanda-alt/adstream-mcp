@@ -153,6 +153,34 @@ describe('credential redaction utilities', () => {
 
     expect(redacted).not.toContain(token);
   });
+
+  it('preserves Meta snake_case field names in error messages', () => {
+    const message =
+      'Saat membuat iklan optimasi lintas saluran, applink_treatment diperlukan. ' +
+      'Missing omnichannel_link_spec and object_store_urls in the ad creative call_to_action.';
+    const redacted = redactErrorMessage(message);
+
+    expect(redacted).toContain('applink_treatment');
+    expect(redacted).toContain('omnichannel_link_spec');
+    expect(redacted).toContain('object_store_urls');
+    expect(redacted).toContain('call_to_action');
+    expect(redacted).not.toContain('[REDACTED]');
+  });
+
+  it('preserves numeric Meta object IDs in error messages', () => {
+    const redacted = redactErrorMessage('Ad set 120250770888710071 could not be created');
+
+    expect(redacted).toContain('120250770888710071');
+    expect(redacted).not.toContain('[REDACTED]');
+  });
+
+  it('still redacts a bare token-like value with mixed case and digits', () => {
+    const secret = 'EAABwzLixnjYBO7ZC8kd12mixedCASE9982tokenValue';
+    const redacted = redactErrorMessage(`Request failed with ${secret}`);
+
+    expect(redacted).not.toContain(secret);
+    expect(redacted).toContain('[REDACTED]');
+  });
 });
 
 describe('connection key redaction (Phase 17.5C)', () => {
