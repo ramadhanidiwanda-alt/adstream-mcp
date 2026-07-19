@@ -23,6 +23,7 @@ import type {
   AdPreviewResult,
   AdDestinationResult,
   AdCreativeFullResult,
+  AdSetFullResult,
 } from '../../broker/types.js';
 import { ADS_PROVIDER_CAPABILITY_MATRIX } from '../../broker/types.js';
 import { redactErrorMessage } from '../../broker/credentials.js';
@@ -114,6 +115,10 @@ export class GoogleAdsAdapter implements AdsProviderAdapter {
 
   async readAdCreativeFull(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdCreativeFullResult>> {
     return Promise.resolve(this.notImplemented('Google readAdCreativeFull is not implemented yet') as unknown as AdsBrokerResponse<AdCreativeFullResult>);
+  }
+
+  async readAdSetFull(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdSetFullResult>> {
+    return Promise.resolve(this.notImplemented('Google readAdSetFull is not implemented yet') as unknown as AdsBrokerResponse<AdSetFullResult>);
   }
 
   async pauseCampaign(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>> {

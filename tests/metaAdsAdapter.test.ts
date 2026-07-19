@@ -1599,4 +1599,83 @@ describe('MetaAdsAdapter', () => {
     expect(JSON.stringify(response)).not.toContain('page-token-secret');
     expect(JSON.stringify(response)).not.toContain('secret-token');
   });
+
+  it('reads a single Meta ad set with full fields via readAdSetFull', async () => {
+    const adapter = new MetaAdsAdapter({
+      clientFactory: () =>
+        ({
+          metaGetObject: async (_path: string, params: Record<string, unknown>) => {
+            const fields = String(params.fields ?? '');
+            if (fields.includes('targeting')) {
+              return {
+                targeting: { age_min: 18, custom_audiences: [{ id: 'ca_1', name: '30D' }] },
+              };
+            }
+            return { id: 'as_1', name: 'Set A', status: 'PAUSED', campaign_id: 'c_1' };
+          },
+        }) as never,
+    });
+
+    const response = await adapter.readAdSetFull({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: { adsetId: 'as_1' },
+      credentials: {
+        provider: 'meta',
+        accessToken: 'secret-token',
+        accountId: 'act_123',
+        source: 'test',
+      },
+    });
+
+    expect(response.ok).toBe(true);
+    expect(response.data?.mode).toBe('single');
+    expect(response.data?.adset_id).toBe('as_1');
+    expect(response.data?.adset?.name).toBe('Set A');
+    expect(response.data?.fields_retrieved).toContain('targeting');
+  });
+
+  it('lists Meta ad sets for a campaign via readAdSetFull', async () => {
+    const adapter = new MetaAdsAdapter({
+      clientFactory: () =>
+        ({
+          metaGet: async () => ({
+            data: [
+              { id: 'as_1', name: 'Set A' },
+              { id: 'as_2', name: 'Set B' },
+            ],
+            paging: { cursors: { after: 'CUR' } },
+          }),
+        }) as never,
+    });
+
+    const response = await adapter.readAdSetFull({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: { campaignId: 'c_1' },
+      credentials: {
+        provider: 'meta',
+        accessToken: 'secret-token',
+        accountId: 'act_123',
+        source: 'test',
+      },
+    });
+
+    expect(response.ok).toBe(true);
+    expect(response.data?.mode).toBe('list');
+    expect(response.data?.adsets).toHaveLength(2);
+    expect(response.data?.next_cursor).toBe('CUR');
+  });
+
+  it('errors when readAdSetFull is called without adsetId, campaignId, or accountId', async () => {
+    const adapter = new MetaAdsAdapter();
+
+    const response = await adapter.readAdSetFull({
+      provider: 'meta',
+      params: {},
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    });
+
+    expect(response.ok).toBe(false);
+  });
 });
