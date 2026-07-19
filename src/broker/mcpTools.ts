@@ -1677,6 +1677,11 @@ function createCreateAdInputSchema() {
         description:
           'Check for an existing ad with the same name under the ad set before creating.',
       },
+      skipOmnichannelCheck: {
+        type: 'boolean',
+        description:
+          'Skip the omnichannel creative pre-flight check. Only set if the check misfires; an omnichannel ad set normally requires an omnichannel-ready creative.',
+      },
       externalReference: {
         type: 'string',
         description: 'Caller-provided reference for duplicate prevention and audit correlation.',

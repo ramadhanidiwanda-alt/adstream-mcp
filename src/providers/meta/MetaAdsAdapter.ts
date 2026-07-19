@@ -1496,6 +1496,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
               ? (request.params.status as import('../../tools/createAd.js').AdStatus)
               : undefined,
           dedupeByName: request.params.dedupeByName === true,
+          skipOmnichannelCheck: request.params.skipOmnichannelCheck === true,
           externalReference:
             typeof request.params.externalReference === 'string'
               ? request.params.externalReference
