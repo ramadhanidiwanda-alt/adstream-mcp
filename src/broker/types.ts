@@ -679,6 +679,28 @@ export interface AdCreativeFullResult {
   error?: string;
 }
 
+export interface AdSetFullResult {
+  operation: 'read_adset_full';
+  status: 'executed' | 'failed';
+  /** Mode: 'single' when adsetId given, 'list' otherwise. */
+  mode: 'single' | 'list';
+  /** Present in single mode. */
+  adset_id?: string;
+  /** Present in single mode: full raw ad set payload. */
+  adset?: Record<string, unknown>;
+  /** Present in list mode: full raw ad set payloads. */
+  adsets?: Record<string, unknown>[];
+  /** Fields successfully retrieved (single mode). */
+  fields_retrieved?: string[];
+  /** Fields requested but not returned by Meta (single mode). */
+  fields_missing?: string[];
+  /** Pagination cursor for list mode. */
+  next_cursor?: string | null;
+  /** Warnings, e.g. adsetId+campaignId both supplied, or list fields dropped. */
+  warnings?: string[];
+  error?: string;
+}
+
 export interface VideoSourceResult {
   provider: AdsProviderId;
   video_id: string;
@@ -915,6 +937,7 @@ export interface AdsProviderAdapter {
   getAdCreativeMapping(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdCreativeMappingResult[]>>;
   getAdDestinations(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdDestinationResult[]>>;
   readAdCreativeFull(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdCreativeFullResult>>;
+  readAdSetFull(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdSetFullResult>>;
   // --- Write Operations ---
   pauseCampaign(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>>;
   resumeCampaign(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>>;

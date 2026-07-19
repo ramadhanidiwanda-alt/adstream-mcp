@@ -130,6 +130,19 @@ function createBrokerStub(): AdsBroker {
         fields_missing: [],
       },
     }),
+    readAdSetFull: async () => ({
+      ok: true,
+      provider: 'meta',
+      data: {
+        operation: 'read_adset_full',
+        status: 'executed',
+        mode: 'single',
+        adset_id: 'as_1',
+        adset: { id: 'as_1', name: 'Set A', targeting: { age_min: 18 } },
+        fields_retrieved: ['id', 'name', 'targeting'],
+        fields_missing: [],
+      },
+    }),
   } as unknown as AdsBroker;
 }
 
@@ -230,6 +243,7 @@ describe('ads MCP broker tools', () => {
       'ads_get_ad_preview',
       'ads_get_ad_destinations',
       'ads_read_creative_full',
+      'ads_read_adset_full',
       'ads_list_pages',
       'ads_list_instagram_accounts',
       'ads_list_threads_profiles',

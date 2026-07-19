@@ -95,6 +95,14 @@ export type { GetAdDestinationsOptions, AdDestinationInfo, AdDestinationPage } f
 export { readAdCreativeFull } from './tools/readAdCreativeFull.js';
 export type { ReadAdCreativeFullOptions, AdCreativeFull } from './tools/readAdCreativeFull.js';
 
+export { readAdSetFull, listAdSetsFull, ADSET_FULL_FIELDS } from './tools/readAdSetFull.js';
+export type {
+  ReadAdSetFullOptions,
+  ListAdSetsFullOptions,
+  AdSetFull,
+  ListAdSetsFullResult,
+} from './tools/readAdSetFull.js';
+
 // --- Mutation Tools ---
 export { pauseCampaign } from './tools/pauseCampaign.js';
 export type * from './tools/pauseCampaign.js';

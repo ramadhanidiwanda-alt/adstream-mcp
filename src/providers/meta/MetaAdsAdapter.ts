@@ -1,5 +1,10 @@
 import { getAdCreativeMapping } from '../../tools/getAdCreativeMapping.js';
 import { readAdCreativeFull as readAdCreativeFullTool } from '../../tools/readAdCreativeFull.js';
+import {
+  readAdSetFull as readAdSetFullTool,
+  listAdSetsFull as listAdSetsFullTool,
+  ADSET_FULL_FIELDS,
+} from '../../tools/readAdSetFull.js';
 import { getAdDestinations } from '../../tools/getAdDestinations.js';
 import type { AdCreativeMappingResult } from '../../broker/types.js';
 import { MetaClient } from '../../metaClient.js';
@@ -81,6 +86,7 @@ import type {
   AdsMutationResult,
   AdDestinationResult,
   AdCreativeFullResult,
+  AdSetFullResult,
   AdsProviderAdapter,
   CredentialContext,
   EcommerceCampaignBundlePayload,
@@ -2019,6 +2025,107 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
           {
             provider: 'meta',
             code: 'CREATIVE_READ_ERROR',
+            message: error instanceof Error ? error.message : String(error),
+          },
+        ],
+      };
+    }
+  }
+
+  async readAdSetFull(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<AdSetFullResult>> {
+    const context = this.getCredentialContext(request);
+    if (!context.ok) return context.response;
+
+    const adsetId =
+      typeof request.params.adsetId === 'string' ? request.params.adsetId : undefined;
+    const campaignId =
+      typeof request.params.campaignId === 'string' ? request.params.campaignId : undefined;
+    const accountId = request.accountId ?? context.credential.accountId;
+    const warnings: string[] = [];
+
+    if (!adsetId && !campaignId && !accountId) {
+      return {
+        ok: false,
+        provider: 'meta',
+        errors: [
+          {
+            provider: 'meta',
+            code: 'MISSING_ADSET_TARGET',
+            message:
+              'Provide adsetId (single ad set), campaignId (ad sets in a campaign), or accountId (ad sets in an account).',
+          },
+        ],
+      };
+    }
+
+    try {
+      const client = this.createClient(context.credential);
+
+      // Single mode wins if adsetId present.
+      if (adsetId) {
+        if (campaignId) {
+          warnings.push('campaignId ignored because adsetId was provided.');
+        }
+        const raw = await readAdSetFullTool(client, { adsetId });
+        const fieldsRetrieved = ADSET_FULL_FIELDS.filter((f) => raw[f] !== undefined);
+        const fieldsMissing = ADSET_FULL_FIELDS.filter((f) => raw[f] === undefined);
+
+        return {
+          ok: true,
+          provider: 'meta',
+          data: {
+            operation: 'read_adset_full',
+            status: 'executed',
+            mode: 'single',
+            adset_id: adsetId,
+            adset: raw,
+            fields_retrieved: fieldsRetrieved,
+            fields_missing: fieldsMissing,
+            warnings: warnings.length > 0 ? warnings : undefined,
+          },
+        };
+      }
+
+      // List mode: campaign scope preferred, else account scope.
+      const limit = typeof request.params.limit === 'number' ? request.params.limit : 25;
+      const cursor =
+        typeof request.params.cursor === 'string' ? request.params.cursor : undefined;
+
+      const list = await listAdSetsFullTool(client, {
+        campaignId,
+        accountId: campaignId ? undefined : accountId,
+        limit,
+        cursor,
+      });
+
+      if (list.droppedFields) {
+        warnings.push(
+          'Some ad set fields were dropped because Meta rejected the full field set; core fields returned.'
+        );
+      }
+
+      return {
+        ok: true,
+        provider: 'meta',
+        data: {
+          operation: 'read_adset_full',
+          status: 'executed',
+          mode: 'list',
+          adsets: list.adsets,
+          next_cursor: list.nextCursor,
+          warnings: warnings.length > 0 ? warnings : undefined,
+        },
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        provider: 'meta',
+        errors: [
+          {
+            provider: 'meta',
+            code: 'ADSET_READ_ERROR',
             message: error instanceof Error ? error.message : String(error),
           },
         ],

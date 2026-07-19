@@ -60,6 +60,7 @@ export const ADS_MCP_TOOL_NAMES = [
   'ads_get_ad_preview',
   'ads_get_ad_destinations',
   'ads_read_creative_full',
+  'ads_read_adset_full',
   'ads_list_pages',
   'ads_list_instagram_accounts',
   'ads_list_threads_profiles',
@@ -376,6 +377,12 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
     inputSchema: createReadCreativeFullInputSchema(),
   },
   {
+    name: 'ads_read_adset_full',
+    description:
+      'Read the full configuration of Meta Ad Sets (targeting, custom audiences, budget, bid strategy, optimization goal, placements, schedule). Three modes: pass adsetId for one ad set; pass campaignId for all ad sets in a campaign; pass neither (account only) for all ad sets in the account. List modes support limit and cursor. Read-only. Use this to replicate an existing ad set configuration.',
+    inputSchema: createReadAdSetFullInputSchema(),
+  },
+  {
     name: 'ads_list_pages',
     description:
       'List Meta Pages accessible by the token for selecting a valid pageId for ad creative object_story_spec.',
@@ -661,6 +668,8 @@ function callBrokerMethod(
       return broker.getAdDestinations(request);
     case 'ads_read_creative_full':
       return broker.readAdCreativeFull(request);
+    case 'ads_read_adset_full':
+      return broker.readAdSetFull(request);
     case 'ads_list_pages':
       return broker.listPages(request);
     case 'ads_list_instagram_accounts':
@@ -1117,6 +1126,34 @@ function createReadCreativeFullInputSchema() {
       },
     },
     required: ['creativeId'],
+  };
+}
+
+function createReadAdSetFullInputSchema() {
+  const schema = createAdsInputSchema([]);
+
+  return {
+    type: 'object',
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      adsetId: {
+        type: 'string',
+        description: 'Meta Ad Set ID to read in full (single mode).',
+      },
+      campaignId: {
+        type: 'string',
+        description: 'Campaign ID to list all ad sets under (list mode).',
+      },
+      limit: {
+        type: 'number',
+        description: 'Page size for list mode (default 25).',
+      },
+      cursor: {
+        type: 'string',
+        description: 'Pagination cursor (Meta after) for list mode.',
+      },
+    },
+    required: [] as string[],
   };
 }
 

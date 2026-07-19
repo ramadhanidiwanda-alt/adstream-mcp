@@ -23,6 +23,7 @@ import type {
   AdPreviewResult,
   AdDestinationResult,
   AdCreativeFullResult,
+  AdSetFullResult,
 } from '../../broker/types.js';
 import { ADS_PROVIDER_CAPABILITY_MATRIX } from '../../broker/types.js';
 import { redactErrorMessage } from '../../broker/credentials.js';
@@ -215,6 +216,10 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
 
   async readAdCreativeFull(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdCreativeFullResult>> {
     return Promise.resolve(this.notImplemented('TikTok readAdCreativeFull is not implemented yet') as unknown as AdsBrokerResponse<AdCreativeFullResult>);
+  }
+
+  async readAdSetFull(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdSetFullResult>> {
+    return Promise.resolve(this.notImplemented('TikTok readAdSetFull is not implemented yet') as unknown as AdsBrokerResponse<AdSetFullResult>);
   }
 
   private async getPlacementPerformanceForRequest(
