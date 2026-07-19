@@ -1,5 +1,5 @@
 import type { MetaClient } from '../metaClient.js';
-import { normalizeAccountId } from '../utils/normalizeAccountId.js';
+import { normalizeAccountPath } from '../utils/normalizeAccountId.js';
 
 export interface ReadAdSetFullOptions {
   /** Meta Ad Set ID (numeric, e.g. '120250499282510071') */
@@ -26,43 +26,9 @@ export interface ListAdSetsFullResult {
   droppedFields: boolean;
 }
 
-/**
- * Flat field list used for the list endpoints (single string) and for the
- * adapter's fields_retrieved / fields_missing computation.
- */
-export const ADSET_FULL_FIELDS: string[] = [
-  'id',
-  'name',
-  'status',
-  'effective_status',
-  'campaign_id',
-  'created_time',
-  'updated_time',
-  'daily_budget',
-  'lifetime_budget',
-  'budget_remaining',
-  'bid_strategy',
-  'bid_amount',
-  'bid_constraints',
-  'billing_event',
-  'optimization_goal',
-  'targeting',
-  'promoted_object',
-  'destination_type',
-  'attribution_spec',
-  'start_time',
-  'end_time',
-  'adset_schedule',
-  'is_dynamic_creative',
-  'frequency_control_specs',
-  'pacing_type',
-  'multi_optimization_goal_weight',
-  'dsa_beneficiary',
-  'dsa_payor',
-];
-
 // Independent batches for single-ad-set reads, so a rejected field
 // (not applicable to this ad set) does not block the others.
+// This is the single source of truth for the ad set field list.
 const FIELD_BATCHES: string[][] = [
   ['id', 'name', 'status', 'effective_status', 'campaign_id', 'created_time', 'updated_time'],
   ['daily_budget', 'lifetime_budget', 'budget_remaining'],
@@ -79,6 +45,13 @@ const FIELD_BATCHES: string[][] = [
     'dsa_payor',
   ],
 ];
+
+/**
+ * Flat field list used for the list endpoints (single string) and for the
+ * adapter's fields_retrieved / fields_missing computation. Derived from
+ * FIELD_BATCHES so the two can never desync.
+ */
+export const ADSET_FULL_FIELDS: string[] = FIELD_BATCHES.flat();
 
 // Core fields that always succeed — used as the list-mode fallback.
 const CORE_LIST_FIELDS = ['id', 'name', 'status', 'effective_status', 'campaign_id', 'targeting'];
@@ -130,7 +103,7 @@ export async function listAdSetsFull(
 
   const path = campaignId
     ? `/${campaignId}/adsets`
-    : `/act_${normalizeAccountId(accountId ?? '')}/adsets`;
+    : `${normalizeAccountPath(accountId ?? '')}/adsets`;
 
   const baseParams: Record<string, string | number> = { limit };
   if (cursor) {
