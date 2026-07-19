@@ -5,6 +5,7 @@ import {
   formatMetaWriteError,
   formatStructuredMetaWriteError,
 } from '../utils/formatMetaWriteError.js';
+import { getOmnichannelCompatibilityError } from '../providers/meta/omnichannelAdCompatibility.js';
 
 export type AdStatus = 'ACTIVE' | 'PAUSED';
 
@@ -18,6 +19,8 @@ export interface CreateAdOptions {
   adLabels?: Array<{ name: string }>;
   dedupeByName?: boolean;
   externalReference?: string;
+  /** Skip the omnichannel creative pre-flight check (use only if the heuristic misfires). */
+  skipOmnichannelCheck?: boolean;
 }
 
 export type CreateAdStatus = 'dry_run' | 'pending_confirmation' | 'executed' | 'failed' | 'deduped';
@@ -63,6 +66,20 @@ export async function createAd(
     executed: false,
     preview,
   };
+
+  // Pre-flight: an omnichannel ad set requires an omnichannel-ready creative.
+  // Surface this during dry-run so the mismatch is caught before any ad is made.
+  if (!options.skipOmnichannelCheck) {
+    const omnichannelError = await getOmnichannelCompatibilityError(
+      client,
+      options.adSetId,
+      options.creativeId,
+      maxRetries
+    );
+    if (omnichannelError) {
+      return { ...baseResult, status: 'failed', executed: false, error: omnichannelError };
+    }
+  }
 
   if (dryRun) return baseResult;
 

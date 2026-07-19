@@ -47,6 +47,33 @@ describe('createAd', () => {
     expect(mockMetaPost).not.toHaveBeenCalled();
   });
 
+  it('blocks at dry-run when an omnichannel ad set gets a non-omnichannel creative', async () => {
+    mockMetaGetObject.mockImplementation(async (path: string) =>
+      path === '/as456'
+        ? { promoted_object: { omnichannel_object: { app: [{ application_id: '1' }] } } }
+        : { asset_feed_spec: { call_to_action_types: ['SHOP_NOW'] } }
+    );
+
+    const r = await createAd(mockClient, baseOpts);
+
+    expect(r.status).toBe('failed');
+    expect(r.error).toContain('applink_treatment');
+    expect(r.error).toContain('object_store_urls');
+    expect(mockMetaPost).not.toHaveBeenCalled();
+  });
+
+  it('allows the omnichannel pairing through when skipOmnichannelCheck is set', async () => {
+    mockMetaGetObject.mockImplementation(async (path: string) =>
+      path === '/as456'
+        ? { promoted_object: { omnichannel_object: { app: [{ application_id: '1' }] } } }
+        : { asset_feed_spec: {} }
+    );
+
+    const r = await createAd(mockClient, { ...baseOpts, skipOmnichannelCheck: true });
+
+    expect(r.status).toBe('dry_run');
+  });
+
   it('executes and returns id on success', async () => {
     mockMetaPost.mockResolvedValueOnce({ id: 'ad123' });
     const r = await createAd(mockClient, baseOpts, { dryRun: false, confirmed: true });

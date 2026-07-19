@@ -544,6 +544,12 @@ const createAdInputSchema = {
     .boolean()
     .optional()
     .describe('Check for an existing ad with the same name under the ad set before creating.'),
+  skipOmnichannelCheck: z
+    .boolean()
+    .optional()
+    .describe(
+      'Skip the omnichannel creative pre-flight check. Only set if the check misfires; an omnichannel ad set normally requires an omnichannel-ready creative.'
+    ),
   externalReference: z
     .string()
     .optional()
