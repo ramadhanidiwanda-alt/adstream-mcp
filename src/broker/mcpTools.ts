@@ -1376,6 +1376,14 @@ function createCreateAdSetInputSchema() {
         type: 'array',
         description: 'Interest targeting array [{ id, name }].',
       },
+      customAudiences: {
+        type: 'array',
+        description: 'Custom audiences to include (retargeting), array of [{ id }].',
+      },
+      excludedCustomAudiences: {
+        type: 'array',
+        description: 'Custom audiences to exclude, array of [{ id }].',
+      },
       promotedObject: {
         type: 'object',
         description: 'Promoted object (e.g. { pixel_id, custom_event_type }).',

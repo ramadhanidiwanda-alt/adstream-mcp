@@ -2444,6 +2444,8 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
         ? request.params.advantageAudience
         : undefined;
     const targetingAutomation = request.params.targetingAutomation;
+    const customAudiences = request.params.customAudiences;
+    const excludedCustomAudiences = request.params.excludedCustomAudiences;
 
     if (
       !geoLocations &&
@@ -2453,7 +2455,9 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       !interests &&
       !genders &&
       advantageAudience === undefined &&
-      !targetingAutomation
+      !targetingAutomation &&
+      !customAudiences &&
+      !excludedCustomAudiences
     ) {
       return undefined;
     }
@@ -2465,6 +2469,9 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
     if (Array.isArray(publisherPlatforms)) targeting.publisherPlatforms = publisherPlatforms;
     if (Array.isArray(interests)) targeting.interests = interests;
     if (Array.isArray(genders)) targeting.genders = genders;
+    if (Array.isArray(customAudiences)) targeting.customAudiences = customAudiences;
+    if (Array.isArray(excludedCustomAudiences))
+      targeting.excludedCustomAudiences = excludedCustomAudiences;
     if (targetingAutomation && typeof targetingAutomation === 'object') {
       targeting.targetingAutomation = targetingAutomation as Record<string, unknown>;
     } else if (advantageAudience !== undefined) {

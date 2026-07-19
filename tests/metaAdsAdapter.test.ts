@@ -1564,6 +1564,40 @@ describe('MetaAdsAdapter', () => {
     });
   });
 
+  it('passes custom audiences and excluded custom audiences into ad set targeting', async () => {
+    let receivedOptions: Record<string, unknown> | undefined;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        createAdSet: async (_client, options) => {
+          receivedOptions = options as unknown as Record<string, unknown>;
+          return { operation: 'create_adset', status: 'dry_run', executed: false, preview: {} };
+        },
+      },
+    });
+
+    const response = await adapter.createAdSet({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {
+        campaignId: 'cmp_123',
+        name: 'Retargeting Ad Set',
+        optimizationGoal: 'OFFSITE_CONVERSIONS',
+        geoLocations: { countries: ['ID'] },
+        ageMin: 18,
+        ageMax: 65,
+        customAudiences: [{ id: 'aud_1' }, { id: 'aud_2' }],
+        excludedCustomAudiences: [{ id: 'aud_excl' }],
+      },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    });
+
+    expect(response.ok).toBe(true);
+    const targeting = receivedOptions?.targeting as Record<string, unknown>;
+    expect(targeting.customAudiences).toEqual([{ id: 'aud_1' }, { id: 'aud_2' }]);
+    expect(targeting.excludedCustomAudiences).toEqual([{ id: 'aud_excl' }]);
+  });
+
   it('lists Meta pages without exposing page access tokens', async () => {
     const adapter = new MetaAdsAdapter({
       clientFactory: (config) => ({ config }) as never,
