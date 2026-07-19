@@ -766,6 +766,79 @@ describe('buildMetaCreativeFormatPayload', () => {
     });
   });
 
+  it('adds omnichannel_link_spec to a placement_image creative when collaborativeAppSpec is given', () => {
+    const result = buildMetaCreativeFormatPayload({
+      mode: 'standard',
+      pageId: 'page-1',
+      instagramUserId: 'ig-1',
+      collaborativeAppSpec: {
+        applicationId: '957549474255294',
+        android: { appName: 'Shopee ID', packageName: 'com.shopee.id' },
+        ios: { appName: 'Shopee ID', appStoreId: '959841443' },
+      },
+      creativeFormat: 'placement_image',
+      creativeSpec: {
+        feedImageHash: 'feed-hash',
+        verticalImageHash: 'vertical-hash',
+        primaryText: 'Payday Glowday',
+        headline: 'PAYDAY GLOWDAY',
+        destinationUrl: 'https://s.shopee.co.id/abc',
+        callToAction: 'SHOP_NOW',
+      },
+    });
+
+    // Placement rules stay intact
+    expect((result.asset_feed_spec as Record<string, unknown>).asset_customization_rules).toEqual([
+      {
+        image_label: { name: 'placement_feed_1_1' },
+        customization_spec: {
+          publisher_platforms: ['facebook', 'instagram'],
+          facebook_positions: ['feed'],
+          instagram_positions: ['stream'],
+        },
+      },
+      {
+        image_label: { name: 'placement_vertical_9_16' },
+        customization_spec: {
+          publisher_platforms: ['facebook', 'instagram'],
+          facebook_positions: ['facebook_reels', 'story'],
+          instagram_positions: ['reels', 'story'],
+        },
+      },
+    ]);
+    // Omnichannel applink added
+    expect(result.omnichannel_link_spec).toMatchObject({
+      web: { url: 'https://s.shopee.co.id/abc' },
+      app: {
+        application_id: '957549474255294',
+        platform_specs: {
+          android: { app_name: 'Shopee ID', package_name: 'com.shopee.id' },
+          ios: { app_name: 'Shopee ID', app_store_id: '959841443' },
+        },
+      },
+    });
+    expect(result.applink_treatment).toBe('automatic');
+  });
+
+  it('omits omnichannel_link_spec for a placement_image creative without collaborativeAppSpec', () => {
+    const result = buildMetaCreativeFormatPayload({
+      mode: 'standard',
+      pageId: 'page-1',
+      creativeFormat: 'placement_image',
+      creativeSpec: {
+        feedImageHash: 'feed-hash',
+        verticalImageHash: 'vertical-hash',
+        primaryText: 'Payday Glowday',
+        headline: 'PAYDAY GLOWDAY',
+        destinationUrl: 'https://s.shopee.co.id/abc',
+        callToAction: 'SHOP_NOW',
+      },
+    });
+
+    expect(result).not.toHaveProperty('omnichannel_link_spec');
+    expect(result).not.toHaveProperty('applink_treatment');
+  });
+
   it('rejects identical feed and vertical image hashes', () => {
     expect(() =>
       buildMetaCreativeFormatPayload({
