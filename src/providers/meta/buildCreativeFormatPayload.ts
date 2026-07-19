@@ -247,6 +247,27 @@ function buildCatalog(
   );
 }
 
+/**
+ * Build the omnichannel applink fields (`omnichannel_link_spec` plus optional
+ * `applink_treatment`) that a cross-channel/omnichannel ad set requires on its
+ * creative. Shared by collaborative catalog creatives and placement_image.
+ */
+function buildOmnichannelLinkFields(
+  destinationUrl: string,
+  collaborativeAppSpec?: MetaCollaborativeAppSpec
+): Record<string, unknown> {
+  const omnichannelLinkSpec: Record<string, unknown> = {
+    web: { url: required(destinationUrl, 'Destination URL Omnichannel') },
+  };
+  if (collaborativeAppSpec) {
+    omnichannelLinkSpec.app = buildCollaborativeAppSpec(collaborativeAppSpec);
+  }
+  return {
+    ...(collaborativeAppSpec ? { applink_treatment: 'automatic' } : {}),
+    omnichannel_link_spec: omnichannelLinkSpec,
+  };
+}
+
 function withCollaborativeCatalogContext(
   input: BuildMetaCreativeFormatPayloadInput,
   payload: Record<string, unknown>,
@@ -255,13 +276,6 @@ function withCollaborativeCatalogContext(
   if (input.mode !== 'collaborative_ads') return payload;
 
   required(input.collaborativeProductSetId, 'Product set Collaborative Ads');
-
-  const omnichannelLinkSpec: Record<string, unknown> = {
-    web: { url: required(destinationUrl, 'Destination URL Collaborative Ads') },
-  };
-  if (input.collaborativeAppSpec) {
-    omnichannelLinkSpec.app = buildCollaborativeAppSpec(input.collaborativeAppSpec);
-  }
 
   const usesProductTemplate =
     input.creativeFormat === 'catalog' || input.creativeFormat === 'collection';
@@ -276,8 +290,7 @@ function withCollaborativeCatalogContext(
           ),
         }
       : {}),
-    ...(input.collaborativeAppSpec ? { applink_treatment: 'automatic' } : {}),
-    omnichannel_link_spec: omnichannelLinkSpec,
+    ...buildOmnichannelLinkFields(destinationUrl, input.collaborativeAppSpec),
   };
 }
 
@@ -482,6 +495,12 @@ function buildPlacementImage(
       ...instagramIdentity(input),
     },
     asset_feed_spec: assetFeedSpec,
+    // Omnichannel ad sets require an applink spec on the creative. Add it when
+    // an app spec is supplied so a placement_image creative can attach to a
+    // cross-channel (CPAS omnichannel) ad set.
+    ...(input.collaborativeAppSpec
+      ? buildOmnichannelLinkFields(destinationUrl, input.collaborativeAppSpec)
+      : {}),
   };
 }
 
