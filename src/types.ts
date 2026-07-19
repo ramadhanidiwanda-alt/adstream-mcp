@@ -247,6 +247,10 @@ export interface MetaCreativeVerificationSummary {
   hasTemplateData: boolean;
   hasChildAttachments: boolean;
   hasAssetFeedSpec: boolean;
+  placementImageCount?: number;
+  placementRuleCount?: number;
+  hasFeedPlacementRule?: boolean;
+  hasVerticalPlacementRule?: boolean;
   hasOmnichannelLinkSpec: boolean;
   hasCanvasReference: boolean;
 }

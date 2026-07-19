@@ -175,6 +175,22 @@ export async function createAdCreative(
         )
       : undefined;
 
+    if (
+      options.creative?.creativeFormat === 'placement_image' &&
+      verification?.status !== 'verified'
+    ) {
+      return {
+        ...baseResult,
+        status: 'failed',
+        executed: true,
+        id: response.id,
+        response,
+        verification,
+        error:
+          'Creative sudah dibuat, tetapi aturan media per placement tidak terverifikasi. Jangan lanjutkan creative ini menjadi ad.',
+      };
+    }
+
     return {
       ...baseResult,
       status: 'executed',
@@ -257,6 +273,7 @@ function summarizeCreativeVerification(
   const productSetId = hasNonBlankString(fields.product_set_id)
     ? fields.product_set_id.trim()
     : undefined;
+  const placementSummary = summarizePlacementAssets(fields.asset_feed_spec);
 
   return {
     ...(productSetId ? { productSetId } : {}),
@@ -268,6 +285,7 @@ function summarizeCreativeVerification(
     hasTemplateData: Boolean(storySpec && isRecord(storySpec.template_data)),
     hasChildAttachments: Array.isArray(linkData?.child_attachments),
     hasAssetFeedSpec: isRecord(fields.asset_feed_spec),
+    ...placementSummary,
     hasOmnichannelLinkSpec: isRecord(fields.omnichannel_link_spec),
     hasCanvasReference: containsCanvasUrl(linkData) || containsCanvasUrl(videoData),
   };
@@ -280,6 +298,7 @@ const META_CREATIVE_FORMATS: readonly MetaCreativeFormat[] = [
   'catalog',
   'collection',
   'flexible',
+  'placement_image',
   'existing_post',
 ];
 
@@ -299,6 +318,8 @@ function matchesCreativeFormat(
       );
     case 'flexible':
       return isRecord(fields.asset_feed_spec);
+    case 'placement_image':
+      return hasCompletePlacementAssets(fields.asset_feed_spec);
     case 'catalog':
       return (
         hasNonBlankString(fields.product_set_id) &&
@@ -313,6 +334,77 @@ function matchesCreativeFormat(
     case 'single_image':
       return hasNonBlankString(linkData?.image_hash);
   }
+}
+
+function summarizePlacementAssets(
+  assetFeedSpec: unknown
+): Pick<
+  MetaCreativeVerificationSummary,
+  'placementImageCount' | 'placementRuleCount' | 'hasFeedPlacementRule' | 'hasVerticalPlacementRule'
+> {
+  const feedSpec = isRecord(assetFeedSpec) ? assetFeedSpec : undefined;
+  const images = Array.isArray(feedSpec?.images) ? feedSpec.images : [];
+  const rules = Array.isArray(feedSpec?.asset_customization_rules)
+    ? feedSpec.asset_customization_rules
+    : [];
+
+  return {
+    placementImageCount: images.length,
+    placementRuleCount: rules.length,
+    hasFeedPlacementRule: rules.some(isFeedPlacementRule),
+    hasVerticalPlacementRule: rules.some(isVerticalPlacementRule),
+  };
+}
+
+function hasCompletePlacementAssets(assetFeedSpec: unknown): boolean {
+  const feedSpec = isRecord(assetFeedSpec) ? assetFeedSpec : undefined;
+  if (!feedSpec) return false;
+  const images = Array.isArray(feedSpec.images) ? feedSpec.images : [];
+  const imageLabels = new Set(
+    images.flatMap((image) => {
+      if (!isRecord(image) || !Array.isArray(image.adlabels)) return [];
+      return image.adlabels.flatMap((label) =>
+        isRecord(label) && hasNonBlankString(label.name) ? [label.name] : []
+      );
+    })
+  );
+  const summary = summarizePlacementAssets(feedSpec);
+
+  return (
+    imageLabels.has('placement_feed_1_1') &&
+    imageLabels.has('placement_vertical_9_16') &&
+    summary.hasFeedPlacementRule === true &&
+    summary.hasVerticalPlacementRule === true
+  );
+}
+
+function isFeedPlacementRule(value: unknown): boolean {
+  if (!isRecord(value) || !hasPlacementLabel(value, 'placement_feed_1_1')) return false;
+  const spec = isRecord(value.customization_spec) ? value.customization_spec : undefined;
+  return (
+    includesString(spec?.facebook_positions, 'feed') &&
+    includesString(spec?.instagram_positions, 'stream')
+  );
+}
+
+function isVerticalPlacementRule(value: unknown): boolean {
+  if (!isRecord(value) || !hasPlacementLabel(value, 'placement_vertical_9_16')) return false;
+  const spec = isRecord(value.customization_spec) ? value.customization_spec : undefined;
+  return (
+    includesString(spec?.facebook_positions, 'facebook_reels') &&
+    includesString(spec?.facebook_positions, 'story') &&
+    includesString(spec?.instagram_positions, 'reels') &&
+    includesString(spec?.instagram_positions, 'story')
+  );
+}
+
+function hasPlacementLabel(rule: Record<string, unknown>, expected: string): boolean {
+  const label = isRecord(rule.image_label) ? rule.image_label : undefined;
+  return label?.name === expected;
+}
+
+function includesString(value: unknown, expected: string): boolean {
+  return Array.isArray(value) && value.includes(expected);
 }
 
 function containsCanvasUrl(value: unknown): boolean {

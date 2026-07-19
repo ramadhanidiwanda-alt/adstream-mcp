@@ -56,6 +56,49 @@ describe('createAdCreative', () => {
     },
   };
 
+  const placementImageOptions = {
+    adAccountId: 'act_123',
+    name: 'Placement Image',
+    pageId: '1001',
+    creative: {
+      creativeFormat: 'placement_image' as const,
+      creativeSpec: {
+        feedImageHash: 'feed-hash',
+        verticalImageHash: 'vertical-hash',
+        primaryText: 'Payday Glowday',
+        headline: 'PAYDAY GLOWDAY',
+        destinationUrl: 'https://api.whatsapp.com/send',
+        callToAction: 'WHATSAPP_MESSAGE',
+      },
+    },
+  };
+
+  const placementReadBack = {
+    id: 'creative-placement',
+    asset_feed_spec: {
+      images: [
+        { hash: 'feed-hash', adlabels: [{ name: 'placement_feed_1_1' }] },
+        { hash: 'vertical-hash', adlabels: [{ name: 'placement_vertical_9_16' }] },
+      ],
+      asset_customization_rules: [
+        {
+          image_label: { name: 'placement_feed_1_1' },
+          customization_spec: {
+            facebook_positions: ['feed'],
+            instagram_positions: ['stream'],
+          },
+        },
+        {
+          image_label: { name: 'placement_vertical_9_16' },
+          customization_spec: {
+            facebook_positions: ['facebook_reels', 'story'],
+            instagram_positions: ['reels', 'story'],
+          },
+        },
+      ],
+    },
+  };
+
   beforeEach(() => {
     vi.clearAllMocks();
     mockMetaGet.mockResolvedValue({ data: [] });
@@ -389,6 +432,57 @@ describe('createAdCreative', () => {
       },
       3
     );
+  });
+
+  it('verifies both placement image labels and rules after creation', async () => {
+    mockMetaPost.mockResolvedValueOnce({ id: 'creative-placement' });
+    mockMetaGetObject.mockResolvedValueOnce(placementReadBack);
+
+    const result = await createAdCreative(mockClient, placementImageOptions, {
+      dryRun: false,
+      confirmed: true,
+    });
+
+    expect(result).toMatchObject({ status: 'executed', executed: true });
+    expect(result.verification).toMatchObject({
+      status: 'verified',
+      effectiveFormat: 'placement_image',
+      summary: {
+        placementImageCount: 2,
+        placementRuleCount: 2,
+        hasFeedPlacementRule: true,
+        hasVerticalPlacementRule: true,
+      },
+    });
+  });
+
+  it('fails safely when Meta strips placement customization rules', async () => {
+    mockMetaPost.mockResolvedValueOnce({ id: 'creative-placement' });
+    mockMetaGetObject.mockResolvedValueOnce({
+      ...placementReadBack,
+      asset_feed_spec: { images: placementReadBack.asset_feed_spec.images },
+    });
+
+    const result = await createAdCreative(mockClient, placementImageOptions, {
+      dryRun: false,
+      confirmed: true,
+    });
+
+    expect(result).toMatchObject({
+      status: 'failed',
+      executed: true,
+      id: 'creative-placement',
+      error: expect.stringMatching(/placement/i),
+      verification: {
+        status: 'warning',
+        summary: {
+          placementImageCount: 2,
+          placementRuleCount: 0,
+          hasFeedPlacementRule: false,
+          hasVerticalPlacementRule: false,
+        },
+      },
+    });
   });
 
   it('returns only a bounded verification summary when Meta read-back contains nested signed URLs', async () => {
