@@ -326,6 +326,14 @@ const createAdSetInputSchema = {
     .array(z.record(z.unknown()))
     .optional()
     .describe('Interest targeting array [{ id, name }].'),
+  customAudiences: z
+    .array(z.record(z.unknown()))
+    .optional()
+    .describe('Custom audiences to include (retargeting), array of [{ id }].'),
+  excludedCustomAudiences: z
+    .array(z.record(z.unknown()))
+    .optional()
+    .describe('Custom audiences to exclude, array of [{ id }].'),
   promotedObject: z
     .record(z.unknown())
     .optional()
