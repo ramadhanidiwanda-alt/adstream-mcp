@@ -65,6 +65,7 @@ Thumbs.db
 docker-compose.override.yml
 docker-compose.local.yml
 docker-compose.compaq.yml
+docker-compose.yml
 
 # IDE/editor local state
 .vscode/
