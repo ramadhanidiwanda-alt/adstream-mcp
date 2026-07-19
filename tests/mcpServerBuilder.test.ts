@@ -256,6 +256,7 @@ describe('MCP server builder', () => {
         'catalog',
         'collection',
         'flexible',
+        'placement_image',
         'existing_post',
       ],
     });

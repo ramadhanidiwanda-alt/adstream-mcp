@@ -2435,11 +2435,12 @@ function parseMetaCreativeFormat(value: unknown): MetaCreativeFormat {
     case 'catalog':
     case 'collection':
     case 'flexible':
+    case 'placement_image':
     case 'existing_post':
       return value;
     default:
       throw new Error(
-        'creativeFormat harus berupa single_image, video, carousel, catalog, collection, flexible, atau existing_post.'
+        'creativeFormat harus berupa single_image, video, carousel, catalog, collection, flexible, placement_image, atau existing_post.'
       );
   }
 }
@@ -2603,6 +2604,26 @@ function parseMetaCreativeSpec(
           headline: optionalString(spec.headline, 'creativeSpec.headline'),
           description: optionalString(spec.description, 'creativeSpec.description'),
           callToAction: optionalString(spec.callToAction, 'creativeSpec.callToAction'),
+        },
+      };
+    case 'placement_image':
+      return {
+        creativeFormat: 'placement_image',
+        creativeSpec: {
+          feedImageHash: requireString(spec.feedImageHash, 'creativeSpec.feedImageHash'),
+          verticalImageHash: requireString(
+            spec.verticalImageHash,
+            'creativeSpec.verticalImageHash'
+          ),
+          primaryText: requireString(spec.primaryText, 'creativeSpec.primaryText'),
+          headline: requireString(spec.headline, 'creativeSpec.headline'),
+          destinationUrl: requireString(spec.destinationUrl, 'creativeSpec.destinationUrl'),
+          description: optionalString(spec.description, 'creativeSpec.description'),
+          callToAction: optionalString(spec.callToAction, 'creativeSpec.callToAction'),
+          pageWelcomeMessage: optionalString(
+            spec.pageWelcomeMessage,
+            'creativeSpec.pageWelcomeMessage'
+          ),
         },
       };
     case 'existing_post':

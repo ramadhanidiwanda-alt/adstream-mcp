@@ -952,6 +952,18 @@ describe('MetaAdsAdapter', () => {
       },
     },
     {
+      creativeFormat: 'placement_image',
+      creativeSpec: {
+        feedImageHash: 'feed-hash',
+        verticalImageHash: 'vertical-hash',
+        primaryText: 'Placement copy',
+        headline: 'Placement headline',
+        destinationUrl: 'https://api.whatsapp.com/send',
+        callToAction: 'WHATSAPP_MESSAGE',
+        pageWelcomeMessage: '{"type":"VISUAL_EDITOR"}',
+      },
+    },
+    {
       creativeFormat: 'existing_post',
       creativeSpec: { objectStoryId: 'page-1_post-1' },
     },
