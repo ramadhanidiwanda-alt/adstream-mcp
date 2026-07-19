@@ -7,7 +7,12 @@ type MetaPostMock = ReturnType<typeof vi.fn>;
 describe('createAd', () => {
   const mockMetaPost: MetaPostMock = vi.fn();
   const mockMetaGet: MetaPostMock = vi.fn();
-  const mockClient = { metaPost: mockMetaPost, metaGet: mockMetaGet } as unknown as MetaClient;
+  const mockMetaGetObject: MetaPostMock = vi.fn();
+  const mockClient = {
+    metaPost: mockMetaPost,
+    metaGet: mockMetaGet,
+    metaGetObject: mockMetaGetObject,
+  } as unknown as MetaClient;
 
   const baseOpts = {
     adAccountId: 'act_123',
@@ -19,6 +24,11 @@ describe('createAd', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockMetaGet.mockResolvedValue({ data: [] });
+    mockMetaGetObject.mockImplementation(async (path: string) =>
+      path === '/as456'
+        ? { destination_type: 'WEBSITE', is_dynamic_creative: false }
+        : { asset_feed_spec: null }
+    );
   });
 
   it('returns dry_run without calling API', async () => {
@@ -55,6 +65,23 @@ describe('createAd', () => {
       { dryRun: false, confirmed: true }
     );
     expect(mockMetaPost.mock.calls[0][1].status).toBe('ACTIVE');
+  });
+
+  it('blocks placement asset feeds on non-dynamic WhatsApp ad sets before mutation', async () => {
+    mockMetaGetObject.mockImplementation(async (path: string) =>
+      path === '/as456'
+        ? { destination_type: 'WHATSAPP', is_dynamic_creative: false }
+        : { asset_feed_spec: { asset_customization_rules: [{ image_label: { name: 'feed' } }] } }
+    );
+
+    const r = await createAd(mockClient, baseOpts, { dryRun: false, confirmed: true });
+
+    expect(r).toMatchObject({
+      status: 'failed',
+      executed: false,
+      error: expect.stringMatching(/WhatsApp.*placement|placement.*WhatsApp/i),
+    });
+    expect(mockMetaPost).not.toHaveBeenCalled();
   });
 
   it('does not create a duplicate ad when dedupeByName finds an existing one', async () => {

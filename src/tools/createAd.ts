@@ -90,6 +90,21 @@ export async function createAd(
   }
 
   try {
+    const placementCompatibilityError = await getPlacementCompatibilityError(
+      client,
+      options.adSetId,
+      options.creativeId,
+      maxRetries
+    );
+    if (placementCompatibilityError) {
+      return {
+        ...baseResult,
+        status: 'failed',
+        executed: false,
+        error: placementCompatibilityError,
+      };
+    }
+
     const response = await client.metaPost<MetaIdResponse>(
       `${accountPath}/ads`,
       preview,
@@ -119,6 +134,41 @@ export async function createAd(
       structuredError: formatStructuredMetaWriteError(error),
     };
   }
+}
+
+async function getPlacementCompatibilityError(
+  client: MetaClient,
+  adSetId: string,
+  creativeId: string,
+  maxRetries: number
+): Promise<string | undefined> {
+  const [adSet, creative] = await Promise.all([
+    client.metaGetObject<Record<string, unknown>>(
+      `/${adSetId}`,
+      { fields: 'destination_type,is_dynamic_creative' },
+      maxRetries
+    ),
+    client.metaGetObject<Record<string, unknown>>(
+      `/${creativeId}`,
+      { fields: 'asset_feed_spec' },
+      maxRetries
+    ),
+  ]);
+
+  const assetFeedSpec = isRecord(creative.asset_feed_spec) ? creative.asset_feed_spec : undefined;
+  const hasPlacementRules = Array.isArray(assetFeedSpec?.asset_customization_rules)
+    ? assetFeedSpec.asset_customization_rules.length > 0
+    : false;
+
+  if (
+    adSet.destination_type === 'WHATSAPP' &&
+    adSet.is_dynamic_creative !== true &&
+    hasPlacementRules
+  ) {
+    return 'Creative placement multi-ukuran via API tidak kompatibel dengan adset WhatsApp non-Dynamic Creative ini. Gunakan satu gambar via API atau atur media per placement secara manual di Ads Manager.';
+  }
+
+  return undefined;
 }
 
 interface ExistingNamedAd extends Record<string, unknown> {
@@ -162,4 +212,8 @@ function buildAdPayload(options: CreateAdOptions): Record<string, unknown> {
   }
 
   return payload;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
