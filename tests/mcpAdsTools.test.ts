@@ -547,7 +547,7 @@ describe('ads MCP broker tools', () => {
     } as unknown as AdsBroker;
 
     try {
-      const response = await handleAdsMcpToolCall(broker, 'ads_create_ecommerce_campaign_bundle', {
+      const response = await handleAdsMcpToolCall(broker, 'ads_create_ecommerce_campaign_bundle' as never, {
         provider: 'meta',
         accountId: 'act_123',
         campaignName: 'Sales Campaign',

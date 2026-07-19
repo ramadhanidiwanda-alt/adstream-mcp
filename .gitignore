@@ -55,6 +55,7 @@ temp/
 *.tmp
 .cache/
 .codegraph/
+.worktrees/
 
 # OS files
 .DS_Store

@@ -1,5 +1,21 @@
 import type { AdsBroker } from './AdsBroker.js';
-import type { AdsBrokerRequest, AdsBrokerResponse, AdsEntityLevel, AdsMetricRecord, AdsMutationResult, AdsPerformanceEnvelope, AdsProviderId, AdDestinationResult, ArchiveAdResult, CreateAdCreativeResult, CreateAdResult, CreateAdSetResult, CreateCampaignResult, GetTargetingOptionsResult, UpdateAdSetResult } from './types.js';
+import type {
+  AdsBrokerRequest,
+  AdsBrokerResponse,
+  AdsEntityLevel,
+  AdsMetricRecord,
+  AdsMutationResult,
+  AdsPerformanceEnvelope,
+  AdsProviderId,
+  AdDestinationResult,
+  ArchiveAdResult,
+  CreateAdCreativeResult,
+  CreateAdResult,
+  CreateAdSetResult,
+  CreateCampaignResult,
+  GetTargetingOptionsResult,
+  UpdateAdSetResult,
+} from './types.js';
 import { ADS_ENTITY_LEVELS, ADS_PROVIDER_IDS, isAdsProviderId } from './types.js';
 import { redactErrorMessage, redactTokenLikeValues } from './credentials.js';
 
@@ -142,9 +158,9 @@ export function areAdsWriteToolsEnabled(): boolean {
 }
 
 export function getAdsMcpToolDefinitions(options: { includeWrites?: boolean } = {}) {
-  return ADS_MCP_TOOL_DEFINITIONS.filter((tool) => (
-    options.includeWrites === true || !isAdsMcpWriteTool(tool.name)
-  ));
+  return ADS_MCP_TOOL_DEFINITIONS.filter(
+    (tool) => options.includeWrites === true || !isAdsMcpWriteTool(tool.name)
+  );
 }
 
 export const ADS_MCP_TOOL_DEFINITIONS = [
@@ -160,67 +176,80 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
   },
   {
     name: 'ads_get_performance',
-    description: 'Canonical read tool for normalized ads performance. Use level, metrics, dimensions, breakdowns, filters, sorting, limit, and cursor instead of report-specific tools.',
+    description:
+      'Canonical read tool for normalized ads performance. Use level, metrics, dimensions, breakdowns, filters, sorting, limit, and cursor instead of report-specific tools.',
     inputSchema: createPerformanceInputSchema(['since', 'until']),
   },
   {
     name: 'ads_get_creatives',
-    description: 'Canonical read tool for creative metadata and creative-level metrics. Returns the standard performance envelope with level creative. For Meta setup checks, pass params.complianceAudit=true to audit active ads with their Ad Set placements.',
+    description:
+      'Canonical read tool for creative metadata and creative-level metrics. Returns the standard performance envelope with level creative. For Meta setup checks, pass params.complianceAudit=true to audit active ads with their Ad Set placements.',
     inputSchema: createPerformanceInputSchema(['since', 'until']),
   },
   {
     name: 'ads_get_change_history',
-    description: 'Canonical read-only change history tool. Meta returns a structured empty-compatible envelope; unsupported providers return NOT_IMPLEMENTED.',
+    description:
+      'Canonical read-only change history tool. Meta returns a structured empty-compatible envelope; unsupported providers return NOT_IMPLEMENTED.',
     inputSchema: createAdsInputSchema([]),
   },
   {
     name: 'ads_get_capabilities',
-    description: 'Discover canonical ads tool capabilities, supported providers, levels, metrics, breakdowns, and optional write tools.',
+    description:
+      'Discover canonical ads tool capabilities, supported providers, levels, metrics, breakdowns, and optional write tools.',
     inputSchema: createAdsInputSchema([]),
   },
   {
     name: 'ads_get_account_performance',
-    description: 'Legacy alias: fetch normalized account-level performance. Prefer ads_get_performance with level account for new clients.',
+    description:
+      'Legacy alias: fetch normalized account-level performance. Prefer ads_get_performance with level account for new clients.',
     inputSchema: createAdsInputSchema(['since', 'until']),
   },
   {
     name: 'ads_get_campaign_performance',
-    description: 'Legacy alias: fetch normalized campaign performance. Prefer ads_get_performance with level campaign for new clients.',
+    description:
+      'Legacy alias: fetch normalized campaign performance. Prefer ads_get_performance with level campaign for new clients.',
     inputSchema: createAdsInputSchema(['since', 'until']),
   },
   {
     name: 'ads_get_adset_or_adgroup_performance',
-    description: 'Legacy alias: fetch normalized ad set or ad group performance. Prefer ads_get_performance with level adset or adgroup for new clients.',
+    description:
+      'Legacy alias: fetch normalized ad set or ad group performance. Prefer ads_get_performance with level adset or adgroup for new clients.',
     inputSchema: createAdsInputSchema(['since', 'until']),
   },
   {
     name: 'ads_get_ad_performance',
-    description: 'Legacy alias: fetch normalized ad performance. Prefer ads_get_performance with level ad for new clients.',
+    description:
+      'Legacy alias: fetch normalized ad performance. Prefer ads_get_performance with level ad for new clients.',
     inputSchema: createAdsInputSchema(['since', 'until']),
   },
   {
     name: 'ads_get_creative_performance',
-    description: 'Legacy alias: fetch normalized creative performance. Prefer ads_get_creatives or ads_get_performance with level creative for new clients.',
+    description:
+      'Legacy alias: fetch normalized creative performance. Prefer ads_get_creatives or ads_get_performance with level creative for new clients.',
     inputSchema: createAdsInputSchema(['since', 'until']),
   },
   {
     name: 'ads_get_placement_performance',
-    description: 'Legacy alias: fetch platform and placement performance. Prefer ads_get_performance with placement breakdowns for new clients.',
+    description:
+      'Legacy alias: fetch platform and placement performance. Prefer ads_get_performance with placement breakdowns for new clients.',
     inputSchema: createAdsInputSchema(['since', 'until']),
   },
   {
     name: 'ads_content_matrix',
-    description: 'Legacy skill-owned workflow: return data-only ad/creative performance matrix grouped by campaign or adset. Prefer skill workflows over ads_get_performance and ads_get_creatives for new clients.',
+    description:
+      'Legacy skill-owned workflow: return data-only ad/creative performance matrix grouped by campaign or adset. Prefer skill workflows over ads_get_performance and ads_get_creatives for new clients.',
     inputSchema: createAdsInputSchema(['since', 'until']),
   },
   {
     name: 'ads_generate_report',
-    description: 'Legacy skill-owned workflow: generate an ads report through the AdsBroker. Prefer AI/skill report workflows over canonical data tools for new clients.',
+    description:
+      'Legacy skill-owned workflow: generate an ads report through the AdsBroker. Prefer AI/skill report workflows over canonical data tools for new clients.',
     inputSchema: createAdsInputSchema(['since', 'until']),
   },
   {
     name: 'ads_pause_campaign',
-    description: 'Pause a campaign. Returns success/error. Use with caution — campaign will stop spending.',
+    description:
+      'Pause a campaign. Returns success/error. Use with caution — campaign will stop spending.',
     inputSchema: createWriteInputSchema(['campaignId']),
   },
   {
@@ -230,7 +259,8 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
   },
   {
     name: 'ads_update_campaign_budget',
-    description: 'Update a campaign\'s daily budget (in local currency minor units). Safety guard: rejects increases >200% by default.',
+    description:
+      "Update a campaign's daily budget (in local currency minor units). Safety guard: rejects increases >200% by default.",
     inputSchema: createWriteInputSchema(['campaignId', 'dailyBudget']),
   },
   {
@@ -240,22 +270,26 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
   },
   {
     name: 'ads_create_campaign',
-    description: 'Create a Meta ad campaign with a specified objective. Dry-run by default. Set dryRun=false and confirmed=true to execute. Campaign is created PAUSED by default.',
+    description:
+      'Create a Meta ad campaign with a specified objective. Dry-run by default. Set dryRun=false and confirmed=true to execute. Campaign is created PAUSED by default.',
     inputSchema: createCreateCampaignInputSchema(),
   },
   {
     name: 'ads_create_adset',
-    description: 'Create a Meta ad set under an existing campaign. Dry-run by default. Set dryRun=false and confirmed=true to execute. Ad set is created PAUSED by default.',
+    description:
+      'Create a Meta ad set under an existing campaign. Dry-run by default. Set dryRun=false and confirmed=true to execute. Ad set is created PAUSED by default.',
     inputSchema: createCreateAdSetInputSchema(),
   },
   {
     name: 'ads_create_adcreative',
-    description: 'Create a Meta ad creative with image/video, headline, body, CTA, or official Dynamic Creative inputs: objectStorySpec plus top-level assetFeedSpec. assetFeedSpec supports multiple primary texts and headlines. Dry-run by default. Set dryRun=false and confirmed=true to execute.',
+    description:
+      'Create a Meta ad creative with image/video, headline, body, CTA, or official Dynamic Creative inputs: objectStorySpec plus top-level assetFeedSpec. assetFeedSpec supports multiple primary texts and headlines. Dry-run by default. Set dryRun=false and confirmed=true to execute.',
     inputSchema: createCreateAdCreativeInputSchema(),
   },
   {
     name: 'ads_create_ad',
-    description: 'Create a Meta ad by linking an existing ad set to an existing creative. Dry-run by default. Set dryRun=false and confirmed=true to execute. Ad is created PAUSED by default.',
+    description:
+      'Create a Meta ad by linking an existing ad set to an existing creative. Dry-run by default. Set dryRun=false and confirmed=true to execute. Ad is created PAUSED by default.',
     inputSchema: createCreateAdInputSchema(),
   },
   {
@@ -265,103 +299,121 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
   },
   {
     name: 'ads_update_adset',
-    description: 'Update an existing Meta ad set (name, budget, targeting, status). Dry-run by default. Set dryRun=false and confirmed=true to execute.',
+    description:
+      'Update an existing Meta ad set (name, budget, targeting, status). Dry-run by default. Set dryRun=false and confirmed=true to execute.',
     inputSchema: createUpdateAdSetInputSchema(),
   },
   {
     name: 'ads_get_targeting_options',
-    description: 'Search Meta targeting options (interests, behaviors, demographics) for ad set creation.',
+    description:
+      'Search Meta targeting options (interests, behaviors, demographics) for ad set creation.',
     inputSchema: createGetTargetingOptionsInputSchema(),
   },
   {
     name: 'ads_create_ecommerce_campaign_bundle',
-    description: 'Create a PAUSED Meta ecommerce sales campaign bundle (campaign, ad set, creative, ad) after dry-run preview and explicit confirmation.',
+    description:
+      'Create a PAUSED Meta ecommerce sales campaign bundle (campaign, ad set, creative, ad) after dry-run preview and explicit confirmation.',
     inputSchema: createEcommerceLaunchInputSchema(),
   },
   {
     name: 'ads_get_video_source',
-    description: 'Get the raw video source URL (MP4), embed HTML, and thumbnail for a Meta video ID. Calls GET /{video_id}?fields=source,embed_html,picture.',
+    description:
+      'Get the raw video source URL (MP4), embed HTML, and thumbnail for a Meta video ID. Calls GET /{video_id}?fields=source,embed_html,picture.',
     inputSchema: createAdsInputSchema([]),
   },
   {
     name: 'ads_get_ad_creative_mapping',
-    description: 'Get the creative_id for each ad in an account. Calls GET /act_{id}/ads?fields=id,name,creative{{id}}. Use this to link ad performance data (from ads_get_ad_performance) with creative assets (from ads_get_creative_performance). Accepts optional adIds[] param to filter specific ads.',
+    description:
+      'Get the creative_id for each ad in an account. Calls GET /act_{id}/ads?fields=id,name,creative{{id}}. Use this to link ad performance data (from ads_get_ad_performance) with creative assets (from ads_get_creative_performance). Accepts optional adIds[] param to filter specific ads.',
     inputSchema: createAdsInputSchema([]),
   },
   {
     name: 'ads_upload_image',
-    description: 'Upload a local image file to the Meta Ads Image Library. Returns image_hash for use in creative creation. Supported formats: .jpg, .jpeg, .png. Max file size: 30 MB.',
+    description:
+      'Upload a local image file to the Meta Ads Image Library. Returns image_hash for use in creative creation. Supported formats: .jpg, .jpeg, .png. Max file size: 30 MB.',
     inputSchema: createUploadInputSchema(['filePath']),
   },
   {
     name: 'ads_upload_video',
-    description: 'Upload a local video file to the Meta Ads Video Library. Returns video_id for use in creative creation. Supported formats: .mp4, .mov, .avi, .wmv. Max file size: 1 GB. Video processing is async.',
+    description:
+      'Upload a local video file to the Meta Ads Video Library. Returns video_id for use in creative creation. Supported formats: .mp4, .mov, .avi, .wmv. Max file size: 1 GB. Video processing is async.',
     inputSchema: createUploadInputSchema(['filePath']),
   },
   {
     name: 'ads_get_account_info',
-    description: 'Get detailed information about a Meta Ads account. Returns account name, currency, timezone, balance, spending limit, amount spent, account status, and business info.',
+    description:
+      'Get detailed information about a Meta Ads account. Returns account name, currency, timezone, balance, spending limit, amount spent, account status, and business info.',
     inputSchema: createAdsInputSchema([]),
   },
   {
     name: 'ads_list_adimages',
-    description: 'List images from the Meta Ads Image Library. Returns image hash, URL, dimensions, name, and creatives count. Calls GET /act_{id}/adimages.',
+    description:
+      'List images from the Meta Ads Image Library. Returns image hash, URL, dimensions, name, and creatives count. Calls GET /act_{id}/adimages.',
     inputSchema: createAdsInputSchema([]),
   },
   {
     name: 'ads_list_advideos',
-    description: 'List videos from the Meta Ads Video Library (paginated). Returns video ID, title, source URL, status, file size, and thumbnail. Calls GET /act_{id}/advideos. Supports params: limit, cursor.',
+    description:
+      'List videos from the Meta Ads Video Library (paginated). Returns video ID, title, source URL, status, file size, and thumbnail. Calls GET /act_{id}/advideos. Supports params: limit, cursor.',
     inputSchema: createAdsInputSchema([]),
   },
   {
     name: 'ads_get_ad_preview',
-    description: 'Get a preview URL for a Meta ad creative in a specific ad format. Returns preview URL, platform, and ad format. Calls GET /{creative_id}/previews. Required params: creativeId, adFormat (enum: DESKTOP_FEED, MOBILE_FEED, INSTAGRAM_FEED, INSTAGRAM_EXPLORE, INSTAGRAM_REELS, INSTAGRAM_STORIES, FACEBOOK_STORIES, MESSENGER_INBOX, MARKETPLACE, REWARDS_PLATFORM, FACEBOOK_REELS).',
+    description:
+      'Get a preview URL for a Meta ad creative in a specific ad format. Returns preview URL, platform, and ad format. Calls GET /{creative_id}/previews. Required params: creativeId, adFormat (enum: DESKTOP_FEED, MOBILE_FEED, INSTAGRAM_FEED, INSTAGRAM_EXPLORE, INSTAGRAM_REELS, INSTAGRAM_STORIES, FACEBOOK_STORIES, MESSENGER_INBOX, MARKETPLACE, REWARDS_PLATFORM, FACEBOOK_REELS).',
     inputSchema: createPreviewInputSchema(),
   },
   {
     name: 'ads_get_ad_destinations',
-    description: 'Get destination URLs from ads with their creative metadata. Fetches ads with object_story_spec and asset_feed_spec, then extracts the destination URL for each creative type (link, video, carousel, Advantage+, existing post). Supports status filtering. Calls GET /act_{id}/ads?fields=id,name,status,effective_status,creative{id,object_type,object_story_spec,asset_feed_spec}.',
+    description:
+      'Get destination URLs from ads with their creative metadata. Fetches ads with object_story_spec and asset_feed_spec, then extracts the destination URL for each creative type (link, video, carousel, Advantage+, existing post). Supports status filtering. Calls GET /act_{id}/ads?fields=id,name,status,effective_status,creative{id,object_type,object_story_spec,asset_feed_spec}.',
     inputSchema: createAdsInputSchema([]),
   },
   {
     name: 'ads_read_creative_full',
-    description: 'Read the full configuration of a Meta Ad Creative — a reverse engineering tool that returns ALL fields from the /{creative_id}?fields=... Graph API endpoint. Use this to inspect a working ad creative from Meta Ads Manager and see its complete payload (object_story_spec, asset_feed_spec, call_to_action, page_welcome_message, tracking_specs, degrees_of_freedom_spec, etc.). Ideal for reverse engineering new ad features (CTWA, Carousel, DCO, Catalog, Advantage+). Requires creativeId.',
+    description:
+      'Read the full configuration of a Meta Ad Creative — a reverse engineering tool that returns ALL fields from the /{creative_id}?fields=... Graph API endpoint. Use this to inspect a working ad creative from Meta Ads Manager and see its complete payload (object_story_spec, asset_feed_spec, call_to_action, page_welcome_message, tracking_specs, degrees_of_freedom_spec, etc.). Ideal for reverse engineering new ad features (CTWA, Carousel, DCO, Catalog, Advantage+). Requires creativeId.',
     inputSchema: createReadCreativeFullInputSchema(),
   },
   {
     name: 'ads_list_pages',
-    description: 'List Meta Pages accessible by the token for selecting a valid pageId for ad creative object_story_spec.',
+    description:
+      'List Meta Pages accessible by the token for selecting a valid pageId for ad creative object_story_spec.',
     inputSchema: createAdsInputSchema([]),
   },
   {
     name: 'ads_list_instagram_accounts',
-    description: 'List Instagram Business Accounts connected to the user\'s Facebook Pages.',
+    description: "List Instagram Business Accounts connected to the user's Facebook Pages.",
     inputSchema: createAdsInputSchema([]),
   },
   {
     name: 'ads_list_threads_profiles',
-    description: 'List Threads profiles connected to the user\'s Facebook Pages.',
+    description: "List Threads profiles connected to the user's Facebook Pages.",
     inputSchema: createAdsInputSchema([]),
   },
   {
     name: 'ads_list_whatsapp_accounts',
-    description: 'Discover WhatsApp Business Accounts (WABA) — both owned and client-shared. Calls GET /{businessId}/owned_whatsapp_business_accounts and /{businessId}/client_whatsapp_business_accounts.',
+    description:
+      'Discover WhatsApp Business Accounts (WABA) — both owned and client-shared. Calls GET /{businessId}/owned_whatsapp_business_accounts and /{businessId}/client_whatsapp_business_accounts.',
     inputSchema: createAdsInputSchema([]),
   },
   {
     name: 'ads_list_whatsapp_phone_numbers',
-    description: 'List phone numbers associated with a WhatsApp Business Account (WABA). Returns phone_number_id needed for CTWA creative setup. Calls GET /{wabaId}/phone_numbers.',
+    description:
+      'List phone numbers associated with a WhatsApp Business Account (WABA). Returns phone_number_id needed for CTWA creative setup. Calls GET /{wabaId}/phone_numbers.',
     inputSchema: createAdsInputSchema([]),
   },
   {
     name: 'ads_list_whatsapp_message_templates',
-    description: 'List WhatsApp message templates for a WABA. Supports filtering by name and status (APPROVED, PENDING, REJECTED). Calls GET /{wabaId}/message_templates.',
+    description:
+      'List WhatsApp message templates for a WABA. Supports filtering by name and status (APPROVED, PENDING, REJECTED). Calls GET /{wabaId}/message_templates.',
     inputSchema: createAdsInputSchema([]),
   },
   // --- TikTok GMV Max ---
   {
     name: 'tiktok_gmv_max_create_campaign',
-    description: 'Create a TikTok GMV Max campaign for Shop sellers. Requires store_ids, objective_type, campaign_name, and budget.',
+    description:
+      'Create a TikTok GMV Max campaign for Shop sellers. Requires store_ids, objective_type, campaign_name, and budget.',
     inputSchema: createAdsInputSchema([]),
   },
   {
@@ -371,7 +423,8 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
   },
   {
     name: 'tiktok_gmv_max_create_session',
-    description: 'Create a GMV Max session (sale event) for an existing GMV Max campaign. Requires session_name, start_time, end_time.',
+    description:
+      'Create a GMV Max session (sale event) for an existing GMV Max campaign. Requires session_name, start_time, end_time.',
     inputSchema: createAdsInputSchema([]),
   },
   {
@@ -392,7 +445,8 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
   // --- TikTok Smart Plus ---
   {
     name: 'tiktok_smart_plus_create_campaign',
-    description: 'Create a TikTok Smart Plus campaign (Advantage+ equivalent). TikTok handles targeting and creatives automatically.',
+    description:
+      'Create a TikTok Smart Plus campaign (Advantage+ equivalent). TikTok handles targeting and creatives automatically.',
     inputSchema: createAdsInputSchema([]),
   },
   {
@@ -407,7 +461,8 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
   },
   {
     name: 'tiktok_smart_plus_create_adgroup',
-    description: 'Create a TikTok Smart Plus ad group. TikTok handles targeting and creatives automatically.',
+    description:
+      'Create a TikTok Smart Plus ad group. TikTok handles targeting and creatives automatically.',
     inputSchema: createAdsInputSchema([]),
   },
   {
@@ -439,7 +494,9 @@ export async function handleAdsMcpToolCall(
   const request = toAdsBrokerRequest(args, connectionKey);
   const response = await callBrokerMethod(broker, name, request);
   const canonicalResponse = canonicalizeToolResponse(name, request, response);
-  const safeResponse = stripRawFromResponse(redactTokenLikeValues(canonicalResponse)) as AdsBrokerResponse;
+  const safeResponse = stripRawFromResponse(
+    redactTokenLikeValues(canonicalResponse)
+  ) as AdsBrokerResponse;
 
   return {
     content: [
@@ -495,8 +552,12 @@ function stripRawFromResponse<T>(value: T): T {
   return value;
 }
 
-export function toAdsBrokerRequest(args: Record<string, unknown>, connectionKey?: string): AdsBrokerRequest {
-  const oauthAuthContext = (args._oauthAuthContext as AdsBrokerRequest['oauthAuthContext']) ?? undefined;
+export function toAdsBrokerRequest(
+  args: Record<string, unknown>,
+  connectionKey?: string
+): AdsBrokerRequest {
+  const oauthAuthContext =
+    (args._oauthAuthContext as AdsBrokerRequest['oauthAuthContext']) ?? undefined;
 
   return {
     provider: parseProvider(args.provider),
@@ -512,7 +573,15 @@ export function toAdsBrokerRequest(args: Record<string, unknown>, connectionKey?
 
 function extractParams(args: Record<string, unknown>): Record<string, unknown> {
   const params = isPlainObject(args.params) ? { ...args.params } : {};
-  const reserved = new Set(['provider', 'providers', 'accountId', 'since', 'until', 'params', '_oauthAuthContext']);
+  const reserved = new Set([
+    'provider',
+    'providers',
+    'accountId',
+    'since',
+    'until',
+    'params',
+    '_oauthAuthContext',
+  ]);
 
   for (const [key, value] of Object.entries(args)) {
     if (!reserved.has(key)) params[key] = value;
@@ -539,7 +608,8 @@ function callBrokerMethod(
         params: { ...request.params, level: 'creative' },
       });
     case 'ads_get_change_history':
-      if ((request.provider ?? 'meta') !== 'meta') return Promise.resolve(getAdsChangeHistory(request));
+      if ((request.provider ?? 'meta') !== 'meta')
+        return Promise.resolve(getAdsChangeHistory(request));
       return broker.getChangeHistory(request);
     case 'ads_get_capabilities':
       return Promise.resolve(mergeCapabilitiesResponse(request, broker.getCapabilities(request)));
@@ -636,22 +706,32 @@ function callBrokerMethod(
     default:
       return Promise.resolve({
         ok: false,
-        errors: [{ code: 'UNSUPPORTED_OPERATION', message: `'${name}' is not implemented through the broker yet` }],
+        errors: [
+          {
+            code: 'UNSUPPORTED_OPERATION',
+            message: `'${name}' is not implemented through the broker yet`,
+          },
+        ],
       });
   }
 }
 
-function getAdsChangeHistory(request: AdsBrokerRequest): AdsBrokerResponse<Record<string, unknown>> {
+function getAdsChangeHistory(
+  request: AdsBrokerRequest
+): AdsBrokerResponse<Record<string, unknown>> {
   const provider = request.provider ?? 'meta';
   if (provider !== 'meta') {
     return {
       ok: false,
       provider,
-      errors: [{
-        provider,
-        code: 'NOT_IMPLEMENTED',
-        message: 'ads_get_change_history is currently implemented only for Meta-compatible change history envelopes.',
-      }],
+      errors: [
+        {
+          provider,
+          code: 'NOT_IMPLEMENTED',
+          message:
+            'ads_get_change_history is currently implemented only for Meta-compatible change history envelopes.',
+        },
+      ],
     };
   }
 
@@ -664,11 +744,14 @@ function getAdsChangeHistory(request: AdsBrokerRequest): AdsBrokerResponse<Recor
       dateRange: { since: request.since, until: request.until },
       rows: [],
       paging: { nextCursor: null },
-      warnings: [{
-        code: 'CHANGE_HISTORY_ADAPTER_NOT_CONNECTED',
-        message: 'Meta change history envelope is available; provider API fetching will be attached behind this canonical tool in the adapter layer.',
-        severity: 'info',
-      }],
+      warnings: [
+        {
+          code: 'CHANGE_HISTORY_ADAPTER_NOT_CONNECTED',
+          message:
+            'Meta change history envelope is available; provider API fetching will be attached behind this canonical tool in the adapter layer.',
+          severity: 'info',
+        },
+      ],
       dataFreshness: { retrievedAt: new Date().toISOString() },
       capabilities: getAdsCapabilities(request).data ?? {},
     },
@@ -698,8 +781,9 @@ function canonicalizeToolResponse(
     return response;
   }
 
-  const rows = Array.isArray(response.data) ? response.data as AdsMetricRecord[] : [];
-  const level = name === 'ads_get_creatives' ? 'creative' : parsePerformanceLevel(request.params.level);
+  const rows = Array.isArray(response.data) ? (response.data as AdsMetricRecord[]) : [];
+  const level =
+    name === 'ads_get_creatives' ? 'creative' : parsePerformanceLevel(request.params.level);
   return {
     ...response,
     data: buildPerformanceEnvelope(request, response, rows, level),
@@ -716,7 +800,9 @@ function buildPerformanceEnvelope(
   const requestedMetrics = parseStringArray(request.params.metrics);
   const requestedDimensions = parseStringArray(request.params.dimensions);
   const metrics = requestedMetrics.length ? requestedMetrics : inferMetrics(rows);
-  const dimensions = requestedDimensions.length ? requestedDimensions : inferDimensions(level, rows);
+  const dimensions = requestedDimensions.length
+    ? requestedDimensions
+    : inferDimensions(level, rows);
   const unsupportedMetrics = metrics.filter((metric) => !SUPPORTED_CANONICAL_METRICS.has(metric));
   const warningObjects = unsupportedMetrics.map((metric) => ({
     code: 'UNSUPPORTED_METRIC',
@@ -744,10 +830,7 @@ function buildPerformanceEnvelope(
     paging: {
       nextCursor: typeof response.meta?.nextCursor === 'string' ? response.meta.nextCursor : null,
     },
-    warnings: [
-      ...warningObjects,
-      ...extractWarningObjects(response.meta?.warnings),
-    ],
+    warnings: [...warningObjects, ...extractWarningObjects(response.meta?.warnings)],
     dataFreshness: {
       retrievedAt: new Date().toISOString(),
     },
@@ -788,14 +871,23 @@ const SUPPORTED_CANONICAL_METRICS = new Set([
 ]);
 
 function parseStringArray(value: unknown): string[] {
-  return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === 'string')
+    : [];
 }
 
 function inferMetrics(rows: AdsMetricRecord[]): string[] {
   const metrics = new Set<string>();
   for (const row of rows) {
     for (const key of Object.keys(row.delivery)) metrics.add(key);
-    for (const group of [row.clicks, row.conversions, row.commerce, row.leads, row.video, row.engagement]) {
+    for (const group of [
+      row.clicks,
+      row.conversions,
+      row.commerce,
+      row.leads,
+      row.video,
+      row.engagement,
+    ]) {
       if (!group) continue;
       for (const key of Object.keys(group)) metrics.add(key);
     }
@@ -822,12 +914,17 @@ function extractWarningObjects(value: unknown): AdsPerformanceEnvelope['warnings
       const record = warning as Record<string, unknown>;
       return {
         code: typeof record.code === 'string' ? record.code : 'PROVIDER_WARNING',
-        message: typeof record.message === 'string' ? record.message : 'Provider returned a warning.',
+        message:
+          typeof record.message === 'string' ? record.message : 'Provider returned a warning.',
         field: typeof record.field === 'string' ? record.field : undefined,
-        severity: record.severity === 'info' ? 'info' as const : 'warning' as const,
+        severity: record.severity === 'info' ? ('info' as const) : ('warning' as const),
       };
     }
-    return { code: 'PROVIDER_WARNING', message: 'Provider returned a warning.', severity: 'warning' as const };
+    return {
+      code: 'PROVIDER_WARNING',
+      message: 'Provider returned a warning.',
+      severity: 'warning' as const,
+    };
   });
 }
 
@@ -859,7 +956,8 @@ function parsePerformanceLevel(level: unknown): AdsEntityLevel {
 }
 
 function getAdsCapabilities(request: AdsBrokerRequest): AdsBrokerResponse<Record<string, unknown>> {
-  const provider = request.provider && isAdsProviderId(request.provider) ? request.provider : undefined;
+  const provider =
+    request.provider && isAdsProviderId(request.provider) ? request.provider : undefined;
 
   return {
     ok: true,
@@ -956,7 +1054,8 @@ function createUploadInputSchema(required: string[]) {
       ...(schema.properties as Record<string, unknown>),
       filePath: {
         type: 'string',
-        description: 'Absolute path to the local file to upload. Example: /Users/name/Downloads/ad-image.jpg',
+        description:
+          'Absolute path to the local file to upload. Example: /Users/name/Downloads/ad-image.jpg',
       },
       title: {
         type: 'string',
@@ -1013,7 +1112,8 @@ function createReadCreativeFullInputSchema() {
       ...(schema.properties as Record<string, unknown>),
       creativeId: {
         type: 'string',
-        description: 'Meta Ad Creative ID to read (e.g. 120330899389530268). Get this from ads_list_advideos, ads_get_ad_creative_mapping, or Meta Ads Manager.',
+        description:
+          'Meta Ad Creative ID to read (e.g. 120330899389530268). Get this from ads_list_advideos, ads_get_ad_creative_mapping, or Meta Ads Manager.',
       },
     },
     required: ['creativeId'],
@@ -1028,15 +1128,30 @@ function createCreateCampaignInputSchema() {
     properties: {
       ...(schema.properties as Record<string, unknown>),
       name: { type: 'string', description: 'Campaign name.' },
+      mode: {
+        type: 'string',
+        enum: ['standard', 'collaborative_ads'],
+        description:
+          'standard untuk iklan Meta biasa; collaborative_ads untuk katalog retailer yang sudah dibagikan.',
+      },
       objective: {
         type: 'string',
         enum: [
-          'OUTCOME_SALES', 'OUTCOME_TRAFFIC', 'OUTCOME_ENGAGEMENT',
-          'OUTCOME_LEADS', 'OUTCOME_AWARENESS', 'OUTCOME_APP_PROMOTION',
-          'OUTCOME_CONVERSATIONS', 'OUTCOME_RESHARES', 'OUTCOME_VALUE',
-          'OUTCOME_VIDEO_VIEWS', 'OUTCOME_POST_ENGAGEMENT',
-          'OUTCOME_LANDING_PAGE_VIEWS', 'OUTCOME_REACH',
-          'OUTCOME_MESSAGES', 'OUTCOME_THRUPLAY',
+          'OUTCOME_SALES',
+          'OUTCOME_TRAFFIC',
+          'OUTCOME_ENGAGEMENT',
+          'OUTCOME_LEADS',
+          'OUTCOME_AWARENESS',
+          'OUTCOME_APP_PROMOTION',
+          'OUTCOME_CONVERSATIONS',
+          'OUTCOME_RESHARES',
+          'OUTCOME_VALUE',
+          'OUTCOME_VIDEO_VIEWS',
+          'OUTCOME_POST_ENGAGEMENT',
+          'OUTCOME_LANDING_PAGE_VIEWS',
+          'OUTCOME_REACH',
+          'OUTCOME_MESSAGES',
+          'OUTCOME_THRUPLAY',
         ],
         description: 'Campaign objective.',
       },
@@ -1048,12 +1163,18 @@ function createCreateCampaignInputSchema() {
       specialAdCategories: {
         type: 'array',
         items: { type: 'string' },
-        description: 'Meta special ad categories (e.g. CREDIT, EMPLOYMENT, HOUSING, SOCIAL_ISSUES_ELECTIONS).',
+        description:
+          'Meta special ad categories (e.g. CREDIT, EMPLOYMENT, HOUSING, SOCIAL_ISSUES_ELECTIONS).',
       },
       buyType: {
         type: 'string',
         enum: ['AUCTION', 'RESERVED'],
         description: 'Buying type. Defaults to AUCTION.',
+      },
+      isAdSetBudgetSharingEnabled: {
+        type: 'boolean',
+        description:
+          'Izinkan ad set tanpa campaign budget berbagi hingga 20% anggaran. Default false.',
       },
       dailyBudget: {
         type: 'number',
@@ -1097,21 +1218,91 @@ function createCreateAdSetInputSchema() {
       ...(schema.properties as Record<string, unknown>),
       campaignId: { type: 'string', description: 'The campaign ID to create the ad set under.' },
       name: { type: 'string', description: 'Ad set name.' },
+      mode: {
+        type: 'string',
+        enum: ['standard', 'collaborative_ads'],
+        description:
+          'standard untuk iklan Meta biasa; collaborative_ads untuk katalog retailer yang sudah dibagikan.',
+      },
+      collaborativeCatalog: {
+        type: 'object',
+        description:
+          'Konteks katalog retailer untuk Collaborative Ads. Isi product set, pixel omnichannel, aplikasi retailer, event, dan URL app store sesuai data kolaborasi.',
+        properties: {
+          productSetId: {
+            type: 'string',
+            description: 'ID product set dari katalog retailer yang dibagikan.',
+          },
+          pixelId: {
+            type: 'string',
+            description: 'ID Meta Pixel untuk mengukur event konversi, jika digunakan.',
+          },
+          customEventType: {
+            type: 'string',
+            description: 'Event konversi Meta, misalnya PURCHASE, jika digunakan.',
+          },
+          destinationUrl: {
+            type: 'string',
+            description: 'URL tujuan katalog atau toko retailer, jika digunakan.',
+          },
+          applicationId: {
+            type: 'string',
+            description: 'ID aplikasi retailer, misalnya aplikasi Shopee.',
+          },
+          objectStoreUrls: {
+            type: 'array',
+            items: { type: 'string' },
+            description: 'URL Play Store dan App Store aplikasi retailer.',
+          },
+        },
+        required: ['productSetId'],
+        additionalProperties: false,
+      },
       status: {
         type: 'string',
         enum: ['ACTIVE', 'PAUSED'],
         description: 'Ad set status. Defaults to PAUSED.',
       },
       dailyBudget: { type: 'number', description: 'Daily budget in local currency minor units.' },
-      lifetimeBudget: { type: 'number', description: 'Lifetime budget in local currency minor units.' },
+      lifetimeBudget: {
+        type: 'number',
+        description: 'Lifetime budget in local currency minor units.',
+      },
       billingEvent: {
         type: 'string',
-        enum: ['IMPRESSIONS', 'LINK_CLICKS', 'PAGE_LIKES', 'POST_ENGAGEMENT', 'VIDEO_VIEWS', 'LEADS', 'APP_INSTALLS', 'REACH', 'VALUE', 'LANDING_PAGE_VIEWS', 'OFFSITE_CONVERSIONS'],
+        enum: [
+          'IMPRESSIONS',
+          'LINK_CLICKS',
+          'PAGE_LIKES',
+          'POST_ENGAGEMENT',
+          'VIDEO_VIEWS',
+          'LEADS',
+          'APP_INSTALLS',
+          'REACH',
+          'VALUE',
+          'LANDING_PAGE_VIEWS',
+          'OFFSITE_CONVERSIONS',
+        ],
         description: 'Billing event. Defaults to IMPRESSIONS.',
       },
       optimizationGoal: {
         type: 'string',
-        enum: ['NONE', 'APP_INSTALLS', 'CONVERSATIONS', 'ENGAGED_USERS', 'IMPRESSIONS', 'LANDING_PAGE_VIEWS', 'LEAD_GENERATION', 'LINK_CLICKS', 'OFFSITE_CONVERSIONS', 'PAGE_LIKES', 'POST_ENGAGEMENT', 'REACH', 'THRUPLAY', 'VALUE'],
+        enum: [
+          'NONE',
+          'APP_INSTALLS',
+          'CONVERSATIONS',
+          'ENGAGED_USERS',
+          'IMPRESSIONS',
+          'LANDING_PAGE_VIEWS',
+          'LEAD_GENERATION',
+          'LINK_CLICKS',
+          'OFFSITE_CONVERSIONS',
+          'PAGE_LIKES',
+          'POST_ENGAGEMENT',
+          'REACH',
+          'THRUPLAY',
+          'VALUE',
+        ],
         description: 'Optimization goal. Defaults to REACH.',
       },
       bidStrategy: {
@@ -1122,36 +1313,72 @@ function createCreateAdSetInputSchema() {
         type: 'object',
         description: 'Geo targeting object with countries[], regions[], cities[].',
       },
-      bidAmount: { type: 'number', description: 'Bid amount in account currency cents. REQUIRED when bidStrategy is COST_CAP or LOWEST_COST_WITH_BID_CAP.' },
-      bidConstraints: { type: 'object', description: 'Bid constraints for LOWEST_COST_WITH_MIN_ROAS. Shape: { roas_average_floor: number }.' },
+      bidAmount: {
+        type: 'number',
+        description:
+          'Bid amount in account currency cents. REQUIRED when bidStrategy is COST_CAP or LOWEST_COST_WITH_BID_CAP.',
+      },
+      bidConstraints: {
+        type: 'object',
+        description:
+          'Bid constraints for LOWEST_COST_WITH_MIN_ROAS. Shape: { roas_average_floor: number }.',
+      },
       ageMin: { type: 'number', description: 'Minimum age target (e.g. 18).' },
       ageMax: { type: 'number', description: 'Maximum age target (e.g. 65).' },
-      genders: { type: 'array', items: { type: 'number' }, description: 'Gender targeting values. Meta uses 1=male, 2=female.' },
+      genders: {
+        type: 'array',
+        items: { type: 'number' },
+        description: 'Gender targeting values. Meta uses 1=male, 2=female.',
+      },
       publisherPlatforms: {
-          type: 'array',
-          items: { type: 'string' },
-          description: 'Publisher platforms (e.g. facebook, instagram, messenger).',
-        },
-        interests: {
-          type: 'array',
-          description: 'Interest targeting array [{ id, name }].',
-        },
-        promotedObject: {
-          type: 'object',
-          description: 'Promoted object (e.g. { pixel_id, custom_event_type }).',
-        },
-        startTime: { type: 'string', description: 'Start time in ISO format.' },
-        endTime: { type: 'string', description: 'End time in ISO format.' },
-      destinationType: { type: 'string', description: 'Where users go: WEBSITE, APP, MESSENGER, WHATSAPP, INSTAGRAM_DIRECT, etc.' },
-      attributionSpec: { type: 'array', description: 'Attribution window spec. Example: [{ event_type: "CLICK_THROUGH", window_days: 7 }]' },
-      frequencyControlSpecs: { type: 'array', description: 'Frequency cap specs. Example: [{ event: "IMPRESSIONS", interval_days: 7, max_frequency: 3 }]' },
-      isDynamicCreative: { type: 'boolean', description: 'Enable Dynamic Creative for this ad set.' },
-      dsaBeneficiary: { type: 'string', description: 'DSA beneficiary for European compliance (person/org that benefits from ads).' },
-      dsaPayor: { type: 'string', description: 'DSA payor for European compliance (person/org paying for the ads).' },
-      multiAdvertiserAds: { type: 'number', description: 'Multi-Advertiser Ads opt-in (1) or opt-out (0).' },
+        type: 'array',
+        items: { type: 'string' },
+        description: 'Publisher platforms (e.g. facebook, instagram, messenger).',
+      },
+      interests: {
+        type: 'array',
+        description: 'Interest targeting array [{ id, name }].',
+      },
+      promotedObject: {
+        type: 'object',
+        description: 'Promoted object (e.g. { pixel_id, custom_event_type }).',
+      },
+      startTime: { type: 'string', description: 'Start time in ISO format.' },
+      endTime: { type: 'string', description: 'End time in ISO format.' },
+      destinationType: {
+        type: 'string',
+        description: 'Where users go: WEBSITE, APP, MESSENGER, WHATSAPP, INSTAGRAM_DIRECT, etc.',
+      },
+      attributionSpec: {
+        type: 'array',
+        description:
+          'Attribution window spec. Example: [{ event_type: "CLICK_THROUGH", window_days: 7 }]',
+      },
+      frequencyControlSpecs: {
+        type: 'array',
+        description:
+          'Frequency cap specs. Example: [{ event: "IMPRESSIONS", interval_days: 7, max_frequency: 3 }]',
+      },
+      isDynamicCreative: {
+        type: 'boolean',
+        description: 'Enable Dynamic Creative for this ad set.',
+      },
+      dsaBeneficiary: {
+        type: 'string',
+        description: 'DSA beneficiary for European compliance (person/org that benefits from ads).',
+      },
+      dsaPayor: {
+        type: 'string',
+        description: 'DSA payor for European compliance (person/org paying for the ads).',
+      },
+      multiAdvertiserAds: {
+        type: 'number',
+        description: 'Multi-Advertiser Ads opt-in (1) or opt-out (0).',
+      },
       dedupeByName: {
         type: 'boolean',
-        description: 'Check for an existing ad set with the same name under the campaign before creating.',
+        description:
+          'Check for an existing ad set with the same name under the campaign before creating.',
       },
       externalReference: {
         type: 'string',
@@ -1172,30 +1399,147 @@ function createCreateAdCreativeInputSchema() {
     properties: {
       ...(schema.properties as Record<string, unknown>),
       name: { type: 'string', description: 'Creative name.' },
-      pageId: { type: 'string', description: 'Meta Page ID used in object_story_spec.' },
-      link: { type: 'string', description: 'Destination URL for the link ad.' },
-      message: { type: 'string', description: 'Primary ad text (message).' },
-      headline: { type: 'string', description: 'Ad headline.' },
-      description: { type: 'string', description: 'Optional ad description.' },
-      imageHash: { type: 'string', description: 'Uploaded Meta image hash.' },
-      videoId: { type: 'string', description: 'Uploaded Meta video ID.' },
+      pageId: {
+        type: 'string',
+        description:
+          'Meta Page ID used in object_story_spec. Tidak diperlukan untuk creativeFormat=existing_post.',
+      },
+      mode: {
+        type: 'string',
+        enum: ['standard', 'collaborative_ads'],
+        description:
+          'standard untuk iklan Meta biasa; collaborative_ads untuk katalog retailer yang sudah dibagikan.',
+      },
+      creativeFormat: {
+        type: 'string',
+        enum: [
+          'single_image',
+          'video',
+          'carousel',
+          'catalog',
+          'collection',
+          'flexible',
+          'placement_image',
+          'existing_post',
+        ],
+        description:
+          'Format materi iklan: gambar tunggal, video, carousel, katalog, collection, flexible, gambar khusus per placement, atau postingan yang sudah ada.',
+      },
+      creativeSpec: {
+        type: 'object',
+        description:
+          'Detail materi sesuai creativeFormat. Field per format: single_image memakai imageHash, primaryText, destinationUrl, headline, description, callToAction; video memakai videoId, thumbnailImageHash, primaryText, destinationUrl, headline, description, callToAction; carousel memakai primaryText, destinationUrl, cards (imageHash atau videoId, headline, description, destinationUrl); catalog memakai productSetId, primaryText, destinationUrl, templateUrl, fallbackImageHash; collection memakai instantExperienceId, coverImageHash atau coverVideoId, productSetId, primaryText, destinationUrl; flexible memakai primaryText, primaryTexts, imageHashes dan/atau videoIds, headlines, descriptions, destinationUrl; placement_image memakai feedImageHash, verticalImageHash, primaryText, headline, destinationUrl, callToAction, dan pageWelcomeMessage; existing_post memakai objectStoryId.',
+        additionalProperties: true,
+      },
+      collaborativeProductSetId: {
+        type: 'string',
+        description:
+          'Harus sama dengan product set yang dipilih di ad set, dan wajib untuk setiap format creative Collaborative Ads yang didukung pada rilis ini.',
+      },
+      collaborativeAppSpec: {
+        type: 'object',
+        description:
+          'Identitas aplikasi retailer untuk tujuan omnichannel, termasuk ID aplikasi dan data Android/iOS.',
+        properties: {
+          applicationId: { type: 'string' },
+          android: {
+            type: 'object',
+            properties: {
+              appName: { type: 'string' },
+              packageName: { type: 'string' },
+            },
+            required: ['appName', 'packageName'],
+            additionalProperties: false,
+          },
+          ios: {
+            type: 'object',
+            properties: {
+              appName: { type: 'string' },
+              appStoreId: { type: 'string' },
+            },
+            required: ['appName', 'appStoreId'],
+            additionalProperties: false,
+          },
+        },
+        required: ['applicationId'],
+        additionalProperties: false,
+      },
+      link: {
+        type: 'string',
+        description: 'Field legacy/backward-compatible untuk URL tujuan iklan link sederhana.',
+      },
+      message: {
+        type: 'string',
+        description: 'Field legacy/backward-compatible untuk teks utama iklan.',
+      },
+      headline: {
+        type: 'string',
+        description: 'Field legacy/backward-compatible untuk headline iklan.',
+      },
+      description: {
+        type: 'string',
+        description: 'Field legacy/backward-compatible untuk deskripsi iklan opsional.',
+      },
+      imageHash: {
+        type: 'string',
+        description: 'Field legacy/backward-compatible untuk hash gambar Meta yang sudah diunggah.',
+      },
+      videoId: {
+        type: 'string',
+        description: 'Field legacy/backward-compatible untuk ID video Meta yang sudah diunggah.',
+      },
       callToActionType: {
         type: 'string',
-        enum: ['SHOP_NOW', 'LEARN_MORE', 'SIGN_UP', 'GET_OFFER', 'BOOK_NOW', 'DOWNLOAD', 'CONTACT_US', 'SUBSCRIBE', 'INSTALL_APP'],
-        description: 'Call to action button type.',
+        enum: [
+          'SHOP_NOW',
+          'LEARN_MORE',
+          'SIGN_UP',
+          'GET_OFFER',
+          'BOOK_NOW',
+          'DOWNLOAD',
+          'CONTACT_US',
+          'SUBSCRIBE',
+          'INSTALL_APP',
+        ],
+        description: 'Field legacy/backward-compatible untuk tombol ajakan bertindak.',
       },
       instagramUserId: { type: 'string', description: 'Instagram user ID for IG posting.' },
       threadsProfileId: { type: 'string', description: 'Threads profile ID for Threads posting.' },
       objectStorySpec: {
         type: 'object',
-        description: 'Meta object_story_spec. For Dynamic Creative, use this with top-level assetFeedSpec. Nested asset_feed_spec remains supported for compatibility.',
+        description:
+          'Input advanced/backward-compatible Meta object_story_spec. Untuk Dynamic Creative, gunakan bersama assetFeedSpec tingkat atas; asset_feed_spec bersarang tetap didukung untuk kompatibilitas.',
         properties: {
           asset_feed_spec: {
             type: 'object',
             properties: {
-              bodies: { type: 'array', minItems: 1, items: { type: 'object', properties: { text: { type: 'string', minLength: 1 } }, required: ['text'] } },
-              titles: { type: 'array', minItems: 1, items: { type: 'object', properties: { text: { type: 'string', minLength: 1 } }, required: ['text'] } },
-              link_urls: { type: 'array', minItems: 1, items: { type: 'object', properties: { website_url: { type: 'string', format: 'uri' } }, required: ['website_url'] } },
+              bodies: {
+                type: 'array',
+                minItems: 1,
+                items: {
+                  type: 'object',
+                  properties: { text: { type: 'string', minLength: 1 } },
+                  required: ['text'],
+                },
+              },
+              titles: {
+                type: 'array',
+                minItems: 1,
+                items: {
+                  type: 'object',
+                  properties: { text: { type: 'string', minLength: 1 } },
+                  required: ['text'],
+                },
+              },
+              link_urls: {
+                type: 'array',
+                minItems: 1,
+                items: {
+                  type: 'object',
+                  properties: { website_url: { type: 'string', format: 'uri' } },
+                  required: ['website_url'],
+                },
+              },
             },
             required: ['bodies', 'titles', 'link_urls'],
           },
@@ -1204,13 +1548,50 @@ function createCreateAdCreativeInputSchema() {
       },
       assetFeedSpec: {
         type: 'object',
-        description: 'Official Meta asset_feed_spec for Dynamic Creative. Requires ad_formats, images, bodies, titles, link_urls, and call_to_action_types.',
+        description:
+          'Input advanced/backward-compatible Meta asset_feed_spec untuk Dynamic Creative. Memerlukan ad_formats, images, bodies, titles, link_urls, dan call_to_action_types.',
         properties: {
-          ad_formats: { type: 'array', minItems: 1, items: { type: 'string', enum: ['AUTOMATIC_FORMAT'] } },
-          bodies: { type: 'array', minItems: 1, items: { type: 'object', properties: { text: { type: 'string', minLength: 1 } }, required: ['text'] } },
-          titles: { type: 'array', minItems: 1, items: { type: 'object', properties: { text: { type: 'string', minLength: 1 } }, required: ['text'] } },
-          images: { type: 'array', minItems: 1, items: { type: 'object', properties: { hash: { type: 'string', minLength: 1 } }, required: ['hash'] } },
-          link_urls: { type: 'array', minItems: 1, items: { type: 'object', properties: { website_url: { type: 'string', format: 'uri' } }, required: ['website_url'] } },
+          ad_formats: {
+            type: 'array',
+            minItems: 1,
+            items: { type: 'string', enum: ['AUTOMATIC_FORMAT'] },
+          },
+          bodies: {
+            type: 'array',
+            minItems: 1,
+            items: {
+              type: 'object',
+              properties: { text: { type: 'string', minLength: 1 } },
+              required: ['text'],
+            },
+          },
+          titles: {
+            type: 'array',
+            minItems: 1,
+            items: {
+              type: 'object',
+              properties: { text: { type: 'string', minLength: 1 } },
+              required: ['text'],
+            },
+          },
+          images: {
+            type: 'array',
+            minItems: 1,
+            items: {
+              type: 'object',
+              properties: { hash: { type: 'string', minLength: 1 } },
+              required: ['hash'],
+            },
+          },
+          link_urls: {
+            type: 'array',
+            minItems: 1,
+            items: {
+              type: 'object',
+              properties: { website_url: { type: 'string', format: 'uri' } },
+              required: ['website_url'],
+            },
+          },
           call_to_action_types: { type: 'array', minItems: 1, items: { type: 'string' } },
         },
         required: ['ad_formats', 'bodies', 'titles', 'images', 'link_urls', 'call_to_action_types'],
@@ -1227,7 +1608,7 @@ function createCreateAdCreativeInputSchema() {
       dryRun: { type: 'boolean', description: 'Defaults to true. Set false only after preview.' },
       confirmed: { type: 'boolean', description: 'Must be true to execute after preview.' },
     },
-    required: ['accountId', 'name', 'pageId'],
+    required: ['accountId', 'name'],
   };
 }
 
@@ -1248,7 +1629,8 @@ function createCreateAdInputSchema() {
       },
       dedupeByName: {
         type: 'boolean',
-        description: 'Check for an existing ad with the same name under the ad set before creating.',
+        description:
+          'Check for an existing ad with the same name under the ad set before creating.',
       },
       externalReference: {
         type: 'string',
@@ -1288,25 +1670,44 @@ function createUpdateAdSetInputSchema() {
         enum: ['ACTIVE', 'PAUSED'],
         description: 'New ad set status.',
       },
-      dailyBudget: { type: 'number', description: 'New daily budget in local currency minor units.' },
+      dailyBudget: {
+        type: 'number',
+        description: 'New daily budget in local currency minor units.',
+      },
       lifetimeBudget: { type: 'number', description: 'New lifetime budget.' },
       bidStrategy: { type: 'string', description: 'New bid strategy.' },
       optimizationGoal: {
         type: 'string',
-        enum: ['REACH', 'IMPRESSIONS', 'LINK_CLICKS', 'LANDING_PAGE_VIEWS', 'CONVERSATIONS', 'VALUE'],
+        enum: [
+          'REACH',
+          'IMPRESSIONS',
+          'LINK_CLICKS',
+          'LANDING_PAGE_VIEWS',
+          'CONVERSATIONS',
+          'VALUE',
+        ],
         description: 'New optimization goal.',
       },
       geoLocations: { type: 'object', description: 'Geo targeting object.' },
       ageMin: { type: 'number', description: 'Minimum age target.' },
       ageMax: { type: 'number', description: 'Maximum age target.' },
-      genders: { type: 'array', items: { type: 'number' }, description: 'Gender targeting values. Meta uses 1=male, 2=female.' },
-      publisherPlatforms: { type: 'array', items: { type: 'string' }, description: 'Publisher platforms.' },
+      genders: {
+        type: 'array',
+        items: { type: 'number' },
+        description: 'Gender targeting values. Meta uses 1=male, 2=female.',
+      },
+      publisherPlatforms: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'Publisher platforms.',
+      },
       startTime: { type: 'string', description: 'Start time in ISO format.' },
       endTime: { type: 'string', description: 'End time in ISO format.' },
       mode: {
         type: 'string',
         enum: ['patch', 'replace'],
-        description: 'Nested update mode. Defaults to patch; replace requires explicit replacement confirmation.',
+        description:
+          'Nested update mode. Defaults to patch; replace requires explicit replacement confirmation.',
       },
       replaceTargetingConfirmed: {
         type: 'boolean',
@@ -1349,18 +1750,44 @@ function createEcommerceLaunchInputSchema() {
       adSetName: { type: 'string', description: 'Ad set name.' },
       adName: { type: 'string', description: 'Ad name.' },
       pageId: { type: 'string', description: 'Meta Page ID used in object_story_spec.' },
-      pixelId: { type: 'string', description: 'Meta Pixel ID for ecommerce conversion optimization.' },
+      pixelId: {
+        type: 'string',
+        description: 'Meta Pixel ID for ecommerce conversion optimization.',
+      },
       destinationUrl: { type: 'string', description: 'Product or landing page URL.' },
       dailyBudget: { type: 'number', description: 'Daily budget in account minor currency units.' },
-      countries: { type: 'array', items: { type: 'string' }, description: 'ISO country codes, e.g. ["ID"].' },
+      countries: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'ISO country codes, e.g. ["ID"].',
+      },
       primaryText: { type: 'string', description: 'Primary ad text.' },
       headline: { type: 'string', description: 'Ad headline.' },
       description: { type: 'string', description: 'Optional ad description.' },
-      imageHash: { type: 'string', description: 'Uploaded Meta image hash. Required for static creative unless imageFilePath is provided.' },
-      imageFilePath: { type: 'string', description: 'Local image file path. Alternative to imageHash — auto-uploads before creative creation.' },
-      videoFilePath: { type: 'string', description: 'Local video file path. Alternative to videoId — auto-uploads before creative creation.' },
-      callToActionType: { type: 'string', enum: ['SHOP_NOW', 'LEARN_MORE', 'SIGN_UP', 'GET_OFFER'] },
-      specialAdCategories: { type: 'array', items: { type: 'string' }, description: 'Meta special ad categories. Defaults to [] only when not applicable.' },
+      imageHash: {
+        type: 'string',
+        description:
+          'Uploaded Meta image hash. Required for static creative unless imageFilePath is provided.',
+      },
+      imageFilePath: {
+        type: 'string',
+        description:
+          'Local image file path. Alternative to imageHash — auto-uploads before creative creation.',
+      },
+      videoFilePath: {
+        type: 'string',
+        description:
+          'Local video file path. Alternative to videoId — auto-uploads before creative creation.',
+      },
+      callToActionType: {
+        type: 'string',
+        enum: ['SHOP_NOW', 'LEARN_MORE', 'SIGN_UP', 'GET_OFFER'],
+      },
+      specialAdCategories: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'Meta special ad categories. Defaults to [] only when not applicable.',
+      },
       ageMin: { type: 'number' },
       ageMax: { type: 'number' },
       publisherPlatforms: { type: 'array', items: { type: 'string' } },
@@ -1369,7 +1796,19 @@ function createEcommerceLaunchInputSchema() {
       dryRun: { type: 'boolean', description: 'Defaults to true. Set false only after preview.' },
       confirmed: { type: 'boolean', description: 'Must be true to execute after preview.' },
     },
-    required: ['accountId', 'campaignName', 'adSetName', 'adName', 'pageId', 'pixelId', 'destinationUrl', 'dailyBudget', 'countries', 'primaryText', 'headline'],
+    required: [
+      'accountId',
+      'campaignName',
+      'adSetName',
+      'adName',
+      'pageId',
+      'pixelId',
+      'destinationUrl',
+      'dailyBudget',
+      'countries',
+      'primaryText',
+      'headline',
+    ],
   };
 }
 

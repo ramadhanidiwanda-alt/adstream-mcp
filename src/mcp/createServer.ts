@@ -32,7 +32,7 @@ import {
   getGmvMaxReport,
   getTikTokAdvertisers,
   getTikTokLocationInsights,
-  } from '../index.js';
+} from '../index.js';
 import type { LocationBreakdown } from '../index.js';
 
 export interface CreateMetaAdsMcpServerOptions {
@@ -94,7 +94,10 @@ const adsPerformanceInputSchema = {
     .enum(['account', 'campaign', 'adset', 'adgroup', 'ad', 'creative'])
     .optional()
     .describe('Normalized entity level. Defaults to campaign when omitted.'),
-  metrics: z.array(z.string()).optional().describe('Normalized metric names to request when supported.'),
+  metrics: z
+    .array(z.string())
+    .optional()
+    .describe('Normalized metric names to request when supported.'),
   dimensions: z.array(z.string()).optional().describe('Normalized dimensions to include in rows.'),
   breakdowns: z
     .array(z.string())
@@ -124,9 +127,24 @@ const ecommerceLaunchInputSchema = {
   primaryText: z.string().describe('Primary ad text.'),
   headline: z.string().describe('Ad headline.'),
   description: z.string().optional().describe('Optional ad description.'),
-  imageHash: z.string().optional().describe('Uploaded Meta image hash. Required for static creative unless imageFilePath is provided.'),
-  imageFilePath: z.string().optional().describe('Local image file path. Alternative to imageHash — auto-uploads before creative creation.'),
-  videoFilePath: z.string().optional().describe('Local video file path. Alternative to videoId — auto-uploads before creative creation.'),
+  imageHash: z
+    .string()
+    .optional()
+    .describe(
+      'Uploaded Meta image hash. Required for static creative unless imageFilePath is provided.'
+    ),
+  imageFilePath: z
+    .string()
+    .optional()
+    .describe(
+      'Local image file path. Alternative to imageHash — auto-uploads before creative creation.'
+    ),
+  videoFilePath: z
+    .string()
+    .optional()
+    .describe(
+      'Local video file path. Alternative to videoId — auto-uploads before creative creation.'
+    ),
   callToActionType: z.enum(['SHOP_NOW', 'LEARN_MORE', 'SIGN_UP', 'GET_OFFER']).optional(),
   specialAdCategories: z.array(z.string()).optional().describe('Meta special ad categories.'),
   ageMin: z.number().optional(),
@@ -142,22 +160,49 @@ const createCampaignInputSchema = {
   ...adsBaseInputSchema,
   accountId: z.string().describe('Provider account id. Required for campaign creation.'),
   name: z.string().describe('Campaign name.'),
-  objective: z.enum([
-    'OUTCOME_SALES', 'OUTCOME_TRAFFIC', 'OUTCOME_ENGAGEMENT',
-    'OUTCOME_LEADS', 'OUTCOME_AWARENESS', 'OUTCOME_APP_PROMOTION',
-    'OUTCOME_CONVERSATIONS', 'OUTCOME_RESHARES', 'OUTCOME_VALUE',
-    'OUTCOME_VIDEO_VIEWS', 'OUTCOME_POST_ENGAGEMENT',
-    'OUTCOME_LANDING_PAGE_VIEWS', 'OUTCOME_REACH',
-    'OUTCOME_MESSAGES', 'OUTCOME_THRUPLAY',
-  ]).describe('Campaign objective.'),
+  mode: z
+    .enum(['standard', 'collaborative_ads'])
+    .optional()
+    .describe(
+      'standard untuk iklan Meta biasa; collaborative_ads untuk katalog retailer yang sudah dibagikan.'
+    ),
+  objective: z
+    .enum([
+      'OUTCOME_SALES',
+      'OUTCOME_TRAFFIC',
+      'OUTCOME_ENGAGEMENT',
+      'OUTCOME_LEADS',
+      'OUTCOME_AWARENESS',
+      'OUTCOME_APP_PROMOTION',
+      'OUTCOME_CONVERSATIONS',
+      'OUTCOME_RESHARES',
+      'OUTCOME_VALUE',
+      'OUTCOME_VIDEO_VIEWS',
+      'OUTCOME_POST_ENGAGEMENT',
+      'OUTCOME_LANDING_PAGE_VIEWS',
+      'OUTCOME_REACH',
+      'OUTCOME_MESSAGES',
+      'OUTCOME_THRUPLAY',
+    ])
+    .describe('Campaign objective.'),
   status: z.enum(['ACTIVE', 'PAUSED']).optional().describe('Campaign status. Defaults to PAUSED.'),
   specialAdCategories: z.array(z.string()).optional().describe('Meta special ad categories.'),
   buyType: z.enum(['AUCTION', 'RESERVED']).optional().describe('Buying type. Defaults to AUCTION.'),
+  isAdSetBudgetSharingEnabled: z
+    .boolean()
+    .optional()
+    .describe('Izinkan ad set tanpa campaign budget berbagi hingga 20% anggaran. Default false.'),
   dailyBudget: z.number().optional().describe('Daily budget in local currency minor units.'),
   lifetimeBudget: z.number().optional().describe('Lifetime budget in local currency minor units.'),
   bidStrategy: z.string().optional().describe('Bid strategy.'),
-  dedupeByName: z.boolean().optional().describe('Check for an existing campaign with the same name before creating.'),
-  externalReference: z.string().optional().describe('Caller-provided reference for duplicate prevention and audit correlation.'),
+  dedupeByName: z
+    .boolean()
+    .optional()
+    .describe('Check for an existing campaign with the same name before creating.'),
+  externalReference: z
+    .string()
+    .optional()
+    .describe('Caller-provided reference for duplicate prevention and audit correlation.'),
   dryRun: z.boolean().optional().describe('Defaults to true. Set false only after preview.'),
   confirmed: z.boolean().optional().describe('Must be true to execute after preview.'),
 };
@@ -167,79 +212,315 @@ const createAdSetInputSchema = {
   accountId: z.string().describe('Provider account id. Required for ad set creation.'),
   campaignId: z.string().describe('The campaign ID to create the ad set under.'),
   name: z.string().describe('Ad set name.'),
+  mode: z
+    .enum(['standard', 'collaborative_ads'])
+    .optional()
+    .describe(
+      'standard untuk iklan Meta biasa; collaborative_ads untuk katalog retailer yang sudah dibagikan.'
+    ),
+  collaborativeCatalog: z
+    .object({
+      productSetId: z.string().describe('ID product set dari katalog retailer yang dibagikan.'),
+      pixelId: z
+        .string()
+        .optional()
+        .describe('ID Meta Pixel untuk mengukur event konversi, jika digunakan.'),
+      customEventType: z
+        .string()
+        .optional()
+        .describe('Event konversi Meta, misalnya PURCHASE, jika digunakan.'),
+      destinationUrl: z
+        .string()
+        .optional()
+        .describe('URL tujuan katalog atau toko retailer, jika digunakan.'),
+      applicationId: z
+        .string()
+        .optional()
+        .describe('ID aplikasi retailer, misalnya aplikasi Shopee.'),
+      objectStoreUrls: z
+        .array(z.string())
+        .optional()
+        .describe('URL Play Store dan App Store aplikasi retailer.'),
+    })
+    .optional()
+    .describe(
+      'Konteks katalog retailer untuk Collaborative Ads. Isi product set, pixel omnichannel, aplikasi retailer, event, dan URL app store sesuai data kolaborasi.'
+    ),
   status: z.enum(['ACTIVE', 'PAUSED']).optional().describe('Ad set status. Defaults to PAUSED.'),
-  dailyBudget: z.number().optional().describe('Daily budget in local currency minor units. Do NOT set if campaign uses CBO.'),
-  lifetimeBudget: z.number().optional().describe('Lifetime budget in local currency minor units. Do NOT set if campaign uses CBO.'),
-  billingEvent: z.enum(['IMPRESSIONS', 'LINK_CLICKS', 'PAGE_LIKES', 'POST_ENGAGEMENT', 'VIDEO_VIEWS', 'LEADS', 'APP_INSTALLS', 'REACH', 'VALUE', 'LANDING_PAGE_VIEWS', 'OFFSITE_CONVERSIONS']).optional().describe('Billing event. Defaults to IMPRESSIONS.'),
-  optimizationGoal: z.enum(['NONE', 'APP_INSTALLS', 'CONVERSATIONS', 'ENGAGED_USERS', 'IMPRESSIONS', 'LANDING_PAGE_VIEWS', 'LEAD_GENERATION', 'LINK_CLICKS', 'OFFSITE_CONVERSIONS', 'PAGE_LIKES', 'POST_ENGAGEMENT', 'REACH', 'THRUPLAY', 'VALUE']).optional().describe('Optimization goal. Defaults to REACH.'),
-  bidStrategy: z.string().optional().describe('Bid strategy. Optional — if not set, inherits from campaign. Valid: LOWEST_COST_WITHOUT_CAP, LOWEST_COST_WITH_BID_CAP, COST_CAP, LOWEST_COST_WITH_MIN_ROAS. Do NOT use "LOWEST_COST" (invalid).'),
-  geoLocations: z.record(z.unknown()).optional().describe('Geo targeting object with countries[], regions[], cities[].'),
-  bidAmount: z.number().optional().describe('Bid amount in account currency cents. REQUIRED when bidStrategy is COST_CAP or LOWEST_COST_WITH_BID_CAP. Example: 500000 = Rp5.000.'),
-  bidConstraints: z.record(z.unknown()).optional().describe('Bid constraints for LOWEST_COST_WITH_MIN_ROAS. Shape: { roas_average_floor: number } where value = target ROAS × 10000.'),
+  dailyBudget: z
+    .number()
+    .optional()
+    .describe('Daily budget in local currency minor units. Do NOT set if campaign uses CBO.'),
+  lifetimeBudget: z
+    .number()
+    .optional()
+    .describe('Lifetime budget in local currency minor units. Do NOT set if campaign uses CBO.'),
+  billingEvent: z
+    .enum([
+      'IMPRESSIONS',
+      'LINK_CLICKS',
+      'PAGE_LIKES',
+      'POST_ENGAGEMENT',
+      'VIDEO_VIEWS',
+      'LEADS',
+      'APP_INSTALLS',
+      'REACH',
+      'VALUE',
+      'LANDING_PAGE_VIEWS',
+      'OFFSITE_CONVERSIONS',
+    ])
+    .optional()
+    .describe('Billing event. Defaults to IMPRESSIONS.'),
+  optimizationGoal: z
+    .enum([
+      'NONE',
+      'APP_INSTALLS',
+      'CONVERSATIONS',
+      'ENGAGED_USERS',
+      'IMPRESSIONS',
+      'LANDING_PAGE_VIEWS',
+      'LEAD_GENERATION',
+      'LINK_CLICKS',
+      'OFFSITE_CONVERSIONS',
+      'PAGE_LIKES',
+      'POST_ENGAGEMENT',
+      'REACH',
+      'THRUPLAY',
+      'VALUE',
+    ])
+    .optional()
+    .describe('Optimization goal. Defaults to REACH.'),
+  bidStrategy: z
+    .string()
+    .optional()
+    .describe(
+      'Bid strategy. Optional — if not set, inherits from campaign. Valid: LOWEST_COST_WITHOUT_CAP, LOWEST_COST_WITH_BID_CAP, COST_CAP, LOWEST_COST_WITH_MIN_ROAS. Do NOT use "LOWEST_COST" (invalid).'
+    ),
+  geoLocations: z
+    .record(z.unknown())
+    .optional()
+    .describe('Geo targeting object with countries[], regions[], cities[].'),
+  bidAmount: z
+    .number()
+    .optional()
+    .describe(
+      'Bid amount in account currency cents. REQUIRED when bidStrategy is COST_CAP or LOWEST_COST_WITH_BID_CAP. Example: 500000 = Rp5.000.'
+    ),
+  bidConstraints: z
+    .record(z.unknown())
+    .optional()
+    .describe(
+      'Bid constraints for LOWEST_COST_WITH_MIN_ROAS. Shape: { roas_average_floor: number } where value = target ROAS × 10000.'
+    ),
   ageMin: z.number().optional().describe('Minimum age target (e.g. 18).'),
   ageMax: z.number().optional().describe('Maximum age target (e.g. 65).'),
-  genders: z.array(z.number()).optional().describe('Gender targeting values. Meta uses 1=male, 2=female.'),
-  publisherPlatforms: z.array(z.string()).optional().describe('Publisher platforms (e.g. facebook, instagram).'),
-  interests: z.array(z.record(z.unknown())).optional().describe('Interest targeting array [{ id, name }].'),
-  promotedObject: z.record(z.unknown()).optional().describe('Promoted object (e.g. { pixel_id, custom_event_type }).'),
+  genders: z
+    .array(z.number())
+    .optional()
+    .describe('Gender targeting values. Meta uses 1=male, 2=female.'),
+  publisherPlatforms: z
+    .array(z.string())
+    .optional()
+    .describe('Publisher platforms (e.g. facebook, instagram).'),
+  interests: z
+    .array(z.record(z.unknown()))
+    .optional()
+    .describe('Interest targeting array [{ id, name }].'),
+  promotedObject: z
+    .record(z.unknown())
+    .optional()
+    .describe('Promoted object (e.g. { pixel_id, custom_event_type }).'),
   startTime: z.string().optional().describe('Start time in ISO format.'),
   endTime: z.string().optional().describe('End time in ISO format.'),
-  destinationType: z.string().optional().describe('Where users go: WEBSITE, APP, MESSENGER, WHATSAPP, INSTAGRAM_DIRECT, etc.'),
-  attributionSpec: z.array(z.record(z.unknown())).optional().describe('Attribution window spec. Example: [{ event_type: "CLICK_THROUGH", window_days: 7 }]'),
-  frequencyControlSpecs: z.array(z.record(z.unknown())).optional().describe('Frequency cap specs. Example: [{ event: "IMPRESSIONS", interval_days: 7, max_frequency: 3 }]'),
+  destinationType: z
+    .string()
+    .optional()
+    .describe('Where users go: WEBSITE, APP, MESSENGER, WHATSAPP, INSTAGRAM_DIRECT, etc.'),
+  attributionSpec: z
+    .array(z.record(z.unknown()))
+    .optional()
+    .describe(
+      'Attribution window spec. Example: [{ event_type: "CLICK_THROUGH", window_days: 7 }]'
+    ),
+  frequencyControlSpecs: z
+    .array(z.record(z.unknown()))
+    .optional()
+    .describe(
+      'Frequency cap specs. Example: [{ event: "IMPRESSIONS", interval_days: 7, max_frequency: 3 }]'
+    ),
   isDynamicCreative: z.boolean().optional().describe('Enable Dynamic Creative for this ad set.'),
-  dsaBeneficiary: z.string().optional().describe('DSA beneficiary for European compliance (person/org that benefits from ads).'),
-  dsaPayor: z.string().optional().describe('DSA payor for European compliance (person/org paying for the ads).'),
-  multiAdvertiserAds: z.number().optional().describe('Multi-Advertiser Ads opt-in (1) or opt-out (0).'),
-  dedupeByName: z.boolean().optional().describe('Check for an existing ad set with the same name under the campaign before creating.'),
-  externalReference: z.string().optional().describe('Caller-provided reference for duplicate prevention and audit correlation.'),
+  dsaBeneficiary: z
+    .string()
+    .optional()
+    .describe('DSA beneficiary for European compliance (person/org that benefits from ads).'),
+  dsaPayor: z
+    .string()
+    .optional()
+    .describe('DSA payor for European compliance (person/org paying for the ads).'),
+  multiAdvertiserAds: z
+    .number()
+    .optional()
+    .describe('Multi-Advertiser Ads opt-in (1) or opt-out (0).'),
+  dedupeByName: z
+    .boolean()
+    .optional()
+    .describe(
+      'Check for an existing ad set with the same name under the campaign before creating.'
+    ),
+  externalReference: z
+    .string()
+    .optional()
+    .describe('Caller-provided reference for duplicate prevention and audit correlation.'),
   dryRun: z.boolean().optional().describe('Defaults to true. Set false only after preview.'),
   confirmed: z.boolean().optional().describe('Must be true to execute after preview.'),
 };
 
-const legacyDynamicCreativeAssetFeedSpecSchema = z.object({
-  bodies: z.array(z.object({ text: z.string().min(1) }).passthrough()).min(1),
-  titles: z.array(z.object({ text: z.string().min(1) }).passthrough()).min(1),
-  link_urls: z.array(z.object({ website_url: z.string().url() }).passthrough()).min(1),
-}).passthrough();
+const legacyDynamicCreativeAssetFeedSpecSchema = z
+  .object({
+    bodies: z.array(z.object({ text: z.string().min(1) }).passthrough()).min(1),
+    titles: z.array(z.object({ text: z.string().min(1) }).passthrough()).min(1),
+    link_urls: z.array(z.object({ website_url: z.string().url() }).passthrough()).min(1),
+  })
+  .passthrough();
 
-const dynamicCreativeAssetFeedSpecSchema = z.object({
-  ad_formats: z.array(z.literal('AUTOMATIC_FORMAT')).min(1),
-  bodies: z.array(z.object({ text: z.string().min(1) }).passthrough()).min(1),
-  titles: z.array(z.object({ text: z.string().min(1) }).passthrough()).min(1),
-  images: z.array(z.object({ hash: z.string().min(1) }).passthrough()).min(1),
-  link_urls: z.array(z.object({ website_url: z.string().url() }).passthrough()).min(1),
-  call_to_action_types: z.array(z.string().min(1)).min(1),
-}).passthrough();
+const dynamicCreativeAssetFeedSpecSchema = z
+  .object({
+    ad_formats: z.array(z.literal('AUTOMATIC_FORMAT')).min(1),
+    bodies: z.array(z.object({ text: z.string().min(1) }).passthrough()).min(1),
+    titles: z.array(z.object({ text: z.string().min(1) }).passthrough()).min(1),
+    images: z.array(z.object({ hash: z.string().min(1) }).passthrough()).min(1),
+    link_urls: z.array(z.object({ website_url: z.string().url() }).passthrough()).min(1),
+    call_to_action_types: z.array(z.string().min(1)).min(1),
+  })
+  .passthrough();
 
-const objectStorySpecInputSchema = z.object({
-  asset_feed_spec: legacyDynamicCreativeAssetFeedSpecSchema.optional(),
-}).passthrough().describe(
-  'Meta object_story_spec. Legacy Dynamic Creative input may include asset_feed_spec here; prefer the top-level assetFeedSpec input.'
-);
+const objectStorySpecInputSchema = z
+  .object({
+    asset_feed_spec: legacyDynamicCreativeAssetFeedSpecSchema.optional(),
+  })
+  .passthrough()
+  .describe(
+    'Input advanced/backward-compatible Meta object_story_spec. Dynamic Creative legacy dapat memakai asset_feed_spec di sini; sebaiknya gunakan assetFeedSpec tingkat atas.'
+  );
 
 const createAdCreativeInputSchema = {
   ...adsBaseInputSchema,
   accountId: z.string().describe('Provider account id. Required for creative creation.'),
   name: z.string().describe('Creative name.'),
-  pageId: z.string().describe('Meta Page ID used in object_story_spec.'),
-  link: z.string().optional().describe('Destination URL for the link ad.'),
-  message: z.string().optional().describe('Primary ad text (message). Required with link unless objectStorySpec is provided.'),
-  headline: z.string().optional().describe('Ad headline.'),
-  description: z.string().optional().describe('Optional ad description.'),
-  imageHash: z.string().optional().describe('Uploaded Meta image hash.'),
-  videoId: z.string().optional().describe('Uploaded Meta video ID.'),
-  callToActionType: z.enum(['SHOP_NOW', 'LEARN_MORE', 'SIGN_UP', 'GET_OFFER', 'BOOK_NOW', 'DOWNLOAD', 'CONTACT_US', 'SUBSCRIBE', 'INSTALL_APP']).optional().describe('Call to action button type.'),
+  pageId: z
+    .string()
+    .optional()
+    .describe(
+      'Meta Page ID used in object_story_spec. Tidak diperlukan untuk creativeFormat=existing_post.'
+    ),
+  mode: z
+    .enum(['standard', 'collaborative_ads'])
+    .optional()
+    .describe(
+      'standard untuk iklan Meta biasa; collaborative_ads untuk katalog retailer yang sudah dibagikan.'
+    ),
+  creativeFormat: z
+    .enum([
+      'single_image',
+      'video',
+      'carousel',
+      'catalog',
+      'collection',
+      'flexible',
+      'placement_image',
+      'existing_post',
+    ])
+    .optional()
+    .describe(
+      'Format materi iklan: gambar tunggal, video, carousel, katalog, collection, flexible, gambar khusus per placement, atau postingan yang sudah ada.'
+    ),
+  creativeSpec: z
+    .record(z.unknown())
+    .optional()
+    .describe(
+      'Detail materi sesuai creativeFormat. Field per format: single_image memakai imageHash, primaryText, destinationUrl, headline, description, callToAction; video memakai videoId, thumbnailImageHash, primaryText, destinationUrl, headline, description, callToAction; carousel memakai primaryText, destinationUrl, cards (imageHash atau videoId, headline, description, destinationUrl); catalog memakai productSetId, primaryText, destinationUrl, templateUrl, fallbackImageHash; collection memakai instantExperienceId, coverImageHash atau coverVideoId, productSetId, primaryText, destinationUrl; flexible memakai primaryText, primaryTexts, imageHashes dan/atau videoIds, headlines, descriptions, destinationUrl; placement_image memakai feedImageHash, verticalImageHash, primaryText, headline, destinationUrl, callToAction, dan pageWelcomeMessage; existing_post memakai objectStoryId.'
+    ),
+  collaborativeProductSetId: z
+    .string()
+    .optional()
+    .describe(
+      'Harus sama dengan product set yang dipilih di ad set, dan wajib untuk setiap format creative Collaborative Ads yang didukung pada rilis ini.'
+    ),
+  collaborativeAppSpec: z
+    .object({
+      applicationId: z.string(),
+      android: z.object({ appName: z.string(), packageName: z.string() }).optional(),
+      ios: z.object({ appName: z.string(), appStoreId: z.string() }).optional(),
+    })
+    .optional()
+    .describe(
+      'Identitas aplikasi retailer untuk tujuan omnichannel, termasuk ID aplikasi dan data Android/iOS.'
+    ),
+  link: z
+    .string()
+    .optional()
+    .describe('Field legacy/backward-compatible untuk URL tujuan iklan link sederhana.'),
+  message: z
+    .string()
+    .optional()
+    .describe('Field legacy/backward-compatible untuk teks utama iklan.'),
+  headline: z
+    .string()
+    .optional()
+    .describe('Field legacy/backward-compatible untuk headline iklan.'),
+  description: z
+    .string()
+    .optional()
+    .describe('Field legacy/backward-compatible untuk deskripsi iklan opsional.'),
+  imageHash: z
+    .string()
+    .optional()
+    .describe('Field legacy/backward-compatible untuk hash gambar Meta yang sudah diunggah.'),
+  videoId: z
+    .string()
+    .optional()
+    .describe('Field legacy/backward-compatible untuk ID video Meta yang sudah diunggah.'),
+  callToActionType: z
+    .enum([
+      'SHOP_NOW',
+      'LEARN_MORE',
+      'SIGN_UP',
+      'GET_OFFER',
+      'BOOK_NOW',
+      'DOWNLOAD',
+      'CONTACT_US',
+      'SUBSCRIBE',
+      'INSTALL_APP',
+    ])
+    .optional()
+    .describe('Field legacy/backward-compatible untuk tombol ajakan bertindak.'),
   instagramUserId: z.string().optional().describe('Instagram user ID for IG posting.'),
   threadsProfileId: z.string().optional().describe('Threads profile ID for Threads posting.'),
   // --- CTWA (Click-to-WhatsApp) Support ---
-  destinationType: z.enum(['WEB', 'WHATSAPP', 'MESSENGER', 'INSTAGRAM_DIRECT', 'APP']).optional().describe('Destination type for the ad. Use WHATSAPP for Click-to-WhatsApp ads.'),
-  whatsappPhoneNumberId: z.string().optional().describe('WhatsApp Phone Number ID (from ads_list_whatsapp_phone_numbers).'),
-  pageWelcomeMessage: z.string().optional().describe('Welcome message sent when user clicks the WhatsApp CTA.'),
+  destinationType: z
+    .enum(['WEB', 'WHATSAPP', 'MESSENGER', 'INSTAGRAM_DIRECT', 'APP'])
+    .optional()
+    .describe('Destination type for the ad. Use WHATSAPP for Click-to-WhatsApp ads.'),
+  whatsappPhoneNumberId: z
+    .string()
+    .optional()
+    .describe('WhatsApp Phone Number ID (from ads_list_whatsapp_phone_numbers).'),
+  pageWelcomeMessage: z
+    .string()
+    .optional()
+    .describe('Welcome message sent when user clicks the WhatsApp CTA.'),
   objectStorySpec: objectStorySpecInputSchema.optional(),
-  assetFeedSpec: dynamicCreativeAssetFeedSpecSchema.optional().describe('Official Meta asset_feed_spec for Dynamic Creative.'),
-  dedupeByName: z.boolean().optional().describe('Check for an existing creative with the same name before creating.'),
-  externalReference: z.string().optional().describe('Caller-provided reference for duplicate prevention and audit correlation.'),
+  assetFeedSpec: dynamicCreativeAssetFeedSpecSchema
+    .optional()
+    .describe('Input advanced/backward-compatible Meta asset_feed_spec untuk Dynamic Creative.'),
+  dedupeByName: z
+    .boolean()
+    .optional()
+    .describe('Check for an existing creative with the same name before creating.'),
+  externalReference: z
+    .string()
+    .optional()
+    .describe('Caller-provided reference for duplicate prevention and audit correlation.'),
   dryRun: z.boolean().optional().describe('Defaults to true. Set false only after preview.'),
   confirmed: z.boolean().optional().describe('Must be true to execute after preview.'),
 };
@@ -251,8 +532,14 @@ const createAdInputSchema = {
   adSetId: z.string().describe('The ad set ID to place the ad under.'),
   creativeId: z.string().describe('The creative ID to use for this ad.'),
   status: z.enum(['ACTIVE', 'PAUSED']).optional().describe('Ad status. Defaults to PAUSED.'),
-  dedupeByName: z.boolean().optional().describe('Check for an existing ad with the same name under the ad set before creating.'),
-  externalReference: z.string().optional().describe('Caller-provided reference for duplicate prevention and audit correlation.'),
+  dedupeByName: z
+    .boolean()
+    .optional()
+    .describe('Check for an existing ad with the same name under the ad set before creating.'),
+  externalReference: z
+    .string()
+    .optional()
+    .describe('Caller-provided reference for duplicate prevention and audit correlation.'),
   dryRun: z.boolean().optional().describe('Defaults to true. Set false only after preview.'),
   confirmed: z.boolean().optional().describe('Must be true to execute after preview.'),
 };
@@ -270,30 +557,44 @@ const updateAdSetInputSchema = {
   dailyBudget: z.number().optional().describe('New daily budget in minor units.'),
   lifetimeBudget: z.number().optional().describe('New lifetime budget.'),
   bidStrategy: z.string().optional().describe('New bid strategy.'),
-  optimizationGoal: z.enum(['REACH', 'IMPRESSIONS', 'LINK_CLICKS', 'LANDING_PAGE_VIEWS', 'CONVERSATIONS', 'VALUE']).optional().describe('New optimization goal.'),
+  optimizationGoal: z
+    .enum(['REACH', 'IMPRESSIONS', 'LINK_CLICKS', 'LANDING_PAGE_VIEWS', 'CONVERSATIONS', 'VALUE'])
+    .optional()
+    .describe('New optimization goal.'),
   geoLocations: z.record(z.unknown()).optional().describe('Geo targeting object.'),
   ageMin: z.number().optional().describe('Minimum age target.'),
   ageMax: z.number().optional().describe('Maximum age target.'),
-  genders: z.array(z.number()).optional().describe('Gender targeting values. Meta uses 1=male, 2=female.'),
+  genders: z
+    .array(z.number())
+    .optional()
+    .describe('Gender targeting values. Meta uses 1=male, 2=female.'),
   publisherPlatforms: z.array(z.string()).optional().describe('Publisher platforms.'),
   startTime: z.string().optional().describe('Start time in ISO format.'),
   endTime: z.string().optional().describe('End time in ISO format.'),
-  mode: z.enum(['patch', 'replace']).optional().describe('Nested update mode. Defaults to patch; replace requires explicit replacement confirmation.'),
-  replaceTargetingConfirmed: z.boolean().optional().describe('Required when mode=replace and targeting is provided.'),
+  mode: z
+    .enum(['patch', 'replace'])
+    .optional()
+    .describe(
+      'Nested update mode. Defaults to patch; replace requires explicit replacement confirmation.'
+    ),
+  replaceTargetingConfirmed: z
+    .boolean()
+    .optional()
+    .describe('Required when mode=replace and targeting is provided.'),
   dryRun: z.boolean().optional().describe('Defaults to true. Set false only after preview.'),
   confirmed: z.boolean().optional().describe('Must be true to execute after preview.'),
 };
 
 const getTargetingOptionsInputSchema = {
   ...adsBaseInputSchema,
-  type: z.enum(['interests', 'behaviors', 'demographics', 'industries', 'life_events']).describe('Targeting option type to search.'),
+  type: z
+    .enum(['interests', 'behaviors', 'demographics', 'industries', 'life_events'])
+    .describe('Targeting option type to search.'),
   query: z.string().optional().describe('Search keyword to filter targeting options.'),
   limit: z.number().optional().describe('Maximum results to return (default: 25).'),
 };
 
-const legacyAdAccountId = z
-  .string()
-  .describe('Ad account ID (e.g., act_123456789)');
+const legacyAdAccountId = z.string().describe('Ad account ID (e.g., act_123456789)');
 
 const legacyDateRangeInputSchema = {
   adAccountId: legacyAdAccountId,
@@ -312,7 +613,10 @@ const locationBreakdownSchema = z
 
 const legacyLocationBreakdownInputSchema = {
   ...legacyDateRangeInputSchema,
-  adAccountId: z.string().optional().describe('Ad account ID (optional, uses env META_AD_ACCOUNT_ID if omitted)'),
+  adAccountId: z
+    .string()
+    .optional()
+    .describe('Ad account ID (optional, uses env META_AD_ACCOUNT_ID if omitted)'),
   level: z.enum(['campaign', 'adset', 'ad']).describe('Insight level to fetch.'),
   breakdowns: locationBreakdownSchema,
   limit: z.number().optional().describe('Maximum number of insight rows to fetch (default: 100)'),
@@ -320,16 +624,20 @@ const legacyLocationBreakdownInputSchema = {
 
 const legacyLocationInsightsInputSchema = {
   ...legacyLocationBreakdownInputSchema,
-  adAccountId: z.string().optional().describe('Ad account ID (optional, uses env META_AD_ACCOUNT_ID if omitted)'),
-  sortBy: z.enum(['spend', 'impressions', 'clicks', 'ctr', 'cpc', 'cpm']).optional().describe('Sort top locations by metric (default: spend)'),
+  adAccountId: z
+    .string()
+    .optional()
+    .describe('Ad account ID (optional, uses env META_AD_ACCOUNT_ID if omitted)'),
+  sortBy: z
+    .enum(['spend', 'impressions', 'clicks', 'ctr', 'cpc', 'cpm'])
+    .optional()
+    .describe('Sort top locations by metric (default: spend)'),
   sortDirection: z.enum(['asc', 'desc']).optional().describe('Sort direction (default: desc)'),
   minSpend: z.number().optional().describe('Minimum location spend filter'),
   minClicks: z.number().optional().describe('Minimum location clicks filter'),
 };
 
-export function createMetaAdsMcpServer(
-  options: CreateMetaAdsMcpServerOptions = {}
-): McpServer {
+export function createMetaAdsMcpServer(options: CreateMetaAdsMcpServerOptions = {}): McpServer {
   const server = new McpServer(
     {
       name: 'adstream-mcp-server',
@@ -344,7 +652,7 @@ export function createMetaAdsMcpServer(
 
   const brokerConfig = parseBrokerConfigFromEnv();
   const isRemoteBrokerMode = brokerConfig.mode === 'remote';
-  const config = isRemoteBrokerMode ? options.config : options.config ?? loadConfig();
+  const config = isRemoteBrokerMode ? options.config : (options.config ?? loadConfig());
   let client = options.client;
 
   if (!isRemoteBrokerMode && !client) {
@@ -374,7 +682,10 @@ export function createMetaAdsMcpServer(
     const hasCreativeId = toolDefinition.inputSchema.required.includes('creativeId');
 
     let inputSchema: Record<string, z.ZodType<unknown>>;
-    if (toolDefinition.name === 'ads_get_performance' || toolDefinition.name === 'ads_get_creatives') {
+    if (
+      toolDefinition.name === 'ads_get_performance' ||
+      toolDefinition.name === 'ads_get_creatives'
+    ) {
       inputSchema = adsPerformanceInputSchema;
     } else if (toolDefinition.name === 'ads_create_campaign') {
       inputSchema = createCampaignInputSchema;
@@ -410,7 +721,11 @@ export function createMetaAdsMcpServer(
     } else if (hasFilePath) {
       inputSchema = {
         ...adsBaseInputSchema,
-        filePath: z.string().describe('Absolute path to the local file to upload. Example: /Users/name/Downloads/ad-image.jpg'),
+        filePath: z
+          .string()
+          .describe(
+            'Absolute path to the local file to upload. Example: /Users/name/Downloads/ad-image.jpg'
+          ),
         title: z.string().optional().describe('Optional title for video uploads.'),
         description: z.string().optional().describe('Optional description for video uploads.'),
       };
@@ -452,7 +767,10 @@ export function createMetaAdsMcpServer(
         inputSchema,
         annotations: getAdsMcpToolAnnotations(toolDefinition.name),
       },
-      async (args: Record<string, unknown>, extra: RequestHandlerExtra<ServerRequest, ServerNotification>) => {
+      async (
+        args: Record<string, unknown>,
+        extra: RequestHandlerExtra<ServerRequest, ServerNotification>
+      ) => {
         const connectionKey = extra.authInfo?.extra?.connectionKey as string | undefined;
         const oauthAuthContext = extra.authInfo?.extra?.oauthAuthContext;
         // Pass oauth context through params for oauth_token mode
@@ -477,7 +795,9 @@ export function createMetaAdsMcpServer(
           openWorldHint: true,
         },
         inputSchema: {
-          provider: z.enum(['tiktok_gmv']).describe('Commerce provider. Only tiktok_gmv is supported today.'),
+          provider: z
+            .enum(['tiktok_gmv'])
+            .describe('Commerce provider. Only tiktok_gmv is supported today.'),
           accountId: z.string().describe('Provider account or advertiser id.'),
           storeIds: z.array(z.string()).describe('Commerce store ids to query.'),
           since: z.string().describe('Start date in YYYY-MM-DD format.'),
@@ -487,11 +807,12 @@ export function createMetaAdsMcpServer(
           params: z.record(z.unknown()).optional().describe('Optional provider-safe parameters.'),
         },
       },
-      async (args: Record<string, unknown>) => handleCommerceMcpToolCall(toolDefinition.name, args ?? {}, {
-        fetchGmvMaxReport: tiktokClient
-          ? (options) => getGmvMaxReport(tiktokClient, options)
-          : undefined,
-      })
+      async (args: Record<string, unknown>) =>
+        handleCommerceMcpToolCall(toolDefinition.name, args ?? {}, {
+          fetchGmvMaxReport: tiktokClient
+            ? (options) => getGmvMaxReport(tiktokClient, options)
+            : undefined,
+        })
     );
   }
 
@@ -502,7 +823,13 @@ export function createMetaAdsMcpServer(
       inputSchema: {},
     },
     async (args: ToolArguments, extra: RequestHandlerExtra<ServerRequest, ServerNotification>) =>
-      handleLegacyMetaToolCall('meta_get_ad_accounts', args ?? {}, { isRemoteBrokerMode, client, config, adsBroker, extra })
+      handleLegacyMetaToolCall('meta_get_ad_accounts', args ?? {}, {
+        isRemoteBrokerMode,
+        client,
+        config,
+        adsBroker,
+        extra,
+      })
   );
 
   server.registerTool(
@@ -518,7 +845,8 @@ export function createMetaAdsMcpServer(
           .describe('Filter by campaign status (e.g., ["ACTIVE", "PAUSED"])'),
       },
     },
-    async (args: ToolArguments) => handleLegacyMetaToolCall('meta_get_campaigns', args, { isRemoteBrokerMode, client, config })
+    async (args: ToolArguments) =>
+      handleLegacyMetaToolCall('meta_get_campaigns', args, { isRemoteBrokerMode, client, config })
   );
 
   server.registerTool(
@@ -527,7 +855,12 @@ export function createMetaAdsMcpServer(
       description: 'Fetch campaign-level performance insights for a date range',
       inputSchema: legacyDateRangeInputSchema,
     },
-    async (args: ToolArguments) => handleLegacyMetaToolCall('meta_get_campaign_insights', args, { isRemoteBrokerMode, client, config })
+    async (args: ToolArguments) =>
+      handleLegacyMetaToolCall('meta_get_campaign_insights', args, {
+        isRemoteBrokerMode,
+        client,
+        config,
+      })
   );
 
   server.registerTool(
@@ -536,7 +869,12 @@ export function createMetaAdsMcpServer(
       description: 'Fetch adset-level performance insights for a date range',
       inputSchema: legacyDateRangeInputSchema,
     },
-    async (args: ToolArguments) => handleLegacyMetaToolCall('meta_get_adset_insights', args, { isRemoteBrokerMode, client, config })
+    async (args: ToolArguments) =>
+      handleLegacyMetaToolCall('meta_get_adset_insights', args, {
+        isRemoteBrokerMode,
+        client,
+        config,
+      })
   );
 
   server.registerTool(
@@ -545,25 +883,42 @@ export function createMetaAdsMcpServer(
       description: 'Fetch ad-level performance insights for a date range',
       inputSchema: legacyDateRangeInputSchema,
     },
-    async (args: ToolArguments) => handleLegacyMetaToolCall('meta_get_ads_insights', args, { isRemoteBrokerMode, client, config })
+    async (args: ToolArguments) =>
+      handleLegacyMetaToolCall('meta_get_ads_insights', args, {
+        isRemoteBrokerMode,
+        client,
+        config,
+      })
   );
 
   server.registerTool(
     'meta_get_insights_by_breakdown',
     {
-      description: 'Fetch Meta Ads insights by supported location breakdowns (country, region, dma)',
+      description:
+        'Fetch Meta Ads insights by supported location breakdowns (country, region, dma)',
       inputSchema: legacyLocationBreakdownInputSchema,
     },
-    async (args: ToolArguments) => handleLegacyMetaToolCall('meta_get_insights_by_breakdown', args, { isRemoteBrokerMode, client, config })
+    async (args: ToolArguments) =>
+      handleLegacyMetaToolCall('meta_get_insights_by_breakdown', args, {
+        isRemoteBrokerMode,
+        client,
+        config,
+      })
   );
 
   server.registerTool(
     'meta_get_location_insights',
     {
-      description: 'Fetch Meta Ads insights grouped and ranked by location (country, region, dma) with totals',
+      description:
+        'Fetch Meta Ads insights grouped and ranked by location (country, region, dma) with totals',
       inputSchema: legacyLocationInsightsInputSchema,
     },
-    async (args: ToolArguments) => handleLegacyMetaToolCall('meta_get_location_insights', args, { isRemoteBrokerMode, client, config })
+    async (args: ToolArguments) =>
+      handleLegacyMetaToolCall('meta_get_location_insights', args, {
+        isRemoteBrokerMode,
+        client,
+        config,
+      })
   );
 
   server.registerTool(
@@ -572,7 +927,12 @@ export function createMetaAdsMcpServer(
       description: 'Generate comprehensive daily performance report with analysis',
       inputSchema: legacyDateRangeInputSchema,
     },
-    async (args: ToolArguments) => handleLegacyMetaToolCall('meta_generate_daily_report', args, { isRemoteBrokerMode, client, config })
+    async (args: ToolArguments) =>
+      handleLegacyMetaToolCall('meta_generate_daily_report', args, {
+        isRemoteBrokerMode,
+        client,
+        config,
+      })
   );
 
   server.registerTool(
@@ -587,7 +947,12 @@ export function createMetaAdsMcpServer(
           .describe('Rule category to apply (default: all)'),
       },
     },
-    async (args: ToolArguments) => handleLegacyMetaToolCall('meta_analyze_with_rules', args, { isRemoteBrokerMode, client, config })
+    async (args: ToolArguments) =>
+      handleLegacyMetaToolCall('meta_analyze_with_rules', args, {
+        isRemoteBrokerMode,
+        client,
+        config,
+      })
   );
 
   // ── TikTok Ads tools ──
@@ -610,14 +975,17 @@ export function createMetaAdsMcpServer(
         reportType: z.string().optional().default('BASIC').describe('Report type (default: BASIC)'),
         dimensions: z.array(z.string()).describe('Dimension fields (e.g., ["campaign_id"])'),
         metrics: z.array(z.string()).describe('Metric fields (e.g., ["spend", "impressions"])'),
-        dataLevel: z.enum(['AUCTION_CAMPAIGN', 'AUCTION_ADGROUP', 'AUCTION_AD']).describe('Data aggregation level'),
+        dataLevel: z
+          .enum(['AUCTION_CAMPAIGN', 'AUCTION_ADGROUP', 'AUCTION_AD'])
+          .describe('Data aggregation level'),
         startDate: z.string().optional().describe('Start date YYYY-MM-DD'),
         endDate: z.string().optional().describe('End date YYYY-MM-DD'),
         page: z.number().optional().describe('Page number (default: 1)'),
         pageSize: z.number().optional().describe('Page size (default: 100)'),
       },
     },
-    async (args: Record<string, unknown>) => handleTikTokToolCall('tiktok_get_report', args, tiktokClient)
+    async (args: Record<string, unknown>) =>
+      handleTikTokToolCall('tiktok_get_report', args, tiktokClient)
   );
 
   server.registerTool(
@@ -635,25 +1003,39 @@ export function createMetaAdsMcpServer(
         pageSize: z.number().optional().describe('Page size (default: 100)'),
       },
     },
-    async (args: Record<string, unknown>) => handleTikTokToolCall('tiktok_get_gmv_max_report', args, tiktokClient)
+    async (args: Record<string, unknown>) =>
+      handleTikTokToolCall('tiktok_get_gmv_max_report', args, tiktokClient)
   );
 
   server.registerTool(
     'tiktok_get_location_insights',
     {
-      description: 'Fetch TikTok Ads insights grouped by location (country, province, city) with totals and ranking',
+      description:
+        'Fetch TikTok Ads insights grouped by location (country, province, city) with totals and ranking',
       inputSchema: {
         advertiserId: z.string().describe('TikTok advertiser ID'),
-        breakdowns: z.array(z.enum(['country', 'province', 'city'])).describe('Location breakdown dimensions (e.g., ["country"])'),
-        dataLevel: z.enum(['AUCTION_CAMPAIGN', 'AUCTION_ADGROUP', 'AUCTION_AD']).optional().describe('Data level (default: AUCTION_CAMPAIGN)'),
+        breakdowns: z
+          .array(z.enum(['country', 'province', 'city']))
+          .describe('Location breakdown dimensions (e.g., ["country"])'),
+        dataLevel: z
+          .enum(['AUCTION_CAMPAIGN', 'AUCTION_ADGROUP', 'AUCTION_AD'])
+          .optional()
+          .describe('Data level (default: AUCTION_CAMPAIGN)'),
         startDate: z.string().optional().describe('Start date YYYY-MM-DD'),
         endDate: z.string().optional().describe('End date YYYY-MM-DD'),
-        sortBy: z.enum(['spend', 'impressions', 'clicks', 'ctr', 'cpc', 'cpm']).optional().describe('Sort metric (default: spend)'),
-        sortDirection: z.enum(['asc', 'desc']).optional().describe('Sort direction (default: desc)'),
+        sortBy: z
+          .enum(['spend', 'impressions', 'clicks', 'ctr', 'cpc', 'cpm'])
+          .optional()
+          .describe('Sort metric (default: spend)'),
+        sortDirection: z
+          .enum(['asc', 'desc'])
+          .optional()
+          .describe('Sort direction (default: desc)'),
         limit: z.number().optional().describe('Max locations (default: 50)'),
       },
     },
-    async (args: Record<string, unknown>) => handleTikTokToolCall('tiktok_get_location_insights', args, tiktokClient)
+    async (args: Record<string, unknown>) =>
+      handleTikTokToolCall('tiktok_get_location_insights', args, tiktokClient)
   );
 
   return server;
@@ -767,7 +1149,14 @@ async function handleLegacyMetaToolCall(
           until: args.until as string,
           level: (args.level as 'campaign' | 'adset' | 'ad') ?? 'campaign',
           breakdowns: assertLocationBreakdowns(args.breakdowns) as LocationBreakdown[] | undefined,
-          sortBy: args.sortBy as 'spend' | 'impressions' | 'clicks' | 'ctr' | 'cpc' | 'cpm' | undefined,
+          sortBy: args.sortBy as
+            | 'spend'
+            | 'impressions'
+            | 'clicks'
+            | 'ctr'
+            | 'cpc'
+            | 'cpm'
+            | undefined,
           sortDirection: args.sortDirection as 'asc' | 'desc' | undefined,
           minSpend: typeof args.minSpend === 'number' ? args.minSpend : undefined,
           minClicks: typeof args.minClicks === 'number' ? args.minClicks : undefined,
@@ -893,10 +1282,21 @@ async function handleTikTokToolCall(
         const summary = await getTikTokLocationInsights(tiktokClient, {
           advertiserId: args.advertiserId as string,
           breakdowns: (args.breakdowns as ('country' | 'province' | 'city')[]) ?? ['country'],
-          dataLevel: args.dataLevel as 'AUCTION_CAMPAIGN' | 'AUCTION_ADGROUP' | 'AUCTION_AD' | undefined,
+          dataLevel: args.dataLevel as
+            | 'AUCTION_CAMPAIGN'
+            | 'AUCTION_ADGROUP'
+            | 'AUCTION_AD'
+            | undefined,
           startDate: args.startDate as string | undefined,
           endDate: args.endDate as string | undefined,
-          sortBy: args.sortBy as 'spend' | 'impressions' | 'clicks' | 'ctr' | 'cpc' | 'cpm' | undefined,
+          sortBy: args.sortBy as
+            | 'spend'
+            | 'impressions'
+            | 'clicks'
+            | 'ctr'
+            | 'cpc'
+            | 'cpm'
+            | undefined,
           sortDirection: args.sortDirection as 'asc' | 'desc' | undefined,
           limit: typeof args.limit === 'number' ? args.limit : undefined,
         });

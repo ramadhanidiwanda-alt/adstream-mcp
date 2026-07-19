@@ -22,25 +22,28 @@ describe('MetaAdsAdapter', () => {
     let capturedPath: string | undefined;
     let capturedParams: Record<string, unknown> | undefined;
     const adapter = new MetaAdsAdapter({
-      clientFactory: () => ({
-        metaGet: async (path: string, params: Record<string, unknown>) => {
-          capturedPath = path;
-          capturedParams = params;
-          return {
-            data: [{
-              event_time: '2026-05-02T01:02:03+0000',
-              event_type: 'campaign_name_change',
-              translated_event_type: 'Campaign name changed',
-              object_id: 'cmp_1',
-              object_name: 'Campaign 1',
-              object_type: 'CAMPAIGN',
-              actor_id: 'user_1',
-              actor_name: 'Media Buyer',
-            }],
-            paging: { cursors: { after: 'next_cursor' } },
-          };
-        },
-      }) as never,
+      clientFactory: () =>
+        ({
+          metaGet: async (path: string, params: Record<string, unknown>) => {
+            capturedPath = path;
+            capturedParams = params;
+            return {
+              data: [
+                {
+                  event_time: '2026-05-02T01:02:03+0000',
+                  event_type: 'campaign_name_change',
+                  translated_event_type: 'Campaign name changed',
+                  object_id: 'cmp_1',
+                  object_name: 'Campaign 1',
+                  object_type: 'CAMPAIGN',
+                  actor_id: 'user_1',
+                  actor_name: 'Media Buyer',
+                },
+              ],
+              paging: { cursors: { after: 'next_cursor' } },
+            };
+          },
+        }) as never,
     });
 
     const response = await adapter.getChangeHistory({
@@ -49,7 +52,12 @@ describe('MetaAdsAdapter', () => {
       since: '2026-05-01',
       until: '2026-05-07',
       params: { limit: 50, cursor: 'prev_cursor' },
-      credentials: { provider: 'meta', accessToken: 'secret-token', accountId: 'act_123', source: 'test' },
+      credentials: {
+        provider: 'meta',
+        accessToken: 'secret-token',
+        accountId: 'act_123',
+        source: 'test',
+      },
     });
 
     expect(capturedPath).toBe('/act_act_123/activities');
@@ -63,7 +71,6 @@ describe('MetaAdsAdapter', () => {
     });
     expect(JSON.stringify(response)).not.toContain('secret-token');
   });
-
 
   it('wraps account insights tool and normalizes account-level response', async () => {
     const adapter = new MetaAdsAdapter({
@@ -160,9 +167,10 @@ describe('MetaAdsAdapter', () => {
       tools: {
         getCampaignInsights: async (_client, options) => {
           receivedOptions = options as unknown as Record<string, unknown>;
-          return Object.assign([
-            { campaign_id: 'cmp_1', spend: '10', impressions: '100', clicks: '5' },
-          ], { paging: { cursors: { after: 'next_cursor' } } });
+          return Object.assign(
+            [{ campaign_id: 'cmp_1', spend: '10', impressions: '100', clicks: '5' }],
+            { paging: { cursors: { after: 'next_cursor' } } }
+          );
         },
       },
     });
@@ -189,61 +197,64 @@ describe('MetaAdsAdapter', () => {
     let capturedPath: string | undefined;
     let capturedParams: Record<string, unknown> | undefined;
     const adapter = new MetaAdsAdapter({
-      clientFactory: () => ({
-        metaGet: async (path: string, params: Record<string, unknown>) => {
-          capturedPath = path;
-          capturedParams = params;
-          return {
-            data: [{
-              id: 'creative_1',
-              name: 'Hero Creative',
-              title: 'Shop Now',
-              body: 'Best seller this week',
-              thumbnail_url: 'https://example.test/thumb.jpg',
-              image_url: 'https://example.test/image.jpg',
-              image_hash: 'hash_1',
-              degrees_of_freedom_spec: {
-                creative_features_spec: {
-                  image_auto_crop: { enroll_status: 'OPT_OUT' },
-                  text_generation: { enroll_status: 'OPT_OUT' },
-                },
-              },
-              media_sourcing_spec: { related_media: [] },
-              asset_feed_spec: {
-                images: [
-                  { hash: 'feed_hash', adlabels: [{ name: 'feed_asset' }] },
-                  { hash: 'vertical_hash', adlabels: [{ name: 'vertical_asset' }] },
-                ],
-                asset_customization_rules: [
-                  {
-                    image_label: { name: 'feed_asset' },
-                    customization_spec: {
-                      publisher_platforms: ['facebook', 'instagram'],
-                      facebook_positions: ['feed'],
-                      instagram_positions: ['stream'],
+      clientFactory: () =>
+        ({
+          metaGet: async (path: string, params: Record<string, unknown>) => {
+            capturedPath = path;
+            capturedParams = params;
+            return {
+              data: [
+                {
+                  id: 'creative_1',
+                  name: 'Hero Creative',
+                  title: 'Shop Now',
+                  body: 'Best seller this week',
+                  thumbnail_url: 'https://example.test/thumb.jpg',
+                  image_url: 'https://example.test/image.jpg',
+                  image_hash: 'hash_1',
+                  degrees_of_freedom_spec: {
+                    creative_features_spec: {
+                      image_auto_crop: { enroll_status: 'OPT_OUT' },
+                      text_generation: { enroll_status: 'OPT_OUT' },
                     },
                   },
-                  {
-                    image_label: { name: 'vertical_asset' },
-                    customization_spec: {
-                      publisher_platforms: ['facebook', 'instagram'],
-                      facebook_positions: ['facebook_reels', 'story'],
-                      instagram_positions: ['reels', 'story'],
+                  media_sourcing_spec: { related_media: [] },
+                  asset_feed_spec: {
+                    images: [
+                      { hash: 'feed_hash', adlabels: [{ name: 'feed_asset' }] },
+                      { hash: 'vertical_hash', adlabels: [{ name: 'vertical_asset' }] },
+                    ],
+                    asset_customization_rules: [
+                      {
+                        image_label: { name: 'feed_asset' },
+                        customization_spec: {
+                          publisher_platforms: ['facebook', 'instagram'],
+                          facebook_positions: ['feed'],
+                          instagram_positions: ['stream'],
+                        },
+                      },
+                      {
+                        image_label: { name: 'vertical_asset' },
+                        customization_spec: {
+                          publisher_platforms: ['facebook', 'instagram'],
+                          facebook_positions: ['facebook_reels', 'story'],
+                          instagram_positions: ['reels', 'story'],
+                        },
+                      },
+                    ],
+                  },
+                  object_story_spec: {
+                    link_data: {
+                      link: 'https://example.test/product',
+                      call_to_action: { type: 'SHOP_NOW' },
                     },
                   },
-                ],
-              },
-              object_story_spec: {
-                link_data: {
-                  link: 'https://example.test/product',
-                  call_to_action: { type: 'SHOP_NOW' },
                 },
-              },
-            }],
-            paging: { cursors: { after: 'creative_cursor' } },
-          };
-        },
-      }) as never,
+              ],
+              paging: { cursors: { after: 'creative_cursor' } },
+            };
+          },
+        }) as never,
     });
 
     const response = await adapter.getCreativePerformance({
@@ -279,7 +290,11 @@ describe('MetaAdsAdapter', () => {
     expect(response.data?.[0]).toMatchObject({
       provider: 'meta',
       level: 'creative',
-      identity: { account_id: 'act_123', creative_id: 'creative_1', creative_name: 'Hero Creative' },
+      identity: {
+        account_id: 'act_123',
+        creative_id: 'creative_1',
+        creative_name: 'Hero Creative',
+      },
       creative: {
         creative_type: 'link',
         creative_url: 'https://example.test/image.jpg',
@@ -309,12 +324,13 @@ describe('MetaAdsAdapter', () => {
   it('omits media_sourcing_spec on Meta API versions that do not support it', async () => {
     let capturedParams: Record<string, unknown> | undefined;
     const adapter = new MetaAdsAdapter({
-      clientFactory: () => ({
-        metaGet: async (_path: string, params: Record<string, unknown>) => {
-          capturedParams = params;
-          return { data: [{ id: 'creative_legacy', name: 'Legacy Creative' }] };
-        },
-      }) as never,
+      clientFactory: () =>
+        ({
+          metaGet: async (_path: string, params: Record<string, unknown>) => {
+            capturedParams = params;
+            return { data: [{ id: 'creative_legacy', name: 'Legacy Creative' }] };
+          },
+        }) as never,
     });
 
     const response = await adapter.getCreativePerformance({
@@ -338,41 +354,42 @@ describe('MetaAdsAdapter', () => {
     let capturedPath: string | undefined;
     let capturedParams: Record<string, unknown> | undefined;
     const adapter = new MetaAdsAdapter({
-      clientFactory: () => ({
-        metaGet: async (path: string, params: Record<string, unknown>) => {
-          capturedPath = path;
-          capturedParams = params;
-          return {
-            data: [
-              {
-                id: 'ad_1',
-                name: 'Active Ad',
-                status: 'ACTIVE',
-                effective_status: 'ACTIVE',
-                adset: {
-                  id: 'adset_1',
-                  name: 'Main Ad Set',
-                  targeting: {
-                    publisher_platforms: ['facebook', 'instagram'],
-                    facebook_positions: ['feed', 'facebook_reels'],
-                    instagram_positions: ['stream', 'reels'],
+      clientFactory: () =>
+        ({
+          metaGet: async (path: string, params: Record<string, unknown>) => {
+            capturedPath = path;
+            capturedParams = params;
+            return {
+              data: [
+                {
+                  id: 'ad_1',
+                  name: 'Active Ad',
+                  status: 'ACTIVE',
+                  effective_status: 'ACTIVE',
+                  adset: {
+                    id: 'adset_1',
+                    name: 'Main Ad Set',
+                    targeting: {
+                      publisher_platforms: ['facebook', 'instagram'],
+                      facebook_positions: ['feed', 'facebook_reels'],
+                      instagram_positions: ['stream', 'reels'],
+                    },
                   },
-                },
-                creative: {
-                  id: 'creative_1',
-                  name: 'Hero Creative',
-                  degrees_of_freedom_spec: {
-                    creative_features_spec: {
-                      standard_enhancements: { enroll_status: 'OPT_OUT' },
+                  creative: {
+                    id: 'creative_1',
+                    name: 'Hero Creative',
+                    degrees_of_freedom_spec: {
+                      creative_features_spec: {
+                        standard_enhancements: { enroll_status: 'OPT_OUT' },
+                      },
                     },
                   },
                 },
-              },
-            ],
-            paging: { cursors: { after: 'next_active_ad' } },
-          };
-        },
-      }) as never,
+              ],
+              paging: { cursors: { after: 'next_active_ad' } },
+            };
+          },
+        }) as never,
     });
 
     const response = await adapter.getCreativePerformance({
@@ -489,25 +506,29 @@ describe('MetaAdsAdapter', () => {
     let capturedPath: string | undefined;
     let capturedParams: Record<string, unknown> | undefined;
     const adapter = new MetaAdsAdapter({
-      clientFactory: () => ({
-        metaGetObject: async (path: string, params: Record<string, unknown>) => {
-          capturedPath = path;
-          capturedParams = params;
-          return {
-            id: '1031745992699354',
-            name: '11/06 Pro Sold Out Lagi',
-            title: 'Sold Out Lagi',
-            body: 'Back in stock soon',
-            thumbnail_url: 'https://example.test/thumb.jpg',
-            video_id: 'video_1',
-            object_story_spec: {
-              video_data: {
-                call_to_action: { type: 'SHOP_NOW', value: { link: 'https://example.test/product' } },
+      clientFactory: () =>
+        ({
+          metaGetObject: async (path: string, params: Record<string, unknown>) => {
+            capturedPath = path;
+            capturedParams = params;
+            return {
+              id: '1031745992699354',
+              name: '11/06 Pro Sold Out Lagi',
+              title: 'Sold Out Lagi',
+              body: 'Back in stock soon',
+              thumbnail_url: 'https://example.test/thumb.jpg',
+              video_id: 'video_1',
+              object_story_spec: {
+                video_data: {
+                  call_to_action: {
+                    type: 'SHOP_NOW',
+                    value: { link: 'https://example.test/product' },
+                  },
+                },
               },
-            },
-          };
-        },
-      }) as never,
+            };
+          },
+        }) as never,
     });
 
     const response = await adapter.getCreativePerformance({
@@ -540,7 +561,11 @@ describe('MetaAdsAdapter', () => {
     expect(response.data?.[0]).toMatchObject({
       provider: 'meta',
       level: 'creative',
-      identity: { account_id: 'act_123', creative_id: '1031745992699354', creative_name: '11/06 Pro Sold Out Lagi' },
+      identity: {
+        account_id: 'act_123',
+        creative_id: '1031745992699354',
+        creative_name: '11/06 Pro Sold Out Lagi',
+      },
       creative: {
         creative_type: 'video',
         thumbnail_url: 'https://example.test/thumb.jpg',
@@ -754,7 +779,12 @@ describe('MetaAdsAdapter', () => {
       tools: {
         createAdCreative: async (_client, options) => {
           receivedOptions = options as unknown as Record<string, unknown>;
-          return { operation: 'create_adcreative', status: 'dry_run', executed: false, preview: {} };
+          return {
+            operation: 'create_adcreative',
+            status: 'dry_run',
+            executed: false,
+            preview: {},
+          };
         },
       },
     });
@@ -773,6 +803,705 @@ describe('MetaAdsAdapter', () => {
       pageId: 'page_123',
       objectStorySpec,
     });
+  });
+
+  it('forwards canonical campaign and ad set fields as typed options', async () => {
+    let campaignOptions: Record<string, unknown> | undefined;
+    let adSetOptions: Record<string, unknown> | undefined;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        createCampaign: async (_client, options) => {
+          campaignOptions = options as unknown as Record<string, unknown>;
+          return {
+            operation: 'create_campaign',
+            status: 'dry_run',
+            executed: false,
+            preview: {},
+            mode: options.mode ?? 'standard',
+          };
+        },
+        createAdSet: async (_client, options) => {
+          adSetOptions = options as unknown as Record<string, unknown>;
+          return { operation: 'create_adset', status: 'dry_run', executed: false, preview: {} };
+        },
+      },
+    });
+
+    const credentials = {
+      provider: 'meta' as const,
+      accessToken: 'secret-token',
+      source: 'test',
+    };
+    const campaignResponse = await adapter.createCampaign({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {
+        name: 'Collaborative campaign',
+        objective: 'OUTCOME_SALES',
+        mode: 'collaborative_ads',
+        isAdSetBudgetSharingEnabled: true,
+      },
+      credentials,
+    });
+    await adapter.createAdSet({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {
+        campaignId: 'campaign-1',
+        name: 'Collaborative ad set',
+        mode: 'collaborative_ads',
+        collaborativeCatalog: {
+          productSetId: 'set-1',
+          pixelId: 'pixel-1',
+          customEventType: 'PURCHASE',
+          destinationUrl: 'https://example.com/catalog',
+          applicationId: 'shopee-app',
+          objectStoreUrls: [
+            'http://play.google.com/store/apps/details?id=com.shopee.id',
+            'http://itunes.apple.com/app/id959841443',
+          ],
+        },
+      },
+      credentials,
+    });
+
+    expect(campaignOptions).toMatchObject({
+      mode: 'collaborative_ads',
+      isAdSetBudgetSharingEnabled: true,
+    });
+    expect(campaignResponse.data?.mode).toBe('collaborative_ads');
+    expect(adSetOptions).toMatchObject({
+      mode: 'collaborative_ads',
+      collaborativeCatalog: {
+        productSetId: 'set-1',
+        pixelId: 'pixel-1',
+        customEventType: 'PURCHASE',
+        destinationUrl: 'https://example.com/catalog',
+        applicationId: 'shopee-app',
+        objectStoreUrls: [
+          'http://play.google.com/store/apps/details?id=com.shopee.id',
+          'http://itunes.apple.com/app/id959841443',
+        ],
+      },
+    });
+  });
+
+  const canonicalCreativeCases: Array<{
+    creativeFormat: string;
+    creativeSpec: Record<string, unknown>;
+  }> = [
+    {
+      creativeFormat: 'single_image',
+      creativeSpec: {
+        imageHash: 'image-1',
+        primaryText: 'Single image copy',
+        destinationUrl: 'https://example.com/image',
+        headline: 'Image headline',
+      },
+    },
+    {
+      creativeFormat: 'video',
+      creativeSpec: {
+        videoId: 'video-1',
+        primaryText: 'Video copy',
+        destinationUrl: 'https://example.com/video',
+        thumbnailImageHash: 'thumb-1',
+      },
+    },
+    {
+      creativeFormat: 'carousel',
+      creativeSpec: {
+        primaryText: 'Carousel copy',
+        cards: [
+          {
+            imageHash: 'image-1',
+            headline: 'Card one',
+            destinationUrl: 'https://example.com/one',
+          },
+          {
+            videoId: 'video-2',
+            headline: 'Card two',
+            destinationUrl: 'https://example.com/two',
+          },
+        ],
+      },
+    },
+    {
+      creativeFormat: 'catalog',
+      creativeSpec: { productSetId: 'set-1', primaryText: 'Catalog copy' },
+    },
+    {
+      creativeFormat: 'collection',
+      creativeSpec: {
+        instantExperienceId: 'canvas-1',
+        coverImageHash: 'image-1',
+        primaryText: 'Collection copy',
+      },
+    },
+    {
+      creativeFormat: 'flexible',
+      creativeSpec: {
+        primaryText: 'Flexible copy',
+        primaryTexts: ['Flexible copy', 'Alternate copy'],
+        imageHashes: ['image-1'],
+        videoIds: ['video-1'],
+        headlines: ['Headline one'],
+        descriptions: ['Description one'],
+        destinationUrl: 'https://example.com/flexible',
+      },
+    },
+    {
+      creativeFormat: 'placement_image',
+      creativeSpec: {
+        feedImageHash: 'feed-hash',
+        verticalImageHash: 'vertical-hash',
+        primaryText: 'Placement copy',
+        headline: 'Placement headline',
+        destinationUrl: 'https://api.whatsapp.com/send',
+        callToAction: 'WHATSAPP_MESSAGE',
+        pageWelcomeMessage: '{"type":"VISUAL_EDITOR"}',
+      },
+    },
+    {
+      creativeFormat: 'existing_post',
+      creativeSpec: { objectStoryId: 'page-1_post-1' },
+    },
+  ];
+
+  it.each(canonicalCreativeCases)(
+    'strictly parses $creativeFormat as a canonical creative option',
+    async ({ creativeFormat, creativeSpec }) => {
+      let receivedOptions: Record<string, unknown> | undefined;
+      const adapter = new MetaAdsAdapter({
+        clientFactory: (config) => ({ config }) as never,
+        tools: {
+          createAdCreative: async (_client, options) => {
+            receivedOptions = options as unknown as Record<string, unknown>;
+            return {
+              operation: 'create_adcreative',
+              status: 'dry_run',
+              executed: false,
+              preview: {},
+            };
+          },
+        },
+      });
+
+      const response = await adapter.createAdCreative({
+        provider: 'meta',
+        accountId: 'act_123',
+        params: {
+          name: `${creativeFormat} creative`,
+          ...(creativeFormat === 'existing_post' ? {} : { pageId: 'page-1' }),
+          mode: 'standard',
+          creativeFormat,
+          creativeSpec,
+          collaborativeProductSetId: 'set-1',
+          collaborativeAppSpec: {
+            applicationId: 'app-1',
+            android: { appName: 'Retailer', packageName: 'com.retailer.app' },
+          },
+        },
+        credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+      });
+
+      expect(response.ok).toBe(true);
+      expect(receivedOptions).toMatchObject({
+        mode: 'standard',
+        collaborativeProductSetId: 'set-1',
+        collaborativeAppSpec: {
+          applicationId: 'app-1',
+          android: { appName: 'Retailer', packageName: 'com.retailer.app' },
+        },
+        creative: { creativeFormat, creativeSpec },
+      });
+      expect(receivedOptions).not.toHaveProperty('creativeFormat');
+      expect(receivedOptions).not.toHaveProperty('creativeSpec');
+    }
+  );
+
+  it('attaches image and video creatives to separate ads in the same ad set', async () => {
+    const adCreateCalls: Array<{ adsetId: string; creativeId: string }> = [];
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        createAdCreative: async (_client, options) => {
+          const format = options.creative?.creativeFormat;
+          const id = format === 'single_image' ? 'creative-image' : 'creative-video';
+          return {
+            operation: 'create_adcreative',
+            status: 'executed',
+            executed: true,
+            id,
+            preview: {},
+          };
+        },
+        createAd: async (_client, options) => {
+          adCreateCalls.push({ adsetId: options.adSetId, creativeId: options.creativeId });
+          return {
+            operation: 'create_ad',
+            status: 'executed',
+            executed: true,
+            id: `ad-${options.creativeId}`,
+            preview: {},
+          };
+        },
+      },
+    });
+    const credentials = {
+      provider: 'meta' as const,
+      accessToken: 'workflow-credential',
+      source: 'test',
+    };
+
+    const imageCreative = await adapter.createAdCreative({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {
+        name: 'Image creative',
+        pageId: 'page-1',
+        creativeFormat: 'single_image',
+        creativeSpec: {
+          imageHash: 'image-1',
+          primaryText: 'Image copy',
+          destinationUrl: 'https://example.com/image',
+        },
+        dryRun: false,
+        confirmed: true,
+      },
+      credentials,
+    });
+    const videoCreative = await adapter.createAdCreative({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {
+        name: 'Video creative',
+        pageId: 'page-1',
+        creativeFormat: 'video',
+        creativeSpec: {
+          videoId: 'video-1',
+          primaryText: 'Video copy',
+          destinationUrl: 'https://example.com/video',
+        },
+        dryRun: false,
+        confirmed: true,
+      },
+      credentials,
+    });
+
+    for (const [name, creativeId] of [
+      ['Image ad', imageCreative.data?.id],
+      ['Video ad', videoCreative.data?.id],
+    ] as const) {
+      expect(creativeId).toBeDefined();
+      await adapter.createAd({
+        provider: 'meta',
+        accountId: 'act_123',
+        params: {
+          name,
+          adSetId: 'adset-1',
+          creativeId,
+          dryRun: false,
+          confirmed: true,
+        },
+        credentials,
+      });
+    }
+
+    expect(adCreateCalls).toEqual([
+      expect.objectContaining({ adsetId: 'adset-1', creativeId: 'creative-image' }),
+      expect.objectContaining({ adsetId: 'adset-1', creativeId: 'creative-video' }),
+    ]);
+  });
+
+  it('preserves completed IDs when the legacy bundle reports a later partial failure', async () => {
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        createEcommerceCampaignBundle: async () => ({
+          operation: 'create_ecommerce_campaign_bundle',
+          status: 'failed',
+          executed: false,
+          preview: { campaign: {}, adSet: {}, creative: {}, ad: {} },
+          ids: { campaignId: 'campaign-1', adSetId: 'adset-1', creativeId: 'creative-1' },
+          error: 'Ad creation failed.',
+          warnings: [],
+        }),
+      },
+    });
+
+    const response = await adapter.createEcommerceCampaignBundle({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {
+        campaignName: 'Campaign',
+        adSetName: 'Ad set',
+        adName: 'Ad',
+        pageId: 'page-1',
+        pixelId: 'pixel-1',
+        destinationUrl: 'https://example.com',
+        dailyBudget: 100_000,
+        countries: ['ID'],
+        primaryText: 'Copy',
+        headline: 'Headline',
+        imageHash: 'image-1',
+        dryRun: false,
+        confirmed: true,
+      },
+      credentials: {
+        provider: 'meta',
+        accessToken: 'partial-workflow-credential',
+        source: 'test',
+      },
+    });
+
+    expect(response.ok).toBe(false);
+    expect(response.data?.ids).toEqual({
+      campaignId: 'campaign-1',
+      adSetId: 'adset-1',
+      creativeId: 'creative-1',
+    });
+  });
+
+  it.each([
+    {
+      name: 'invalid mode',
+      operation: 'campaign',
+      params: { name: 'Campaign', objective: 'OUTCOME_SALES', mode: 'invalid-mode' },
+    },
+    {
+      name: 'non-object collaborativeCatalog',
+      operation: 'adset',
+      params: { campaignId: 'campaign-1', name: 'Ad set', collaborativeCatalog: [] },
+    },
+    {
+      name: 'invalid creative format',
+      operation: 'creative',
+      params: {
+        name: 'Creative',
+        pageId: 'page-1',
+        creativeFormat: 'invalid-format',
+        creativeSpec: {},
+      },
+    },
+    {
+      name: 'non-object creativeSpec',
+      operation: 'creative',
+      params: {
+        name: 'Creative',
+        pageId: 'page-1',
+        creativeFormat: 'single_image',
+        creativeSpec: 'not-an-object',
+      },
+    },
+    {
+      name: 'malformed carousel cards',
+      operation: 'creative',
+      params: {
+        name: 'Creative',
+        pageId: 'page-1',
+        creativeFormat: 'carousel',
+        creativeSpec: { primaryText: 'Copy', cards: 'not-an-array' },
+      },
+    },
+    {
+      name: 'malformed scalar creative field',
+      operation: 'creative',
+      params: {
+        name: 'Creative',
+        pageId: 'page-1',
+        creativeFormat: 'single_image',
+        creativeSpec: {
+          imageHash: 123,
+          primaryText: 'Copy',
+          destinationUrl: 'https://example.com',
+        },
+      },
+    },
+  ])('rejects $name before calling a create tool', async ({ operation, params }) => {
+    let createCalls = 0;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        createCampaign: async () => {
+          createCalls += 1;
+          return {
+            operation: 'create_campaign',
+            status: 'dry_run',
+            executed: false,
+            preview: {},
+            mode: 'standard',
+          };
+        },
+        createAdSet: async () => {
+          createCalls += 1;
+          return { operation: 'create_adset', status: 'dry_run', executed: false, preview: {} };
+        },
+        createAdCreative: async () => {
+          createCalls += 1;
+          return {
+            operation: 'create_adcreative',
+            status: 'dry_run',
+            executed: false,
+            preview: {},
+          };
+        },
+      },
+    });
+    const request = {
+      provider: 'meta' as const,
+      accountId: 'act_123',
+      params,
+      credentials: {
+        provider: 'meta' as const,
+        accessToken: 'malformed-input-credential',
+        source: 'test',
+      },
+    };
+
+    const response =
+      operation === 'campaign'
+        ? await adapter.createCampaign(request)
+        : operation === 'adset'
+          ? await adapter.createAdSet(request)
+          : await adapter.createAdCreative(request);
+
+    expect(response).toMatchObject({
+      ok: false,
+      errors: [{ provider: 'meta', code: 'VALIDATION_ERROR' }],
+    });
+    expect(createCalls).toBe(0);
+  });
+
+  it('prefers a complete canonical creative pair over legacy fields', async () => {
+    let receivedOptions: Record<string, unknown> | undefined;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        createAdCreative: async (_client, options) => {
+          receivedOptions = options as unknown as Record<string, unknown>;
+          return {
+            operation: 'create_adcreative',
+            status: 'dry_run',
+            executed: false,
+            preview: {},
+          };
+        },
+      },
+    });
+
+    const response = await adapter.createAdCreative({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {
+        name: 'Canonical wins',
+        pageId: 'page-1',
+        creativeFormat: 'single_image',
+        creativeSpec: {
+          imageHash: 'canonical-image',
+          primaryText: 'Canonical copy',
+          destinationUrl: 'https://example.com/canonical',
+        },
+        link: 'https://example.com/legacy',
+        message: 'Legacy copy',
+      },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    });
+
+    expect(response.ok).toBe(true);
+    expect(receivedOptions).toMatchObject({
+      creative: {
+        creativeFormat: 'single_image',
+        creativeSpec: { imageHash: 'canonical-image', primaryText: 'Canonical copy' },
+      },
+    });
+    expect(receivedOptions?.linkData).toBeUndefined();
+  });
+
+  it('exposes structured local validation errors without posting to Meta', async () => {
+    let postCalls = 0;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: () =>
+        ({
+          metaPost: async () => {
+            postCalls += 1;
+            return { id: 'unexpected-creative' };
+          },
+        }) as never,
+    });
+
+    const response = await adapter.createAdCreative({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {
+        name: 'Mismatched catalog creative',
+        pageId: 'page-1',
+        mode: 'collaborative_ads',
+        creativeFormat: 'catalog',
+        creativeSpec: {
+          productSetId: 'creative-set',
+          primaryText: 'Catalog copy',
+          destinationUrl: 'https://example.com/catalog',
+        },
+        collaborativeProductSetId: 'adset-set',
+        dryRun: false,
+        confirmed: true,
+      },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    });
+
+    expect(response.ok).toBe(false);
+    expect(response.data?.structuredError).toMatchObject({
+      provider: 'meta',
+      code: 'VALIDATION_ERROR',
+      message: 'Product set creative dan ad set harus sama.',
+    });
+    expect(postCalls).toBe(0);
+  });
+
+  it('does not expose nested signed creative read-back URLs at the adapter response boundary', async () => {
+    const signedUrl =
+      'https://cdn.example.test/private/adapter-creative.jpg?X-Amz-Signature=adapter-boundary-secret&expires=60';
+    const adapter = new MetaAdsAdapter({
+      clientFactory: () =>
+        ({
+          metaPost: async () => ({ id: 'creative-adapter-safe' }),
+          metaGetObject: async () => ({
+            id: 'creative-adapter-safe',
+            product_set_id: 'set-1',
+            object_story_spec: {
+              template_data: { image_url: signedUrl },
+            },
+            asset_feed_spec: {
+              images: [{ url: signedUrl }],
+            },
+          }),
+        }) as never,
+    });
+
+    const response = await adapter.createAdCreative({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {
+        name: 'Safe adapter catalog',
+        pageId: 'page-1',
+        creativeFormat: 'catalog',
+        creativeSpec: {
+          productSetId: 'set-1',
+          primaryText: 'Catalog copy',
+          destinationUrl: 'https://example.com/catalog',
+        },
+        dryRun: false,
+        confirmed: true,
+      },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    });
+    const serialized = JSON.stringify(response);
+
+    expect(response.ok).toBe(true);
+    expect(response.data?.verification).toMatchObject({
+      creativeId: 'creative-adapter-safe',
+      summary: {
+        productSetId: 'set-1',
+        hasObjectStorySpec: true,
+        hasTemplateData: true,
+        hasAssetFeedSpec: true,
+      },
+    });
+    expect(response.data?.verification).not.toHaveProperty('fields');
+    expect(serialized).not.toContain(signedUrl);
+    expect(serialized).not.toContain('adapter-boundary-secret');
+  });
+
+  it.each([
+    { creativeFormat: 'single_image' },
+    {
+      creativeSpec: {
+        imageHash: 'image-1',
+        primaryText: 'Copy',
+        destinationUrl: 'https://example.com',
+      },
+    },
+  ])(
+    'rejects an incomplete canonical creative pair before calling the tool: %o',
+    async (params) => {
+      let calls = 0;
+      const adapter = new MetaAdsAdapter({
+        clientFactory: (config) => ({ config }) as never,
+        tools: {
+          createAdCreative: async () => {
+            calls += 1;
+            return {
+              operation: 'create_adcreative',
+              status: 'dry_run',
+              executed: false,
+              preview: {},
+            };
+          },
+        },
+      });
+
+      const response = await adapter.createAdCreative({
+        provider: 'meta',
+        accountId: 'act_123',
+        params: {
+          name: 'Incomplete canonical pair',
+          pageId: 'page-1',
+          link: 'https://example.com/legacy',
+          message: 'Legacy copy',
+          ...params,
+        },
+        credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+      });
+
+      expect(response).toMatchObject({
+        ok: false,
+        errors: [{ provider: 'meta', code: 'VALIDATION_ERROR' }],
+      });
+      expect(calls).toBe(0);
+    }
+  );
+
+  it('rejects malformed canonical array fields before calling the creative tool', async () => {
+    let calls = 0;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        createAdCreative: async () => {
+          calls += 1;
+          return {
+            operation: 'create_adcreative',
+            status: 'dry_run',
+            executed: false,
+            preview: {},
+          };
+        },
+      },
+    });
+
+    const response = await adapter.createAdCreative({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {
+        name: 'Malformed flexible creative',
+        pageId: 'page-1',
+        creativeFormat: 'flexible',
+        creativeSpec: {
+          primaryText: 'Copy',
+          primaryTexts: ['Copy'],
+          imageHashes: ['image-1', 2],
+          destinationUrl: 'https://example.com',
+        },
+      },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    });
+
+    expect(response).toMatchObject({
+      ok: false,
+      errors: [{ provider: 'meta', code: 'VALIDATION_ERROR' }],
+    });
+    expect(calls).toBe(0);
   });
 
   it('explains that official assetFeedSpec requires objectStorySpec', async () => {
@@ -839,13 +1568,15 @@ describe('MetaAdsAdapter', () => {
     const adapter = new MetaAdsAdapter({
       clientFactory: (config) => ({ config }) as never,
       tools: {
-        listPages: async () => [{
-          id: 'page_123',
-          name: 'Affiliate Page',
-          category: 'Shopping',
-          tasks: ['ADVERTISE', 'CREATE_CONTENT'],
-          access_token: 'page-token-secret',
-        }],
+        listPages: async () => [
+          {
+            id: 'page_123',
+            name: 'Affiliate Page',
+            category: 'Shopping',
+            tasks: ['ADVERTISE', 'CREATE_CONTENT'],
+            access_token: 'page-token-secret',
+          },
+        ],
       },
     });
 
@@ -856,15 +1587,16 @@ describe('MetaAdsAdapter', () => {
     });
 
     expect(response.ok).toBe(true);
-    expect(response.data).toEqual([{
-      id: 'page_123',
-      name: 'Affiliate Page',
-      category: 'Shopping',
-      tasks: ['ADVERTISE', 'CREATE_CONTENT'],
-      can_advertise: true,
-    }]);
+    expect(response.data).toEqual([
+      {
+        id: 'page_123',
+        name: 'Affiliate Page',
+        category: 'Shopping',
+        tasks: ['ADVERTISE', 'CREATE_CONTENT'],
+        can_advertise: true,
+      },
+    ]);
     expect(JSON.stringify(response)).not.toContain('page-token-secret');
     expect(JSON.stringify(response)).not.toContain('secret-token');
   });
-
 });

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { MetaClient } from '../src/metaClient.js';
 import { createAdSet } from '../src/tools/createAdSet.js';
+import { MetaApiError } from '../src/utils/metaError.js';
 
 function createMockClient(overrides: Record<string, unknown> = {}): MetaClient {
   return {
@@ -26,10 +27,14 @@ describe('createAdSet — bid strategy + pre-flight validation', () => {
   describe('client-side validation (no API call)', () => {
     it('should reject invalid bidStrategy "LOWEST_COST"', async () => {
       const client = createMockClient();
-      const result = await createAdSet(client, {
-        ...defaultOptions,
-        bidStrategy: 'LOWEST_COST',
-      }, { dryRun: false, confirmed: true });
+      const result = await createAdSet(
+        client,
+        {
+          ...defaultOptions,
+          bidStrategy: 'LOWEST_COST',
+        },
+        { dryRun: false, confirmed: true }
+      );
       expect(result.status).toBe('failed');
       expect(result.error).toContain('LOWEST_COST');
       expect(client.metaPost).not.toHaveBeenCalled();
@@ -37,10 +42,14 @@ describe('createAdSet — bid strategy + pre-flight validation', () => {
 
     it('should reject LOWEST_COST_WITH_BID_CAP without bidAmount', async () => {
       const client = createMockClient();
-      const result = await createAdSet(client, {
-        ...defaultOptions,
-        bidStrategy: 'LOWEST_COST_WITH_BID_CAP',
-      }, { dryRun: false, confirmed: true });
+      const result = await createAdSet(
+        client,
+        {
+          ...defaultOptions,
+          bidStrategy: 'LOWEST_COST_WITH_BID_CAP',
+        },
+        { dryRun: false, confirmed: true }
+      );
       expect(result.status).toBe('failed');
       expect(result.error).toContain('bidAmount is required');
       expect(client.metaPost).not.toHaveBeenCalled();
@@ -48,40 +57,56 @@ describe('createAdSet — bid strategy + pre-flight validation', () => {
 
     it('should reject COST_CAP without bidAmount', async () => {
       const client = createMockClient();
-      const result = await createAdSet(client, {
-        ...defaultOptions,
-        bidStrategy: 'COST_CAP',
-      }, { dryRun: false, confirmed: true });
+      const result = await createAdSet(
+        client,
+        {
+          ...defaultOptions,
+          bidStrategy: 'COST_CAP',
+        },
+        { dryRun: false, confirmed: true }
+      );
       expect(result.status).toBe('failed');
       expect(result.error).toContain('bidAmount is required');
     });
 
     it('should reject TARGET_COST without bidAmount', async () => {
       const client = createMockClient();
-      const result = await createAdSet(client, {
-        ...defaultOptions,
-        bidStrategy: 'TARGET_COST',
-      }, { dryRun: false, confirmed: true });
+      const result = await createAdSet(
+        client,
+        {
+          ...defaultOptions,
+          bidStrategy: 'TARGET_COST',
+        },
+        { dryRun: false, confirmed: true }
+      );
       expect(result.status).toBe('failed');
       expect(result.error).toContain('bidAmount');
     });
 
     it('should reject LOWEST_COST_WITH_MIN_ROAS without bidConstraints', async () => {
       const client = createMockClient();
-      const result = await createAdSet(client, {
-        ...defaultOptions,
-        bidStrategy: 'LOWEST_COST_WITH_MIN_ROAS',
-      }, { dryRun: false, confirmed: true });
+      const result = await createAdSet(
+        client,
+        {
+          ...defaultOptions,
+          bidStrategy: 'LOWEST_COST_WITH_MIN_ROAS',
+        },
+        { dryRun: false, confirmed: true }
+      );
       expect(result.status).toBe('failed');
       expect(result.error).toContain('bidConstraints');
     });
 
     it('should accept LOWEST_COST_WITHOUT_CAP without bidAmount', async () => {
       const client = createMockClient();
-      const result = await createAdSet(client, {
-        ...defaultOptions,
-        bidStrategy: 'LOWEST_COST_WITHOUT_CAP',
-      }, { dryRun: false, confirmed: true });
+      const result = await createAdSet(
+        client,
+        {
+          ...defaultOptions,
+          bidStrategy: 'LOWEST_COST_WITHOUT_CAP',
+        },
+        { dryRun: false, confirmed: true }
+      );
       // After client-side validation, pre-flight runs and finds campaign has
       // LOWEST_COST_WITH_BID_CAP which requires bid_amount. But we explicitly
       // overrode with LOWEST_COST_WITHOUT_CAP, so it should proceed to metaPost
@@ -97,10 +122,14 @@ describe('createAdSet — bid strategy + pre-flight validation', () => {
   describe('pre-flight: CBO budget conflict', () => {
     it('should reject dailyBudget when campaign has CBO', async () => {
       const client = createMockClient({ daily_budget: 100000 });
-      const result = await createAdSet(client, {
-        ...defaultOptions,
-        dailyBudget: 50000,
-      }, { dryRun: false, confirmed: true });
+      const result = await createAdSet(
+        client,
+        {
+          ...defaultOptions,
+          dailyBudget: 50000,
+        },
+        { dryRun: false, confirmed: true }
+      );
       expect(result.status).toBe('failed');
       expect(result.error).toContain('Budget conflict');
       expect(result.error).toContain('CBO');
@@ -109,20 +138,28 @@ describe('createAdSet — bid strategy + pre-flight validation', () => {
 
     it('should reject lifetimeBudget when campaign has CBO', async () => {
       const client = createMockClient({ daily_budget: 100000 });
-      const result = await createAdSet(client, {
-        ...defaultOptions,
-        lifetimeBudget: 500000,
-      }, { dryRun: false, confirmed: true });
+      const result = await createAdSet(
+        client,
+        {
+          ...defaultOptions,
+          lifetimeBudget: 500000,
+        },
+        { dryRun: false, confirmed: true }
+      );
       expect(result.status).toBe('failed');
       expect(result.error).toContain('Budget conflict');
     });
 
     it('should allow no budget when campaign has CBO', async () => {
       const client = createMockClient({ daily_budget: 100000 });
-      const result = await createAdSet(client, {
-        ...defaultOptions,
-        // No dailyBudget or lifetimeBudget
-      }, { dryRun: false, confirmed: true });
+      const result = await createAdSet(
+        client,
+        {
+          ...defaultOptions,
+          // No dailyBudget or lifetimeBudget
+        },
+        { dryRun: false, confirmed: true }
+      );
       // Will proceed to pre-flight check 2 (campaign uses LOWEST_COST_WITH_BID_CAP)
       // Without bidAmount, this should fail
       expect(result.status).toBe('failed');
@@ -132,19 +169,31 @@ describe('createAdSet — bid strategy + pre-flight validation', () => {
 
   describe('pre-flight: campaign bid strategy requires bidAmount', () => {
     it('should not create duplicate ad set when dedupeByName finds an existing one', async () => {
-      const client = createMockClient({ bid_strategy: 'LOWEST_COST_WITHOUT_CAP', daily_budget: undefined });
+      const client = createMockClient({
+        bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+        daily_budget: undefined,
+      });
       vi.mocked(client.metaGet).mockResolvedValueOnce({
         data: [{ id: 'existing_adset_1', name: 'Test Ad Set', status: 'PAUSED' }],
       });
 
-      const result = await createAdSet(client, {
-        ...defaultOptions,
-        dedupeByName: true,
-      }, { dryRun: false, confirmed: true });
+      const result = await createAdSet(
+        client,
+        {
+          ...defaultOptions,
+          dedupeByName: true,
+        },
+        { dryRun: false, confirmed: true }
+      );
 
       expect(result.status).toBe('deduped');
       expect(result.executed).toBe(false);
       expect(result.id).toBe('existing_adset_1');
+      expect(vi.mocked(client.metaGet).mock.calls[0][1]).not.toHaveProperty('filtering');
+      expect(vi.mocked(client.metaGet).mock.calls[0][2]).toMatchObject({
+        paginate: true,
+        maxPages: 20,
+      });
       expect(client.metaPost).not.toHaveBeenCalled();
     });
 
@@ -165,11 +214,15 @@ describe('createAdSet — bid strategy + pre-flight validation', () => {
 
     it('should auto-set bid_strategy from campaign when only bidAmount provided', async () => {
       const client = createMockClient({ bid_strategy: 'COST_CAP' });
-      const result = await createAdSet(client, {
-        ...defaultOptions,
-        bidAmount: 500000,
-        // No bidStrategy — should auto-set from campaign
-      }, { dryRun: false, confirmed: true });
+      const result = await createAdSet(
+        client,
+        {
+          ...defaultOptions,
+          bidAmount: 500000,
+          // No bidStrategy — should auto-set from campaign
+        },
+        { dryRun: false, confirmed: true }
+      );
       // Should pass pre-flight, call metaPost
       if (result.status === 'executed') {
         expect(result.id).toBeTruthy();
@@ -200,7 +253,10 @@ describe('createAdSet — bid strategy + pre-flight validation', () => {
     });
 
     it('should return dry_run when read-only preflight passes', async () => {
-      const client = createMockClient({ bid_strategy: 'LOWEST_COST_WITHOUT_CAP', daily_budget: undefined });
+      const client = createMockClient({
+        bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+        daily_budget: undefined,
+      });
       const result = await createAdSet(client, defaultOptions, { dryRun: true });
       expect(result.status).toBe('dry_run');
       expect(result.executed).toBe(false);
@@ -216,18 +272,47 @@ describe('createAdSet — bid strategy + pre-flight validation', () => {
       expect(result.status).toBe('pending_confirmation');
       expect(result.error).toContain('confirmation');
     });
+
+    it('redacts credentials and signed URLs from generic ad-set POST errors', async () => {
+      const credentialFixture = 'final_review_adset_credential_123456789';
+      const signedUrl = `https://cdn.example.test/private/adset.jpg?X-Amz-Signature=${credentialFixture}&expires=60`;
+      const client = createMockClient({
+        bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+        daily_budget: undefined,
+      });
+      vi.mocked(client.metaPost).mockRejectedValueOnce(
+        new Error(`Ad-set provider failed: access_token=${credentialFixture}; asset=${signedUrl}`)
+      );
+
+      const result = await createAdSet(client, defaultOptions, { dryRun: false, confirmed: true });
+      const serialized = JSON.stringify(result);
+
+      expect(result).toMatchObject({
+        status: 'failed',
+        structuredError: { code: 'INTERNAL_ERROR' },
+      });
+      expect(result.error).toContain('[REDACTED]');
+      expect(result.error).toContain('[REDACTED_SIGNED_URL]');
+      expect(serialized).not.toContain(credentialFixture);
+      expect(serialized).not.toContain(signedUrl);
+      expect(serialized).not.toContain('cdn.example.test/private/adset.jpg');
+    });
   });
 
   describe('new fields in payload', () => {
     it('should include new fields in preview when provided', async () => {
       const client = createMockClient();
-      const result = await createAdSet(client, {
-        ...defaultOptions,
-        destinationType: 'WEBSITE',
-        attributionSpec: [{ event_type: 'CLICK_THROUGH', window_days: 7 }],
-        frequencyControlSpecs: [{ event: 'IMPRESSIONS', interval_days: 7, max_frequency: 3 }],
-        isDynamicCreative: true,
-      }, { dryRun: true });
+      const result = await createAdSet(
+        client,
+        {
+          ...defaultOptions,
+          destinationType: 'WEBSITE',
+          attributionSpec: [{ event_type: 'CLICK_THROUGH', window_days: 7 }],
+          frequencyControlSpecs: [{ event: 'IMPRESSIONS', interval_days: 7, max_frequency: 3 }],
+          isDynamicCreative: true,
+        },
+        { dryRun: true }
+      );
       expect(result.preview.destination_type).toBe('WEBSITE');
       expect(result.preview.attribution_spec).toBeDefined();
       expect(result.preview.frequency_control_specs).toBeDefined();
@@ -235,26 +320,346 @@ describe('createAdSet — bid strategy + pre-flight validation', () => {
     });
   });
 
+  describe('collaborative catalog context', () => {
+    it('reads an accessible collaborative product set before creating the ad set', async () => {
+      const client = createMockClient({
+        bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+        daily_budget: undefined,
+      });
+      vi.mocked(client.metaGetObject).mockImplementation(async (path) => {
+        if (path === '/product-set-1') {
+          return {
+            id: 'product-set-1',
+            name: 'Retailer best sellers',
+            product_catalog: { id: 'catalog-1' },
+            product_count: 24,
+          };
+        }
+        return {
+          id: '120000000000000001',
+          bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+        };
+      });
+
+      const result = await createAdSet(
+        client,
+        {
+          ...defaultOptions,
+          mode: 'collaborative_ads',
+          collaborativeCatalog: { productSetId: ' product-set-1 ' },
+        },
+        { dryRun: false, confirmed: true }
+      );
+
+      expect(result.status).toBe('executed');
+      expect(client.metaGetObject).toHaveBeenNthCalledWith(
+        1,
+        '/product-set-1',
+        { fields: 'id,name,product_catalog,product_count' },
+        3
+      );
+      expect(client.metaPost).toHaveBeenCalledTimes(1);
+    });
+
+    it('returns Indonesian structured guidance and does not POST when the product set is inaccessible', async () => {
+      const client = createMockClient({
+        bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+        daily_budget: undefined,
+      });
+      vi.mocked(client.metaGetObject).mockImplementation(async (path) => {
+        if (path === '/inaccessible-set') {
+          throw new Error('Object does not exist or is not accessible');
+        }
+        return {
+          id: '120000000000000001',
+          bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+        };
+      });
+
+      const result = await createAdSet(
+        client,
+        {
+          ...defaultOptions,
+          mode: 'collaborative_ads',
+          collaborativeCatalog: { productSetId: 'inaccessible-set' },
+        },
+        { dryRun: false, confirmed: true }
+      );
+
+      expect(result).toMatchObject({
+        status: 'failed',
+        executed: false,
+        structuredError: {
+          provider: 'meta',
+          code: 'COLLABORATIVE_PRODUCT_SET_UNAVAILABLE',
+          actionableFix: expect.stringMatching(/pastikan.*product set.*dibagikan/i),
+        },
+      });
+      expect(result.error).toMatch(/product set.*tidak dapat diakses/i);
+      expect(client.metaPost).not.toHaveBeenCalled();
+    });
+
+    it('rejects an explicitly empty collaborative product set before POST', async () => {
+      const client = createMockClient({
+        bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+        daily_budget: undefined,
+      });
+      vi.mocked(client.metaGetObject).mockImplementation(async (path) => {
+        if (path === '/empty-set') {
+          return {
+            id: 'empty-set',
+            name: 'Empty retailer segment',
+            product_catalog: { id: 'catalog-1' },
+            product_count: 0,
+          };
+        }
+        return {
+          id: '120000000000000001',
+          bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+        };
+      });
+
+      const result = await createAdSet(
+        client,
+        {
+          ...defaultOptions,
+          mode: 'collaborative_ads',
+          collaborativeCatalog: { productSetId: 'empty-set' },
+        },
+        { dryRun: false, confirmed: true }
+      );
+
+      expect(result).toMatchObject({
+        status: 'failed',
+        structuredError: {
+          provider: 'meta',
+          code: 'COLLABORATIVE_PRODUCT_SET_INELIGIBLE',
+          actionableFix: expect.stringMatching(/produk.*aktif/i),
+        },
+      });
+      expect(result.error).toMatch(/tidak memiliki produk/i);
+      expect(client.metaPost).not.toHaveBeenCalled();
+    });
+
+    it('does not treat absent optional product-set eligibility fields as ineligible', async () => {
+      const client = createMockClient({
+        bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+        daily_budget: undefined,
+      });
+      vi.mocked(client.metaGetObject).mockImplementation(async (path) => {
+        if (path === '/accessible-without-optionals') {
+          return { id: 'accessible-without-optionals', name: 'Retailer segment' };
+        }
+        return {
+          id: '120000000000000001',
+          bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+        };
+      });
+
+      const result = await createAdSet(
+        client,
+        {
+          ...defaultOptions,
+          mode: 'collaborative_ads',
+          collaborativeCatalog: { productSetId: 'accessible-without-optionals' },
+        },
+        { dryRun: true }
+      );
+
+      expect(result.status).toBe('dry_run');
+      expect(client.metaGetObject).toHaveBeenCalledWith(
+        '/accessible-without-optionals',
+        { fields: 'id,name,product_catalog,product_count' },
+        3
+      );
+      expect(client.metaPost).not.toHaveBeenCalled();
+    });
+
+    it('places a collaborative product set in promoted_object', async () => {
+      const client = createMockClient({
+        bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+        daily_budget: undefined,
+      });
+      vi.mocked(client.metaGetObject).mockImplementation(async (path) => {
+        if (path === '/product-set-1') return { id: 'product-set-1' };
+        return {
+          id: '120000000000000001',
+          bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+        };
+      });
+      const result = await createAdSet(
+        client,
+        {
+          adAccountId: 'act_1',
+          campaignId: 'campaign-1',
+          name: 'Shopee Product Set',
+          mode: 'collaborative_ads',
+          collaborativeCatalog: {
+            productSetId: ' product-set-1 ',
+            pixelId: ' pixel-1 ',
+            customEventType: ' PURCHASE ',
+          },
+        },
+        { dryRun: true }
+      );
+
+      expect(result.preview.promoted_object).toEqual({
+        product_set_id: 'product-set-1',
+        pixel_id: 'pixel-1',
+        custom_event_type: 'PURCHASE',
+      });
+    });
+
+    it('builds the complete Shopee omnichannel promoted object', async () => {
+      const client = createMockClient({
+        bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+        daily_budget: undefined,
+      });
+      vi.mocked(client.metaGetObject).mockImplementation(async (path) => {
+        if (path === '/shopee-set') return { id: 'shopee-set' };
+        return {
+          id: '120000000000000001',
+          bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+        };
+      });
+
+      const result = await createAdSet(
+        client,
+        {
+          ...defaultOptions,
+          mode: 'collaborative_ads',
+          collaborativeCatalog: {
+            productSetId: 'shopee-set',
+            pixelId: 'cpas-pixel',
+            customEventType: 'PURCHASE',
+            applicationId: 'shopee-app',
+            objectStoreUrls: [
+              'http://play.google.com/store/apps/details?id=com.shopee.id',
+              'http://itunes.apple.com/app/id959841443',
+            ],
+          },
+        },
+        { dryRun: true }
+      );
+
+      expect(result.preview.promoted_object).toEqual({
+        product_set_id: 'shopee-set',
+        smart_pse_enabled: false,
+        omnichannel_object: {
+          app: [
+            {
+              application_id: 'shopee-app',
+              custom_event_type: 'PURCHASE',
+              object_store_urls: [
+                'http://play.google.com/store/apps/details?id=com.shopee.id',
+                'http://itunes.apple.com/app/id959841443',
+              ],
+            },
+          ],
+          pixel: [{ pixel_id: 'cpas-pixel', custom_event_type: 'PURCHASE' }],
+        },
+      });
+    });
+
+    it('continues when Meta permits use but blocks direct retailer product-set reads', async () => {
+      const client = createMockClient({
+        bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+        daily_budget: undefined,
+      });
+      vi.mocked(client.metaGetObject).mockImplementation(async (path) => {
+        if (path === '/shared-retailer-set') {
+          throw new MetaApiError({
+            message:
+              '(#100) This application has not been approved to use this api. Please check the application capabilities or access token permissions.',
+            type: 'OAuthException',
+            code: 100,
+          });
+        }
+        return {
+          id: '120000000000000001',
+          bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+        };
+      });
+
+      const result = await createAdSet(
+        client,
+        {
+          ...defaultOptions,
+          mode: 'collaborative_ads',
+          collaborativeCatalog: { productSetId: 'shared-retailer-set' },
+        },
+        { dryRun: true }
+      );
+
+      expect(result.status).toBe('dry_run');
+      expect(client.metaPost).not.toHaveBeenCalled();
+    });
+
+    it('rejects collaborative ad sets without a product set before POST', async () => {
+      const client = createMockClient();
+      const result = await createAdSet(
+        client,
+        {
+          adAccountId: 'act_1',
+          campaignId: 'campaign-1',
+          name: 'Missing Product Set',
+          mode: 'collaborative_ads',
+        },
+        { dryRun: true }
+      );
+
+      expect(result.status).toBe('failed');
+      expect(result.error).toMatch(/product set.*wajib/i);
+      expect(client.metaPost).not.toHaveBeenCalled();
+    });
+
+    it('rejects mismatched collaborative and legacy promoted product sets', async () => {
+      const client = createMockClient();
+      const result = await createAdSet(
+        client,
+        {
+          ...defaultOptions,
+          mode: 'collaborative_ads',
+          collaborativeCatalog: { productSetId: 'collaborative-product-set' },
+          promotedObject: { product_set_id: 'legacy-product-set' },
+        },
+        { dryRun: true }
+      );
+
+      expect(result.status).toBe('failed');
+      expect(result.error).toMatch(/product set.*harus sama/i);
+      expect(client.metaPost).not.toHaveBeenCalled();
+    });
+  });
+
   describe('targeting_automation default', () => {
     it('should add targeting_automation.advantage_audience: 0 when targeting provided', async () => {
       const client = createMockClient();
-      const result = await createAdSet(client, {
-        ...defaultOptions,
-        targeting: { geoLocations: { countries: ['ID'] } },
-      }, { dryRun: true });
+      const result = await createAdSet(
+        client,
+        {
+          ...defaultOptions,
+          targeting: { geoLocations: { countries: ['ID'] } },
+        },
+        { dryRun: true }
+      );
       const targeting = result.preview.targeting as Record<string, unknown>;
       expect(targeting?.targeting_automation).toEqual({ advantage_audience: 0 });
     });
 
     it('should not override user-provided targeting_automation', async () => {
       const client = createMockClient();
-      const result = await createAdSet(client, {
-        ...defaultOptions,
-        targeting: {
-          geoLocations: { countries: ['ID'] },
-          targetingOptimization: 'none',
+      const result = await createAdSet(
+        client,
+        {
+          ...defaultOptions,
+          targeting: {
+            geoLocations: { countries: ['ID'] },
+            targetingOptimization: 'none',
+          },
         },
-      }, { dryRun: true });
+        { dryRun: true }
+      );
       const targeting = result.preview.targeting as Record<string, unknown>;
       expect(targeting?.targeting_automation).toEqual({ advantage_audience: 0 });
     });

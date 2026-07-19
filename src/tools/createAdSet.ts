@@ -1,27 +1,62 @@
 import type { MetaClient } from '../metaClient.js';
-import type { StructuredMutationError } from '../types.js';
+import type {
+  MetaAdsMode,
+  MetaCollaborativeCatalogContext,
+  StructuredMutationError,
+} from '../types.js';
 import { normalizeAccountPath } from '../utils/normalizeAccountId.js';
 import { MetaApiError } from '../utils/metaError.js';
-import { formatMetaWriteError, formatStructuredMetaWriteError } from '../utils/formatMetaWriteError.js';
+import {
+  formatMetaWriteError,
+  formatStructuredMetaWriteError,
+} from '../utils/formatMetaWriteError.js';
 
 export type AdSetStatus = 'ACTIVE' | 'PAUSED';
 
 export type BillingEvent =
-  | 'IMPRESSIONS' | 'LINK_CLICKS' | 'PAGE_LIKES' | 'POST_ENGAGEMENT'
-  | 'VIDEO_VIEWS' | 'LEADS' | 'APP_INSTALLS' | 'MESSAGE_RESPONSES'
-  | 'RSVP' | 'THRUPLAY' | 'PURCHASE' | 'LISTING_INTERACTION'
-  | 'OFFSITE_CONVERSIONS' | 'ON_INSTALL' | 'ONSITE_CONVERSIONS'
-  | 'QUALITY_CALL' | 'REACH' | 'SOCIAL_IMPRESSIONS' | 'VALUE'
+  | 'IMPRESSIONS'
+  | 'LINK_CLICKS'
+  | 'PAGE_LIKES'
+  | 'POST_ENGAGEMENT'
+  | 'VIDEO_VIEWS'
+  | 'LEADS'
+  | 'APP_INSTALLS'
+  | 'MESSAGE_RESPONSES'
+  | 'RSVP'
+  | 'THRUPLAY'
+  | 'PURCHASE'
+  | 'LISTING_INTERACTION'
+  | 'OFFSITE_CONVERSIONS'
+  | 'ON_INSTALL'
+  | 'ONSITE_CONVERSIONS'
+  | 'QUALITY_CALL'
+  | 'REACH'
+  | 'SOCIAL_IMPRESSIONS'
+  | 'VALUE'
   | 'LANDING_PAGE_VIEWS';
 
 export type OptimizationGoal =
-  | 'NONE' | 'APP_INSTALLS' | 'APP_INSTALLS_AND_OFFSITE_CONVERSIONS'
-  | 'CONVERSATIONS' | 'DERIVED_EVENTS' | 'ENGAGED_USERS'
-  | 'EVENT_RESPONSES' | 'IMPRESSIONS' | 'LANDING_PAGE_VIEWS'
-  | 'LEAD_GENERATION' | 'LINK_CLICKS' | 'OFFSITE_CONVERSIONS'
-  | 'ONSITE_CONVERSIONS' | 'PAGE_LIKES' | 'POST_ENGAGEMENT'
-  | 'QUALITY_CALL' | 'REACH' | 'SOCIAL_IMPRESSIONS'
-  | 'THRUPLAY' | 'VALUE' | 'VISIT_INSTAGRAM_PROFILE';
+  | 'NONE'
+  | 'APP_INSTALLS'
+  | 'APP_INSTALLS_AND_OFFSITE_CONVERSIONS'
+  | 'CONVERSATIONS'
+  | 'DERIVED_EVENTS'
+  | 'ENGAGED_USERS'
+  | 'EVENT_RESPONSES'
+  | 'IMPRESSIONS'
+  | 'LANDING_PAGE_VIEWS'
+  | 'LEAD_GENERATION'
+  | 'LINK_CLICKS'
+  | 'OFFSITE_CONVERSIONS'
+  | 'ONSITE_CONVERSIONS'
+  | 'PAGE_LIKES'
+  | 'POST_ENGAGEMENT'
+  | 'QUALITY_CALL'
+  | 'REACH'
+  | 'SOCIAL_IMPRESSIONS'
+  | 'THRUPLAY'
+  | 'VALUE'
+  | 'VISIT_INSTAGRAM_PROFILE';
 
 export interface AdSetTargeting {
   geoLocations?: {
@@ -54,6 +89,8 @@ export interface CreateAdSetOptions {
   adAccountId: string;
   campaignId: string;
   name: string;
+  mode?: MetaAdsMode;
+  collaborativeCatalog?: MetaCollaborativeCatalogContext;
   status?: AdSetStatus;
   dailyBudget?: number;
   lifetimeBudget?: number;
@@ -86,7 +123,12 @@ export interface CreateAdSetOptions {
   externalReference?: string;
 }
 
-export type CreateAdSetStatus = 'dry_run' | 'pending_confirmation' | 'executed' | 'failed' | 'deduped';
+export type CreateAdSetStatus =
+  | 'dry_run'
+  | 'pending_confirmation'
+  | 'executed'
+  | 'failed'
+  | 'deduped';
 
 export interface CreateAdSetResult {
   operation: 'create_adset';
@@ -108,6 +150,13 @@ interface CampaignInfo {
   bid_strategy?: string;
   daily_budget?: number;
   lifetime_budget?: number;
+}
+
+interface CollaborativeProductSetInfo {
+  id?: string;
+  name?: string;
+  product_catalog?: unknown;
+  product_count?: number | string;
 }
 
 /** Bid strategies that require bid_amount */
@@ -165,6 +214,36 @@ export async function createAdSet(
     preview,
   };
 
+  const collaborativeProductSetId = options.collaborativeCatalog?.productSetId.trim();
+  if (options.mode === 'collaborative_ads' && !collaborativeProductSetId) {
+    return {
+      ...baseResult,
+      status: 'failed',
+      error: 'Product set Collaborative Ads wajib diisi.',
+      structuredError: validationError(
+        'MISSING_COLLABORATIVE_PRODUCT_SET',
+        'Product set Collaborative Ads wajib diisi.'
+      ),
+    };
+  }
+
+  const legacyProductSetId = options.promotedObject?.product_set_id;
+  if (
+    collaborativeProductSetId &&
+    typeof legacyProductSetId === 'string' &&
+    legacyProductSetId.trim() !== collaborativeProductSetId
+  ) {
+    return {
+      ...baseResult,
+      status: 'failed',
+      error: 'Product set collaborativeCatalog dan promotedObject harus sama.',
+      structuredError: validationError(
+        'MISMATCHED_COLLABORATIVE_PRODUCT_SET',
+        'Product set collaborativeCatalog dan promotedObject harus sama.'
+      ),
+    };
+  }
+
   if (!dryRun && !confirmed) {
     return {
       ...baseResult,
@@ -219,6 +298,73 @@ export async function createAdSet(
     };
   }
 
+  // --- PRE-FLIGHT CHECK: prove the shared retailer product set is readable ---
+  if (options.mode === 'collaborative_ads' && collaborativeProductSetId) {
+    let productSet: CollaborativeProductSetInfo | undefined;
+    try {
+      productSet = await client.metaGetObject<CollaborativeProductSetInfo>(
+        `/${collaborativeProductSetId}`,
+        { fields: 'id,name,product_catalog,product_count' },
+        maxRetries
+      );
+    } catch (error) {
+      if (isRetailerProductSetReadPermissionError(error)) {
+        productSet = undefined;
+      } else {
+        const detail = formatMetaWriteError(error);
+        const structuredError = formatStructuredMetaWriteError(error);
+        return {
+          ...baseResult,
+          status: 'failed',
+          error:
+            `Product set Collaborative Ads tidak dapat diakses. ` +
+            `Pastikan retailer sudah membagikan product set ini ke akun iklan. Detail Meta: ${detail}`,
+          structuredError: {
+            ...structuredError,
+            provider: 'meta',
+            code: 'COLLABORATIVE_PRODUCT_SET_UNAVAILABLE',
+            actionableFix:
+              'Pastikan product set retailer sudah dibagikan ke akun iklan dan dapat dibaca oleh koneksi Meta ini.',
+          },
+        };
+      }
+    }
+
+    if (productSet && productSet.id?.trim() !== collaborativeProductSetId) {
+      const message = 'Product set Collaborative Ads tidak dapat diverifikasi dari respons Meta.';
+      return {
+        ...baseResult,
+        status: 'failed',
+        error: message,
+        structuredError: {
+          provider: 'meta',
+          code: 'COLLABORATIVE_PRODUCT_SET_UNAVAILABLE',
+          message,
+          actionableFix:
+            'Pastikan product set retailer sudah dibagikan ke akun iklan dan gunakan ID product set yang benar.',
+        },
+      };
+    }
+
+    const productCount = parseOptionalProductCount(productSet?.product_count);
+    if (productCount !== undefined && productCount <= 0) {
+      const message =
+        'Product set Collaborative Ads tidak memiliki produk aktif untuk dipromosikan.';
+      return {
+        ...baseResult,
+        status: 'failed',
+        error: message,
+        structuredError: {
+          provider: 'meta',
+          code: 'COLLABORATIVE_PRODUCT_SET_INELIGIBLE',
+          message,
+          actionableFix:
+            'Pastikan product set retailer memiliki minimal satu produk aktif sebelum membuat ad set.',
+        },
+      };
+    }
+  }
+
   // --- PRE-FLIGHT CHECK: fetch campaign data ---
   try {
     const campaign = await client.metaGetObject<CampaignInfo>(
@@ -230,7 +376,10 @@ export async function createAdSet(
     // Check 1: CBO budget conflict
     // Meta doesn't allow budgets at both campaign and ad set level
     const campaignHasBudget = campaign.daily_budget || campaign.lifetime_budget;
-    if (campaignHasBudget && (options.dailyBudget !== undefined || options.lifetimeBudget !== undefined)) {
+    if (
+      campaignHasBudget &&
+      (options.dailyBudget !== undefined || options.lifetimeBudget !== undefined)
+    ) {
       return {
         ...baseResult,
         status: 'failed',
@@ -275,7 +424,12 @@ export async function createAdSet(
   const accountPath = normalizeAccountPath(options.adAccountId);
 
   if (options.dedupeByName) {
-    const existing = await findExistingAdSetByName(client, options.campaignId, options.name, maxRetries);
+    const existing = await findExistingAdSetByName(
+      client,
+      options.campaignId,
+      options.name,
+      maxRetries
+    );
     if (existing) {
       return {
         ...baseResult,
@@ -311,7 +465,7 @@ export async function createAdSet(
     };
   } catch (error) {
     // Try to extract subcode for better error message
-    let errorMsg = error instanceof Error ? error.message : String(error);
+    let errorMsg = formatMetaWriteError(error);
     if (error instanceof MetaApiError) {
       const mapped = mapSubcodeError(error.subcode, preview.bid_strategy as string | undefined);
       if (mapped) {
@@ -344,9 +498,8 @@ async function findExistingAdSetByName(
     {
       fields: 'id,name,status',
       limit: 100,
-      filtering: [{ field: 'name', operator: 'EQUAL', value: name.trim() }],
     },
-    { maxRetries }
+    { maxRetries, paginate: true, maxPages: 20 }
   );
 
   return response.data?.find((adSet) => adSet.name === name.trim()) ?? null;
@@ -357,8 +510,24 @@ function validationError(code: string, message: string): StructuredMutationError
     code,
     message,
     provider: 'meta',
-    actionableFix: 'Review the dry-run preview and update the invalid ad set input before executing.',
+    actionableFix:
+      'Review the dry-run preview and update the invalid ad set input before executing.',
   };
+}
+
+function parseOptionalProductCount(value: number | string | undefined): number | undefined {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : undefined;
+  if (typeof value !== 'string' || !value.trim()) return undefined;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function isRetailerProductSetReadPermissionError(error: unknown): boolean {
+  return (
+    error instanceof MetaApiError &&
+    error.code === 100 &&
+    /application has not been approved to use this api/i.test(error.message)
+  );
 }
 
 function buildAdSetPayload(options: CreateAdSetOptions): Record<string, unknown> {
@@ -398,8 +567,12 @@ function buildAdSetPayload(options: CreateAdSetOptions): Record<string, unknown>
     payload.targeting = buildTargetingPayload(options.targeting);
   }
 
-  if (options.promotedObject) {
-    payload.promoted_object = options.promotedObject;
+  const collaborativePromotedObject = options.collaborativeCatalog
+    ? buildCollaborativePromotedObject(options.collaborativeCatalog)
+    : undefined;
+
+  if (collaborativePromotedObject || options.promotedObject) {
+    payload.promoted_object = collaborativePromotedObject ?? options.promotedObject;
   }
 
   if (options.startTime) {
@@ -442,6 +615,40 @@ function buildAdSetPayload(options: CreateAdSetOptions): Record<string, unknown>
   return payload;
 }
 
+function buildCollaborativePromotedObject(
+  catalog: MetaCollaborativeCatalogContext
+): Record<string, unknown> {
+  const productSetId = catalog.productSetId.trim();
+  const pixelId = catalog.pixelId?.trim();
+  const customEventType = catalog.customEventType?.trim();
+  const applicationId = catalog.applicationId?.trim();
+  const objectStoreUrls = (catalog.objectStoreUrls ?? []).map((url) => url.trim()).filter(Boolean);
+
+  if (!applicationId) {
+    return {
+      product_set_id: productSetId,
+      ...(pixelId ? { pixel_id: pixelId } : {}),
+      ...(customEventType ? { custom_event_type: customEventType } : {}),
+    };
+  }
+
+  const eventType = customEventType || 'PURCHASE';
+  return {
+    product_set_id: productSetId,
+    smart_pse_enabled: false,
+    omnichannel_object: {
+      app: [
+        {
+          application_id: applicationId,
+          custom_event_type: eventType,
+          ...(objectStoreUrls.length > 0 ? { object_store_urls: objectStoreUrls } : {}),
+        },
+      ],
+      ...(pixelId ? { pixel: [{ pixel_id: pixelId, custom_event_type: eventType }] } : {}),
+    },
+  };
+}
+
 function buildTargetingPayload(targeting: AdSetTargeting): Record<string, unknown> {
   const result: Record<string, unknown> = {};
 
@@ -456,16 +663,23 @@ function buildTargetingPayload(targeting: AdSetTargeting): Record<string, unknow
   if (targeting.interests !== undefined) result.interests = targeting.interests;
   if (targeting.behaviors !== undefined) result.behaviors = targeting.behaviors;
   if (targeting.customAudiences !== undefined) result.custom_audiences = targeting.customAudiences;
-  if (targeting.excludedCustomAudiences !== undefined) result.excluded_custom_audiences = targeting.excludedCustomAudiences;
-  if (targeting.publisherPlatforms !== undefined) result.publisher_platforms = targeting.publisherPlatforms;
-  if (targeting.facebookPositions !== undefined) result.facebook_positions = targeting.facebookPositions;
-  if (targeting.instagramPositions !== undefined) result.instagram_positions = targeting.instagramPositions;
-  if (targeting.messengerPositions !== undefined) result.messenger_positions = targeting.messengerPositions;
-  if (targeting.marketplacePositions !== undefined) result.marketplace_positions = targeting.marketplacePositions;
+  if (targeting.excludedCustomAudiences !== undefined)
+    result.excluded_custom_audiences = targeting.excludedCustomAudiences;
+  if (targeting.publisherPlatforms !== undefined)
+    result.publisher_platforms = targeting.publisherPlatforms;
+  if (targeting.facebookPositions !== undefined)
+    result.facebook_positions = targeting.facebookPositions;
+  if (targeting.instagramPositions !== undefined)
+    result.instagram_positions = targeting.instagramPositions;
+  if (targeting.messengerPositions !== undefined)
+    result.messenger_positions = targeting.messengerPositions;
+  if (targeting.marketplacePositions !== undefined)
+    result.marketplace_positions = targeting.marketplacePositions;
   if (targeting.devicePlatforms !== undefined) result.device_platforms = targeting.devicePlatforms;
   if (targeting.flexibleSpec !== undefined) result.flexible_spec = targeting.flexibleSpec;
   if (targeting.exclusions !== undefined) result.exclusions = targeting.exclusions;
-  if (targeting.targetingOptimization !== undefined) result.targeting_optimization = targeting.targetingOptimization;
+  if (targeting.targetingOptimization !== undefined)
+    result.targeting_optimization = targeting.targetingOptimization;
 
   if (targeting.targetingAutomation !== undefined) {
     result.targeting_automation = targeting.targetingAutomation;

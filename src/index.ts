@@ -46,6 +46,7 @@ export type { CreateAdSetOptions, CreateAdSetResult, CreateAdSetStatus, AdSetSta
 
 export { createAdCreative } from './tools/createAdCreative.js';
 export type { CreateAdCreativeOptions, CreateAdCreativeResult, CreateAdCreativeStatus, CreativeStatus, CreativeDestinationType } from './tools/createAdCreative.js';
+export { getMetaCreativeErrorGuidance } from './providers/meta/metaCreativeErrorGuidance.js';
 
 export { createAd } from './tools/createAd.js';
 export type { CreateAdOptions, CreateAdResult, CreateAdStatus, AdStatus } from './tools/createAd.js';
@@ -133,6 +134,27 @@ export {
 } from './utils/locationBreakdowns.js';
 
 export type * from './types.js';
+export type {
+  MetaAdsMode,
+  MetaCreativeFormat,
+  MetaCreativeCopy,
+  MetaSingleImageCreativeSpec,
+  MetaVideoCreativeSpec,
+  MetaCarouselCard,
+  MetaCarouselCreativeSpec,
+  MetaCatalogCreativeSpec,
+  MetaCollectionCreativeSpec,
+  MetaFlexibleCreativeSpec,
+  MetaExistingPostCreativeSpec,
+  MetaCreativeSpec,
+  MetaCollaborativeCatalogContext,
+} from './types.js';
+export {
+  assertMetaCreativeCompatibility,
+  getMetaCreativeRequirements,
+} from './providers/meta/creativeFormatCompatibility.js';
+export { buildMetaCreativeFormatPayload } from './providers/meta/buildCreativeFormatPayload.js';
+export type { BuildMetaCreativeFormatPayloadInput } from './providers/meta/buildCreativeFormatPayload.js';
 export type * from './broker/types.js';
 export {
   VideoSourceResult,

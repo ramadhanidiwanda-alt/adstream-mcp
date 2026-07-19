@@ -4,6 +4,105 @@ export interface MetaConfig {
   apiVersion: string;
 }
 
+export type MetaAdsMode = 'standard' | 'collaborative_ads';
+
+export type MetaCreativeFormat =
+  | 'single_image'
+  | 'video'
+  | 'carousel'
+  | 'catalog'
+  | 'collection'
+  | 'flexible'
+  | 'placement_image'
+  | 'existing_post';
+
+export interface MetaCreativeCopy {
+  primaryText: string;
+  headline?: string;
+  description?: string;
+  callToAction?: string;
+  destinationUrl?: string;
+}
+
+export interface MetaSingleImageCreativeSpec extends MetaCreativeCopy {
+  imageHash: string;
+}
+
+export interface MetaVideoCreativeSpec extends MetaCreativeCopy {
+  videoId: string;
+  thumbnailImageHash?: string;
+}
+
+export interface MetaCarouselCard {
+  imageHash?: string;
+  videoId?: string;
+  headline: string;
+  description?: string;
+  destinationUrl: string;
+}
+
+export interface MetaCarouselCreativeSpec extends MetaCreativeCopy {
+  cards: MetaCarouselCard[];
+}
+
+export interface MetaCatalogCreativeSpec extends MetaCreativeCopy {
+  productSetId: string;
+  templateUrl?: string;
+  fallbackImageHash?: string;
+}
+
+export interface MetaCollectionCreativeSpec extends MetaCreativeCopy {
+  instantExperienceId: string;
+  coverImageHash?: string;
+  coverVideoId?: string;
+  productSetId?: string;
+}
+
+export interface MetaFlexibleCreativeSpec extends MetaCreativeCopy {
+  imageHashes?: string[];
+  videoIds?: string[];
+  primaryTexts: string[];
+  headlines?: string[];
+  descriptions?: string[];
+}
+
+export interface MetaPlacementImageCreativeSpec extends MetaCreativeCopy {
+  feedImageHash: string;
+  verticalImageHash: string;
+  headline: string;
+  destinationUrl: string;
+  pageWelcomeMessage?: string;
+}
+
+export interface MetaExistingPostCreativeSpec {
+  objectStoryId: string;
+}
+
+export type MetaCreativeSpec =
+  | { creativeFormat: 'single_image'; creativeSpec: MetaSingleImageCreativeSpec }
+  | { creativeFormat: 'video'; creativeSpec: MetaVideoCreativeSpec }
+  | { creativeFormat: 'carousel'; creativeSpec: MetaCarouselCreativeSpec }
+  | { creativeFormat: 'catalog'; creativeSpec: MetaCatalogCreativeSpec }
+  | { creativeFormat: 'collection'; creativeSpec: MetaCollectionCreativeSpec }
+  | { creativeFormat: 'flexible'; creativeSpec: MetaFlexibleCreativeSpec }
+  | { creativeFormat: 'placement_image'; creativeSpec: MetaPlacementImageCreativeSpec }
+  | { creativeFormat: 'existing_post'; creativeSpec: MetaExistingPostCreativeSpec };
+
+export interface MetaCollaborativeCatalogContext {
+  productSetId: string;
+  pixelId?: string;
+  customEventType?: string;
+  destinationUrl?: string;
+  applicationId?: string;
+  objectStoreUrls?: string[];
+}
+
+export interface MetaCollaborativeAppSpec {
+  applicationId: string;
+  android?: { appName: string; packageName: string };
+  ios?: { appName: string; appStoreId: string };
+}
+
 export interface MetaErrorResponse {
   error: {
     message: string;
@@ -124,11 +223,42 @@ export interface StructuredMutationError {
   provider?: string;
   providerCode?: string;
   providerSubcode?: string;
+  providerTitle?: string;
+  providerMessage?: string;
   traceId?: string;
   actionableFix?: string;
 }
 
-export interface MutationEnvelope<TPreview = Record<string, unknown>, TResponse = Record<string, unknown>> {
+export interface MetaCreativeVerification {
+  status: 'verified' | 'warning';
+  creativeId: string;
+  effectiveFormat?: MetaCreativeFormat;
+  summary?: MetaCreativeVerificationSummary;
+  warning?: string;
+}
+
+export interface MetaCreativeVerificationSummary {
+  productSetId?: string;
+  hasObjectStoryId: boolean;
+  hasEffectiveObjectStoryId: boolean;
+  hasObjectStorySpec: boolean;
+  hasLinkData: boolean;
+  hasVideoData: boolean;
+  hasTemplateData: boolean;
+  hasChildAttachments: boolean;
+  hasAssetFeedSpec: boolean;
+  placementImageCount?: number;
+  placementRuleCount?: number;
+  hasFeedPlacementRule?: boolean;
+  hasVerticalPlacementRule?: boolean;
+  hasOmnichannelLinkSpec: boolean;
+  hasCanvasReference: boolean;
+}
+
+export interface MutationEnvelope<
+  TPreview = Record<string, unknown>,
+  TResponse = Record<string, unknown>,
+> {
   operationId: string;
   provider: string;
   tool: string;
