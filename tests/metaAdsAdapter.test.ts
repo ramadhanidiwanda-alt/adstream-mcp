@@ -1598,6 +1598,70 @@ describe('MetaAdsAdapter', () => {
     expect(targeting.excludedCustomAudiences).toEqual([{ id: 'aud_excl' }]);
   });
 
+  it('clones an ad set, passing source id and overrides to the tool', async () => {
+    let received: Record<string, unknown> | undefined;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        cloneAdSet: async (_client, options) => {
+          received = options as unknown as Record<string, unknown>;
+          return {
+            operation: 'clone_adset',
+            status: 'dry_run',
+            executed: false,
+            sourceAdSetId: 'as_src',
+            preview: {},
+          };
+        },
+      },
+    });
+
+    const response = await adapter.cloneAdSet({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: { sourceAdSetId: 'as_src', name: 'Clone', startTime: '2026-07-20T01:00:00+0700' },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    } as never);
+
+    expect(response.ok).toBe(true);
+    expect(received?.adAccountId).toBe('act_123');
+    expect(received?.sourceAdSetId).toBe('as_src');
+    expect(received?.name).toBe('Clone');
+    expect(received?.startTime).toBe('2026-07-20T01:00:00+0700');
+  });
+
+  it('errors when cloneAdSet has no sourceAdSetId', async () => {
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: { cloneAdSet: async () => ({ operation: 'clone_adset', status: 'dry_run', executed: false, sourceAdSetId: '', preview: {} }) },
+    });
+    const response = await adapter.cloneAdSet({ provider: 'meta', accountId: 'act_1', params: {}, credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' } } as never);
+    expect(response.ok).toBe(false);
+  });
+
+  it('resumes an ad by adId', async () => {
+    let receivedId: string | undefined;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        resumeAd: async (_client, adId) => {
+          receivedId = adId;
+          return { success: true, id: adId, operation: 'resume', entityType: 'ad', response: {} };
+        },
+      },
+    });
+
+    const response = await adapter.resumeAd({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: { adId: 'ad_1' },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    } as never);
+
+    expect(response.ok).toBe(true);
+    expect(receivedId).toBe('ad_1');
+  });
+
   it('passes startTime and endTime into ad set updates', async () => {
     let receivedOptions: Record<string, unknown> | undefined;
     const adapter = new MetaAdsAdapter({

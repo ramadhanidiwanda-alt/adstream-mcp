@@ -563,6 +563,30 @@ const archiveAdInputSchema = {
   adId: z.string().describe('The ad ID to archive.'),
 };
 
+const adIdInputSchema = {
+  ...adsBaseInputSchema,
+  adId: z.string().describe('The ad ID to pause or resume.'),
+};
+
+const cloneAdSetInputSchema = {
+  ...adsBaseInputSchema,
+  accountId: z.string().describe('Provider account id. Required to clone.'),
+  sourceAdSetId: z.string().describe('Ad set ID to copy configuration from.'),
+  name: z.string().optional().describe('New ad set name. Defaults to "<source> (copy)".'),
+  campaignId: z
+    .string()
+    .optional()
+    .describe('Target campaign ID. Defaults to the source ad set campaign.'),
+  status: z.enum(['ACTIVE', 'PAUSED']).optional().describe('Defaults to PAUSED.'),
+  startTime: z.string().optional().describe('Schedule start (ISO 8601).'),
+  endTime: z.string().optional().describe('Schedule end (ISO 8601).'),
+  dailyBudget: z.number().optional().describe('Override daily budget (minor units).'),
+  lifetimeBudget: z.number().optional().describe('Override lifetime budget (minor units).'),
+  optimizationGoal: z.string().optional().describe('Override optimization goal.'),
+  dryRun: z.boolean().optional().describe('Defaults to true. Set false only after preview.'),
+  confirmed: z.boolean().optional().describe('Must be true to execute after preview.'),
+};
+
 const updateAdSetInputSchema = {
   ...adsBaseInputSchema,
   adSetId: z.string().describe('The ad set ID to update.'),
@@ -711,6 +735,13 @@ export function createMetaAdsMcpServer(options: CreateMetaAdsMcpServerOptions = 
       inputSchema = createAdInputSchema;
     } else if (toolDefinition.name === 'ads_archive_ad') {
       inputSchema = archiveAdInputSchema;
+    } else if (
+      toolDefinition.name === 'ads_pause_ad' ||
+      toolDefinition.name === 'ads_resume_ad'
+    ) {
+      inputSchema = adIdInputSchema;
+    } else if (toolDefinition.name === 'ads_clone_adset') {
+      inputSchema = cloneAdSetInputSchema;
     } else if (toolDefinition.name === 'ads_update_adset') {
       inputSchema = updateAdSetInputSchema;
     } else if (toolDefinition.name === 'ads_get_targeting_options') {

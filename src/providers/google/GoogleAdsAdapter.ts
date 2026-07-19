@@ -5,6 +5,7 @@ import type {
   AdsMetricRecord,
   AdsMutationResult,
   ArchiveAdResult,
+  CloneAdSetResult,
   CreateAdCreativeResult,
   CreateAdResult,
   CreateAdSetResult,
@@ -119,6 +120,18 @@ export class GoogleAdsAdapter implements AdsProviderAdapter {
 
   async readAdSetFull(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdSetFullResult>> {
     return Promise.resolve(this.notImplemented('Google readAdSetFull is not implemented yet') as unknown as AdsBrokerResponse<AdSetFullResult>);
+  }
+
+  async pauseAd(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>> {
+    return this.writeNotImplemented();
+  }
+
+  async resumeAd(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>> {
+    return this.writeNotImplemented();
+  }
+
+  async cloneAdSet(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<CloneAdSetResult>> {
+    return Promise.resolve(this.notImplemented('Google cloneAdSet is not implemented yet') as unknown as AdsBrokerResponse<CloneAdSetResult>);
   }
 
   async pauseCampaign(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>> {
