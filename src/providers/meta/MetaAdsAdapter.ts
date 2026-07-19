@@ -2455,6 +2455,11 @@ function parseCollaborativeCatalog(value: unknown): MetaCollaborativeCatalogCont
       'collaborativeCatalog.customEventType'
     ),
     destinationUrl: optionalString(catalog.destinationUrl, 'collaborativeCatalog.destinationUrl'),
+    applicationId: optionalString(catalog.applicationId, 'collaborativeCatalog.applicationId'),
+    objectStoreUrls: optionalStringArray(
+      catalog.objectStoreUrls,
+      'collaborativeCatalog.objectStoreUrls'
+    ),
   };
 }
 

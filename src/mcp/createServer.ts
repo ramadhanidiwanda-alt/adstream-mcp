@@ -233,10 +233,18 @@ const createAdSetInputSchema = {
         .string()
         .optional()
         .describe('URL tujuan katalog atau toko retailer, jika digunakan.'),
+      applicationId: z
+        .string()
+        .optional()
+        .describe('ID aplikasi retailer, misalnya aplikasi Shopee.'),
+      objectStoreUrls: z
+        .array(z.string())
+        .optional()
+        .describe('URL Play Store dan App Store aplikasi retailer.'),
     })
     .optional()
     .describe(
-      'Konteks katalog retailer untuk Collaborative Ads. Isi product set yang dibagikan retailer, lalu tambahkan pixel, event, atau URL tujuan bila diperlukan.'
+      'Konteks katalog retailer untuk Collaborative Ads. Isi product set, pixel omnichannel, aplikasi retailer, event, dan URL app store sesuai data kolaborasi.'
     ),
   status: z.enum(['ACTIVE', 'PAUSED']).optional().describe('Ad set status. Defaults to PAUSED.'),
   dailyBudget: z

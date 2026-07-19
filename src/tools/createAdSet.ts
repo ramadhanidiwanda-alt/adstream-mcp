@@ -300,7 +300,7 @@ export async function createAdSet(
 
   // --- PRE-FLIGHT CHECK: prove the shared retailer product set is readable ---
   if (options.mode === 'collaborative_ads' && collaborativeProductSetId) {
-    let productSet: CollaborativeProductSetInfo;
+    let productSet: CollaborativeProductSetInfo | undefined;
     try {
       productSet = await client.metaGetObject<CollaborativeProductSetInfo>(
         `/${collaborativeProductSetId}`,
@@ -308,25 +308,29 @@ export async function createAdSet(
         maxRetries
       );
     } catch (error) {
-      const detail = formatMetaWriteError(error);
-      const structuredError = formatStructuredMetaWriteError(error);
-      return {
-        ...baseResult,
-        status: 'failed',
-        error:
-          `Product set Collaborative Ads tidak dapat diakses. ` +
-          `Pastikan retailer sudah membagikan product set ini ke akun iklan. Detail Meta: ${detail}`,
-        structuredError: {
-          ...structuredError,
-          provider: 'meta',
-          code: 'COLLABORATIVE_PRODUCT_SET_UNAVAILABLE',
-          actionableFix:
-            'Pastikan product set retailer sudah dibagikan ke akun iklan dan dapat dibaca oleh koneksi Meta ini.',
-        },
-      };
+      if (isRetailerProductSetReadPermissionError(error)) {
+        productSet = undefined;
+      } else {
+        const detail = formatMetaWriteError(error);
+        const structuredError = formatStructuredMetaWriteError(error);
+        return {
+          ...baseResult,
+          status: 'failed',
+          error:
+            `Product set Collaborative Ads tidak dapat diakses. ` +
+            `Pastikan retailer sudah membagikan product set ini ke akun iklan. Detail Meta: ${detail}`,
+          structuredError: {
+            ...structuredError,
+            provider: 'meta',
+            code: 'COLLABORATIVE_PRODUCT_SET_UNAVAILABLE',
+            actionableFix:
+              'Pastikan product set retailer sudah dibagikan ke akun iklan dan dapat dibaca oleh koneksi Meta ini.',
+          },
+        };
+      }
     }
 
-    if (productSet.id?.trim() !== collaborativeProductSetId) {
+    if (productSet && productSet.id?.trim() !== collaborativeProductSetId) {
       const message = 'Product set Collaborative Ads tidak dapat diverifikasi dari respons Meta.';
       return {
         ...baseResult,
@@ -342,7 +346,7 @@ export async function createAdSet(
       };
     }
 
-    const productCount = parseOptionalProductCount(productSet.product_count);
+    const productCount = parseOptionalProductCount(productSet?.product_count);
     if (productCount !== undefined && productCount <= 0) {
       const message =
         'Product set Collaborative Ads tidak memiliki produk aktif untuk dipromosikan.';
@@ -518,6 +522,14 @@ function parseOptionalProductCount(value: number | string | undefined): number |
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
+function isRetailerProductSetReadPermissionError(error: unknown): boolean {
+  return (
+    error instanceof MetaApiError &&
+    error.code === 100 &&
+    /application has not been approved to use this api/i.test(error.message)
+  );
+}
+
 function buildAdSetPayload(options: CreateAdSetOptions): Record<string, unknown> {
   const payload: Record<string, unknown> = {
     name: options.name.trim(),
@@ -556,15 +568,7 @@ function buildAdSetPayload(options: CreateAdSetOptions): Record<string, unknown>
   }
 
   const collaborativePromotedObject = options.collaborativeCatalog
-    ? {
-        product_set_id: options.collaborativeCatalog.productSetId.trim(),
-        ...(options.collaborativeCatalog.pixelId?.trim()
-          ? { pixel_id: options.collaborativeCatalog.pixelId.trim() }
-          : {}),
-        ...(options.collaborativeCatalog.customEventType?.trim()
-          ? { custom_event_type: options.collaborativeCatalog.customEventType.trim() }
-          : {}),
-      }
+    ? buildCollaborativePromotedObject(options.collaborativeCatalog)
     : undefined;
 
   if (collaborativePromotedObject || options.promotedObject) {
@@ -609,6 +613,40 @@ function buildAdSetPayload(options: CreateAdSetOptions): Record<string, unknown>
   }
 
   return payload;
+}
+
+function buildCollaborativePromotedObject(
+  catalog: MetaCollaborativeCatalogContext
+): Record<string, unknown> {
+  const productSetId = catalog.productSetId.trim();
+  const pixelId = catalog.pixelId?.trim();
+  const customEventType = catalog.customEventType?.trim();
+  const applicationId = catalog.applicationId?.trim();
+  const objectStoreUrls = (catalog.objectStoreUrls ?? []).map((url) => url.trim()).filter(Boolean);
+
+  if (!applicationId) {
+    return {
+      product_set_id: productSetId,
+      ...(pixelId ? { pixel_id: pixelId } : {}),
+      ...(customEventType ? { custom_event_type: customEventType } : {}),
+    };
+  }
+
+  const eventType = customEventType || 'PURCHASE';
+  return {
+    product_set_id: productSetId,
+    smart_pse_enabled: false,
+    omnichannel_object: {
+      app: [
+        {
+          application_id: applicationId,
+          custom_event_type: eventType,
+          ...(objectStoreUrls.length > 0 ? { object_store_urls: objectStoreUrls } : {}),
+        },
+      ],
+      ...(pixelId ? { pixel: [{ pixel_id: pixelId, custom_event_type: eventType }] } : {}),
+    },
+  };
 }
 
 function buildTargetingPayload(targeting: AdSetTargeting): Record<string, unknown> {

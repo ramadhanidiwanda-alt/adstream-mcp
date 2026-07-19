@@ -237,6 +237,8 @@ describe('MCP server builder', () => {
         pixelId: { type: 'string' },
         customEventType: { type: 'string' },
         destinationUrl: { type: 'string' },
+        applicationId: { type: 'string' },
+        objectStoreUrls: { type: 'array', items: { type: 'string' } },
       },
     });
     expect(adsetProperties.collaborativeCatalog.description).toMatch(/katalog.*retailer/i);

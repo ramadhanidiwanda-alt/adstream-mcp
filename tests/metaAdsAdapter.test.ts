@@ -856,6 +856,11 @@ describe('MetaAdsAdapter', () => {
           pixelId: 'pixel-1',
           customEventType: 'PURCHASE',
           destinationUrl: 'https://example.com/catalog',
+          applicationId: 'shopee-app',
+          objectStoreUrls: [
+            'http://play.google.com/store/apps/details?id=com.shopee.id',
+            'http://itunes.apple.com/app/id959841443',
+          ],
         },
       },
       credentials,
@@ -873,6 +878,11 @@ describe('MetaAdsAdapter', () => {
         pixelId: 'pixel-1',
         customEventType: 'PURCHASE',
         destinationUrl: 'https://example.com/catalog',
+        applicationId: 'shopee-app',
+        objectStoreUrls: [
+          'http://play.google.com/store/apps/details?id=com.shopee.id',
+          'http://itunes.apple.com/app/id959841443',
+        ],
       },
     });
   });

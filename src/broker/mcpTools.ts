@@ -1227,7 +1227,7 @@ function createCreateAdSetInputSchema() {
       collaborativeCatalog: {
         type: 'object',
         description:
-          'Konteks katalog retailer untuk Collaborative Ads. Isi product set yang dibagikan retailer, lalu tambahkan pixel, event, atau URL tujuan bila diperlukan.',
+          'Konteks katalog retailer untuk Collaborative Ads. Isi product set, pixel omnichannel, aplikasi retailer, event, dan URL app store sesuai data kolaborasi.',
         properties: {
           productSetId: {
             type: 'string',
@@ -1244,6 +1244,15 @@ function createCreateAdSetInputSchema() {
           destinationUrl: {
             type: 'string',
             description: 'URL tujuan katalog atau toko retailer, jika digunakan.',
+          },
+          applicationId: {
+            type: 'string',
+            description: 'ID aplikasi retailer, misalnya aplikasi Shopee.',
+          },
+          objectStoreUrls: {
+            type: 'array',
+            items: { type: 'string' },
+            description: 'URL Play Store dan App Store aplikasi retailer.',
           },
         },
         required: ['productSetId'],

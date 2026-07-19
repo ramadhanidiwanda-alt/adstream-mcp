@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { MetaClient } from '../src/metaClient.js';
 import { createAdSet } from '../src/tools/createAdSet.js';
+import { MetaApiError } from '../src/utils/metaError.js';
 
 function createMockClient(overrides: Record<string, unknown> = {}): MetaClient {
   return {
@@ -507,6 +508,91 @@ describe('createAdSet — bid strategy + pre-flight validation', () => {
         pixel_id: 'pixel-1',
         custom_event_type: 'PURCHASE',
       });
+    });
+
+    it('builds the complete Shopee omnichannel promoted object', async () => {
+      const client = createMockClient({
+        bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+        daily_budget: undefined,
+      });
+      vi.mocked(client.metaGetObject).mockImplementation(async (path) => {
+        if (path === '/shopee-set') return { id: 'shopee-set' };
+        return {
+          id: '120000000000000001',
+          bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+        };
+      });
+
+      const result = await createAdSet(
+        client,
+        {
+          ...defaultOptions,
+          mode: 'collaborative_ads',
+          collaborativeCatalog: {
+            productSetId: 'shopee-set',
+            pixelId: 'cpas-pixel',
+            customEventType: 'PURCHASE',
+            applicationId: 'shopee-app',
+            objectStoreUrls: [
+              'http://play.google.com/store/apps/details?id=com.shopee.id',
+              'http://itunes.apple.com/app/id959841443',
+            ],
+          },
+        },
+        { dryRun: true }
+      );
+
+      expect(result.preview.promoted_object).toEqual({
+        product_set_id: 'shopee-set',
+        smart_pse_enabled: false,
+        omnichannel_object: {
+          app: [
+            {
+              application_id: 'shopee-app',
+              custom_event_type: 'PURCHASE',
+              object_store_urls: [
+                'http://play.google.com/store/apps/details?id=com.shopee.id',
+                'http://itunes.apple.com/app/id959841443',
+              ],
+            },
+          ],
+          pixel: [{ pixel_id: 'cpas-pixel', custom_event_type: 'PURCHASE' }],
+        },
+      });
+    });
+
+    it('continues when Meta permits use but blocks direct retailer product-set reads', async () => {
+      const client = createMockClient({
+        bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+        daily_budget: undefined,
+      });
+      vi.mocked(client.metaGetObject).mockImplementation(async (path) => {
+        if (path === '/shared-retailer-set') {
+          throw new MetaApiError({
+            message:
+              '(#100) This application has not been approved to use this api. Please check the application capabilities or access token permissions.',
+            type: 'OAuthException',
+            code: 100,
+          });
+        }
+        return {
+          id: '120000000000000001',
+          bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+        };
+      });
+
+      const result = await createAdSet(
+        client,
+        {
+          ...defaultOptions,
+          mode: 'collaborative_ads',
+          collaborativeCatalog: { productSetId: 'shared-retailer-set' },
+        },
+        { dryRun: true }
+      );
+
+      expect(result.status).toBe('dry_run');
+      expect(client.metaPost).not.toHaveBeenCalled();
     });
 
     it('rejects collaborative ad sets without a product set before POST', async () => {

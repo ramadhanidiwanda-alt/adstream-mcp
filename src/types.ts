@@ -83,6 +83,8 @@ export interface MetaCollaborativeCatalogContext {
   pixelId?: string;
   customEventType?: string;
   destinationUrl?: string;
+  applicationId?: string;
+  objectStoreUrls?: string[];
 }
 
 export interface MetaCollaborativeAppSpec {
