@@ -76,6 +76,23 @@ export interface CredentialResolverOptions {
 const REDACTED = '[REDACTED]';
 const TOKEN_KEY_PATTERN = /(access[_-]?token|authorization|bearer|appsecret[_-]?proof|token|secret|connection[_-]?key)/i;
 const LONG_TOKEN_PATTERN = /\b[A-Za-z0-9._~+/=-]{16,}\b/g;
+// snake_case identifiers (e.g. applink_treatment, omnichannel_link_spec): all
+// lowercase words joined by underscores, of a reasonable length.
+const SNAKE_CASE_IDENTIFIER = /^[a-z][a-z0-9]*(?:_[a-z0-9]+)+$/;
+// Plain numeric object IDs (e.g. Meta ad/ad set/campaign IDs).
+const NUMERIC_ID = /^[0-9]{1,25}$/;
+
+/**
+ * A long token candidate that is actually a Meta field name or object ID, not a
+ * secret. Sparing these keeps provider error messages actionable while real
+ * tokens (mixed case + digits, base64, hyphenated secrets) are still redacted.
+ */
+function isSafeIdentifierToken(candidate: string): boolean {
+  // Never spare anything that names a credential (e.g. *_secret_token_*).
+  if (TOKEN_KEY_PATTERN.test(candidate)) return false;
+  if (NUMERIC_ID.test(candidate)) return true;
+  return candidate.length <= 40 && SNAKE_CASE_IDENTIFIER.test(candidate);
+}
 
 export function redactErrorMessage(message: string): string {
   return message
@@ -87,7 +104,7 @@ export function redactErrorMessage(message: string): string {
     .replace(/(access_token\s*[:=]\s*)[^\s,;&]+/gi, `$1${REDACTED}`)
     .replace(/(token\s*[:=]\s*)[^\s,;&]+/gi, `$1${REDACTED}`)
     .replace(/(connection[_-]?key\s*[:=]\s*)[^\s,;&]+/gi, `$1${REDACTED}`)
-    .replace(LONG_TOKEN_PATTERN, REDACTED);
+    .replace(LONG_TOKEN_PATTERN, (match) => (isSafeIdentifierToken(match) ? match : REDACTED));
 }
 
 export function redactTokenLikeValues<T>(value: T): T | string {
