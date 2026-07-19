@@ -711,6 +711,78 @@ describe('buildMetaCreativeFormatPayload', () => {
     });
   });
 
+  it('maps feed and vertical images to explicit Meta placements', () => {
+    const result = buildMetaCreativeFormatPayload({
+      mode: 'standard',
+      pageId: 'page-1',
+      instagramUserId: 'ig-1',
+      creativeFormat: 'placement_image',
+      creativeSpec: {
+        feedImageHash: 'feed-hash',
+        verticalImageHash: 'vertical-hash',
+        primaryText: 'Payday Glowday',
+        headline: 'PAYDAY GLOWDAY',
+        destinationUrl: 'https://api.whatsapp.com/send',
+        callToAction: 'WHATSAPP_MESSAGE',
+        pageWelcomeMessage: '{"type":"VISUAL_EDITOR"}',
+      },
+    });
+
+    expect(result).toEqual({
+      object_story_spec: { page_id: 'page-1', instagram_user_id: 'ig-1' },
+      asset_feed_spec: {
+        ad_formats: ['SINGLE_IMAGE'],
+        images: [
+          { hash: 'feed-hash', adlabels: [{ name: 'placement_feed_1_1' }] },
+          { hash: 'vertical-hash', adlabels: [{ name: 'placement_vertical_9_16' }] },
+        ],
+        bodies: [{ text: 'Payday Glowday' }],
+        titles: [{ text: 'PAYDAY GLOWDAY' }],
+        link_urls: [{ website_url: 'https://api.whatsapp.com/send' }],
+        call_to_action_types: ['WHATSAPP_MESSAGE'],
+        asset_customization_rules: [
+          {
+            image_label: { name: 'placement_feed_1_1' },
+            customization_spec: {
+              publisher_platforms: ['facebook', 'instagram'],
+              facebook_positions: ['feed'],
+              instagram_positions: ['stream'],
+            },
+          },
+          {
+            image_label: { name: 'placement_vertical_9_16' },
+            customization_spec: {
+              publisher_platforms: ['facebook', 'instagram'],
+              facebook_positions: ['facebook_reels', 'story'],
+              instagram_positions: ['reels', 'story'],
+            },
+          },
+        ],
+        additional_data: {
+          is_click_to_message: true,
+          page_welcome_message: '{"type":"VISUAL_EDITOR"}',
+        },
+      },
+    });
+  });
+
+  it('rejects identical feed and vertical image hashes', () => {
+    expect(() =>
+      buildMetaCreativeFormatPayload({
+        mode: 'standard',
+        pageId: 'page-1',
+        creativeFormat: 'placement_image',
+        creativeSpec: {
+          feedImageHash: 'same-hash',
+          verticalImageHash: 'same-hash',
+          primaryText: 'Copy',
+          headline: 'Headline',
+          destinationUrl: 'https://example.com',
+        },
+      })
+    ).toThrow(/harus berbeda/i);
+  });
+
   it('rejects flexible creatives without usable media', () => {
     expect(() =>
       buildMetaCreativeFormatPayload({
@@ -752,6 +824,23 @@ describe('buildMetaCreativeFormatPayload', () => {
           imageHashes: ['image-1'],
           primaryTexts: ['Copy'],
           destinationUrl: 'https://example.com/flexible',
+        },
+      })
+    ).toThrow(/belum didukung.*collaborative ads/i);
+  });
+
+  it('rejects placement image creatives in Collaborative Ads mode locally', () => {
+    expect(() =>
+      buildMetaCreativeFormatPayload({
+        mode: 'collaborative_ads',
+        pageId: 'page-1',
+        creativeFormat: 'placement_image',
+        creativeSpec: {
+          feedImageHash: 'feed-hash',
+          verticalImageHash: 'vertical-hash',
+          primaryText: 'Copy',
+          headline: 'Headline',
+          destinationUrl: 'https://example.com',
         },
       })
     ).toThrow(/belum didukung.*collaborative ads/i);

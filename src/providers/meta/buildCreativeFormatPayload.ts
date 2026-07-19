@@ -27,6 +27,8 @@ export function buildMetaCreativeFormatPayload(
       return buildCollection(input);
     case 'flexible':
       return buildFlexible(input);
+    case 'placement_image':
+      return buildPlacementImage(input);
     case 'existing_post':
       return buildExistingPost(input);
   }
@@ -414,6 +416,71 @@ function buildFlexible(
 
   return {
     object_story_spec: objectStorySpec,
+    asset_feed_spec: assetFeedSpec,
+  };
+}
+
+function buildPlacementImage(
+  input: Extract<BuildMetaCreativeFormatPayloadInput, { creativeFormat: 'placement_image' }>
+): Record<string, unknown> {
+  const { creativeSpec } = input;
+  const feedImageHash = required(creativeSpec.feedImageHash, 'feedImageHash');
+  const verticalImageHash = required(creativeSpec.verticalImageHash, 'verticalImageHash');
+  if (feedImageHash === verticalImageHash) {
+    throw new Error('feedImageHash dan verticalImageHash harus berbeda.');
+  }
+
+  const primaryText = required(creativeSpec.primaryText, 'primaryText');
+  const headline = required(creativeSpec.headline, 'headline');
+  const destinationUrl = required(creativeSpec.destinationUrl, 'destinationUrl');
+  const callToAction = creativeSpec.callToAction?.trim() || 'LEARN_MORE';
+  const pageWelcomeMessage = optional(creativeSpec.pageWelcomeMessage, 'pageWelcomeMessage');
+  const description = optional(creativeSpec.description, 'description');
+  const isClickToMessage = callToAction === 'WHATSAPP_MESSAGE';
+
+  const assetFeedSpec: Record<string, unknown> = {
+    ad_formats: ['SINGLE_IMAGE'],
+    images: [
+      { hash: feedImageHash, adlabels: [{ name: 'placement_feed_1_1' }] },
+      { hash: verticalImageHash, adlabels: [{ name: 'placement_vertical_9_16' }] },
+    ],
+    bodies: [{ text: primaryText }],
+    titles: [{ text: headline }],
+    link_urls: [{ website_url: destinationUrl }],
+    call_to_action_types: [callToAction],
+    asset_customization_rules: [
+      {
+        image_label: { name: 'placement_feed_1_1' },
+        customization_spec: {
+          publisher_platforms: ['facebook', 'instagram'],
+          facebook_positions: ['feed'],
+          instagram_positions: ['stream'],
+        },
+      },
+      {
+        image_label: { name: 'placement_vertical_9_16' },
+        customization_spec: {
+          publisher_platforms: ['facebook', 'instagram'],
+          facebook_positions: ['facebook_reels', 'story'],
+          instagram_positions: ['reels', 'story'],
+        },
+      },
+    ],
+  };
+
+  if (description) assetFeedSpec.descriptions = [{ text: description }];
+  if (isClickToMessage || pageWelcomeMessage) {
+    assetFeedSpec.additional_data = {
+      ...(isClickToMessage ? { is_click_to_message: true } : {}),
+      ...(pageWelcomeMessage ? { page_welcome_message: pageWelcomeMessage } : {}),
+    };
+  }
+
+  return {
+    object_story_spec: {
+      page_id: required(input.pageId, 'pageId'),
+      ...instagramIdentity(input),
+    },
     asset_feed_spec: assetFeedSpec,
   };
 }

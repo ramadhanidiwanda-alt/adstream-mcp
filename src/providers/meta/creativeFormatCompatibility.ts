@@ -15,6 +15,13 @@ const REQUIREMENTS: Record<MetaCreativeFormat, string[]> = {
   catalog: ['productSetId', 'primaryText'],
   collection: ['instantExperienceId', 'coverImageHash or coverVideoId'],
   flexible: ['imageHashes or videoIds', 'primaryTexts', 'destinationUrl'],
+  placement_image: [
+    'feedImageHash',
+    'verticalImageHash',
+    'primaryText',
+    'headline',
+    'destinationUrl',
+  ],
   existing_post: ['objectStoryId'],
 };
 

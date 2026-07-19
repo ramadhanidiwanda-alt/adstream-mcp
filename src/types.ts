@@ -13,6 +13,7 @@ export type MetaCreativeFormat =
   | 'catalog'
   | 'collection'
   | 'flexible'
+  | 'placement_image'
   | 'existing_post';
 
 export interface MetaCreativeCopy {
@@ -65,6 +66,14 @@ export interface MetaFlexibleCreativeSpec extends MetaCreativeCopy {
   descriptions?: string[];
 }
 
+export interface MetaPlacementImageCreativeSpec extends MetaCreativeCopy {
+  feedImageHash: string;
+  verticalImageHash: string;
+  headline: string;
+  destinationUrl: string;
+  pageWelcomeMessage?: string;
+}
+
 export interface MetaExistingPostCreativeSpec {
   objectStoryId: string;
 }
@@ -76,6 +85,7 @@ export type MetaCreativeSpec =
   | { creativeFormat: 'catalog'; creativeSpec: MetaCatalogCreativeSpec }
   | { creativeFormat: 'collection'; creativeSpec: MetaCollectionCreativeSpec }
   | { creativeFormat: 'flexible'; creativeSpec: MetaFlexibleCreativeSpec }
+  | { creativeFormat: 'placement_image'; creativeSpec: MetaPlacementImageCreativeSpec }
   | { creativeFormat: 'existing_post'; creativeSpec: MetaExistingPostCreativeSpec };
 
 export interface MetaCollaborativeCatalogContext {
