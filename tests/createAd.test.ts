@@ -111,6 +111,29 @@ describe('createAd', () => {
     expect(mockMetaPost).not.toHaveBeenCalled();
   });
 
+  it('allows placement compatibility bypass with an explicit warning', async () => {
+    mockMetaGetObject.mockImplementation(async (path: string) =>
+      path === '/as456'
+        ? { destination_type: 'WHATSAPP', is_dynamic_creative: false }
+        : { asset_feed_spec: { asset_customization_rules: [{ image_label: { name: 'feed' } }] } }
+    );
+    mockMetaPost.mockResolvedValueOnce({ id: 'ad-bypass-1' });
+
+    const r = await createAd(
+      mockClient,
+      { ...baseOpts, skipPlacementCompatibilityCheck: true },
+      { dryRun: false, confirmed: true }
+    );
+
+    expect(r).toMatchObject({
+      status: 'executed',
+      executed: true,
+      id: 'ad-bypass-1',
+      warnings: [expect.stringMatching(/placement.*compatibility.*skipped/i)],
+    });
+    expect(mockMetaPost).toHaveBeenCalledTimes(1);
+  });
+
   it('does not create a duplicate ad when dedupeByName finds an existing one', async () => {
     mockMetaGet.mockResolvedValueOnce({
       data: [{ id: 'existing_ad_1', name: 'Test Ad', status: 'PAUSED' }],

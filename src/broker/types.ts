@@ -789,6 +789,8 @@ export interface CreateCampaignResult {
   id?: string;
   response?: Record<string, unknown>;
   error?: string;
+  structuredError?: StructuredMutationError;
+  warnings?: string[];
 }
 
 export type CreateAdSetStatus =

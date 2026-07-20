@@ -1613,6 +1613,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
               : undefined,
           dedupeByName: request.params.dedupeByName === true,
           skipOmnichannelCheck: request.params.skipOmnichannelCheck === true,
+          skipPlacementCompatibilityCheck: request.params.skipPlacementCompatibilityCheck === true,
           externalReference:
             typeof request.params.externalReference === 'string'
               ? request.params.externalReference
@@ -3030,11 +3031,12 @@ function parseMetaCreativeFormat(value: unknown): MetaCreativeFormat {
     case 'collection':
     case 'flexible':
     case 'placement_image':
+    case 'placement_customized_ctwa':
     case 'existing_post':
       return value;
     default:
       throw new Error(
-        'creativeFormat harus berupa single_image, video, carousel, catalog, collection, flexible, placement_image, atau existing_post.'
+        'creativeFormat harus berupa single_image, video, carousel, catalog, collection, flexible, placement_image, placement_customized_ctwa, atau existing_post.'
       );
   }
 }
@@ -3237,6 +3239,25 @@ function parseMetaCreativeSpec(
           messageExtensions: optionalMessageExtensions(
             spec.messageExtensions,
             'creativeSpec.messageExtensions'
+          ),
+        },
+      };
+    case 'placement_customized_ctwa':
+      return {
+        creativeFormat: 'placement_customized_ctwa',
+        creativeSpec: {
+          feedImageHash: requireString(spec.feedImageHash, 'creativeSpec.feedImageHash'),
+          verticalImageHash: requireString(
+            spec.verticalImageHash,
+            'creativeSpec.verticalImageHash'
+          ),
+          primaryText: requireString(spec.primaryText, 'creativeSpec.primaryText'),
+          headline: requireString(spec.headline, 'creativeSpec.headline'),
+          destinationUrl: requireString(spec.destinationUrl, 'creativeSpec.destinationUrl'),
+          description: optionalString(spec.description, 'creativeSpec.description'),
+          pageWelcomeMessage: optionalString(
+            spec.pageWelcomeMessage,
+            'creativeSpec.pageWelcomeMessage'
           ),
         },
       };

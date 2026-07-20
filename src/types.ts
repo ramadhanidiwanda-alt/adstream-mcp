@@ -14,6 +14,7 @@ export type MetaCreativeFormat =
   | 'collection'
   | 'flexible'
   | 'placement_image'
+  | 'placement_customized_ctwa'
   | 'existing_post';
 
 export interface MetaCreativeCopy {
@@ -88,6 +89,14 @@ export interface MetaPlacementImageCreativeSpec extends MetaCreativeCopy {
   messageExtensions?: MetaAssetMessageExtension[];
 }
 
+export interface MetaPlacementCustomizedCtwaCreativeSpec extends MetaCreativeCopy {
+  feedImageHash: string;
+  verticalImageHash: string;
+  headline: string;
+  destinationUrl: string;
+  pageWelcomeMessage?: string;
+}
+
 export interface MetaExistingPostCreativeSpec {
   objectStoryId: string;
 }
@@ -100,6 +109,10 @@ export type MetaCreativeSpec =
   | { creativeFormat: 'collection'; creativeSpec: MetaCollectionCreativeSpec }
   | { creativeFormat: 'flexible'; creativeSpec: MetaFlexibleCreativeSpec }
   | { creativeFormat: 'placement_image'; creativeSpec: MetaPlacementImageCreativeSpec }
+  | {
+      creativeFormat: 'placement_customized_ctwa';
+      creativeSpec: MetaPlacementCustomizedCtwaCreativeSpec;
+    }
   | { creativeFormat: 'existing_post'; creativeSpec: MetaExistingPostCreativeSpec };
 
 export interface MetaCollaborativeCatalogContext {
@@ -261,6 +274,10 @@ export interface MetaCreativeVerificationSummary {
   hasTemplateData: boolean;
   hasChildAttachments: boolean;
   hasAssetFeedSpec: boolean;
+  hasPlatformCustomizations?: boolean;
+  hasPortraitCustomizations?: boolean;
+  hasDegreesOfFreedomSpec?: boolean;
+  hasMediaSourcingSpec?: boolean;
   placementImageCount?: number;
   placementRuleCount?: number;
   hasFeedPlacementRule?: boolean;

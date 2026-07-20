@@ -13,6 +13,7 @@ describe('Meta creative format compatibility', () => {
     'collection',
     'flexible',
     'placement_image',
+    'placement_customized_ctwa',
     'existing_post',
   ] as const)('allows standard %s', (creativeFormat) => {
     expect(() =>
@@ -29,7 +30,7 @@ describe('Meta creative format compatibility', () => {
     }
   );
 
-  it.each(['flexible', 'placement_image', 'existing_post'] as const)(
+  it.each(['flexible', 'placement_image', 'placement_customized_ctwa', 'existing_post'] as const)(
     'rejects collaborative %s with marketer-facing guidance',
     (creativeFormat) => {
       expect(() =>

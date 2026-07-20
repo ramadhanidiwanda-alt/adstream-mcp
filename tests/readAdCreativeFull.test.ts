@@ -6,7 +6,7 @@ function createMockClient(results: Record<string, Record<string, unknown>> = {})
   return {
     metaGetObject: vi.fn().mockImplementation(async (path: string, opts: { fields?: string }) => {
       // Return the first matching mock result; if none, return empty
-      const key = Object.keys(results).find(k => (opts.fields ?? '').includes(k));
+      const key = Object.keys(results).find((k) => (opts.fields ?? '').includes(k));
       return results[key] ?? {};
     }),
     metaGet: vi.fn(),
@@ -24,7 +24,7 @@ describe('readAdCreativeFull', () => {
         status: 'ACTIVE',
         object_type: 'SHARE',
       },
-      'object_story_spec': {
+      object_story_spec: {
         object_story_spec: {
           page_id: '123456789',
           link_data: { link: 'https://example.com' },
@@ -81,30 +81,72 @@ describe('readAdCreativeFull', () => {
     expect(result.object_story_spec).toBeUndefined();
   });
 
+  it('requests placement customization fields and reports unreadable batches', async () => {
+    const client = {
+      metaGetObject: vi
+        .fn()
+        .mockImplementation(async (_path: string, opts: { fields?: string }) => {
+          const fields = opts.fields ?? '';
+          if (fields.includes('platform_customizations')) {
+            return {
+              platform_customizations: {
+                instagram: { image_hash: 'vertical-hash' },
+              },
+              portrait_customizations: { image_hash: 'vertical-hash' },
+            };
+          }
+          if (fields.includes('media_sourcing_spec')) {
+            throw new Error('(#100) Field media_sourcing_spec is not available for this app');
+          }
+          return { id: 'cr_ctwa', name: 'CTWA Creative', status: 'ACTIVE', object_type: 'SHARE' };
+        }),
+      metaGet: vi.fn(),
+      metaPost: vi.fn(),
+      metaDelete: vi.fn(),
+    } as unknown as MetaClient;
+
+    const result = await readAdCreativeFull(client, {
+      creativeId: 'cr_ctwa',
+    });
+
+    expect(result.platform_customizations).toEqual({
+      instagram: { image_hash: 'vertical-hash' },
+    });
+    expect(result.portrait_customizations).toEqual({ image_hash: 'vertical-hash' });
+    expect(result.unreadable_fields).toEqual([
+      {
+        fields: ['media_sourcing_spec', 'creative_sourcing_spec'],
+        reason: '(#100) Field media_sourcing_spec is not available for this app',
+      },
+    ]);
+  });
+
   it('handles creative with asset_feed_spec (Dynamic Creative)', async () => {
     const client = {
-      metaGetObject: vi.fn().mockImplementation(async (_path: string, opts: { fields?: string }) => {
-        const fields = opts.fields ?? '';
-        if (fields.includes('asset_feed_spec')) {
-          return {
-            asset_feed_spec: {
-              ad_formats: ['AUTOMATIC_FORMAT'],
-              bodies: [{ text: 'Test body' }],
-              titles: [{ text: 'Headline' }],
-              link_urls: [{ website_url: 'https://example.com' }],
-              call_to_action_types: ['SHOP_NOW'],
-            },
-          };
-        }
-        if (fields.includes('degrees_of_freedom_spec')) {
-          return {
-            degrees_of_freedom_spec: {
-              creative_feature_settings: { adaptive_assets: true, autoflow: true },
-            },
-          };
-        }
-        return { id: 'cr_dco', name: 'DCO Creative', status: 'ACTIVE', object_type: 'SHARE' };
-      }),
+      metaGetObject: vi
+        .fn()
+        .mockImplementation(async (_path: string, opts: { fields?: string }) => {
+          const fields = opts.fields ?? '';
+          if (fields.includes('asset_feed_spec')) {
+            return {
+              asset_feed_spec: {
+                ad_formats: ['AUTOMATIC_FORMAT'],
+                bodies: [{ text: 'Test body' }],
+                titles: [{ text: 'Headline' }],
+                link_urls: [{ website_url: 'https://example.com' }],
+                call_to_action_types: ['SHOP_NOW'],
+              },
+            };
+          }
+          if (fields.includes('degrees_of_freedom_spec')) {
+            return {
+              degrees_of_freedom_spec: {
+                creative_feature_settings: { adaptive_assets: true, autoflow: true },
+              },
+            };
+          }
+          return { id: 'cr_dco', name: 'DCO Creative', status: 'ACTIVE', object_type: 'SHARE' };
+        }),
       metaGet: vi.fn(),
       metaPost: vi.fn(),
       metaDelete: vi.fn(),
@@ -116,7 +158,7 @@ describe('readAdCreativeFull', () => {
 
     const feed = result.asset_feed_spec as Record<string, unknown> | undefined;
     expect(feed).toBeDefined();
-    expect((feed!.ad_formats as string[])).toContain('AUTOMATIC_FORMAT');
+    expect(feed!.ad_formats as string[]).toContain('AUTOMATIC_FORMAT');
     expect(result.degrees_of_freedom_spec).toBeDefined();
     expect(result.id).toBe('cr_dco');
   });
@@ -150,28 +192,30 @@ describe('readAdCreativeFull', () => {
       creativeId: 'cr_fail',
     });
 
-    // Should return empty object — all batches failed silently
-    expect(result).toEqual({});
+    expect(result.unreadable_fields).toHaveLength(16);
+    expect(result.id).toBeUndefined();
   });
 
   it('reads multiple batch types: tracking_specs, branded_content, etc.', async () => {
     const client = {
-      metaGetObject: vi.fn().mockImplementation(async (_path: string, opts: { fields?: string }) => {
-        const fields = opts.fields ?? '';
-        if (fields.includes('contextual_multi_ads')) {
-          return {
-            tracking_specs: { action_type: ['link_click'] },
-            contextual_multi_ads: { enabled: true },
-          };
-        }
-        if (fields.includes('branded_content')) {
-          return { branded_content: { sponsor_id: 'page_1' } };
-        }
-        if (fields.includes('contextual_multi_ads')) {
-          return { contextual_multi_ads: { enabled: true } };
-        }
-        return { id: 'cr_full', name: 'Full Creative', status: 'ACTIVE', object_type: 'SHARE' };
-      }),
+      metaGetObject: vi
+        .fn()
+        .mockImplementation(async (_path: string, opts: { fields?: string }) => {
+          const fields = opts.fields ?? '';
+          if (fields.includes('contextual_multi_ads')) {
+            return {
+              tracking_specs: { action_type: ['link_click'] },
+              contextual_multi_ads: { enabled: true },
+            };
+          }
+          if (fields.includes('branded_content')) {
+            return { branded_content: { sponsor_id: 'page_1' } };
+          }
+          if (fields.includes('contextual_multi_ads')) {
+            return { contextual_multi_ads: { enabled: true } };
+          }
+          return { id: 'cr_full', name: 'Full Creative', status: 'ACTIVE', object_type: 'SHARE' };
+        }),
       metaGet: vi.fn(),
       metaPost: vi.fn(),
       metaDelete: vi.fn(),

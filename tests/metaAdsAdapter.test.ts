@@ -1395,6 +1395,17 @@ describe('MetaAdsAdapter', () => {
       },
     },
     {
+      creativeFormat: 'placement_customized_ctwa',
+      creativeSpec: {
+        feedImageHash: 'feed-hash',
+        verticalImageHash: 'vertical-hash',
+        primaryText: 'CTWA placement copy',
+        headline: 'CTWA headline',
+        destinationUrl: 'https://api.whatsapp.com/send',
+        pageWelcomeMessage: '{"type":"VISUAL_EDITOR"}',
+      },
+    },
+    {
       creativeFormat: 'existing_post',
       creativeSpec: { objectStoryId: 'page-1_post-1' },
     },

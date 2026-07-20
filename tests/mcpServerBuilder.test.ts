@@ -206,8 +206,16 @@ describe('MCP server builder', () => {
     process.env.ADSTREAM_ENABLE_WRITES = 'true';
     const adsBroker = {
       ...createBrokerStub(),
-      pauseAdSet: vi.fn(async () => ({ ok: true, provider: 'meta', data: { success: true, id: 'adset_1' } })),
-      resumeAdSet: vi.fn(async () => ({ ok: true, provider: 'meta', data: { success: true, id: 'adset_1' } })),
+      pauseAdSet: vi.fn(async () => ({
+        ok: true,
+        provider: 'meta',
+        data: { success: true, id: 'adset_1' },
+      })),
+      resumeAdSet: vi.fn(async () => ({
+        ok: true,
+        provider: 'meta',
+        data: { success: true, id: 'adset_1' },
+      })),
     } as unknown as AdsBroker;
     const { client, server } = await createConnectedClient({
       config: { adAccountId: 'act_123' },
@@ -327,6 +335,7 @@ describe('MCP server builder', () => {
         'collection',
         'flexible',
         'placement_image',
+        'placement_customized_ctwa',
         'existing_post',
       ],
     });

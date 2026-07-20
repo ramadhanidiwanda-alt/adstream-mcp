@@ -99,6 +99,23 @@ describe('createAdCreative', () => {
     },
   };
 
+  const ctwaPlacementOptions = {
+    adAccountId: 'act_123',
+    name: 'CTWA Placement',
+    pageId: '1001',
+    creative: {
+      creativeFormat: 'placement_customized_ctwa' as const,
+      creativeSpec: {
+        feedImageHash: 'feed-hash',
+        verticalImageHash: 'vertical-hash',
+        primaryText: 'Chat admin sekarang',
+        headline: 'Promo WhatsApp',
+        destinationUrl: 'https://api.whatsapp.com/send',
+        pageWelcomeMessage: '{"type":"VISUAL_EDITOR"}',
+      },
+    },
+  };
+
   beforeEach(() => {
     vi.clearAllMocks();
     mockMetaGet.mockResolvedValue({ data: [] });
@@ -428,7 +445,7 @@ describe('createAdCreative', () => {
       '/creative-1',
       {
         fields:
-          'id,name,object_story_id,object_story_spec,asset_feed_spec,product_set_id,omnichannel_link_spec,effective_object_story_id',
+          'id,name,object_story_id,object_story_spec,asset_feed_spec,platform_customizations,portrait_customizations,degrees_of_freedom_spec,media_sourcing_spec,product_set_id,omnichannel_link_spec,effective_object_story_id',
       },
       3
     );
@@ -452,6 +469,48 @@ describe('createAdCreative', () => {
         placementRuleCount: 2,
         hasFeedPlacementRule: true,
         hasVerticalPlacementRule: true,
+      },
+    });
+  });
+
+  it('verifies CTWA placement customization without asset_feed_spec after creation', async () => {
+    mockMetaPost.mockResolvedValueOnce({ id: 'creative-ctwa-placement' });
+    mockMetaGetObject.mockResolvedValueOnce({
+      id: 'creative-ctwa-placement',
+      object_story_spec: {
+        link_data: {
+          image_hash: 'feed-hash',
+          page_welcome_message: '{"type":"VISUAL_EDITOR"}',
+        },
+      },
+      platform_customizations: {
+        instagram: { image_hash: 'vertical-hash' },
+      },
+      portrait_customizations: { image_hash: 'vertical-hash' },
+      degrees_of_freedom_spec: {
+        creative_features_spec: {
+          standard_enhancements: { enroll_status: 'OPT_OUT' },
+        },
+      },
+      media_sourcing_spec: { related_media: [] },
+    });
+
+    const result = await createAdCreative(mockClient, ctwaPlacementOptions, {
+      dryRun: false,
+      confirmed: true,
+    });
+
+    expect(result).toMatchObject({ status: 'executed', executed: true });
+    expect(result.verification).toMatchObject({
+      status: 'verified',
+      effectiveFormat: 'placement_customized_ctwa',
+      summary: {
+        hasLinkData: true,
+        hasAssetFeedSpec: false,
+        hasPlatformCustomizations: true,
+        hasPortraitCustomizations: true,
+        hasDegreesOfFreedomSpec: true,
+        hasMediaSourcingSpec: true,
       },
     });
   });
