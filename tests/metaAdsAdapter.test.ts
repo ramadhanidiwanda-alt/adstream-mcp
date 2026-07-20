@@ -1236,6 +1236,46 @@ describe('MetaAdsAdapter', () => {
     });
   });
 
+  it('forwards urlTags to the Meta creative tool as URL parameters', async () => {
+    let receivedOptions: Record<string, unknown> | undefined;
+    const urlTags =
+      'utm_source={{site_source_name}}&utm_medium={{placement}}&utm_campaign={{campaign.name}}&utm_content={{ad.id}}';
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        createAdCreative: async (_client, options) => {
+          receivedOptions = options as unknown as Record<string, unknown>;
+          return {
+            operation: 'create_adcreative',
+            status: 'dry_run',
+            executed: false,
+            preview: {},
+          };
+        },
+      },
+    });
+
+    const response = await adapter.createAdCreative({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {
+        name: 'Creative with URL tags',
+        pageId: 'page_123',
+        link: 'https://example.com',
+        message: 'Belanja sekarang',
+        urlTags,
+      },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    });
+
+    expect(response.ok).toBe(true);
+    expect(receivedOptions).toMatchObject({
+      adAccountId: 'act_123',
+      name: 'Creative with URL tags',
+      urlTags,
+    });
+  });
+
   it('forwards canonical campaign and ad set fields as typed options', async () => {
     let campaignOptions: Record<string, unknown> | undefined;
     let adSetOptions: Record<string, unknown> | undefined;

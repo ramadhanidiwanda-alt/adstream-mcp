@@ -252,6 +252,15 @@ describe('ads MCP broker tools', () => {
     expect(tool?.inputSchema.required).not.toContain('until');
   });
 
+  it('exposes urlTags on ads_create_adcreative for Meta URL parameters', () => {
+    const tool = ADS_MCP_TOOL_DEFINITIONS.find(({ name }) => name === 'ads_create_adcreative');
+    const properties = tool?.inputSchema.properties as Record<string, unknown>;
+
+    expect(properties.urlTags).toMatchObject({
+      type: 'string',
+    });
+  });
+
   it('defines new ads tools without removing legacy names from expected server surface', () => {
     const adsToolNames = ADS_MCP_TOOL_DEFINITIONS.map((tool) => tool.name);
 

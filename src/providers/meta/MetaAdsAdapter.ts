@@ -1557,6 +1557,8 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
           assetFeedSpec: creative ? undefined : assetFeedSpec,
           imageHash:
             typeof request.params.imageHash === 'string' ? request.params.imageHash : undefined,
+          urlTags:
+            typeof request.params.urlTags === 'string' ? request.params.urlTags : undefined,
           instagramUserId:
             typeof request.params.instagramUserId === 'string'
               ? request.params.instagramUserId

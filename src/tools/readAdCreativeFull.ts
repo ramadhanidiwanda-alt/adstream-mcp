@@ -40,34 +40,36 @@ const FIELD_BATCHES: string[][] = [
   // Batch 5: Text fields (may fail for some creative types)
   ['title', 'body'],
 
-  // Batch 6: URL & tags (link may fail for non-link creatives)
-  ['link', 'url_tags'],
+  // Batch 6-7: URL fields. Keep url_tags separate so Meta rejecting link
+  // for a creative type does not hide configured URL parameters.
+  ['link'],
+  ['url_tags'],
 
-  // Batch 7: Object story spec (core structured data)
+  // Batch 8: Object story spec (core structured data)
   ['object_story_spec'],
 
-  // Batch 8: Asset feed spec (Dynamic Creative)
+  // Batch 9: Asset feed spec (Dynamic Creative)
   ['asset_feed_spec'],
 
-  // Batch 9: CTA & Welcome Message (CTWA)
+  // Batch 10: CTA & Welcome Message (CTWA)
   ['call_to_action', 'page_welcome_message'],
 
-  // Batch 10: Dynamic Creative internals
+  // Batch 11: Dynamic Creative internals
   ['degrees_of_freedom_spec', 'asset_customization_rules'],
 
-  // Batch 11: Tracking & Context
+  // Batch 12: Tracking & Context
   ['tracking_specs', 'contextual_multi_ads'],
 
-  // Batch 12: Branded content
+  // Batch 13: Branded content
   ['branded_content'],
 
-  // Batch 13: Template/raw data
+  // Batch 14: Template/raw data
   ['template_data', 'link_data', 'photo_data', 'video_data'],
 
-  // Batch 14: Placement customization fields used by Ads Manager for mixed placements
+  // Batch 15: Placement customization fields used by Ads Manager for mixed placements
   ['platform_customizations', 'portrait_customizations'],
 
-  // Batch 15: Capability-gated creative/media sourcing fields
+  // Batch 16: Capability-gated creative/media sourcing fields
   ['media_sourcing_spec', 'creative_sourcing_spec'],
 ];
 

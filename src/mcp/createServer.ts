@@ -563,6 +563,12 @@ const createAdCreativeInputSchema = {
     .describe(
       'Field legacy/backward-compatible untuk tombol ajakan bertindak. Free-string (bukan enum tertutup) supaya konsisten dengan creativeSpec.callToAction — Meta punya puluhan CTA type (mis. SHOP_NOW, LEARN_MORE, BOOK_TRAVEL, WHATSAPP_MESSAGE, MESSAGE_PAGE, ORDER_NOW, GET_QUOTE, dll), validasi sebenarnya tetap di sisi Meta.'
     ),
+  urlTags: z
+    .string()
+    .optional()
+    .describe(
+      'Meta URL Parameters for the creative. Sent to Meta as url_tags, e.g. utm_source={{site_source_name}}&utm_medium={{placement}}.'
+    ),
   instagramUserId: z.string().optional().describe('Instagram user ID for IG posting.'),
   threadsProfileId: z.string().optional().describe('Threads profile ID for Threads posting.'),
   // --- CTWA (Click-to-WhatsApp) Support ---

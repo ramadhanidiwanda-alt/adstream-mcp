@@ -81,6 +81,38 @@ describe('readAdCreativeFull', () => {
     expect(result.object_story_spec).toBeUndefined();
   });
 
+  it('still reads url_tags when Meta rejects the link field', async () => {
+    const urlTags =
+      'utm_source={{site_source_name}}&utm_medium={{placement}}&utm_campaign={{campaign.name}}&utm_content={{ad.id}}';
+    const client = {
+      metaGetObject: vi.fn().mockImplementation(async (_path: string, opts: { fields?: string }) => {
+        const fields = opts.fields ?? '';
+        if (fields === 'link') {
+          throw new Error('(#100) Tried accessing nonexisting field (link)');
+        }
+        if (fields === 'url_tags') {
+          return { url_tags: urlTags };
+        }
+        return { id: 'cr_123', name: 'Test', status: 'ACTIVE', object_type: 'SHARE' };
+      }),
+      metaGet: vi.fn(),
+      metaPost: vi.fn(),
+      metaDelete: vi.fn(),
+    } as unknown as MetaClient;
+
+    const result = await readAdCreativeFull(client, {
+      creativeId: 'cr_123',
+    });
+
+    expect(result.url_tags).toBe(urlTags);
+    expect(result.unreadable_fields).toEqual([
+      {
+        fields: ['link'],
+        reason: '(#100) Tried accessing nonexisting field (link)',
+      },
+    ]);
+  });
+
   it('requests placement customization fields and reports unreadable batches', async () => {
     const client = {
       metaGetObject: vi
@@ -192,7 +224,7 @@ describe('readAdCreativeFull', () => {
       creativeId: 'cr_fail',
     });
 
-    expect(result.unreadable_fields).toHaveLength(16);
+    expect(result.unreadable_fields).toHaveLength(17);
     expect(result.id).toBeUndefined();
   });
 
