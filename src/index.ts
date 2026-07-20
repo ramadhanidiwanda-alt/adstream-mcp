@@ -219,13 +219,6 @@ export { buildMetaCreativeFormatPayload } from './providers/meta/buildCreativeFo
 export type { BuildMetaCreativeFormatPayloadInput } from './providers/meta/buildCreativeFormatPayload.js';
 export type * from './broker/types.js';
 export {
-  VideoSourceResult,
-  AdCreativeMappingResult,
-  AdDestinationResult,
-  AdCreativeFullResult,
-  AdImageResult,
-  AdVideoResult,
-  AdPreviewResult,
   ADS_PROVIDER_IDS,
   ADS_ENTITY_LEVELS,
   ADS_FILTER_OPERATORS,
