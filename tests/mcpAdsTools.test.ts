@@ -437,6 +437,39 @@ describe('ads MCP broker tools', () => {
     });
   });
 
+  it('never advertises optionalTools without a real, dispatchable tool definition behind it', async () => {
+    // Regression: optionalTools used to be derived from the raw
+    // ADS_MCP_TOOL_NAMES array, which can (and did) contain names with no
+    // corresponding entry in ADS_MCP_TOOL_DEFINITIONS and no dispatch case —
+    // capabilities() claimed those tools existed while every call to them
+    // returned UNSUPPORTED_OPERATION. It must now be a subset of the
+    // actually-registered write tool definitions.
+    const broker = createBrokerStub();
+    process.env.ADSTREAM_ENABLE_WRITES = 'true';
+
+    try {
+      const response = parseToolResponse(
+        await handleAdsMcpToolCall(broker, 'ads_get_capabilities', { provider: 'meta' })
+      );
+      const optionalTools = (response.data as { writes: { optionalTools: string[] } }).writes
+        .optionalTools;
+      const registeredWriteNames = new Set(
+        getAdsMcpToolDefinitions({ includeWrites: true })
+          .map((tool) => tool.name)
+          .filter((name) => isAdsMcpWriteTool(name))
+      );
+
+      expect(optionalTools.length).toBeGreaterThan(0);
+      for (const name of optionalTools) {
+        expect(registeredWriteNames.has(name), `${name} is advertised but not registered`).toBe(
+          true
+        );
+      }
+    } finally {
+      delete process.env.ADSTREAM_ENABLE_WRITES;
+    }
+  });
+
   it('reports write-tool availability that follows the enable flag', async () => {
     const broker = createBrokerStub();
     const previous = process.env.ADSTREAM_ENABLE_WRITES;

@@ -730,6 +730,10 @@ function callBrokerMethod(
       return broker.listAdImages(request);
     case 'ads_list_advideos':
       return broker.listAdVideos(request);
+    case 'ads_get_account_info':
+      return broker.getAccountInfo(request);
+    case 'ads_get_ad_preview':
+      return broker.getAdPreview(request);
     // --- TikTok GMV Max ---
     case 'tiktok_gmv_max_create_campaign':
       return broker.gmvMaxCreateCampaign(request);
@@ -1060,7 +1064,14 @@ function getAdsCapabilities(request: AdsBrokerRequest): AdsBrokerResponse<Record
         optIn: true,
         enabled: areAdsWriteToolsEnabled(),
         enableFlag: 'ADSTREAM_ENABLE_WRITES',
-        optionalTools: ADS_MCP_TOOL_NAMES.filter((name) => isAdsMcpWriteTool(name)),
+        // Derived from actually-registered tool definitions, not the raw
+        // name list — a name can exist in ADS_MCP_TOOL_NAMES (and thus be a
+        // valid AdsMcpToolName) without a real tool definition or dispatch
+        // case wired up yet, which used to make capabilities() claim tools
+        // existed that silently did nothing when called.
+        optionalTools: getAdsMcpToolDefinitions({ includeWrites: true })
+          .map((tool) => tool.name)
+          .filter((name) => isAdsMcpWriteTool(name)),
         safetyContract: 'docs/WRITE_SAFETY_CONTRACT.md',
       },
       warnings: [
