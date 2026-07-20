@@ -261,6 +261,23 @@ describe('ads MCP broker tools', () => {
     });
   });
 
+  it('exposes applinkTreatment enum on ads_create_adcreative for omnichannel creatives', () => {
+    const tool = ADS_MCP_TOOL_DEFINITIONS.find(({ name }) => name === 'ads_create_adcreative');
+    const creativeSpec = (tool?.inputSchema.properties as Record<string, unknown>).creativeSpec as {
+      properties?: Record<string, unknown>;
+    };
+
+    expect(creativeSpec.properties?.applinkTreatment).toMatchObject({
+      type: 'string',
+      enum: [
+        'deeplink_with_appstore_fallback',
+        'deeplink_with_web_fallback',
+        'web_only',
+        'deeplink_disabled',
+      ],
+    });
+  });
+
   it('defines new ads tools without removing legacy names from expected server surface', () => {
     const adsToolNames = ADS_MCP_TOOL_DEFINITIONS.map((tool) => tool.name);
 
