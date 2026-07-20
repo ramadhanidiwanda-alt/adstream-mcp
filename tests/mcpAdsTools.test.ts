@@ -296,6 +296,8 @@ describe('ads MCP broker tools', () => {
       'ads_resume_adset',
       'ads_clone_adset',
       'ads_update_adset',
+      'ads_update_ad',
+      'ads_update_campaign',
       'ads_get_targeting_options',
       'ads_create_ecommerce_campaign_bundle',
       'ads_get_video_source',

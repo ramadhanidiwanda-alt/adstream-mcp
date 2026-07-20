@@ -13,6 +13,8 @@ import type {
   CreateCampaignResult,
   GetTargetingOptionsResult,
   UpdateAdSetResult,
+  UpdateAdResult,
+  UpdateCampaignResult,
   EcommerceCampaignBundleResult,
   AdsProviderAdapter,
   VideoSourceResult,
@@ -324,6 +326,14 @@ export class GoogleAdsAdapter implements AdsProviderAdapter {
 
   async updateAdSet(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<UpdateAdSetResult>> {
     return this.writeNotImplemented() as unknown as AdsBrokerResponse<UpdateAdSetResult>;
+  }
+
+  async updateAd(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<UpdateAdResult>> {
+    return this.writeNotImplemented() as unknown as AdsBrokerResponse<UpdateAdResult>;
+  }
+
+  async updateCampaign(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<UpdateCampaignResult>> {
+    return this.writeNotImplemented() as unknown as AdsBrokerResponse<UpdateCampaignResult>;
   }
 
   async getTargetingOptions(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<GetTargetingOptionsResult>> {

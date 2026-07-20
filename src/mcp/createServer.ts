@@ -726,6 +726,59 @@ const updateAdSetInputSchema = {
   confirmed: z.boolean().optional().describe('Must be true to execute after preview.'),
 };
 
+const updateAdInputSchema = {
+  ...adsBaseInputSchema,
+  adId: z.string().describe('The ad ID to update.'),
+  name: z.string().optional().describe('New ad name.'),
+  status: z.enum(['ACTIVE', 'PAUSED', 'ARCHIVED']).optional().describe('New ad status.'),
+  creativeId: z
+    .string()
+    .optional()
+    .describe(
+      'Point this ad at a different, already-existing creative. Use this to change UTM/tracking parameters on a live ad by first creating a new creative with url_tags set, then swapping this ad to it.'
+    ),
+  trackingSpecs: z
+    .array(z.record(z.unknown()))
+    .optional()
+    .describe('New tracking_specs array for conversion logging.'),
+  conversionDomain: z.string().optional().describe('Domain where conversions occur.'),
+  adScheduleStartTime: z.string().optional().describe('Ad-level schedule start (ISO 8601).'),
+  adScheduleEndTime: z.string().optional().describe('Ad-level schedule end (ISO 8601).'),
+  dryRun: z.boolean().optional().describe('Defaults to true. Set false only after preview.'),
+  confirmed: z.boolean().optional().describe('Must be true to execute after preview.'),
+};
+
+const updateCampaignInputSchema = {
+  ...adsBaseInputSchema,
+  campaignId: z.string().describe('The campaign ID to update.'),
+  name: z.string().optional().describe('New campaign name.'),
+  status: z
+    .enum(['ACTIVE', 'PAUSED', 'ARCHIVED', 'DELETED'])
+    .optional()
+    .describe('New campaign status. DELETED requires deleteConfirmed=true.'),
+  lifetimeBudget: z
+    .number()
+    .optional()
+    .describe('New lifetime budget in local currency minor units. Increase-guarded.'),
+  spendCap: z
+    .number()
+    .optional()
+    .describe('New total spend cap in local currency minor units. Increase-guarded.'),
+  bidStrategy: z.string().optional().describe('New bid strategy.'),
+  specialAdCategories: z
+    .array(z.string())
+    .optional()
+    .describe('Special ad categories (e.g. NONE, HOUSING, EMPLOYMENT, CREDIT).'),
+  startTime: z.string().optional().describe('Campaign start time (ISO 8601).'),
+  stopTime: z.string().optional().describe('Campaign stop time (ISO 8601).'),
+  deleteConfirmed: z
+    .boolean()
+    .optional()
+    .describe('Required when status="DELETED" — deletion is irreversible via the API.'),
+  dryRun: z.boolean().optional().describe('Defaults to true. Set false only after preview.'),
+  confirmed: z.boolean().optional().describe('Must be true to execute after preview.'),
+};
+
 const getTargetingOptionsInputSchema = {
   ...adsBaseInputSchema,
   type: z
@@ -856,6 +909,10 @@ export function createMetaAdsMcpServer(options: CreateMetaAdsMcpServerOptions = 
       inputSchema = cloneAdSetInputSchema;
     } else if (toolDefinition.name === 'ads_update_adset') {
       inputSchema = updateAdSetInputSchema;
+    } else if (toolDefinition.name === 'ads_update_ad') {
+      inputSchema = updateAdInputSchema;
+    } else if (toolDefinition.name === 'ads_update_campaign') {
+      inputSchema = updateCampaignInputSchema;
     } else if (toolDefinition.name === 'ads_get_targeting_options') {
       inputSchema = getTargetingOptionsInputSchema;
     } else if (hasCampaignName) {

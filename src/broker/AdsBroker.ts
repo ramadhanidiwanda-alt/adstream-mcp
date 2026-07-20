@@ -17,6 +17,8 @@ import type {
   CreateCampaignResult,
   GetTargetingOptionsResult,
   UpdateAdSetResult,
+  UpdateAdResult,
+  UpdateCampaignResult,
   EcommerceCampaignBundleResult,
   AdsReport,
   AdsMultiProviderReport,
@@ -98,6 +100,8 @@ type AdapterWriteMethod =
   | 'resumeAdSet'
   | 'cloneAdSet'
   | 'updateAdSet'
+  | 'updateAd'
+  | 'updateCampaign'
   | 'createEcommerceCampaignBundle'
   | 'uploadImage'
   | 'uploadVideo';
@@ -560,6 +564,14 @@ export class AdsBroker {
     return this.executeWrite<UpdateAdSetResult>(request, 'updateAdSet');
   }
 
+  updateAd(request: AdsBrokerRequest): Promise<AdsBrokerResponse<UpdateAdResult>> {
+    return this.executeWrite<UpdateAdResult>(request, 'updateAd');
+  }
+
+  updateCampaign(request: AdsBrokerRequest): Promise<AdsBrokerResponse<UpdateCampaignResult>> {
+    return this.executeWrite<UpdateCampaignResult>(request, 'updateCampaign');
+  }
+
   getTargetingOptions(
     request: AdsBrokerRequest
   ): Promise<AdsBrokerResponse<GetTargetingOptionsResult>> {
@@ -658,6 +670,8 @@ export class AdsBroker {
       | ArchiveAdResult
       | CloneAdSetResult
       | UpdateAdSetResult
+      | UpdateAdResult
+      | UpdateCampaignResult
       | GetTargetingOptionsResult
       | ImageUploadResult
       | VideoUploadResult,

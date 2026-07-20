@@ -15,6 +15,8 @@ import type {
   CreateCampaignResult,
   GetTargetingOptionsResult,
   UpdateAdSetResult,
+  UpdateAdResult,
+  UpdateCampaignResult,
 } from './types.js';
 import {
   ADS_ENTITY_LEVELS,
@@ -55,6 +57,8 @@ export const ADS_MCP_TOOL_NAMES = [
   'ads_clone_ui_ad',
   'ads_archive_ad',
   'ads_update_adset',
+  'ads_update_ad',
+  'ads_update_campaign',
   'ads_clone_adset',
   'ads_get_targeting_options',
   'ads_create_ecommerce_campaign_bundle',
@@ -112,6 +116,8 @@ const DESTRUCTIVE_WRITE_TOOLS = new Set<AdsMcpToolName>([
   'ads_update_campaign_budget',
   'ads_archive_ad',
   'ads_update_adset',
+  'ads_update_ad',
+  'ads_update_campaign',
   'tiktok_gmv_max_delete_session',
   'tiktok_gmv_max_update_campaign',
   'tiktok_gmv_max_update_session',
@@ -357,6 +363,18 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
     description:
       'Update an existing Meta ad set (name, budget, targeting, status). Dry-run by default. Set dryRun=false and confirmed=true to execute.',
     inputSchema: createUpdateAdSetInputSchema(),
+  },
+  {
+    name: 'ads_update_ad',
+    description:
+      'Update an existing Meta ad (name, status, or swap its creative). Use creativeId to point the ad at a different, already-created creative — the standard way to change tracking/UTM parameters on an ad that is already live, since url_tags can only be set when a creative is created. Dry-run by default. Set dryRun=false and confirmed=true to execute.',
+    inputSchema: createUpdateAdInputSchema(),
+  },
+  {
+    name: 'ads_update_campaign',
+    description:
+      "Update an existing Meta campaign (name, status, lifetimeBudget, spendCap, bidStrategy, specialAdCategories, schedule). lifetimeBudget/spendCap reuse the same increase-safety guard as ads_update_campaign_budget. status='DELETED' additionally requires deleteConfirmed=true since deletion is irreversible. Dry-run by default. Set dryRun=false and confirmed=true to execute.",
+    inputSchema: createUpdateCampaignInputSchema(),
   },
   {
     name: 'ads_get_targeting_options',
@@ -745,6 +763,10 @@ function callBrokerMethod(
       return broker.cloneAdSet(request);
     case 'ads_update_adset':
       return broker.updateAdSet(request);
+    case 'ads_update_ad':
+      return broker.updateAd(request);
+    case 'ads_update_campaign':
+      return broker.updateCampaign(request);
     case 'ads_get_targeting_options':
       return broker.getTargetingOptions(request);
     case 'ads_create_ecommerce_campaign_bundle':
@@ -2076,6 +2098,81 @@ function createUpdateAdSetInputSchema() {
       confirmed: { type: 'boolean', description: 'Must be true to execute after preview.' },
     },
     required: ['adSetId'],
+  };
+}
+
+function createUpdateAdInputSchema() {
+  const schema = createAdsInputSchema([]);
+
+  return {
+    type: 'object',
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      adId: { type: 'string', description: 'The ad ID to update.' },
+      name: { type: 'string', description: 'New ad name.' },
+      status: {
+        type: 'string',
+        enum: ['ACTIVE', 'PAUSED', 'ARCHIVED'],
+        description: 'New ad status.',
+      },
+      creativeId: {
+        type: 'string',
+        description:
+          'Point this ad at a different, already-existing creative. Use this to change UTM/tracking parameters on a live ad by first creating a new creative with url_tags set, then swapping this ad to it.',
+      },
+      trackingSpecs: {
+        type: 'array',
+        items: { type: 'object' },
+        description: 'New tracking_specs array for conversion logging.',
+      },
+      conversionDomain: { type: 'string', description: 'Domain where conversions occur.' },
+      adScheduleStartTime: { type: 'string', description: 'Ad-level schedule start (ISO 8601).' },
+      adScheduleEndTime: { type: 'string', description: 'Ad-level schedule end (ISO 8601).' },
+      dryRun: { type: 'boolean', description: 'Defaults to true. Set false only after preview.' },
+      confirmed: { type: 'boolean', description: 'Must be true to execute after preview.' },
+    },
+    required: ['adId'],
+  };
+}
+
+function createUpdateCampaignInputSchema() {
+  const schema = createAdsInputSchema([]);
+
+  return {
+    type: 'object',
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      campaignId: { type: 'string', description: 'The campaign ID to update.' },
+      name: { type: 'string', description: 'New campaign name.' },
+      status: {
+        type: 'string',
+        enum: ['ACTIVE', 'PAUSED', 'ARCHIVED', 'DELETED'],
+        description: 'New campaign status. DELETED requires deleteConfirmed=true.',
+      },
+      lifetimeBudget: {
+        type: 'number',
+        description: 'New lifetime budget in local currency minor units. Increase-guarded.',
+      },
+      spendCap: {
+        type: 'number',
+        description: 'New total spend cap in local currency minor units. Increase-guarded.',
+      },
+      bidStrategy: { type: 'string', description: 'New bid strategy.' },
+      specialAdCategories: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'Special ad categories (e.g. NONE, HOUSING, EMPLOYMENT, CREDIT).',
+      },
+      startTime: { type: 'string', description: 'Campaign start time (ISO 8601).' },
+      stopTime: { type: 'string', description: 'Campaign stop time (ISO 8601).' },
+      deleteConfirmed: {
+        type: 'boolean',
+        description: 'Required when status="DELETED" — deletion is irreversible via the API.',
+      },
+      dryRun: { type: 'boolean', description: 'Defaults to true. Set false only after preview.' },
+      confirmed: { type: 'boolean', description: 'Must be true to execute after preview.' },
+    },
+    required: ['campaignId'],
   };
 }
 

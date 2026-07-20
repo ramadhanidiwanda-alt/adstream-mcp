@@ -1,5 +1,6 @@
 import type { MetaClient } from '../metaClient.js';
 import type { MutationResult } from '../types.js';
+import { assertBudgetIncreaseWithinLimit } from './budgetSafetyGuard.js';
 
 export interface UpdateCampaignBudgetOptions {
   /** Max retries on rate limit */
@@ -37,25 +38,14 @@ export async function updateCampaignBudget(
     throw new Error(`Invalid budget: ${dailyBudget}. Budget must be positive.`);
   }
 
-  // Safety guard: fetch current campaign to check increase bound
-  const maxIncreasePct = options.maxBudgetIncrease ?? 2.0;
-  if (maxIncreasePct > 0) {
-    const current = await client.metaGet<{
-      data: Array<{ daily_budget?: string; lifetime_budget?: string; name?: string }>;
-    }>(`/${campaignId}`, { fields: 'daily_budget,lifetime_budget,name' }, { maxRetries });
-
-    const currentBudget = Number(current.data?.[0]?.daily_budget ?? current.data?.[0]?.lifetime_budget ?? 0);
-    if (currentBudget > 0) {
-      const maxAllowed = Math.round(currentBudget * (1 + maxIncreasePct));
-      if (dailyBudget > maxAllowed) {
-        throw new Error(
-          `Budget increase exceeds safety limit. ` +
-          `Current: ${currentBudget}, requested: ${dailyBudget}, ` +
-          `max allowed (${(maxIncreasePct * 100).toFixed(0)}% increase): ${maxAllowed}.`
-        );
-      }
-    }
-  }
+  await assertBudgetIncreaseWithinLimit(
+    client,
+    campaignId,
+    dailyBudget,
+    'daily_budget,lifetime_budget,name',
+    (row) => Number(row.daily_budget ?? row.lifetime_budget ?? 0),
+    { maxIncreasePct: options.maxBudgetIncrease ?? 2.0, maxRetries }
+  );
 
   const result = await client.metaPost<{ success: boolean }>(
     `/${campaignId}`,
