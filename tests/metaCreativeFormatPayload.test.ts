@@ -891,12 +891,12 @@ describe('buildMetaCreativeFormatPayload', () => {
         creative_features_spec: {
           standard_enhancements: { enroll_status: 'OPT_OUT' },
           image_auto_crop: { enroll_status: 'OPT_OUT' },
-          text_generation: { enroll_status: 'OPT_OUT' },
+          text_optimizations: { enroll_status: 'OPT_OUT' },
           image_templates: { enroll_status: 'OPT_OUT' },
           image_brightness_and_contrast: { enroll_status: 'OPT_OUT' },
           image_animation: { enroll_status: 'OPT_OUT' },
-          background_generation: { enroll_status: 'OPT_OUT' },
-          expand_image: { enroll_status: 'OPT_OUT' },
+          image_background_gen: { enroll_status: 'OPT_OUT' },
+          image_uncrop: { enroll_status: 'OPT_OUT' },
           catalog_feed_tag: { enroll_status: 'OPT_OUT' },
           product_extensions: { enroll_status: 'OPT_OUT' },
         },
@@ -906,6 +906,14 @@ describe('buildMetaCreativeFormatPayload', () => {
       },
     });
     expect(result).not.toHaveProperty('asset_feed_spec');
+    const features = (
+      result.degrees_of_freedom_spec as {
+        creative_features_spec: Record<string, unknown>;
+      }
+    ).creative_features_spec;
+    expect(features).not.toHaveProperty('background_generation');
+    expect(features).not.toHaveProperty('text_generation');
+    expect(features).not.toHaveProperty('expand_image');
   });
 
   it('adds omnichannel_link_spec to a placement_image creative when collaborativeAppSpec is given', () => {

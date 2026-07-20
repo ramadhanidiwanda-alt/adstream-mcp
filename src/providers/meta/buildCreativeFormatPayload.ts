@@ -569,12 +569,12 @@ function buildCreativeFeatureOptOutSpec(): Record<string, unknown> {
   const features = [
     'standard_enhancements',
     'image_auto_crop',
-    'text_generation',
+    'text_optimizations',
     'image_templates',
     'image_brightness_and_contrast',
     'image_animation',
-    'background_generation',
-    'expand_image',
+    'image_background_gen',
+    'image_uncrop',
     'catalog_feed_tag',
     'product_extensions',
   ];
