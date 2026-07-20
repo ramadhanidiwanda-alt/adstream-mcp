@@ -840,6 +840,25 @@ export interface CreateAdResult {
   error?: string;
 }
 
+export type CloneUiAdStatus =
+  | 'dry_run'
+  | 'pending_confirmation'
+  | 'executed'
+  | 'failed'
+  | 'deduped';
+
+export interface CloneUiAdResult {
+  operation: 'clone_ui_ad';
+  status: CloneUiAdStatus;
+  executed: boolean;
+  preview: Record<string, unknown>;
+  warnings: string[];
+  id?: string;
+  response?: Record<string, unknown>;
+  error?: string;
+  structuredError?: StructuredMutationError;
+}
+
 export interface ArchiveAdResult {
   operation: 'archive_ad';
   status: 'executed' | 'failed';
@@ -1046,6 +1065,7 @@ export interface AdsProviderAdapter {
   createAdSet(request: AdsBrokerRequest): Promise<AdsBrokerResponse<CreateAdSetResult>>;
   createAdCreative(request: AdsBrokerRequest): Promise<AdsBrokerResponse<CreateAdCreativeResult>>;
   createAd(request: AdsBrokerRequest): Promise<AdsBrokerResponse<CreateAdResult>>;
+  cloneUiAd(request: AdsBrokerRequest): Promise<AdsBrokerResponse<CloneUiAdResult>>;
   archiveAd(request: AdsBrokerRequest): Promise<AdsBrokerResponse<ArchiveAdResult>>;
   pauseAd(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>>;
   resumeAd(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>>;

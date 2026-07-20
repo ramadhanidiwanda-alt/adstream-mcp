@@ -75,6 +75,13 @@ export type {
   CreateAdStatus,
   AdStatus,
 } from './tools/createAd.js';
+export { cloneUiAd } from './tools/cloneUiAd.js';
+export type {
+  CloneUiAdOptions,
+  CloneUiAdResult,
+  CloneUiAdStatus,
+  CloneUiAdAdStatus,
+} from './tools/cloneUiAd.js';
 
 export { archiveAd } from './tools/archiveAd.js';
 export type { ArchiveAdOptions, ArchiveAdResult } from './tools/archiveAd.js';
