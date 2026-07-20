@@ -1709,7 +1709,7 @@ function createCreateAdCreativeInputSchema() {
               'deeplink_disabled',
             ],
             description:
-              'Opsional. Hanya berlaku untuk creativeFormat video, single_image, atau existing_post saat collaborativeAppSpec diisi (ad set omnichannel/CPAS). Kalau tidak diisi, default ke automatic (perilaku Meta saat ini).',
+              'Opsional. Hanya berlaku untuk creativeFormat video, single_image, atau existing_post saat collaborativeAppSpec diisi (ad set omnichannel/CPAS). Kalau tidak diisi, default ke automatic (perilaku Meta saat ini). CATATAN: pada mode: collaborative_ads (jalur katalog lama), field ini diabaikan untuk video/single_image dan applink_treatment selalu automatic.',
           },
         },
         additionalProperties: true,
