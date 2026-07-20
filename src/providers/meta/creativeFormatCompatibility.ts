@@ -22,6 +22,13 @@ const REQUIREMENTS: Record<MetaCreativeFormat, string[]> = {
     'headline',
     'destinationUrl',
   ],
+  placement_customized_ctwa: [
+    'feedImageHash',
+    'verticalImageHash',
+    'primaryText',
+    'headline',
+    'destinationUrl',
+  ],
   existing_post: ['objectStoryId'],
 };
 

@@ -29,6 +29,8 @@ export function buildMetaCreativeFormatPayload(
       return buildFlexible(input);
     case 'placement_image':
       return buildPlacementImage(input);
+    case 'placement_customized_ctwa':
+      return buildPlacementCustomizedCtwa(input);
     case 'existing_post':
       return buildExistingPost(input);
   }
@@ -512,6 +514,75 @@ function buildPlacementImage(
     ...(input.collaborativeAppSpec
       ? buildOmnichannelLinkFields(destinationUrl, input.collaborativeAppSpec)
       : {}),
+  };
+}
+
+function buildPlacementCustomizedCtwa(
+  input: Extract<
+    BuildMetaCreativeFormatPayloadInput,
+    { creativeFormat: 'placement_customized_ctwa' }
+  >
+): Record<string, unknown> {
+  const { creativeSpec } = input;
+  const feedImageHash = required(creativeSpec.feedImageHash, 'feedImageHash');
+  const verticalImageHash = required(creativeSpec.verticalImageHash, 'verticalImageHash');
+  if (feedImageHash === verticalImageHash) {
+    throw new Error('feedImageHash dan verticalImageHash harus berbeda.');
+  }
+
+  const destinationUrl = required(creativeSpec.destinationUrl, 'destinationUrl');
+  const linkData: Record<string, unknown> = {
+    image_hash: feedImageHash,
+    message: required(creativeSpec.primaryText, 'primaryText'),
+    name: required(creativeSpec.headline, 'headline'),
+    link: destinationUrl,
+    call_to_action: cta('WHATSAPP_MESSAGE', destinationUrl, input.collaborativeAppSpec),
+  };
+  const description = optional(creativeSpec.description, 'description');
+  const pageWelcomeMessage = optional(creativeSpec.pageWelcomeMessage, 'pageWelcomeMessage');
+
+  if (description) linkData.description = description;
+  if (pageWelcomeMessage) linkData.page_welcome_message = pageWelcomeMessage;
+
+  return {
+    object_story_spec: {
+      page_id: required(input.pageId, 'pageId'),
+      ...instagramIdentity(input),
+      link_data: linkData,
+    },
+    platform_customizations: {
+      instagram: {
+        image_hash: verticalImageHash,
+      },
+    },
+    portrait_customizations: {
+      image_hash: verticalImageHash,
+    },
+    degrees_of_freedom_spec: buildCreativeFeatureOptOutSpec(),
+    media_sourcing_spec: {
+      related_media: [],
+    },
+  };
+}
+
+function buildCreativeFeatureOptOutSpec(): Record<string, unknown> {
+  const features = [
+    'standard_enhancements',
+    'image_auto_crop',
+    'text_generation',
+    'image_templates',
+    'image_brightness_and_contrast',
+    'image_animation',
+    'background_generation',
+    'expand_image',
+    'catalog_feed_tag',
+    'product_extensions',
+  ];
+
+  return {
+    creative_features_spec: Object.fromEntries(
+      features.map((feature) => [feature, { enroll_status: 'OPT_OUT' }])
+    ),
   };
 }
 

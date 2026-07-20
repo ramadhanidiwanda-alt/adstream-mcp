@@ -215,7 +215,7 @@ export async function createAdCreative(
 }
 
 const CREATIVE_READ_BACK_FIELDS =
-  'id,name,object_story_id,object_story_spec,asset_feed_spec,product_set_id,omnichannel_link_spec,effective_object_story_id';
+  'id,name,object_story_id,object_story_spec,asset_feed_spec,platform_customizations,portrait_customizations,degrees_of_freedom_spec,media_sourcing_spec,product_set_id,omnichannel_link_spec,effective_object_story_id';
 
 async function verifyCreatedCreative(
   client: MetaClient,
@@ -286,6 +286,10 @@ function summarizeCreativeVerification(
     hasTemplateData: Boolean(storySpec && isRecord(storySpec.template_data)),
     hasChildAttachments: Array.isArray(linkData?.child_attachments),
     hasAssetFeedSpec: isRecord(fields.asset_feed_spec),
+    hasPlatformCustomizations: isRecord(fields.platform_customizations),
+    hasPortraitCustomizations: isRecord(fields.portrait_customizations),
+    hasDegreesOfFreedomSpec: isRecord(fields.degrees_of_freedom_spec),
+    hasMediaSourcingSpec: isRecord(fields.media_sourcing_spec),
     ...placementSummary,
     hasOmnichannelLinkSpec: isRecord(fields.omnichannel_link_spec),
     hasCanvasReference: containsCanvasUrl(linkData) || containsCanvasUrl(videoData),
@@ -300,6 +304,7 @@ const META_CREATIVE_FORMATS: readonly MetaCreativeFormat[] = [
   'collection',
   'flexible',
   'placement_image',
+  'placement_customized_ctwa',
   'existing_post',
 ];
 
@@ -321,6 +326,12 @@ function matchesCreativeFormat(
       return isRecord(fields.asset_feed_spec);
     case 'placement_image':
       return hasCompletePlacementAssets(fields.asset_feed_spec);
+    case 'placement_customized_ctwa':
+      return (
+        hasNonBlankString(linkData?.image_hash) &&
+        !isRecord(fields.asset_feed_spec) &&
+        isRecord(fields.platform_customizations)
+      );
     case 'catalog':
       return (
         hasNonBlankString(fields.product_set_id) &&

@@ -1646,6 +1646,7 @@ function createCreateAdCreativeInputSchema() {
           'collection',
           'flexible',
           'placement_image',
+          'placement_customized_ctwa',
           'existing_post',
         ],
         description:
@@ -1654,7 +1655,7 @@ function createCreateAdCreativeInputSchema() {
       creativeSpec: {
         type: 'object',
         description:
-          'Detail materi sesuai creativeFormat. Field per format: single_image memakai imageHash, primaryText, destinationUrl, headline, description, callToAction, dan pageWelcomeMessage (opsional, untuk Click-to-WhatsApp/Messenger); video memakai videoId, thumbnailImageHash (opsional — kalau kosong, otomatis diisi dari thumbnail bawaan video via GET /{videoId}?fields=picture; hanya berbahaya diabaikan kalau video belum selesai diproses Meta dan tidak punya thumbnail sama sekali), primaryText, destinationUrl, headline, description, callToAction, dan pageWelcomeMessage (opsional, untuk Click-to-WhatsApp/Messenger); carousel memakai primaryText, destinationUrl, cards (imageHash atau videoId, headline, description, destinationUrl); catalog memakai productSetId, primaryText, destinationUrl, templateUrl, fallbackImageHash; collection memakai instantExperienceId, coverImageHash atau coverVideoId, productSetId, primaryText, destinationUrl; flexible memakai primaryText, primaryTexts, imageHashes dan/atau videoIds, headlines, descriptions, destinationUrl, dan messageExtensions opsional; placement_image memakai feedImageHash, verticalImageHash, primaryText, headline, destinationUrl, callToAction, pageWelcomeMessage, dan messageExtensions opsional; existing_post memakai objectStoryId.',
+          'Detail materi sesuai creativeFormat. Field per format: single_image memakai imageHash, primaryText, destinationUrl, headline, description, callToAction, dan pageWelcomeMessage (opsional, untuk Click-to-WhatsApp/Messenger); video memakai videoId, thumbnailImageHash (opsional — kalau kosong, otomatis diisi dari thumbnail bawaan video via GET /{videoId}?fields=picture; hanya berbahaya diabaikan kalau video belum selesai diproses Meta dan tidak punya thumbnail sama sekali), primaryText, destinationUrl, headline, description, callToAction, dan pageWelcomeMessage (opsional, untuk Click-to-WhatsApp/Messenger); carousel memakai primaryText, destinationUrl, cards (imageHash atau videoId, headline, description, destinationUrl); catalog memakai productSetId, primaryText, destinationUrl, templateUrl, fallbackImageHash; collection memakai instantExperienceId, coverImageHash atau coverVideoId, productSetId, primaryText, destinationUrl; flexible memakai primaryText, primaryTexts, imageHashes dan/atau videoIds, headlines, descriptions, destinationUrl, dan messageExtensions opsional; placement_image memakai asset_feed_spec; placement_customized_ctwa memakai feedImageHash, verticalImageHash, primaryText, headline, destinationUrl, pageWelcomeMessage di link_data, platform_customizations, portrait_customizations, dan Advantage+ opt-out; existing_post memakai objectStoryId.',
         properties: {
           messageExtensions: {
             type: 'array',
@@ -1874,6 +1875,11 @@ function createCreateAdInputSchema() {
         type: 'boolean',
         description:
           'Skip the omnichannel creative pre-flight check. Only set if the check misfires; an omnichannel ad set normally requires an omnichannel-ready creative.',
+      },
+      skipPlacementCompatibilityCheck: {
+        type: 'boolean',
+        description:
+          'Skip the local placement compatibility pre-flight check. Use only for reviewed CTWA placement-customized creatives that intentionally avoid Dynamic Creative.',
       },
       externalReference: {
         type: 'string',

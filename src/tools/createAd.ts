@@ -21,6 +21,11 @@ export interface CreateAdOptions {
   externalReference?: string;
   /** Skip the omnichannel creative pre-flight check (use only if the heuristic misfires). */
   skipOmnichannelCheck?: boolean;
+  /**
+   * Skip the placement compatibility pre-flight check.
+   * Use for CTWA placement customization paths that intentionally do not rely on Dynamic Creative.
+   */
+  skipPlacementCompatibilityCheck?: boolean;
 }
 
 export type CreateAdStatus = 'dry_run' | 'pending_confirmation' | 'executed' | 'failed' | 'deduped';
@@ -34,6 +39,7 @@ export interface CreateAdResult {
   response?: Record<string, unknown>;
   error?: string;
   structuredError?: StructuredMutationError;
+  warnings?: string[];
 }
 
 interface MetaIdResponse extends Record<string, unknown> {
@@ -60,11 +66,17 @@ export async function createAd(
   if (options.externalReference) {
     preview.external_reference = options.externalReference;
   }
+  const warnings = options.skipPlacementCompatibilityCheck
+    ? [
+        'Placement compatibility pre-flight skipped by request. Continue only after reviewing the creative payload and Meta preview.',
+      ]
+    : undefined;
   const baseResult: CreateAdResult = {
     operation: 'create_ad',
     status: 'dry_run',
     executed: false,
     preview,
+    ...(warnings ? { warnings } : {}),
   };
 
   // Pre-flight: an omnichannel ad set requires an omnichannel-ready creative.
@@ -107,19 +119,21 @@ export async function createAd(
   }
 
   try {
-    const placementCompatibilityError = await getPlacementCompatibilityError(
-      client,
-      options.adSetId,
-      options.creativeId,
-      maxRetries
-    );
-    if (placementCompatibilityError) {
-      return {
-        ...baseResult,
-        status: 'failed',
-        executed: false,
-        error: placementCompatibilityError,
-      };
+    if (!options.skipPlacementCompatibilityCheck) {
+      const placementCompatibilityError = await getPlacementCompatibilityError(
+        client,
+        options.adSetId,
+        options.creativeId,
+        maxRetries
+      );
+      if (placementCompatibilityError) {
+        return {
+          ...baseResult,
+          status: 'failed',
+          executed: false,
+          error: placementCompatibilityError,
+        };
+      }
     }
 
     const response = await client.metaPost<MetaIdResponse>(

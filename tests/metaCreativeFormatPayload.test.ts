@@ -847,6 +847,67 @@ describe('buildMetaCreativeFormatPayload', () => {
     });
   });
 
+  it('builds CTWA placement customization without Dynamic Creative asset_feed_spec', () => {
+    const result = buildMetaCreativeFormatPayload({
+      mode: 'standard',
+      pageId: 'page-1',
+      instagramUserId: 'ig-1',
+      creativeFormat: 'placement_customized_ctwa',
+      creativeSpec: {
+        feedImageHash: 'feed-hash',
+        verticalImageHash: 'vertical-hash',
+        primaryText: 'Chat admin untuk promo payday',
+        headline: 'PAYDAY GLOWDAY',
+        destinationUrl: 'https://api.whatsapp.com/send?phone=628123',
+        pageWelcomeMessage: '{"type":"VISUAL_EDITOR","version":2}',
+      },
+    });
+
+    expect(result).toEqual({
+      object_story_spec: {
+        page_id: 'page-1',
+        instagram_user_id: 'ig-1',
+        link_data: {
+          image_hash: 'feed-hash',
+          message: 'Chat admin untuk promo payday',
+          name: 'PAYDAY GLOWDAY',
+          link: 'https://api.whatsapp.com/send?phone=628123',
+          call_to_action: {
+            type: 'WHATSAPP_MESSAGE',
+            value: { link: 'https://api.whatsapp.com/send?phone=628123' },
+          },
+          page_welcome_message: '{"type":"VISUAL_EDITOR","version":2}',
+        },
+      },
+      platform_customizations: {
+        instagram: {
+          image_hash: 'vertical-hash',
+        },
+      },
+      portrait_customizations: {
+        image_hash: 'vertical-hash',
+      },
+      degrees_of_freedom_spec: {
+        creative_features_spec: {
+          standard_enhancements: { enroll_status: 'OPT_OUT' },
+          image_auto_crop: { enroll_status: 'OPT_OUT' },
+          text_generation: { enroll_status: 'OPT_OUT' },
+          image_templates: { enroll_status: 'OPT_OUT' },
+          image_brightness_and_contrast: { enroll_status: 'OPT_OUT' },
+          image_animation: { enroll_status: 'OPT_OUT' },
+          background_generation: { enroll_status: 'OPT_OUT' },
+          expand_image: { enroll_status: 'OPT_OUT' },
+          catalog_feed_tag: { enroll_status: 'OPT_OUT' },
+          product_extensions: { enroll_status: 'OPT_OUT' },
+        },
+      },
+      media_sourcing_spec: {
+        related_media: [],
+      },
+    });
+    expect(result).not.toHaveProperty('asset_feed_spec');
+  });
+
   it('adds omnichannel_link_spec to a placement_image creative when collaborativeAppSpec is given', () => {
     const result = buildMetaCreativeFormatPayload({
       mode: 'standard',

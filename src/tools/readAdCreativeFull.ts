@@ -11,6 +11,11 @@ export interface ReadAdCreativeFullOptions {
  */
 export type AdCreativeFull = Record<string, unknown>;
 
+export interface UnreadableAdCreativeFields {
+  fields: string[];
+  reason: string;
+}
+
 // ── Field groups ─────────────────────────────────────────────────
 // Fields are grouped into small batches so if one batch fails
 // (e.g. field not applicable to this creative type), the others still succeed.
@@ -58,6 +63,12 @@ const FIELD_BATCHES: string[][] = [
 
   // Batch 13: Template/raw data
   ['template_data', 'link_data', 'photo_data', 'video_data'],
+
+  // Batch 14: Placement customization fields used by Ads Manager for mixed placements
+  ['platform_customizations', 'portrait_customizations'],
+
+  // Batch 15: Capability-gated creative/media sourcing fields
+  ['media_sourcing_spec', 'creative_sourcing_spec'],
 ];
 
 /**
@@ -77,25 +88,31 @@ export async function readAdCreativeFull(
   const { creativeId } = options;
 
   const results: Record<string, unknown> = {};
+  const unreadableFields: UnreadableAdCreativeFields[] = [];
 
   // Try each batch independently
   for (const batch of FIELD_BATCHES) {
     try {
       const fields = batch.join(',');
-      const partial = await client.metaGetObject<Record<string, unknown>>(
-        `/${creativeId}`,
-        { fields }
-      );
+      const partial = await client.metaGetObject<Record<string, unknown>>(`/${creativeId}`, {
+        fields,
+      });
       // Merge successful fields into result
       for (const key of batch) {
         if (partial[key] !== undefined) {
           results[key] = partial[key];
         }
       }
-    } catch {
-      // Field batch failed — silently skip (field not applicable
-      // to this creative type, or permission issue)
+    } catch (error) {
+      unreadableFields.push({
+        fields: batch,
+        reason: error instanceof Error ? error.message : String(error),
+      });
     }
+  }
+
+  if (unreadableFields.length > 0) {
+    results.unreadable_fields = unreadableFields;
   }
 
   return results;
