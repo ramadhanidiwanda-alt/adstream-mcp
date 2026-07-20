@@ -32,6 +32,7 @@ export interface MetaAssetMessageExtension {
 export interface MetaSingleImageCreativeSpec extends MetaCreativeCopy {
   imageHash: string;
   pageWelcomeMessage?: string;
+  applinkTreatment?: MetaApplinkTreatment;
 }
 
 export interface MetaVideoCreativeSpec extends MetaCreativeCopy {
@@ -44,6 +45,7 @@ export interface MetaVideoCreativeSpec extends MetaCreativeCopy {
    */
   thumbnailImageUrl?: string;
   pageWelcomeMessage?: string;
+  applinkTreatment?: MetaApplinkTreatment;
 }
 
 export interface MetaCarouselCard {
@@ -99,6 +101,14 @@ export interface MetaPlacementCustomizedCtwaCreativeSpec extends MetaCreativeCop
 
 export interface MetaExistingPostCreativeSpec {
   objectStoryId: string;
+  /**
+   * Required together with collaborativeAppSpec to build omnichannel_link_spec.web.url
+   * for CPAS/omnichannel ad sets. Cannot retroactively fix object_store_urls missing
+   * from the referenced post's own call_to_action — that was fixed when the post was
+   * first published. Prefer creativeFormat 'video' directly for CPAS omnichannel ads.
+   */
+  destinationUrl?: string;
+  applinkTreatment?: MetaApplinkTreatment;
 }
 
 export type MetaCreativeSpec =
@@ -129,6 +139,12 @@ export interface MetaCollaborativeAppSpec {
   android?: { appName: string; packageName: string };
   ios?: { appName: string; appStoreId: string };
 }
+
+export type MetaApplinkTreatment =
+  | 'deeplink_with_appstore_fallback'
+  | 'deeplink_with_web_fallback'
+  | 'web_only'
+  | 'deeplink_disabled';
 
 export interface MetaErrorResponse {
   error: {
