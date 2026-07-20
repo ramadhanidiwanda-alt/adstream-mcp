@@ -55,6 +55,8 @@ import { pauseAdSet as pauseAdSetTool } from '../../tools/pauseAdSet.js';
 import { resumeAdSet as resumeAdSetTool } from '../../tools/resumeAdSet.js';
 import { cloneAdSet as cloneAdSetTool } from '../../tools/cloneAdSet.js';
 import { updateAdSet as updateAdSetTool } from '../../tools/updateAdSet.js';
+import { updateAd as updateAdTool } from '../../tools/updateAd.js';
+import { updateCampaign as updateCampaignTool } from '../../tools/updateCampaign.js';
 import { getTargetingOptions as getTargetingOptionsTool } from '../../tools/getTargetingOptions.js';
 import type {
   EcommerceCampaignBundlePayload as MetaEcommerceCampaignBundlePayload,
@@ -69,6 +71,8 @@ import type {
   ArchiveAdResult,
   CloneAdSetResult,
   UpdateAdSetResult,
+  UpdateAdResult,
+  UpdateCampaignResult,
   GetTargetingOptionsResult,
 } from '../../broker/types.js';
 import type { UploadImageResult } from '../../tools/uploadImage.js';
@@ -298,6 +302,16 @@ export interface MetaAdsAdapterTools {
     options: import('../../tools/updateAdSet.js').UpdateAdSetOptions,
     execOptions?: { dryRun?: boolean; confirmed?: boolean; maxRetries?: number }
   ): Promise<import('../../tools/updateAdSet.js').UpdateAdSetResult>;
+  updateAd(
+    client: MetaClient,
+    options: import('../../tools/updateAd.js').UpdateAdOptions,
+    execOptions?: { dryRun?: boolean; confirmed?: boolean; maxRetries?: number }
+  ): Promise<import('../../tools/updateAd.js').UpdateAdResult>;
+  updateCampaign(
+    client: MetaClient,
+    options: import('../../tools/updateCampaign.js').UpdateCampaignOptions,
+    execOptions?: { dryRun?: boolean; confirmed?: boolean; maxRetries?: number }
+  ): Promise<import('../../tools/updateCampaign.js').UpdateCampaignResult>;
   getTargetingOptions(
     client: MetaClient,
     options: import('../../tools/getTargetingOptions.js').GetTargetingOptionsOptions
@@ -402,6 +416,8 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       resumeAdSet: resumeAdSetTool,
       cloneAdSet: cloneAdSetTool,
       updateAdSet: updateAdSetTool,
+      updateAd: updateAdTool,
+      updateCampaign: updateCampaignTool,
       getTargetingOptions: getTargetingOptionsTool,
       createEcommerceCampaignBundle: createEcommerceCampaignBundleTool,
       uploadImage: uploadImageTool,
@@ -1950,6 +1966,109 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
           targeting: this.parseAdSetTargeting(request) as
             | import('../../tools/createAdSet.js').AdSetTargeting
             | undefined,
+        },
+        {
+          dryRun: request.params.dryRun !== false,
+          confirmed: request.params.confirmed === true,
+        }
+      );
+      return { ok: result.status !== 'failed', provider: 'meta', data: result };
+    } catch (error) {
+      return this.writeErrorResponse(error);
+    }
+  }
+
+  async updateAd(request: AdsBrokerRequest): Promise<AdsBrokerResponse<UpdateAdResult>> {
+    const context = this.getCredentialContext(request);
+    if (!context.ok) return context.response;
+
+    const adId = typeof request.params.adId === 'string' ? request.params.adId : undefined;
+    if (!adId) {
+      return {
+        ok: false,
+        provider: 'meta',
+        errors: [{ provider: 'meta', code: 'MISSING_AD_ID', message: 'adId is required in request.params' }],
+      };
+    }
+
+    try {
+      const client = this.createClient(context.credential);
+      const result = await this.tools.updateAd(
+        client,
+        {
+          adId,
+          name: typeof request.params.name === 'string' ? request.params.name : undefined,
+          status:
+            typeof request.params.status === 'string'
+              ? (request.params.status as 'ACTIVE' | 'PAUSED' | 'ARCHIVED')
+              : undefined,
+          creativeId:
+            typeof request.params.creativeId === 'string' ? request.params.creativeId : undefined,
+          trackingSpecs: Array.isArray(request.params.trackingSpecs)
+            ? (request.params.trackingSpecs as Record<string, unknown>[])
+            : undefined,
+          conversionDomain:
+            typeof request.params.conversionDomain === 'string'
+              ? request.params.conversionDomain
+              : undefined,
+          adScheduleStartTime:
+            typeof request.params.adScheduleStartTime === 'string'
+              ? request.params.adScheduleStartTime
+              : undefined,
+          adScheduleEndTime:
+            typeof request.params.adScheduleEndTime === 'string'
+              ? request.params.adScheduleEndTime
+              : undefined,
+        },
+        {
+          dryRun: request.params.dryRun !== false,
+          confirmed: request.params.confirmed === true,
+        }
+      );
+      return { ok: result.status !== 'failed', provider: 'meta', data: result };
+    } catch (error) {
+      return this.writeErrorResponse(error);
+    }
+  }
+
+  async updateCampaign(request: AdsBrokerRequest): Promise<AdsBrokerResponse<UpdateCampaignResult>> {
+    const context = this.getCredentialContext(request);
+    if (!context.ok) return context.response;
+
+    const campaignId =
+      typeof request.params.campaignId === 'string' ? request.params.campaignId : undefined;
+    if (!campaignId) {
+      return {
+        ok: false,
+        provider: 'meta',
+        errors: [
+          { provider: 'meta', code: 'MISSING_CAMPAIGN_ID', message: 'campaignId is required in request.params' },
+        ],
+      };
+    }
+
+    try {
+      const client = this.createClient(context.credential);
+      const result = await this.tools.updateCampaign(
+        client,
+        {
+          campaignId,
+          name: typeof request.params.name === 'string' ? request.params.name : undefined,
+          status:
+            typeof request.params.status === 'string'
+              ? (request.params.status as 'ACTIVE' | 'PAUSED' | 'ARCHIVED' | 'DELETED')
+              : undefined,
+          lifetimeBudget:
+            typeof request.params.lifetimeBudget === 'number' ? request.params.lifetimeBudget : undefined,
+          spendCap: typeof request.params.spendCap === 'number' ? request.params.spendCap : undefined,
+          bidStrategy:
+            typeof request.params.bidStrategy === 'string' ? request.params.bidStrategy : undefined,
+          specialAdCategories: Array.isArray(request.params.specialAdCategories)
+            ? (request.params.specialAdCategories as string[])
+            : undefined,
+          startTime: typeof request.params.startTime === 'string' ? request.params.startTime : undefined,
+          stopTime: typeof request.params.stopTime === 'string' ? request.params.stopTime : undefined,
+          deleteConfirmed: request.params.deleteConfirmed === true,
         },
         {
           dryRun: request.params.dryRun !== false,
