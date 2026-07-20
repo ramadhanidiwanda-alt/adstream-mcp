@@ -889,7 +889,6 @@ describe('buildMetaCreativeFormatPayload', () => {
       },
       degrees_of_freedom_spec: {
         creative_features_spec: {
-          standard_enhancements: { enroll_status: 'OPT_OUT' },
           image_auto_crop: { enroll_status: 'OPT_OUT' },
           text_optimizations: { enroll_status: 'OPT_OUT' },
           image_templates: { enroll_status: 'OPT_OUT' },
@@ -914,6 +913,7 @@ describe('buildMetaCreativeFormatPayload', () => {
     expect(features).not.toHaveProperty('background_generation');
     expect(features).not.toHaveProperty('text_generation');
     expect(features).not.toHaveProperty('expand_image');
+    expect(features).not.toHaveProperty('standard_enhancements');
   });
 
   it('adds omnichannel_link_spec to a placement_image creative when collaborativeAppSpec is given', () => {

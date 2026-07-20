@@ -567,7 +567,6 @@ function buildPlacementCustomizedCtwa(
 
 function buildCreativeFeatureOptOutSpec(): Record<string, unknown> {
   const features = [
-    'standard_enhancements',
     'image_auto_crop',
     'text_optimizations',
     'image_templates',
