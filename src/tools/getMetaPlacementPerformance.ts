@@ -7,6 +7,7 @@ import type {
   PlacementPerformanceReport,
 } from '../types.js';
 import { normalizeAccountId } from '../utils/normalizeAccountId.js';
+import { buildMetaIdFilteringRules } from '../utils/metaFiltering.js';
 
 export interface GetMetaPlacementPerformanceOptions {
   adAccountId: string;
@@ -22,27 +23,6 @@ export interface GetMetaPlacementPerformanceOptions {
 }
 
 type MetaPlacementInsight = CampaignInsight | AdsetInsight | AdInsight;
-type MetaFilteringRule = { field: string; operator: 'IN'; value: string[] };
-
-function toIdList(value: string | string[] | undefined): string[] {
-  if (value === undefined) return [];
-  return (Array.isArray(value) ? value : [value]).filter((id) => id.trim().length > 0);
-}
-
-function buildFiltering(
-  options: GetMetaPlacementPerformanceOptions
-): MetaFilteringRule[] | undefined {
-  const rules: MetaFilteringRule[] = [];
-  const campaignIds = toIdList(options.campaignId);
-  const adsetIds = toIdList(options.adsetId);
-  const adIds = toIdList(options.adId);
-
-  if (campaignIds.length) rules.push({ field: 'campaign.id', operator: 'IN', value: campaignIds });
-  if (adsetIds.length) rules.push({ field: 'adset.id', operator: 'IN', value: adsetIds });
-  if (adIds.length) rules.push({ field: 'ad.id', operator: 'IN', value: adIds });
-
-  return rules.length ? rules : undefined;
-}
 
 export async function getMetaPlacementPerformance(
   client: MetaClient,
@@ -50,7 +30,11 @@ export async function getMetaPlacementPerformance(
 ): Promise<PlacementPerformanceReport> {
   const { since, until, level = 'campaign', limit = 200, minSpendShare, minConversions } = options;
   const adAccountId = normalizeAccountId(options.adAccountId);
-  const filtering = buildFiltering(options);
+  const filtering = buildMetaIdFilteringRules([
+    { field: 'campaign.id', value: options.campaignId },
+    { field: 'adset.id', value: options.adsetId },
+    { field: 'ad.id', value: options.adId },
+  ]);
 
   const fields = [
     'campaign_id',

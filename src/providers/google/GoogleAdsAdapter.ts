@@ -130,6 +130,14 @@ export class GoogleAdsAdapter implements AdsProviderAdapter {
     return this.writeNotImplemented();
   }
 
+  async pauseAdSet(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>> {
+    return this.writeNotImplemented();
+  }
+
+  async resumeAdSet(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>> {
+    return this.writeNotImplemented();
+  }
+
   async cloneAdSet(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<CloneAdSetResult>> {
     return Promise.resolve(this.notImplemented('Google cloneAdSet is not implemented yet') as unknown as AdsBrokerResponse<CloneAdSetResult>);
   }

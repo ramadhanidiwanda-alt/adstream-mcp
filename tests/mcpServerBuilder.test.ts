@@ -168,6 +168,76 @@ describe('MCP server builder', () => {
     );
   });
 
+  it('dispatches ads_list_adimages and ads_list_advideos to the broker (previously fell through to UNSUPPORTED_OPERATION)', async () => {
+    const adsBroker = {
+      ...createBrokerStub(),
+      listAdImages: vi.fn(async () => ({
+        ok: true,
+        provider: 'meta',
+        data: [{ hash: 'image-hash-1' }],
+      })),
+      listAdVideos: vi.fn(async () => ({ ok: true, provider: 'meta', data: [{ id: 'video-1' }] })),
+    } as unknown as AdsBroker;
+    const { client, server } = await createConnectedClient({
+      config: { adAccountId: 'act_123' },
+      adsBroker,
+    });
+
+    try {
+      const imagesResponse = await client.callTool({
+        name: 'ads_list_adimages',
+        arguments: { accountId: 'act_123' },
+      });
+      expect(imagesResponse.isError).not.toBe(true);
+      expect(adsBroker.listAdImages).toHaveBeenCalledTimes(1);
+
+      const videosResponse = await client.callTool({
+        name: 'ads_list_advideos',
+        arguments: { accountId: 'act_123' },
+      });
+      expect(videosResponse.isError).not.toBe(true);
+      expect(adsBroker.listAdVideos).toHaveBeenCalledTimes(1);
+    } finally {
+      await Promise.all([client.close(), server.close()]);
+    }
+  });
+
+  it('registers and dispatches ads_pause_adset/ads_resume_adset (previously named but never wired up)', async () => {
+    process.env.ADSTREAM_ENABLE_WRITES = 'true';
+    const adsBroker = {
+      ...createBrokerStub(),
+      pauseAdSet: vi.fn(async () => ({ ok: true, provider: 'meta', data: { success: true, id: 'adset_1' } })),
+      resumeAdSet: vi.fn(async () => ({ ok: true, provider: 'meta', data: { success: true, id: 'adset_1' } })),
+    } as unknown as AdsBroker;
+    const { client, server } = await createConnectedClient({
+      config: { adAccountId: 'act_123' },
+      adsBroker,
+    });
+
+    try {
+      const tools = await client.listTools();
+      const names = tools.tools.map((tool) => tool.name);
+      expect(names).toContain('ads_pause_adset');
+      expect(names).toContain('ads_resume_adset');
+
+      const pauseResponse = await client.callTool({
+        name: 'ads_pause_adset',
+        arguments: { accountId: 'act_123', adSetId: 'adset_1' },
+      });
+      expect(pauseResponse.isError).not.toBe(true);
+      expect(adsBroker.pauseAdSet).toHaveBeenCalledTimes(1);
+
+      const resumeResponse = await client.callTool({
+        name: 'ads_resume_adset',
+        arguments: { accountId: 'act_123', adSetId: 'adset_1' },
+      });
+      expect(resumeResponse.isError).not.toBe(true);
+      expect(adsBroker.resumeAdSet).toHaveBeenCalledTimes(1);
+    } finally {
+      await Promise.all([client.close(), server.close()]);
+    }
+  });
+
   it('documents objectStorySpec for Dynamic Creative payloads', async () => {
     process.env.ADSTREAM_ENABLE_WRITES = 'true';
     const response = await listRegisteredTools();
@@ -324,6 +394,42 @@ describe('MCP server builder', () => {
       expect(adsBroker.createAdCreative).toHaveBeenCalledWith(
         expect.objectContaining({
           params: expect.objectContaining({ creativeFormat: 'existing_post' }),
+        })
+      );
+    } finally {
+      await Promise.all([client.close(), server.close()]);
+    }
+  });
+
+  it('accepts a non-enumerated callToActionType (e.g. BOOK_TRAVEL) at the MCP schema boundary', async () => {
+    // Regression: callToActionType used to be a closed Zod enum missing many
+    // real Meta CTA types (BOOK_TRAVEL, WHATSAPP_MESSAGE, ...) used in
+    // practice, while creativeSpec.callToAction already accepted any string.
+    // It's now a free string too, matching the field it duplicates.
+    process.env.ADSTREAM_ENABLE_WRITES = 'true';
+    const adsBroker = createBrokerStub();
+    const { client, server } = await createConnectedClient({
+      config: { adAccountId: 'act_123' },
+      adsBroker,
+    });
+
+    try {
+      const response = await client.callTool({
+        name: 'ads_create_adcreative',
+        arguments: {
+          accountId: 'act_123',
+          name: 'CPAS Shopee creative',
+          pageId: 'page_123',
+          link: 'https://example.com',
+          message: 'Belanja sekarang',
+          callToActionType: 'BOOK_TRAVEL',
+        },
+      });
+
+      expect(response.isError).not.toBe(true);
+      expect(adsBroker.createAdCreative).toHaveBeenCalledWith(
+        expect.objectContaining({
+          params: expect.objectContaining({ callToActionType: 'BOOK_TRAVEL' }),
         })
       );
     } finally {

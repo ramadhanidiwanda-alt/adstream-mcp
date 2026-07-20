@@ -1,15 +1,26 @@
 import type { MetaClient, MetaGetOptions } from '../metaClient.js';
 import { normalizeAccountId } from '../utils/normalizeAccountId.js';
+import {
+  buildMetaIdFilteringRules,
+  mergeMetaFilteringRules,
+  type MetaFilteringRule,
+} from '../utils/metaFiltering.js';
 import type { AdInsight, InsightBreakdownOptions, PaginationOptions } from '../types.js';
 
-export interface GetAdsInsightsOptions
-  extends InsightBreakdownOptions,
-    PaginationOptions {
+export interface GetAdsInsightsOptions extends InsightBreakdownOptions, PaginationOptions {
   adAccountId: string;
   since: string;
   until: string;
   limit?: number;
   cursor?: string;
+  /** Restrict results to specific campaign id(s). */
+  campaignId?: string | string[];
+  /** Restrict results to specific ad set id(s). */
+  adsetId?: string | string[];
+  /** Restrict results to specific ad id(s). */
+  adId?: string | string[];
+  /** Caller-supplied Meta filtering rules, merged with campaignId/adsetId/adId. */
+  explicitFilters?: MetaFilteringRule[];
 }
 
 export type AdInsightPage = AdInsight[] & { paging?: { cursors?: { after?: string } } };
@@ -18,8 +29,25 @@ export async function getAdsInsights(
   client: MetaClient,
   options: GetAdsInsightsOptions
 ): Promise<AdInsight[]> {
-  const { since, until, limit = 100, breakdowns, paginate = false, maxPages, pageDelay, cursor } = options;
+  const {
+    since,
+    until,
+    limit = 100,
+    breakdowns,
+    paginate = false,
+    maxPages,
+    pageDelay,
+    cursor,
+  } = options;
   const adAccountId = normalizeAccountId(options.adAccountId);
+  const filtering = mergeMetaFilteringRules(
+    buildMetaIdFilteringRules([
+      { field: 'campaign.id', value: options.campaignId },
+      { field: 'adset.id', value: options.adsetId },
+      { field: 'ad.id', value: options.adId },
+    ]),
+    options.explicitFilters
+  );
 
   const fields = [
     'ad_id',
@@ -55,14 +83,22 @@ export async function getAdsInsights(
     pageDelay,
   };
 
-  const response = await client.metaGet<{ data: AdInsight[]; paging?: { cursors?: { after?: string } } }>(`/act_${adAccountId}/insights`, {
-    level: 'ad',
-    fields: fields.join(','),
-    time_range: JSON.stringify({ since, until }),
-    breakdowns: breakdowns?.join(','),
-    limit,
-    after: cursor,
-  }, metaOptions);
+  const response = await client.metaGet<{
+    data: AdInsight[];
+    paging?: { cursors?: { after?: string } };
+  }>(
+    `/act_${adAccountId}/insights`,
+    {
+      level: 'ad',
+      fields: fields.join(','),
+      time_range: JSON.stringify({ since, until }),
+      breakdowns: breakdowns?.join(','),
+      filtering: filtering ? JSON.stringify(filtering) : undefined,
+      limit,
+      after: cursor,
+    },
+    metaOptions
+  );
 
   return Object.assign(response.data || [], { paging: response.paging }) as AdInsightPage;
 }

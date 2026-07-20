@@ -88,6 +88,87 @@ describe('buildMetaCreativeFormatPayload', () => {
     });
   });
 
+  it('adds page_welcome_message to a single-image CTWA creative', () => {
+    const result = buildMetaCreativeFormatPayload({
+      mode: 'standard',
+      pageId: 'page-1',
+      creativeFormat: 'single_image',
+      creativeSpec: {
+        imageHash: 'image-hash',
+        primaryText: 'Payday Sale',
+        destinationUrl: 'https://api.whatsapp.com/send',
+        callToAction: 'WHATSAPP_MESSAGE',
+        pageWelcomeMessage: '{"type":"VISUAL_EDITOR"}',
+      },
+    });
+
+    expect(result.object_story_spec).toMatchObject({
+      link_data: { page_welcome_message: '{"type":"VISUAL_EDITOR"}' },
+    });
+  });
+
+  it('omits page_welcome_message from single_image when not provided', () => {
+    const result = buildMetaCreativeFormatPayload({
+      mode: 'standard',
+      pageId: 'page-1',
+      creativeFormat: 'single_image',
+      creativeSpec: {
+        imageHash: 'image-hash',
+        primaryText: 'Payday Sale',
+        destinationUrl: 'https://api.whatsapp.com/send',
+        callToAction: 'WHATSAPP_MESSAGE',
+      },
+    });
+
+    expect(result.object_story_spec).toMatchObject({ link_data: {} });
+    const linkData = (result.object_story_spec as Record<string, unknown>).link_data as Record<
+      string,
+      unknown
+    >;
+    expect(linkData).not.toHaveProperty('page_welcome_message');
+  });
+
+  it('adds page_welcome_message to a video CTWA creative', () => {
+    const result = buildMetaCreativeFormatPayload({
+      mode: 'standard',
+      pageId: 'page-1',
+      creativeFormat: 'video',
+      creativeSpec: {
+        videoId: 'video-1',
+        thumbnailImageHash: 'thumb-1',
+        primaryText: 'Payday Sale',
+        destinationUrl: 'https://api.whatsapp.com/send',
+        callToAction: 'WHATSAPP_MESSAGE',
+        pageWelcomeMessage: '{"type":"VISUAL_EDITOR"}',
+      },
+    });
+
+    expect(result.object_story_spec).toMatchObject({
+      video_data: { page_welcome_message: '{"type":"VISUAL_EDITOR"}' },
+    });
+  });
+
+  it('adds official asset_feed_spec message_extensions to placement-image creatives', () => {
+    const result = buildMetaCreativeFormatPayload({
+      mode: 'standard',
+      pageId: 'page-1',
+      creativeFormat: 'placement_image',
+      creativeSpec: {
+        feedImageHash: 'feed-image',
+        verticalImageHash: 'vertical-image',
+        primaryText: 'Chat via WhatsApp',
+        headline: 'Tanya stok',
+        destinationUrl: 'https://api.whatsapp.com/send',
+        callToAction: 'WHATSAPP_MESSAGE',
+        messageExtensions: [{ type: 'whatsapp' }],
+      } as never,
+    });
+
+    expect(result.asset_feed_spec).toMatchObject({
+      message_extensions: [{ type: 'whatsapp' }],
+    });
+  });
+
   it('adds the Instagram identity and omits unsupported video_data description', () => {
     const result = buildMetaCreativeFormatPayload({
       mode: 'collaborative_ads',

@@ -52,6 +52,7 @@ Project ini menjembatani akses programmatic (TypeScript library) dengan natural 
 - ✅ Tambahkan types ke `src/types.ts`
 - ✅ Tulis tests untuk fitur baru
 - ✅ Tanya sebelum buat file baru
+- ✅ Sebelum memberi rekomendasi, desain, atau plan yang bergantung pada API/library/platform eksternal, baca dokumentasi resmi relevan lebih dulu; utamakan docs resmi, SDK resmi, schema resmi, atau source resmi provider. Jelaskan mana yang benar-benar didukung docs dan mana yang hanya inferensi dari data/read-back.
 
 **Alasan:** Repo ini punya terlalu banyak file .md noise dari sesi sebelumnya. Jangan tambah sampah lagi.
 

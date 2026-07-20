@@ -624,6 +624,14 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
     return this.adStatusUpdate(request, 'ENABLE');
   }
 
+  async pauseAdSet(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>> {
+    return this.writeNotImplemented();
+  }
+
+  async resumeAdSet(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>> {
+    return this.writeNotImplemented();
+  }
+
   async archiveAd(request: AdsBrokerRequest): Promise<AdsBrokerResponse<ArchiveAdResult>> {
     return this.adStatusUpdate(request, 'DELETE').then((r) => ({
       ok: r.ok,

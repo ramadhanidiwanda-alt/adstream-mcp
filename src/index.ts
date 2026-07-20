@@ -39,26 +39,60 @@ export type {
 } from './tools/createEcommerceCampaignBundle.js';
 
 export { createCampaign } from './tools/createCampaign.js';
-export type { CreateCampaignOptions, CreateCampaignResult, CreateCampaignStatus, CampaignStatus, MetaCampaignObjective } from './tools/createCampaign.js';
+export type {
+  CreateCampaignOptions,
+  CreateCampaignResult,
+  CreateCampaignStatus,
+  CampaignStatus,
+  MetaCampaignObjective,
+} from './tools/createCampaign.js';
 
 export { createAdSet } from './tools/createAdSet.js';
-export type { CreateAdSetOptions, CreateAdSetResult, CreateAdSetStatus, AdSetStatus, AdSetTargeting, BillingEvent, OptimizationGoal } from './tools/createAdSet.js';
+export type {
+  CreateAdSetOptions,
+  CreateAdSetResult,
+  CreateAdSetStatus,
+  AdSetStatus,
+  AdSetTargeting,
+  BillingEvent,
+  OptimizationGoal,
+} from './tools/createAdSet.js';
 
 export { createAdCreative } from './tools/createAdCreative.js';
-export type { CreateAdCreativeOptions, CreateAdCreativeResult, CreateAdCreativeStatus, CreativeStatus, CreativeDestinationType } from './tools/createAdCreative.js';
+export type {
+  CreateAdCreativeOptions,
+  CreateAdCreativeResult,
+  CreateAdCreativeStatus,
+  CreativeStatus,
+  CreativeDestinationType,
+} from './tools/createAdCreative.js';
 export { getMetaCreativeErrorGuidance } from './providers/meta/metaCreativeErrorGuidance.js';
 
 export { createAd } from './tools/createAd.js';
-export type { CreateAdOptions, CreateAdResult, CreateAdStatus, AdStatus } from './tools/createAd.js';
+export type {
+  CreateAdOptions,
+  CreateAdResult,
+  CreateAdStatus,
+  AdStatus,
+} from './tools/createAd.js';
 
 export { archiveAd } from './tools/archiveAd.js';
 export type { ArchiveAdOptions, ArchiveAdResult } from './tools/archiveAd.js';
 
 export { updateAdSet } from './tools/updateAdSet.js';
-export type { UpdateAdSetOptions, UpdateAdSetResult, UpdateAdSetStatus } from './tools/updateAdSet.js';
+export type {
+  UpdateAdSetOptions,
+  UpdateAdSetResult,
+  UpdateAdSetStatus,
+} from './tools/updateAdSet.js';
 
 export { getTargetingOptions } from './tools/getTargetingOptions.js';
-export type { GetTargetingOptionsOptions, GetTargetingOptionsResult, TargetingOption, TargetingOptionType } from './tools/getTargetingOptions.js';
+export type {
+  GetTargetingOptionsOptions,
+  GetTargetingOptionsResult,
+  TargetingOption,
+  TargetingOptionType,
+} from './tools/getTargetingOptions.js';
 
 export { uploadImage } from './tools/uploadImage.js';
 export type { UploadImageOptions, UploadImageResult } from './tools/uploadImage.js';
@@ -87,10 +121,17 @@ export type { WhatsAppAccountResult } from './tools/listWhatsAppAccounts.js';
 export { listWhatsAppPhoneNumbers } from './tools/listWhatsAppPhoneNumbers.js';
 export type { WhatsAppPhoneNumberResult } from './tools/listWhatsAppPhoneNumbers.js';
 export { listWhatsAppMessageTemplates } from './tools/listWhatsAppMessageTemplates.js';
-export type { WhatsAppTemplateResult, WhatsAppTemplateComponent } from './tools/listWhatsAppMessageTemplates.js';
+export type {
+  WhatsAppTemplateResult,
+  WhatsAppTemplateComponent,
+} from './tools/listWhatsAppMessageTemplates.js';
 
 export { getAdDestinations } from './tools/getAdDestinations.js';
-export type { GetAdDestinationsOptions, AdDestinationInfo, AdDestinationPage } from './tools/getAdDestinations.js';
+export type {
+  GetAdDestinationsOptions,
+  AdDestinationInfo,
+  AdDestinationPage,
+} from './tools/getAdDestinations.js';
 
 export { readAdCreativeFull } from './tools/readAdCreativeFull.js';
 export type { ReadAdCreativeFullOptions, AdCreativeFull } from './tools/readAdCreativeFull.js';
@@ -120,15 +161,18 @@ export { updateCampaignBudget } from './tools/updateCampaignBudget.js';
 export type * from './tools/updateCampaignBudget.js';
 export { renameCampaign } from './tools/renameCampaign.js';
 export type * from './tools/renameCampaign.js';
-export {
-  previewCampaignMutation,
-  executeCampaignMutation,
+export { previewCampaignMutation, executeCampaignMutation } from './tools/campaignMutations.js';
+export type {
+  CampaignMutationWorkflowOptions,
+  CampaignMutationWorkflowResult,
 } from './tools/campaignMutations.js';
-export type { CampaignMutationWorkflowOptions, CampaignMutationWorkflowResult } from './tools/campaignMutations.js';
 
 export { analyzeCampaignPerformance } from './analysis/analyzeCampaignPerformance.js';
 export { recommendActions } from './analysis/recommendActions.js';
-export { summarizeLocationInsights, summarizeNestedLocationInsights } from './analysis/summarizeLocationInsights.js';
+export {
+  summarizeLocationInsights,
+  summarizeNestedLocationInsights,
+} from './analysis/summarizeLocationInsights.js';
 export type * from './analysis/summarizeLocationInsights.js';
 export { analyzePlacementPerformance } from './analysis/analyzePlacementPerformance.js';
 export type * from './analysis/analyzePlacementPerformance.js';
@@ -174,6 +218,7 @@ export {
   AdPreviewResult,
   ADS_PROVIDER_IDS,
   ADS_ENTITY_LEVELS,
+  ADS_FILTER_OPERATORS,
   ADS_OPERATION_KINDS,
   ADS_TOOL_CATEGORIES,
   isAdsProviderId,

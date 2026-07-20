@@ -24,13 +24,25 @@ export interface MetaCreativeCopy {
   destinationUrl?: string;
 }
 
+export interface MetaAssetMessageExtension {
+  type: string;
+}
+
 export interface MetaSingleImageCreativeSpec extends MetaCreativeCopy {
   imageHash: string;
+  pageWelcomeMessage?: string;
 }
 
 export interface MetaVideoCreativeSpec extends MetaCreativeCopy {
   videoId: string;
   thumbnailImageHash?: string;
+  /**
+   * Alternative to thumbnailImageHash — Meta's video_data accepts a direct
+   * image URL as well as an uploaded image_hash. Used internally to auto-fill
+   * the video's own default picture when neither thumbnail field is supplied.
+   */
+  thumbnailImageUrl?: string;
+  pageWelcomeMessage?: string;
 }
 
 export interface MetaCarouselCard {
@@ -64,6 +76,7 @@ export interface MetaFlexibleCreativeSpec extends MetaCreativeCopy {
   primaryTexts: string[];
   headlines?: string[];
   descriptions?: string[];
+  messageExtensions?: MetaAssetMessageExtension[];
 }
 
 export interface MetaPlacementImageCreativeSpec extends MetaCreativeCopy {
@@ -72,6 +85,7 @@ export interface MetaPlacementImageCreativeSpec extends MetaCreativeCopy {
   headline: string;
   destinationUrl: string;
   pageWelcomeMessage?: string;
+  messageExtensions?: MetaAssetMessageExtension[];
 }
 
 export interface MetaExistingPostCreativeSpec {

@@ -94,10 +94,11 @@ export async function createAdCreative(
   execOptions: { dryRun?: boolean; confirmed?: boolean; maxRetries?: number } = {}
 ): Promise<CreateAdCreativeResult> {
   const { dryRun = true, confirmed = false, maxRetries = 3 } = execOptions;
+  const enrichedOptions = await withAutoVideoThumbnail(client, options);
 
   let preview: Record<string, unknown>;
   try {
-    preview = buildCreativePayload(options);
+    preview = buildCreativePayload(enrichedOptions);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     const structuredError = validationError(message);
@@ -538,6 +539,46 @@ function buildCreativePayload(options: CreateAdCreativeOptions): Record<string, 
   if (options.urlTags) payload.url_tags = options.urlTags;
 
   return payload;
+}
+
+/**
+ * Meta rejects a video creative without a thumbnail on video_data (either
+ * image_hash or image_url) for CTWA/omnichannel ads. Callers routinely forget
+ * this because Meta itself auto-generates a default thumbnail for every
+ * processed video — that thumbnail is just not wired into the builder.
+ *
+ * When creativeFormat is 'video' and neither thumbnailImageHash nor
+ * thumbnailImageUrl was supplied, best-effort fetch the video's own default
+ * picture (GET /{videoId}?fields=picture) and use it as image_url. Failures
+ * here are non-fatal — the caller falls back to today's behavior (an
+ * explicit, actionable Meta validation error) rather than blocking creation.
+ */
+async function withAutoVideoThumbnail(
+  client: MetaClient,
+  options: CreateAdCreativeOptions
+): Promise<CreateAdCreativeOptions> {
+  if (options.creative?.creativeFormat !== 'video') return options;
+
+  const { videoId, thumbnailImageHash, thumbnailImageUrl } = options.creative.creativeSpec;
+  if (thumbnailImageHash || thumbnailImageUrl || !videoId) return options;
+
+  try {
+    const video = await client.metaGetObject<{ picture?: string }>(`/${videoId}`, {
+      fields: 'picture',
+    });
+    if (!video.picture) return options;
+
+    return {
+      ...options,
+      creative: {
+        ...options.creative,
+        creativeSpec: { ...options.creative.creativeSpec, thumbnailImageUrl: video.picture },
+      },
+    };
+  } catch {
+    // Best-effort only — let the normal validation/Meta error path handle it.
+    return options;
+  }
 }
 
 function requireLegacyPageId(pageId: string | undefined): string {

@@ -653,6 +653,12 @@ describe('createAdCreative', () => {
     },
   ])('verifies a read-back classified as $format', async ({ format, creativeSpec, readBack }) => {
     mockMetaPost.mockResolvedValueOnce({ id: 'creative-1' });
+    // Video creatives without an explicit thumbnail trigger one extra
+    // metaGetObject call (auto-fetch of the video's default picture) before
+    // the post-creation read-back verification call — queue that first.
+    if (format === 'video') {
+      mockMetaGetObject.mockResolvedValueOnce({ picture: 'https://example.com/auto-thumb.jpg' });
+    }
     mockMetaGetObject.mockResolvedValueOnce(readBack);
 
     const result = await createAdCreative(
@@ -771,5 +777,92 @@ describe('createAdCreative', () => {
       traceId: 'trace-creative-1',
     });
     expect(mockMetaGetObject).not.toHaveBeenCalled();
+  });
+
+  describe('video auto-thumbnail', () => {
+    const videoOptions = {
+      adAccountId: 'act_123',
+      name: 'Video Creative',
+      pageId: '1001',
+      creative: {
+        creativeFormat: 'video' as const,
+        creativeSpec: {
+          videoId: 'video-1',
+          primaryText: 'Tonton videonya',
+          destinationUrl: 'https://api.whatsapp.com/send',
+          callToAction: 'WHATSAPP_MESSAGE',
+        },
+      },
+    };
+
+    it('fetches the video default picture and uses it as image_url when no thumbnail is given', async () => {
+      mockMetaGetObject.mockResolvedValueOnce({ picture: 'https://example.com/auto-thumb.jpg' });
+
+      const result = await createAdCreative(mockClient, videoOptions, { dryRun: true });
+
+      expect(mockMetaGetObject).toHaveBeenCalledWith('/video-1', { fields: 'picture' });
+      expect(result.preview).toMatchObject({
+        object_story_spec: { video_data: { image_url: 'https://example.com/auto-thumb.jpg' } },
+      });
+    });
+
+    it('does not fetch a thumbnail when thumbnailImageHash is already provided', async () => {
+      const optionsWithHash = {
+        ...videoOptions,
+        creative: {
+          ...videoOptions.creative,
+          creativeSpec: { ...videoOptions.creative.creativeSpec, thumbnailImageHash: 'hash-1' },
+        },
+      };
+
+      const result = await createAdCreative(mockClient, optionsWithHash, { dryRun: true });
+
+      expect(mockMetaGetObject).not.toHaveBeenCalled();
+      expect(result.preview).toMatchObject({
+        object_story_spec: { video_data: { image_hash: 'hash-1' } },
+      });
+    });
+
+    it('does not fetch a thumbnail when thumbnailImageUrl is already provided', async () => {
+      const optionsWithUrl = {
+        ...videoOptions,
+        creative: {
+          ...videoOptions.creative,
+          creativeSpec: {
+            ...videoOptions.creative.creativeSpec,
+            thumbnailImageUrl: 'https://example.com/manual-thumb.jpg',
+          },
+        },
+      };
+
+      const result = await createAdCreative(mockClient, optionsWithUrl, { dryRun: true });
+
+      expect(mockMetaGetObject).not.toHaveBeenCalled();
+      expect(result.preview).toMatchObject({
+        object_story_spec: { video_data: { image_url: 'https://example.com/manual-thumb.jpg' } },
+      });
+    });
+
+    it('falls back gracefully (no thumbnail set) when the picture fetch fails', async () => {
+      mockMetaGetObject.mockRejectedValueOnce(new Error('network error'));
+
+      const result = await createAdCreative(mockClient, videoOptions, { dryRun: true });
+
+      const videoData = (result.preview.object_story_spec as Record<string, unknown>)
+        .video_data as Record<string, unknown>;
+      expect(videoData).not.toHaveProperty('image_hash');
+      expect(videoData).not.toHaveProperty('image_url');
+    });
+
+    it('falls back gracefully when Meta returns no picture field', async () => {
+      mockMetaGetObject.mockResolvedValueOnce({});
+
+      const result = await createAdCreative(mockClient, videoOptions, { dryRun: true });
+
+      const videoData = (result.preview.object_story_spec as Record<string, unknown>)
+        .video_data as Record<string, unknown>;
+      expect(videoData).not.toHaveProperty('image_hash');
+      expect(videoData).not.toHaveProperty('image_url');
+    });
   });
 });

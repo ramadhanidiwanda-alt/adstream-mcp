@@ -15,6 +15,7 @@ import {
   generateDailyReport,
   RuleEngine,
   allRuleTemplates,
+  ADS_FILTER_OPERATORS,
   areAdsWriteToolsEnabled,
   getAdsMcpToolDefinitions,
   getAdsMcpToolAnnotations,
@@ -104,13 +105,30 @@ const adsPerformanceInputSchema = {
     .optional()
     .describe('Provider-supported breakdowns such as date, country, platform, or placement.'),
   filters: z
-    .array(z.record(z.unknown()))
+    .array(
+      z.object({
+        field: z.string().min(1),
+        operator: z.enum(ADS_FILTER_OPERATORS),
+        value: z.union([
+          z.string(),
+          z.number(),
+          z.boolean(),
+          z.array(z.union([z.string(), z.number(), z.boolean()])).min(1),
+        ]),
+      })
+    )
     .optional()
     .describe('Explicit filters over normalized or provider-supported fields.'),
   sortBy: z.string().optional().describe('Metric or dimension used for sorting.'),
   sortDirection: z.enum(['asc', 'desc']).optional().describe('Sort direction.'),
   limit: z.number().optional().describe('Maximum number of rows to return.'),
   cursor: z.string().optional().describe('Opaque pagination cursor from a previous response.'),
+};
+
+const adsCreativeInputSchema = {
+  ...adsPerformanceInputSchema,
+  since: z.string().optional().describe('Optional start date in YYYY-MM-DD format.'),
+  until: z.string().optional().describe('Optional end date in YYYY-MM-DD format.'),
 };
 
 const ecommerceLaunchInputSchema = {
@@ -446,7 +464,7 @@ const createAdCreativeInputSchema = {
     .record(z.unknown())
     .optional()
     .describe(
-      'Detail materi sesuai creativeFormat. Field per format: single_image memakai imageHash, primaryText, destinationUrl, headline, description, callToAction; video memakai videoId, thumbnailImageHash, primaryText, destinationUrl, headline, description, callToAction; carousel memakai primaryText, destinationUrl, cards (imageHash atau videoId, headline, description, destinationUrl); catalog memakai productSetId, primaryText, destinationUrl, templateUrl, fallbackImageHash; collection memakai instantExperienceId, coverImageHash atau coverVideoId, productSetId, primaryText, destinationUrl; flexible memakai primaryText, primaryTexts, imageHashes dan/atau videoIds, headlines, descriptions, destinationUrl; placement_image memakai feedImageHash, verticalImageHash, primaryText, headline, destinationUrl, callToAction, dan pageWelcomeMessage; existing_post memakai objectStoryId.'
+      'Detail materi sesuai creativeFormat. Field per format: single_image memakai imageHash, primaryText, destinationUrl, headline, description, callToAction, dan pageWelcomeMessage (opsional, untuk Click-to-WhatsApp/Messenger); video memakai videoId, thumbnailImageHash (opsional — kalau kosong, otomatis diisi dari thumbnail bawaan video via GET /{videoId}?fields=picture; hanya berbahaya diabaikan kalau video belum selesai diproses Meta dan tidak punya thumbnail sama sekali), primaryText, destinationUrl, headline, description, callToAction, dan pageWelcomeMessage (opsional, untuk Click-to-WhatsApp/Messenger); carousel memakai primaryText, destinationUrl, cards (imageHash atau videoId, headline, description, destinationUrl); catalog memakai productSetId, primaryText, destinationUrl, templateUrl, fallbackImageHash; collection memakai instantExperienceId, coverImageHash atau coverVideoId, productSetId, primaryText, destinationUrl; flexible memakai primaryText, primaryTexts, imageHashes dan/atau videoIds, headlines, descriptions, destinationUrl; placement_image memakai feedImageHash, verticalImageHash, primaryText, headline, destinationUrl, callToAction, dan pageWelcomeMessage; existing_post memakai objectStoryId.'
     ),
   collaborativeProductSetId: z
     .string()
@@ -489,19 +507,11 @@ const createAdCreativeInputSchema = {
     .optional()
     .describe('Field legacy/backward-compatible untuk ID video Meta yang sudah diunggah.'),
   callToActionType: z
-    .enum([
-      'SHOP_NOW',
-      'LEARN_MORE',
-      'SIGN_UP',
-      'GET_OFFER',
-      'BOOK_NOW',
-      'DOWNLOAD',
-      'CONTACT_US',
-      'SUBSCRIBE',
-      'INSTALL_APP',
-    ])
+    .string()
     .optional()
-    .describe('Field legacy/backward-compatible untuk tombol ajakan bertindak.'),
+    .describe(
+      'Field legacy/backward-compatible untuk tombol ajakan bertindak. Free-string (bukan enum tertutup) supaya konsisten dengan creativeSpec.callToAction — Meta punya puluhan CTA type (mis. SHOP_NOW, LEARN_MORE, BOOK_TRAVEL, WHATSAPP_MESSAGE, MESSAGE_PAGE, ORDER_NOW, GET_QUOTE, dll), validasi sebenarnya tetap di sisi Meta.'
+    ),
   instagramUserId: z.string().optional().describe('Instagram user ID for IG posting.'),
   threadsProfileId: z.string().optional().describe('Threads profile ID for Threads posting.'),
   // --- CTWA (Click-to-WhatsApp) Support ---
@@ -566,6 +576,11 @@ const archiveAdInputSchema = {
 const adIdInputSchema = {
   ...adsBaseInputSchema,
   adId: z.string().describe('The ad ID to pause or resume.'),
+};
+
+const adSetIdInputSchema = {
+  ...adsBaseInputSchema,
+  adSetId: z.string().describe('The ad set ID to pause or resume.'),
 };
 
 const cloneAdSetInputSchema = {
@@ -720,11 +735,10 @@ export function createMetaAdsMcpServer(options: CreateMetaAdsMcpServerOptions = 
     const hasCreativeId = toolDefinition.inputSchema.required.includes('creativeId');
 
     let inputSchema: Record<string, z.ZodType<unknown>>;
-    if (
-      toolDefinition.name === 'ads_get_performance' ||
-      toolDefinition.name === 'ads_get_creatives'
-    ) {
+    if (toolDefinition.name === 'ads_get_performance') {
       inputSchema = adsPerformanceInputSchema;
+    } else if (toolDefinition.name === 'ads_get_creatives') {
+      inputSchema = adsCreativeInputSchema;
     } else if (toolDefinition.name === 'ads_create_campaign') {
       inputSchema = createCampaignInputSchema;
     } else if (toolDefinition.name === 'ads_create_adset') {
@@ -735,11 +749,13 @@ export function createMetaAdsMcpServer(options: CreateMetaAdsMcpServerOptions = 
       inputSchema = createAdInputSchema;
     } else if (toolDefinition.name === 'ads_archive_ad') {
       inputSchema = archiveAdInputSchema;
-    } else if (
-      toolDefinition.name === 'ads_pause_ad' ||
-      toolDefinition.name === 'ads_resume_ad'
-    ) {
+    } else if (toolDefinition.name === 'ads_pause_ad' || toolDefinition.name === 'ads_resume_ad') {
       inputSchema = adIdInputSchema;
+    } else if (
+      toolDefinition.name === 'ads_pause_adset' ||
+      toolDefinition.name === 'ads_resume_adset'
+    ) {
+      inputSchema = adSetIdInputSchema;
     } else if (toolDefinition.name === 'ads_clone_adset') {
       inputSchema = cloneAdSetInputSchema;
     } else if (toolDefinition.name === 'ads_update_adset') {

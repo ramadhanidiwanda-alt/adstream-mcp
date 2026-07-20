@@ -1,5 +1,10 @@
 import type { MetaClient } from '../metaClient.js';
 import { normalizeAccountId } from '../utils/normalizeAccountId.js';
+import {
+  buildMetaIdFilteringRules,
+  mergeMetaFilteringRules,
+  type MetaFilteringRule,
+} from '../utils/metaFiltering.js';
 
 export interface GetAdDestinationsOptions {
   adAccountId: string;
@@ -7,6 +12,12 @@ export interface GetAdDestinationsOptions {
   effectiveStatus?: string[];
   /** Optional: filter by specific ad IDs */
   adIds?: string[];
+  /** Optional: restrict results to a specific campaign (server-side filter). */
+  campaignId?: string | string[];
+  /** Optional: restrict results to a specific ad set (server-side filter). */
+  adSetId?: string | string[];
+  /** Caller-supplied Meta filtering rules, merged with status and entity filters. */
+  explicitFilters?: MetaFilteringRule[];
   limit?: number;
   cursor?: string;
 }
@@ -26,6 +37,10 @@ export interface AdDestinationInfo {
   resolution_method: string | null;
   /** Warning if URL could not be resolved */
   warning?: string;
+  /** Meta delivery issues attached to the ad (for example hard errors). */
+  issues_info?: Array<Record<string, unknown>>;
+  /** Meta policy review feedback when the ad is rejected or restricted. */
+  ad_review_feedback?: Record<string, unknown>;
 }
 
 export type AdDestinationPage = AdDestinationInfo[] & { paging?: { cursors?: { after?: string } } };
@@ -88,6 +103,8 @@ interface MetaAdWithCreative {
   name?: string;
   status?: string;
   effective_status?: string;
+  issues_info?: Array<Record<string, unknown>>;
+  ad_review_feedback?: Record<string, unknown>;
   creative?: MetaCreativeExpanded;
 }
 
@@ -251,6 +268,9 @@ export async function getAdDestinations(
   const {
     effectiveStatus = ['ACTIVE'],
     adIds,
+    campaignId,
+    adSetId,
+    explicitFilters,
     limit = 100,
     cursor,
   } = options;
@@ -258,7 +278,7 @@ export async function getAdDestinations(
 
   // Build fields — request creative expanded with object_story_spec and asset_feed_spec
   const fields =
-    'id,name,status,effective_status,' +
+    'id,name,status,effective_status,issues_info,ad_review_feedback,' +
     'creative{id,object_type,object_story_spec{link_data{link,call_to_action{type,value{link}},child_attachments{link}},video_data{call_to_action{type,value{link}}}},asset_feed_spec{link_urls{website_url},groups{components{link_url{website_url}}}}}';
 
   const params: Record<string, string | number> = {
@@ -266,14 +286,19 @@ export async function getAdDestinations(
     limit,
   };
 
-  if (effectiveStatus.length > 0) {
-    params.filtering = JSON.stringify([
-      {
-        field: 'effective_status',
-        operator: 'IN',
-        value: effectiveStatus,
-      },
-    ]);
+  const filtering = mergeMetaFilteringRules(
+    effectiveStatus.length > 0
+      ? [{ field: 'effective_status', operator: 'IN', value: effectiveStatus }]
+      : undefined,
+    buildMetaIdFilteringRules([
+      { field: 'campaign.id', value: campaignId },
+      { field: 'adset.id', value: adSetId },
+    ]),
+    explicitFilters
+  );
+
+  if (filtering) {
+    params.filtering = JSON.stringify(filtering);
   }
 
   if (cursor) {
@@ -316,6 +341,8 @@ export async function getAdDestinations(
       ad_name: ad.name,
       status: ad.status,
       effective_status: ad.effective_status,
+      issues_info: ad.issues_info,
+      ad_review_feedback: ad.ad_review_feedback,
       creative_id: creative?.id,
       creative_type: creativeType,
       destination_url: destinationUrl,

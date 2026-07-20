@@ -50,6 +50,8 @@ import { createAd as createAdTool } from '../../tools/createAd.js';
 import { archiveAd as archiveAdTool } from '../../tools/archiveAd.js';
 import { pauseAd as pauseAdTool } from '../../tools/pauseAd.js';
 import { resumeAd as resumeAdTool } from '../../tools/resumeAd.js';
+import { pauseAdSet as pauseAdSetTool } from '../../tools/pauseAdSet.js';
+import { resumeAdSet as resumeAdSetTool } from '../../tools/resumeAdSet.js';
 import { cloneAdSet as cloneAdSetTool } from '../../tools/cloneAdSet.js';
 import { updateAdSet as updateAdSetTool } from '../../tools/updateAdSet.js';
 import { getTargetingOptions as getTargetingOptionsTool } from '../../tools/getTargetingOptions.js';
@@ -114,6 +116,11 @@ import { assertLocationBreakdowns } from '../../utils/locationBreakdowns.js';
 import { MetaApiError } from '../../utils/metaError.js';
 import { normalizeMetaInsights } from './normalizer.js';
 import { normalizeAccountId } from '../../utils/normalizeAccountId.js';
+import {
+  parseCanonicalMetaFilters,
+  parseExplicitMetaFilters,
+  type MetaFilteringRule,
+} from '../../utils/metaFiltering.js';
 
 interface MetaActivityRecord {
   event_time?: string;
@@ -264,6 +271,8 @@ export interface MetaAdsAdapterTools {
   ): Promise<import('../../tools/archiveAd.js').ArchiveAdResult>;
   pauseAd(client: MetaClient, adId: string): Promise<MutationResult>;
   resumeAd(client: MetaClient, adId: string): Promise<MutationResult>;
+  pauseAdSet(client: MetaClient, adSetId: string): Promise<MutationResult>;
+  resumeAdSet(client: MetaClient, adSetId: string): Promise<MutationResult>;
   cloneAdSet(
     client: MetaClient,
     options: import('../../tools/cloneAdSet.js').CloneAdSetOptions,
@@ -361,6 +370,8 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       archiveAd: archiveAdTool,
       pauseAd: pauseAdTool,
       resumeAd: resumeAdTool,
+      pauseAdSet: pauseAdSetTool,
+      resumeAdSet: resumeAdSetTool,
       cloneAdSet: cloneAdSetTool,
       updateAdSet: updateAdSetTool,
       getTargetingOptions: getTargetingOptionsTool,
@@ -557,6 +568,20 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
         meta: { nextCursor: response.paging?.cursors?.after ?? null },
       };
     } catch (error) {
+      if (request.params.complianceAudit === true && isMetaComplianceAuditPermissionError(error)) {
+        return {
+          ok: false,
+          provider: 'meta',
+          errors: [
+            {
+              provider: 'meta',
+              code: 'META_COMPLIANCE_AUDIT_PERMISSION_REQUIRED',
+              message:
+                'Meta blocked the compliance audit. Ensure the access token has ads_read, the token can access this ad account, and the Meta app is enabled for Marketing API reads.',
+            },
+          ],
+        };
+      }
       return this.errorResponse(error);
     }
   }
@@ -664,7 +689,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       const response = await this.createClient(context.credential).metaGet<{
         data: MetaActivityRecord[];
         paging?: { cursors?: { after?: string } };
-      }>(`/act_${accountId}/activities`, {
+      }>(`/act_${normalizeAccountId(accountId)}/activities`, {
         fields:
           'event_time,event_type,translated_event_type,object_id,object_name,object_type,actor_id,actor_name,extra_data',
         since: request.since,
@@ -738,13 +763,16 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
         mode: validation.options.mode,
       });
 
+      const nextCursor = insights.paging?.cursors?.after ?? null;
+
       return {
         ok: true,
         provider: 'meta',
         data,
         meta: {
           ...(validation.options.mode === 'cpas' ? { mode: 'cpas' } : {}),
-          nextCursor: insights.paging?.cursors?.after ?? null,
+          nextCursor,
+          ...partialPageWarningMeta(data.length, validation.options.limit, nextCursor),
         },
       };
     } catch (error) {
@@ -763,6 +791,10 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       cursor?: string;
       breakdowns?: Array<LocationBreakdown | 'product_id'>;
       mode?: 'standard' | 'cpas';
+      campaignId?: string | string[];
+      adsetId?: string | string[];
+      adId?: string | string[];
+      explicitFilters?: MetaFilteringRule[];
     }
   ): Promise<
     Array<AccountInsight | CampaignInsight | AdsetInsight | AdInsight> & {
@@ -814,6 +846,10 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
           cursor?: string;
           breakdowns?: Array<LocationBreakdown | 'product_id'>;
           mode?: 'standard' | 'cpas';
+          campaignId?: string | string[];
+          adsetId?: string | string[];
+          adId?: string | string[];
+          explicitFilters?: MetaFilteringRule[];
         };
       }
     | { ok: false; response: AdsBrokerResponse<never> } {
@@ -823,6 +859,10 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
     const limit = typeof request.params.limit === 'number' ? request.params.limit : undefined;
     const cursor = typeof request.params.cursor === 'string' ? request.params.cursor : undefined;
     const mode = request.params.mode === 'cpas' ? 'cpas' : undefined;
+    const explicitFilters = parseCanonicalMetaFilters(request.params.filters);
+    const campaignId = parseIdParam(request.params.campaignId);
+    const adsetId = parseIdParam(request.params.adsetId ?? request.params.adSetId);
+    const adId = parseIdParam(request.params.adId);
     let breakdowns: Array<LocationBreakdown | 'product_id'> | undefined;
 
     if (mode === 'cpas') {
@@ -865,7 +905,22 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       };
     }
 
-    return { ok: true, options: { adAccountId, since, until, limit, cursor, breakdowns, mode } };
+    return {
+      ok: true,
+      options: {
+        adAccountId,
+        since,
+        until,
+        limit,
+        cursor,
+        breakdowns,
+        mode,
+        campaignId,
+        adsetId,
+        adId,
+        explicitFilters: explicitFilters.length > 0 ? explicitFilters : undefined,
+      },
+    };
   }
 
   private getPlacementPerformanceOptions(
@@ -1364,8 +1419,32 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       return validationResponse(error);
     }
 
-    if (!pageId && creative?.creativeFormat !== 'existing_post') {
-      return validationResponse(new Error('pageId wajib diisi.'));
+    if (creative) {
+      const ignoredLegacyFields = LEGACY_CREATIVE_FIELDS.filter(
+        (field) => request.params[field] !== undefined
+      );
+      if (ignoredLegacyFields.length > 0) {
+        return validationResponse(
+          new Error(
+            `creativeFormat dan creativeSpec sedang dipakai, tapi field top-level berikut juga diisi dan akan DIABAIKAN (tidak digabung): ${ignoredLegacyFields.join(', ')}. Pindahkan nilainya ke dalam creativeSpec (mis. primaryText untuk teks utama, headline, destinationUrl, callToAction, imageHash/videoId sesuai creativeFormat), atau lepas creativeFormat+creativeSpec sepenuhnya untuk memakai jalur legacy top-level.`
+          )
+        );
+      }
+    }
+
+    // For custom/Dynamic Creative payloads, page_id may already be nested
+    // inside objectStorySpec — don't demand it a second time at top level.
+    const objectStorySpecPageId =
+      isRecord(request.params.objectStorySpec) &&
+      typeof request.params.objectStorySpec.page_id === 'string'
+        ? request.params.objectStorySpec.page_id
+        : undefined;
+    const effectivePageId = pageId ?? objectStorySpecPageId;
+
+    if (!effectivePageId && creative?.creativeFormat !== 'existing_post') {
+      return validationResponse(
+        new Error('pageId wajib diisi (langsung, atau di dalam objectStorySpec.page_id).')
+      );
     }
 
     try {
@@ -1437,7 +1516,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
         {
           adAccountId,
           name,
-          pageId,
+          pageId: effectivePageId,
           mode,
           creative,
           collaborativeProductSetId,
@@ -1564,7 +1643,13 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       return {
         ok: false,
         provider: 'meta',
-        errors: [{ provider: 'meta', code: 'MISSING_AD_ID', message: 'adId is required in request.params' }],
+        errors: [
+          {
+            provider: 'meta',
+            code: 'MISSING_AD_ID',
+            message: 'adId is required in request.params',
+          },
+        ],
       };
     }
 
@@ -1586,13 +1671,85 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       return {
         ok: false,
         provider: 'meta',
-        errors: [{ provider: 'meta', code: 'MISSING_AD_ID', message: 'adId is required in request.params' }],
+        errors: [
+          {
+            provider: 'meta',
+            code: 'MISSING_AD_ID',
+            message: 'adId is required in request.params',
+          },
+        ],
       };
     }
 
     try {
       const client = this.createClient(context.credential);
       const result = await this.tools.resumeAd(client, adId);
+      return { ok: true, provider: 'meta', data: this.toAdsMutationResult(result) };
+    } catch (error) {
+      return this.writeErrorResponse(error);
+    }
+  }
+
+  async pauseAdSet(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>> {
+    const context = this.getCredentialContext(request);
+    if (!context.ok) return context.response;
+
+    const adSetId =
+      typeof request.params.adSetId === 'string'
+        ? request.params.adSetId
+        : typeof request.params.adsetId === 'string'
+          ? request.params.adsetId
+          : undefined;
+    if (!adSetId) {
+      return {
+        ok: false,
+        provider: 'meta',
+        errors: [
+          {
+            provider: 'meta',
+            code: 'MISSING_ADSET_ID',
+            message: 'adSetId is required in request.params',
+          },
+        ],
+      };
+    }
+
+    try {
+      const client = this.createClient(context.credential);
+      const result = await this.tools.pauseAdSet(client, adSetId);
+      return { ok: true, provider: 'meta', data: this.toAdsMutationResult(result) };
+    } catch (error) {
+      return this.writeErrorResponse(error);
+    }
+  }
+
+  async resumeAdSet(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>> {
+    const context = this.getCredentialContext(request);
+    if (!context.ok) return context.response;
+
+    const adSetId =
+      typeof request.params.adSetId === 'string'
+        ? request.params.adSetId
+        : typeof request.params.adsetId === 'string'
+          ? request.params.adsetId
+          : undefined;
+    if (!adSetId) {
+      return {
+        ok: false,
+        provider: 'meta',
+        errors: [
+          {
+            provider: 'meta',
+            code: 'MISSING_ADSET_ID',
+            message: 'adSetId is required in request.params',
+          },
+        ],
+      };
+    }
+
+    try {
+      const client = this.createClient(context.credential);
+      const result = await this.tools.resumeAdSet(client, adSetId);
       return { ok: true, provider: 'meta', data: this.toAdsMutationResult(result) };
     } catch (error) {
       return this.writeErrorResponse(error);
@@ -1699,8 +1856,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
             typeof request.params.bidStrategy === 'string' ? request.params.bidStrategy : undefined,
           startTime:
             typeof request.params.startTime === 'string' ? request.params.startTime : undefined,
-          endTime:
-            typeof request.params.endTime === 'string' ? request.params.endTime : undefined,
+          endTime: typeof request.params.endTime === 'string' ? request.params.endTime : undefined,
           mode: request.params.mode === 'replace' ? 'replace' : 'patch',
           replaceTargetingConfirmed: request.params.replaceTargetingConfirmed === true,
           targeting: this.parseAdSetTargeting(request) as
@@ -1993,10 +2149,17 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       const adIds = Array.isArray(request.params.adIds)
         ? request.params.adIds.map(String)
         : undefined;
+      const campaignId = parseIdParam(request.params.campaignId);
+      const adSetId = parseIdParam(request.params.adSetId ?? request.params.adsetId);
+      const explicitFilters = parseExplicitMetaFilters(request.params.filtering);
+      const limit = typeof request.params.limit === 'number' ? request.params.limit : 100;
       const result = await getAdCreativeMapping(client, {
         adAccountId: accountId,
         adIds,
-        limit: typeof request.params.limit === 'number' ? request.params.limit : 100,
+        campaignId,
+        adSetId,
+        explicitFilters: explicitFilters.length > 0 ? explicitFilters : undefined,
+        limit,
         cursor: typeof request.params.cursor === 'string' ? request.params.cursor : undefined,
       });
 
@@ -2004,11 +2167,12 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       const page = result as AdCreativeMappingResult[] & {
         paging?: { cursors?: { after?: string } };
       };
+      const nextCursor = page.paging?.cursors?.after ?? null;
       return {
         ok: true,
         provider: 'meta',
         data: page,
-        meta: { nextCursor: page.paging?.cursors?.after ?? null },
+        meta: { nextCursor, ...partialPageWarningMeta(page.length, limit, nextCursor) },
       };
     } catch (error) {
       return this.errorResponse(error);
@@ -2044,21 +2208,32 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       const effectiveStatus = Array.isArray(request.params.effectiveStatus)
         ? request.params.effectiveStatus.map(String)
         : undefined;
+      const campaignId = parseIdParam(request.params.campaignId);
+      const adSetId = parseIdParam(request.params.adSetId ?? request.params.adsetId);
+      const explicitFilters = parseExplicitMetaFilters(request.params.filtering);
+      const limit = typeof request.params.limit === 'number' ? request.params.limit : 100;
 
       const result = await getAdDestinations(client, {
         adAccountId: accountId,
         effectiveStatus,
         adIds,
-        limit: typeof request.params.limit === 'number' ? request.params.limit : 100,
+        campaignId,
+        adSetId,
+        explicitFilters: explicitFilters.length > 0 ? explicitFilters : undefined,
+        limit,
         cursor: typeof request.params.cursor === 'string' ? request.params.cursor : undefined,
       });
 
       const page = result as AdDestinationResult[] & { paging?: { cursors?: { after?: string } } };
+      const nextCursor = page.paging?.cursors?.after ?? null;
       return {
         ok: true,
         provider: 'meta',
         data: page,
-        meta: { nextCursor: page.paging?.cursors?.after ?? null },
+        meta: {
+          nextCursor,
+          ...partialPageWarningMeta(page.length, limit, nextCursor),
+        },
       };
     } catch (error) {
       return this.errorResponse(error);
@@ -2155,14 +2330,11 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
     }
   }
 
-  async readAdSetFull(
-    request: AdsBrokerRequest
-  ): Promise<AdsBrokerResponse<AdSetFullResult>> {
+  async readAdSetFull(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdSetFullResult>> {
     const context = this.getCredentialContext(request);
     if (!context.ok) return context.response;
 
-    const adsetId =
-      typeof request.params.adsetId === 'string' ? request.params.adsetId : undefined;
+    const adsetId = typeof request.params.adsetId === 'string' ? request.params.adsetId : undefined;
     const campaignId =
       typeof request.params.campaignId === 'string' ? request.params.campaignId : undefined;
     const accountId = request.accountId ?? context.credential.accountId;
@@ -2213,8 +2385,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
 
       // List mode: campaign scope preferred, else account scope.
       const limit = typeof request.params.limit === 'number' ? request.params.limit : 25;
-      const cursor =
-        typeof request.params.cursor === 'string' ? request.params.cursor : undefined;
+      const cursor = typeof request.params.cursor === 'string' ? request.params.cursor : undefined;
 
       const list = await listAdSetsFullTool(client, {
         campaignId,
@@ -2640,10 +2811,52 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
   }
 }
 
+// Top-level params that only apply to the legacy (no creativeFormat/creativeSpec)
+// linkData path in createAdCreative. When creativeFormat+creativeSpec are used
+// instead, these are silently ignored rather than merged — flag the ambiguity
+// instead of letting the caller assume they were applied.
+const LEGACY_CREATIVE_FIELDS = [
+  'link',
+  'message',
+  'headline',
+  'description',
+  'imageHash',
+  'videoId',
+  'callToActionType',
+] as const;
+
 function parseIdParam(value: unknown): string | string[] | undefined {
   if (typeof value === 'string') return value;
   if (Array.isArray(value) && value.every((item) => typeof item === 'string')) return value;
   return undefined;
+}
+
+/**
+ * Meta's Graph API may return fewer rows than the requested `limit` for
+ * reasons outside this client's control — most commonly an internal query
+ * complexity budget for endpoints requesting deeply nested fields (e.g.
+ * object_story_spec/asset_feed_spec on every ad). This is easy to mistake
+ * for "the tool ignored my limit". Surface it explicitly whenever the page
+ * came back short of the request AND Meta says there's more (a nextCursor),
+ * so callers reach for pagination instead of assuming the row count is final.
+ */
+function partialPageWarningMeta(
+  rowCount: number,
+  requestedLimit: number | undefined,
+  nextCursor: string | null
+): { warnings?: Array<{ code: string; message: string; severity: 'info' }> } {
+  if (typeof requestedLimit !== 'number' || rowCount >= requestedLimit || nextCursor === null) {
+    return {};
+  }
+  return {
+    warnings: [
+      {
+        code: 'PARTIAL_PAGE',
+        message: `Meta returned ${rowCount} row(s), fewer than the requested limit of ${requestedLimit}, but more data is available (nextCursor is set). This is usually Meta's own query-complexity budget for heavily nested fields, not a client-side cap — pass cursor to fetch the next page instead of assuming this is the full result set.`,
+        severity: 'info',
+      },
+    ],
+  };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -2750,6 +2963,10 @@ function parseMetaCreativeSpec(
           headline: optionalString(spec.headline, 'creativeSpec.headline'),
           description: optionalString(spec.description, 'creativeSpec.description'),
           callToAction: optionalString(spec.callToAction, 'creativeSpec.callToAction'),
+          pageWelcomeMessage: optionalString(
+            spec.pageWelcomeMessage,
+            'creativeSpec.pageWelcomeMessage'
+          ),
         },
       };
     case 'video':
@@ -2761,11 +2978,19 @@ function parseMetaCreativeSpec(
             spec.thumbnailImageHash,
             'creativeSpec.thumbnailImageHash'
           ),
+          thumbnailImageUrl: optionalString(
+            spec.thumbnailImageUrl,
+            'creativeSpec.thumbnailImageUrl'
+          ),
           primaryText: requireString(spec.primaryText, 'creativeSpec.primaryText'),
           destinationUrl: requireString(spec.destinationUrl, 'creativeSpec.destinationUrl'),
           headline: optionalString(spec.headline, 'creativeSpec.headline'),
           description: optionalString(spec.description, 'creativeSpec.description'),
           callToAction: optionalString(spec.callToAction, 'creativeSpec.callToAction'),
+          pageWelcomeMessage: optionalString(
+            spec.pageWelcomeMessage,
+            'creativeSpec.pageWelcomeMessage'
+          ),
         },
       };
     case 'carousel':
@@ -2841,6 +3066,10 @@ function parseMetaCreativeSpec(
           headline: optionalString(spec.headline, 'creativeSpec.headline'),
           description: optionalString(spec.description, 'creativeSpec.description'),
           callToAction: optionalString(spec.callToAction, 'creativeSpec.callToAction'),
+          messageExtensions: optionalMessageExtensions(
+            spec.messageExtensions,
+            'creativeSpec.messageExtensions'
+          ),
         },
       };
     case 'placement_image':
@@ -2860,6 +3089,10 @@ function parseMetaCreativeSpec(
           pageWelcomeMessage: optionalString(
             spec.pageWelcomeMessage,
             'creativeSpec.pageWelcomeMessage'
+          ),
+          messageExtensions: optionalMessageExtensions(
+            spec.messageExtensions,
+            'creativeSpec.messageExtensions'
           ),
         },
       };
@@ -2905,6 +3138,18 @@ function optionalStringArray(value: unknown, path: string): string[] | undefined
   return requireStringArray(value, path);
 }
 
+function optionalMessageExtensions(
+  value: unknown,
+  path: string
+): Array<{ type: string }> | undefined {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value)) throw new Error(`${path} harus berupa array.`);
+  return value.map((item, index) => {
+    const extension = requireRecord(item, `${path}[${index}]`);
+    return { type: requireString(extension.type, `${path}[${index}].type`) };
+  });
+}
+
 function validationResponse(error: unknown): AdsBrokerResponse<never> {
   return {
     ok: false,
@@ -2917,6 +3162,16 @@ function validationResponse(error: unknown): AdsBrokerResponse<never> {
       },
     ],
   };
+}
+
+function isMetaComplianceAuditPermissionError(error: unknown): boolean {
+  if (!(error instanceof MetaApiError)) return false;
+  return (
+    [3, 10, 200].includes(error.code) ||
+    /capabilit|permission|not authorized|not approved/i.test(
+      [error.message, error.userTitle, error.userMessage].filter(Boolean).join(' ')
+    )
+  );
 }
 
 function supportsMediaSourcingSpec(apiVersion: string | undefined): boolean {

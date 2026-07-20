@@ -3,6 +3,31 @@ import { normalizeMetaInsight } from '../src/providers/meta/normalizer.js';
 import type { AccountInsight, AdsetInsight, CampaignInsight } from '../src/types.js';
 
 describe('normalizeMetaInsight', () => {
+  it('derives cost-per-result metrics from Meta purchase actions', () => {
+    const record = normalizeMetaInsight(
+      {
+        campaign_id: 'cmp_1',
+        spend: '120',
+        impressions: '1000',
+        clicks: '50',
+        actions: [{ action_type: 'purchase', value: '3' }],
+        action_values: [{ action_type: 'purchase', value: '360' }],
+      },
+      {
+        level: 'campaign',
+        accountId: 'act_123',
+        since: '2026-07-01',
+        until: '2026-07-07',
+      }
+    );
+
+    expect(record.conversions).toMatchObject({
+      results: 3,
+      result_type: 'purchase',
+      cost_per_result: 40,
+    });
+    expect(record.commerce).toMatchObject({ cost_per_purchase: 40 });
+  });
 
   it('maps account-level insight and calculates fallback ROAS from purchase value and spend', () => {
     const insight: AccountInsight = {
@@ -250,7 +275,13 @@ describe('normalizeMetaInsight', () => {
       ctr: '5',
       cpc: '2',
       cpm: '100',
-    } satisfies CampaignInsight & { ad_id: string; ad_name: string; adset_id: string; adset_name: string; creative_id: string };
+    } satisfies CampaignInsight & {
+      ad_id: string;
+      ad_name: string;
+      adset_id: string;
+      adset_name: string;
+      creative_id: string;
+    };
 
     const record = normalizeMetaInsight(insight, {
       level: 'ad',
