@@ -763,6 +763,9 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       cursor?: string;
       breakdowns?: Array<LocationBreakdown | 'product_id'>;
       mode?: 'standard' | 'cpas';
+      campaignId?: string | string[];
+      adsetId?: string | string[];
+      adId?: string | string[];
     }
   ): Promise<
     Array<AccountInsight | CampaignInsight | AdsetInsight | AdInsight> & {
@@ -814,6 +817,9 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
           cursor?: string;
           breakdowns?: Array<LocationBreakdown | 'product_id'>;
           mode?: 'standard' | 'cpas';
+          campaignId?: string | string[];
+          adsetId?: string | string[];
+          adId?: string | string[];
         };
       }
     | { ok: false; response: AdsBrokerResponse<never> } {
@@ -823,6 +829,9 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
     const limit = typeof request.params.limit === 'number' ? request.params.limit : undefined;
     const cursor = typeof request.params.cursor === 'string' ? request.params.cursor : undefined;
     const mode = request.params.mode === 'cpas' ? 'cpas' : undefined;
+    const campaignId = parseIdParam(request.params.campaignId);
+    const adsetId = parseIdParam(request.params.adsetId ?? request.params.adSetId);
+    const adId = parseIdParam(request.params.adId);
     let breakdowns: Array<LocationBreakdown | 'product_id'> | undefined;
 
     if (mode === 'cpas') {
@@ -865,7 +874,10 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       };
     }
 
-    return { ok: true, options: { adAccountId, since, until, limit, cursor, breakdowns, mode } };
+    return {
+      ok: true,
+      options: { adAccountId, since, until, limit, cursor, breakdowns, mode, campaignId, adsetId, adId },
+    };
   }
 
   private getPlacementPerformanceOptions(
@@ -2044,11 +2056,15 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       const effectiveStatus = Array.isArray(request.params.effectiveStatus)
         ? request.params.effectiveStatus.map(String)
         : undefined;
+      const campaignId = parseIdParam(request.params.campaignId);
+      const adSetId = parseIdParam(request.params.adSetId ?? request.params.adsetId);
 
       const result = await getAdDestinations(client, {
         adAccountId: accountId,
         effectiveStatus,
         adIds,
+        campaignId,
+        adSetId,
         limit: typeof request.params.limit === 'number' ? request.params.limit : 100,
         cursor: typeof request.params.cursor === 'string' ? request.params.cursor : undefined,
       });
@@ -2750,6 +2766,10 @@ function parseMetaCreativeSpec(
           headline: optionalString(spec.headline, 'creativeSpec.headline'),
           description: optionalString(spec.description, 'creativeSpec.description'),
           callToAction: optionalString(spec.callToAction, 'creativeSpec.callToAction'),
+          pageWelcomeMessage: optionalString(
+            spec.pageWelcomeMessage,
+            'creativeSpec.pageWelcomeMessage'
+          ),
         },
       };
     case 'video':
@@ -2766,6 +2786,10 @@ function parseMetaCreativeSpec(
           headline: optionalString(spec.headline, 'creativeSpec.headline'),
           description: optionalString(spec.description, 'creativeSpec.description'),
           callToAction: optionalString(spec.callToAction, 'creativeSpec.callToAction'),
+          pageWelcomeMessage: optionalString(
+            spec.pageWelcomeMessage,
+            'creativeSpec.pageWelcomeMessage'
+          ),
         },
       };
     case 'carousel':

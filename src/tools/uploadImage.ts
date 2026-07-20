@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import pathModule from 'node:path';
 import type { MetaClient } from '../metaClient.js';
+import { normalizeAccountId } from '../utils/normalizeAccountId.js';
 
 const MAX_IMAGE_SIZE_BYTES = 30 * 1024 * 1024; // 30 MB
 const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png']);
@@ -52,7 +53,7 @@ export async function uploadImage(
     const response = await client.metaUploadMultipart<{
       images?: Record<string, { hash?: string; url?: string }>;
     }>(
-      `/act_${adAccountId}/adimages`,
+      `/act_${normalizeAccountId(adAccountId)}/adimages`,
       filePath,
       'filename',
       undefined,

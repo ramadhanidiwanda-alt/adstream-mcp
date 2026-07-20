@@ -1,5 +1,6 @@
 import type { MetaClient } from '../metaClient.js';
 import { normalizeAccountId } from '../utils/normalizeAccountId.js';
+import { buildMetaIdFilteringRules } from '../utils/metaFiltering.js';
 
 export interface GetAdDestinationsOptions {
   adAccountId: string;
@@ -7,6 +8,10 @@ export interface GetAdDestinationsOptions {
   effectiveStatus?: string[];
   /** Optional: filter by specific ad IDs */
   adIds?: string[];
+  /** Optional: restrict results to a specific campaign (server-side filter). */
+  campaignId?: string | string[];
+  /** Optional: restrict results to a specific ad set (server-side filter). */
+  adSetId?: string | string[];
   limit?: number;
   cursor?: string;
 }
@@ -251,6 +256,8 @@ export async function getAdDestinations(
   const {
     effectiveStatus = ['ACTIVE'],
     adIds,
+    campaignId,
+    adSetId,
     limit = 100,
     cursor,
   } = options;
@@ -266,14 +273,18 @@ export async function getAdDestinations(
     limit,
   };
 
-  if (effectiveStatus.length > 0) {
-    params.filtering = JSON.stringify([
-      {
-        field: 'effective_status',
-        operator: 'IN',
-        value: effectiveStatus,
-      },
-    ]);
+  const filtering = [
+    ...(effectiveStatus.length > 0
+      ? [{ field: 'effective_status', operator: 'IN' as const, value: effectiveStatus }]
+      : []),
+    ...(buildMetaIdFilteringRules([
+      { field: 'campaign.id', value: campaignId },
+      { field: 'adset.id', value: adSetId },
+    ]) ?? []),
+  ];
+
+  if (filtering.length > 0) {
+    params.filtering = JSON.stringify(filtering);
   }
 
   if (cursor) {

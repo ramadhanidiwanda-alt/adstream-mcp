@@ -93,9 +93,11 @@ function buildSingleImage(
   };
   const headline = optional(creativeSpec.headline, 'headline');
   const description = optional(creativeSpec.description, 'description');
+  const pageWelcomeMessage = optional(creativeSpec.pageWelcomeMessage, 'pageWelcomeMessage');
 
   if (headline) linkData.name = headline;
   if (description) linkData.description = description;
+  if (pageWelcomeMessage) linkData.page_welcome_message = pageWelcomeMessage;
 
   return withCollaborativeCatalogContext(
     input,
@@ -122,9 +124,11 @@ function buildVideo(
   };
   const thumbnailImageHash = optional(creativeSpec.thumbnailImageHash, 'thumbnailImageHash');
   const headline = optional(creativeSpec.headline, 'headline');
+  const pageWelcomeMessage = optional(creativeSpec.pageWelcomeMessage, 'pageWelcomeMessage');
 
   if (thumbnailImageHash) videoData.image_hash = thumbnailImageHash;
   if (headline) videoData.title = headline;
+  if (pageWelcomeMessage) videoData.page_welcome_message = pageWelcomeMessage;
 
   return withCollaborativeCatalogContext(
     input,

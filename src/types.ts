@@ -26,11 +26,13 @@ export interface MetaCreativeCopy {
 
 export interface MetaSingleImageCreativeSpec extends MetaCreativeCopy {
   imageHash: string;
+  pageWelcomeMessage?: string;
 }
 
 export interface MetaVideoCreativeSpec extends MetaCreativeCopy {
   videoId: string;
   thumbnailImageHash?: string;
+  pageWelcomeMessage?: string;
 }
 
 export interface MetaCarouselCard {

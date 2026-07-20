@@ -1,5 +1,6 @@
 import type { MetaClient, MetaGetOptions } from '../metaClient.js';
 import { normalizeAccountId } from '../utils/normalizeAccountId.js';
+import { buildMetaIdFilteringRules } from '../utils/metaFiltering.js';
 import type { CampaignInsight, InsightBreakdownOptions, PaginationOptions } from '../types.js';
 
 export interface GetCampaignInsightsOptions
@@ -10,6 +11,8 @@ export interface GetCampaignInsightsOptions
   until: string;
   limit?: number;
   cursor?: string;
+  /** Restrict results to specific campaign id(s). */
+  campaignId?: string | string[];
 }
 
 export type CampaignInsightPage = CampaignInsight[] & { paging?: { cursors?: { after?: string } } };
@@ -20,6 +23,7 @@ export async function getCampaignInsights(
 ): Promise<CampaignInsight[]> {
   const { since, until, limit = 100, breakdowns, paginate = false, maxPages, pageDelay, cursor } = options;
   const adAccountId = normalizeAccountId(options.adAccountId);
+  const filtering = buildMetaIdFilteringRules([{ field: 'campaign.id', value: options.campaignId }]);
 
   const fields = [
     'campaign_id',
@@ -58,6 +62,7 @@ export async function getCampaignInsights(
       fields: fields.join(','),
       time_range: JSON.stringify({ since, until }),
       breakdowns: breakdowns?.join(','),
+      filtering: filtering ? JSON.stringify(filtering) : undefined,
       limit,
       after: cursor,
     },

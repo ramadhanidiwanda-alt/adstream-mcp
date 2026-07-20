@@ -210,19 +210,19 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
   {
     name: 'ads_get_campaign_performance',
     description:
-      'Legacy alias: fetch normalized campaign performance. Prefer ads_get_performance with level campaign for new clients.',
+      'Legacy alias: fetch normalized campaign performance. Prefer ads_get_performance with level campaign for new clients. Optional params.campaignId (string or string[]) restricts results to specific campaign(s) server-side.',
     inputSchema: createAdsInputSchema(['since', 'until']),
   },
   {
     name: 'ads_get_adset_or_adgroup_performance',
     description:
-      'Legacy alias: fetch normalized ad set or ad group performance. Prefer ads_get_performance with level adset or adgroup for new clients.',
+      'Legacy alias: fetch normalized ad set or ad group performance. Prefer ads_get_performance with level adset or adgroup for new clients. Optional params.campaignId and params.adsetId (each string or string[]) restrict results server-side.',
     inputSchema: createAdsInputSchema(['since', 'until']),
   },
   {
     name: 'ads_get_ad_performance',
     description:
-      'Legacy alias: fetch normalized ad performance. Prefer ads_get_performance with level ad for new clients.',
+      'Legacy alias: fetch normalized ad performance. Prefer ads_get_performance with level ad for new clients. Optional params.campaignId, params.adsetId, and params.adId (each string or string[]) restrict results server-side.',
     inputSchema: createAdsInputSchema(['since', 'until']),
   },
   {
@@ -386,7 +386,7 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
   {
     name: 'ads_get_ad_destinations',
     description:
-      'Get destination URLs from ads with their creative metadata. Fetches ads with object_story_spec and asset_feed_spec, then extracts the destination URL for each creative type (link, video, carousel, Advantage+, existing post). Supports status filtering. Calls GET /act_{id}/ads?fields=id,name,status,effective_status,creative{id,object_type,object_story_spec,asset_feed_spec}.',
+      'Get destination URLs from ads with their creative metadata. Fetches ads with object_story_spec and asset_feed_spec, then extracts the destination URL for each creative type (link, video, carousel, Advantage+, existing post). Supports status filtering plus optional params.campaignId and params.adSetId (each string or string[]) to restrict results to a specific campaign/ad set server-side. Calls GET /act_{id}/ads?fields=id,name,status,effective_status,creative{id,object_type,object_story_spec,asset_feed_spec}.',
     inputSchema: createAdsInputSchema([]),
   },
   {
@@ -1498,7 +1498,7 @@ function createCreateAdCreativeInputSchema() {
       creativeSpec: {
         type: 'object',
         description:
-          'Detail materi sesuai creativeFormat. Field per format: single_image memakai imageHash, primaryText, destinationUrl, headline, description, callToAction; video memakai videoId, thumbnailImageHash, primaryText, destinationUrl, headline, description, callToAction; carousel memakai primaryText, destinationUrl, cards (imageHash atau videoId, headline, description, destinationUrl); catalog memakai productSetId, primaryText, destinationUrl, templateUrl, fallbackImageHash; collection memakai instantExperienceId, coverImageHash atau coverVideoId, productSetId, primaryText, destinationUrl; flexible memakai primaryText, primaryTexts, imageHashes dan/atau videoIds, headlines, descriptions, destinationUrl; placement_image memakai feedImageHash, verticalImageHash, primaryText, headline, destinationUrl, callToAction, dan pageWelcomeMessage; existing_post memakai objectStoryId.',
+          'Detail materi sesuai creativeFormat. Field per format: single_image memakai imageHash, primaryText, destinationUrl, headline, description, callToAction, dan pageWelcomeMessage (opsional, untuk Click-to-WhatsApp/Messenger); video memakai videoId, thumbnailImageHash (WAJIB diisi untuk creative CTWA/omnichannel — Meta menolak tanpa thumbnail), primaryText, destinationUrl, headline, description, callToAction, dan pageWelcomeMessage (opsional, untuk Click-to-WhatsApp/Messenger); carousel memakai primaryText, destinationUrl, cards (imageHash atau videoId, headline, description, destinationUrl); catalog memakai productSetId, primaryText, destinationUrl, templateUrl, fallbackImageHash; collection memakai instantExperienceId, coverImageHash atau coverVideoId, productSetId, primaryText, destinationUrl; flexible memakai primaryText, primaryTexts, imageHashes dan/atau videoIds, headlines, descriptions, destinationUrl; placement_image memakai feedImageHash, verticalImageHash, primaryText, headline, destinationUrl, callToAction, dan pageWelcomeMessage; existing_post memakai objectStoryId.',
         additionalProperties: true,
       },
       collaborativeProductSetId: {

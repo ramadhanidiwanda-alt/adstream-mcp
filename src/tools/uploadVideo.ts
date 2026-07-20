@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import type { MetaClient } from '../metaClient.js';
+import { normalizeAccountId } from '../utils/normalizeAccountId.js';
 
 const MAX_VIDEO_SIZE_BYTES = 1 * 1024 * 1024 * 1024; // 1 GB
 const LARGE_VIDEO_WARN_BYTES = 100 * 1024 * 1024; // 100 MB
@@ -58,7 +59,7 @@ export async function uploadVideo(
 
   try {
     const response = await client.metaUploadMultipart<{ id?: string }>(
-      `/act_${adAccountId}/advideos`,
+      `/act_${normalizeAccountId(adAccountId)}/advideos`,
       filePath,
       'source',
       Object.keys(additionalFields).length > 0 ? additionalFields : undefined,
