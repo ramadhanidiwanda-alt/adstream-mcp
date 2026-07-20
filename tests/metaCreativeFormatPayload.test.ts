@@ -148,6 +148,27 @@ describe('buildMetaCreativeFormatPayload', () => {
     });
   });
 
+  it('adds official asset_feed_spec message_extensions to placement-image creatives', () => {
+    const result = buildMetaCreativeFormatPayload({
+      mode: 'standard',
+      pageId: 'page-1',
+      creativeFormat: 'placement_image',
+      creativeSpec: {
+        feedImageHash: 'feed-image',
+        verticalImageHash: 'vertical-image',
+        primaryText: 'Chat via WhatsApp',
+        headline: 'Tanya stok',
+        destinationUrl: 'https://api.whatsapp.com/send',
+        callToAction: 'WHATSAPP_MESSAGE',
+        messageExtensions: [{ type: 'whatsapp' }],
+      } as never,
+    });
+
+    expect(result.asset_feed_spec).toMatchObject({
+      message_extensions: [{ type: 'whatsapp' }],
+    });
+  });
+
   it('adds the Instagram identity and omits unsupported video_data description', () => {
     const result = buildMetaCreativeFormatPayload({
       mode: 'collaborative_ads',

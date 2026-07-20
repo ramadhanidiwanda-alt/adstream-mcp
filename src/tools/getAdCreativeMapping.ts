@@ -1,10 +1,21 @@
 import type { MetaClient } from '../metaClient.js';
 import { normalizeAccountId } from '../utils/normalizeAccountId.js';
+import {
+  buildMetaIdFilteringRules,
+  mergeMetaFilteringRules,
+  type MetaFilteringRule,
+} from '../utils/metaFiltering.js';
 
 export interface AdCreativeMappingOptions {
   adAccountId: string;
   /** Optional: filter by specific ad IDs */
   adIds?: string[];
+  /** Optional: restrict results to a specific campaign (server-side filter). */
+  campaignId?: string | string[];
+  /** Optional: restrict results to a specific ad set (server-side filter). */
+  adSetId?: string | string[];
+  /** Caller-supplied Meta filtering rules, merged with campaignId/adSetId. */
+  explicitFilters?: MetaFilteringRule[];
   limit?: number;
   cursor?: string;
 }
@@ -15,7 +26,9 @@ export interface AdCreativeMapping {
   creative_id?: string;
 }
 
-export type AdCreativeMappingPage = AdCreativeMapping[] & { paging?: { cursors?: { after?: string } } };
+export type AdCreativeMappingPage = AdCreativeMapping[] & {
+  paging?: { cursors?: { after?: string } };
+};
 
 interface MetaAdWithCreative {
   id?: string;
@@ -32,7 +45,7 @@ export async function getAdCreativeMapping(
   client: MetaClient,
   options: AdCreativeMappingOptions
 ): Promise<AdCreativeMappingPage> {
-  const { adIds, limit = 100, cursor } = options;
+  const { adIds, campaignId, adSetId, explicitFilters, limit = 100, cursor } = options;
   const adAccountId = normalizeAccountId(options.adAccountId);
 
   const fields = 'id,name,creative{id}';
@@ -41,14 +54,25 @@ export async function getAdCreativeMapping(
     limit,
   };
 
+  const filtering = mergeMetaFilteringRules(
+    buildMetaIdFilteringRules([
+      { field: 'campaign.id', value: campaignId },
+      { field: 'adset.id', value: adSetId },
+    ]),
+    explicitFilters
+  );
+  if (filtering) {
+    params.filtering = JSON.stringify(filtering);
+  }
+
   if (cursor) {
     params.after = cursor;
   }
 
-  const response = await client.metaGet<{ data: MetaAdWithCreative[]; paging?: { cursors?: { after?: string } } }>(
-    `/act_${adAccountId}/ads`,
-    params
-  );
+  const response = await client.metaGet<{
+    data: MetaAdWithCreative[];
+    paging?: { cursors?: { after?: string } };
+  }>(`/act_${adAccountId}/ads`, params);
 
   let ads = response.data || [];
 

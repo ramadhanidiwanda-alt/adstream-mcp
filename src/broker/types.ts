@@ -3,8 +3,29 @@ import type { MetaAdsMode, StructuredMutationError } from '../types.js';
 export const ADS_PROVIDER_IDS = ['meta', 'tiktok', 'google'] as const;
 export type AdsProviderId = (typeof ADS_PROVIDER_IDS)[number];
 
-export const ADS_ENTITY_LEVELS = ['account', 'campaign', 'adset', 'adgroup', 'ad', 'creative'] as const;
+export const ADS_ENTITY_LEVELS = [
+  'account',
+  'campaign',
+  'adset',
+  'adgroup',
+  'ad',
+  'creative',
+] as const;
 export type AdsEntityLevel = (typeof ADS_ENTITY_LEVELS)[number];
+
+export const ADS_FILTER_OPERATORS = [
+  'eq',
+  'ne',
+  'gt',
+  'gte',
+  'lt',
+  'lte',
+  'in',
+  'not_in',
+  'contains',
+  'not_contains',
+] as const;
+export type AdsFilterOperator = (typeof ADS_FILTER_OPERATORS)[number];
 
 export const ADS_OPERATION_KINDS = ['read', 'write'] as const;
 export type AdsOperationKind = (typeof ADS_OPERATION_KINDS)[number];
@@ -125,12 +146,7 @@ export interface AdsEngagementMetrics {
   follows?: number;
 }
 
-export type AdsComplianceStatus =
-  | 'PASS'
-  | 'FAIL'
-  | 'UNKNOWN'
-  | 'NOT_APPLICABLE'
-  | 'MANUAL_REVIEW';
+export type AdsComplianceStatus = 'PASS' | 'FAIL' | 'UNKNOWN' | 'NOT_APPLICABLE' | 'MANUAL_REVIEW';
 
 export interface AdsComplianceCheck {
   status: AdsComplianceStatus;
@@ -629,13 +645,31 @@ export interface AdsProviderCapabilities {
 export const ADS_PROVIDER_CAPABILITY_MATRIX = {
   meta: {
     providers: ['meta'],
-    categories: ['accounts', 'campaigns', 'ad_groups', 'ads', 'creatives', 'insights', 'reports', 'diagnostics'],
+    categories: [
+      'accounts',
+      'campaigns',
+      'ad_groups',
+      'ads',
+      'creatives',
+      'insights',
+      'reports',
+      'diagnostics',
+    ],
     operations: ['read', 'write'],
     supportsRaw: false,
   },
   tiktok: {
     providers: ['tiktok'],
-    categories: ['accounts', 'campaigns', 'ad_groups', 'ads', 'creatives', 'insights', 'reports', 'diagnostics'],
+    categories: [
+      'accounts',
+      'campaigns',
+      'ad_groups',
+      'ads',
+      'creatives',
+      'insights',
+      'reports',
+      'diagnostics',
+    ],
     operations: ['read'],
     supportsRaw: false,
   },
@@ -658,6 +692,8 @@ export interface AdDestinationResult {
   ad_name?: string;
   status?: string;
   effective_status?: string;
+  issues_info?: Array<Record<string, unknown>>;
+  ad_review_feedback?: Record<string, unknown>;
   creative_id?: string;
   creative_type?: string;
   destination_url: string | null;
@@ -727,7 +763,12 @@ export interface VideoUploadResult {
   warnings?: string[];
 }
 
-export type CreateCampaignStatus = 'dry_run' | 'pending_confirmation' | 'executed' | 'failed' | 'deduped';
+export type CreateCampaignStatus =
+  | 'dry_run'
+  | 'pending_confirmation'
+  | 'executed'
+  | 'failed'
+  | 'deduped';
 
 export interface CreateCampaignResult {
   operation: 'create_campaign';
@@ -740,7 +781,12 @@ export interface CreateCampaignResult {
   error?: string;
 }
 
-export type CreateAdSetStatus = 'dry_run' | 'pending_confirmation' | 'executed' | 'failed' | 'deduped';
+export type CreateAdSetStatus =
+  | 'dry_run'
+  | 'pending_confirmation'
+  | 'executed'
+  | 'failed'
+  | 'deduped';
 
 export interface CreateAdSetResult {
   operation: 'create_adset';
@@ -752,7 +798,12 @@ export interface CreateAdSetResult {
   error?: string;
 }
 
-export type CreateAdCreativeStatus = 'dry_run' | 'pending_confirmation' | 'executed' | 'failed' | 'deduped';
+export type CreateAdCreativeStatus =
+  | 'dry_run'
+  | 'pending_confirmation'
+  | 'executed'
+  | 'failed'
+  | 'deduped';
 
 export interface CreateAdCreativeResult {
   operation: 'create_adcreative';
@@ -940,13 +991,17 @@ export interface AdsProviderAdapter {
   listCampaigns(request: AdsBrokerRequest): Promise<AdsBrokerResponse>;
   getAccountPerformance(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMetricRecord[]>>;
   getCampaignPerformance(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMetricRecord[]>>;
-  getAdsetOrAdgroupPerformance(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMetricRecord[]>>;
+  getAdsetOrAdgroupPerformance(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<AdsMetricRecord[]>>;
   getAdPerformance(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMetricRecord[]>>;
   getCreativePerformance(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMetricRecord[]>>;
   getPlacementPerformance(request: AdsBrokerRequest): Promise<AdsBrokerResponse>;
   getChangeHistory(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsChangeHistoryEnvelope>>;
   getVideoSource(request: AdsBrokerRequest): Promise<AdsBrokerResponse<VideoSourceResult>>;
-  getAdCreativeMapping(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdCreativeMappingResult[]>>;
+  getAdCreativeMapping(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<AdCreativeMappingResult[]>>;
   getAdDestinations(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdDestinationResult[]>>;
   readAdCreativeFull(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdCreativeFullResult>>;
   readAdSetFull(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdSetFullResult>>;
@@ -966,8 +1021,12 @@ export interface AdsProviderAdapter {
   resumeAdSet(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>>;
   cloneAdSet(request: AdsBrokerRequest): Promise<AdsBrokerResponse<CloneAdSetResult>>;
   updateAdSet(request: AdsBrokerRequest): Promise<AdsBrokerResponse<UpdateAdSetResult>>;
-  getTargetingOptions(request: AdsBrokerRequest): Promise<AdsBrokerResponse<GetTargetingOptionsResult>>;
-  createEcommerceCampaignBundle(request: AdsBrokerRequest): Promise<AdsBrokerResponse<EcommerceCampaignBundleResult>>;
+  getTargetingOptions(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<GetTargetingOptionsResult>>;
+  createEcommerceCampaignBundle(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<EcommerceCampaignBundleResult>>;
   uploadImage(request: AdsBrokerRequest): Promise<AdsBrokerResponse<ImageUploadResult>>;
   uploadVideo(request: AdsBrokerRequest): Promise<AdsBrokerResponse<VideoUploadResult>>;
   getAccountInfo(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AccountInfoResult>>;
@@ -975,23 +1034,41 @@ export interface AdsProviderAdapter {
   listAdVideos(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdVideoResult[]>>;
   getAdPreview(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdPreviewResult[]>>;
   listPages?(request: AdsBrokerRequest): Promise<AdsBrokerResponse<MetaPageResult[]>>;
-  listInstagramAccounts?(request: AdsBrokerRequest): Promise<AdsBrokerResponse<InstagramAccountResult[]>>;
-  listThreadsProfiles?(request: AdsBrokerRequest): Promise<AdsBrokerResponse<ThreadsProfileResult[]>>;
+  listInstagramAccounts?(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<InstagramAccountResult[]>>;
+  listThreadsProfiles?(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<ThreadsProfileResult[]>>;
   // --- WhatsApp Discovery (Meta-specific, optional) ---
-  listWhatsAppAccounts?(request: AdsBrokerRequest): Promise<AdsBrokerResponse<WhatsAppAccountResult[]>>;
-  listWhatsAppPhoneNumbers?(request: AdsBrokerRequest): Promise<AdsBrokerResponse<WhatsAppPhoneNumberResult[]>>;
-  listWhatsAppMessageTemplates?(request: AdsBrokerRequest): Promise<AdsBrokerResponse<WhatsAppTemplateResult[]>>;
+  listWhatsAppAccounts?(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<WhatsAppAccountResult[]>>;
+  listWhatsAppPhoneNumbers?(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<WhatsAppPhoneNumberResult[]>>;
+  listWhatsAppMessageTemplates?(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<WhatsAppTemplateResult[]>>;
   // --- TikTok GMV Max (TikTok-specific) ---
-  gmvMaxCreateCampaign?(request: AdsBrokerRequest): Promise<AdsBrokerResponse<EcommerceCampaignBundleResult>>;
+  gmvMaxCreateCampaign?(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<EcommerceCampaignBundleResult>>;
   gmvMaxUpdateCampaign?(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>>;
   gmvMaxCreateSession?(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>>;
   gmvMaxUpdateSession?(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>>;
   gmvMaxDeleteSession?(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>>;
-  gmvMaxGetCampaignInfo?(request: AdsBrokerRequest): Promise<AdsBrokerResponse<Record<string, unknown>[]>>;
+  gmvMaxGetCampaignInfo?(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<Record<string, unknown>[]>>;
   // --- TikTok Smart Plus (TikTok-specific) ---
-  smartPlusCreateCampaign?(request: AdsBrokerRequest): Promise<AdsBrokerResponse<EcommerceCampaignBundleResult>>;
+  smartPlusCreateCampaign?(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<EcommerceCampaignBundleResult>>;
   smartPlusPauseCampaign?(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>>;
-  smartPlusResumeCampaign?(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>>;
+  smartPlusResumeCampaign?(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<AdsMutationResult>>;
   smartPlusCreateAdGroup?(request: AdsBrokerRequest): Promise<AdsBrokerResponse<CreateAdSetResult>>;
   smartPlusPauseAdGroup?(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>>;
   smartPlusResumeAdGroup?(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>>;
@@ -1019,7 +1096,8 @@ export function credentialAllowsRequestAccount(
 ): boolean {
   if (!request?.accountId) return true;
 
-  const allowedAccountIds = context.allowedAccountIds ?? (context.accountId ? [context.accountId] : []);
+  const allowedAccountIds =
+    context.allowedAccountIds ?? (context.accountId ? [context.accountId] : []);
   if (allowedAccountIds.length === 0) return true;
 
   return allowedAccountIds.includes(request.accountId);
@@ -1047,21 +1125,19 @@ export function isReadOperation(value: unknown): value is 'read' {
 }
 
 export const defaultDenyWritePermissionPolicy: PermissionPolicy = {
-  canRead: (context, request) => (
-    credentialAllowsRequestProvider(context, request)
-    && credentialAllowsRequestAccount(context, request)
-    && credentialHasAnyScope(context, ['ads.read', 'ads.write', 'ads.admin'])
-  ),
+  canRead: (context, request) =>
+    credentialAllowsRequestProvider(context, request) &&
+    credentialAllowsRequestAccount(context, request) &&
+    credentialHasAnyScope(context, ['ads.read', 'ads.write', 'ads.admin']),
   canWrite: () => false,
   requireConfirmation: () => true,
 };
 
 export const allowWritePermissionPolicy: PermissionPolicy = {
   canRead: defaultDenyWritePermissionPolicy.canRead,
-  canWrite: (context, request) => (
-    credentialAllowsRequestProvider(context, request)
-    && credentialAllowsRequestAccount(context, request)
-    && credentialHasAnyScope(context, ['ads.write', 'ads.admin'])
-  ),
+  canWrite: (context, request) =>
+    credentialAllowsRequestProvider(context, request) &&
+    credentialAllowsRequestAccount(context, request) &&
+    credentialHasAnyScope(context, ['ads.write', 'ads.admin']),
   requireConfirmation: () => true,
 };

@@ -16,7 +16,12 @@ import type {
   GetTargetingOptionsResult,
   UpdateAdSetResult,
 } from './types.js';
-import { ADS_ENTITY_LEVELS, ADS_PROVIDER_IDS, isAdsProviderId } from './types.js';
+import {
+  ADS_ENTITY_LEVELS,
+  ADS_FILTER_OPERATORS,
+  ADS_PROVIDER_IDS,
+  isAdsProviderId,
+} from './types.js';
 import { redactErrorMessage, redactTokenLikeValues } from './credentials.js';
 
 export const ADS_MCP_TOOL_NAMES = [
@@ -187,7 +192,7 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
     name: 'ads_get_creatives',
     description:
       'Canonical read tool for creative metadata and creative-level metrics. Returns the standard performance envelope with level creative. For Meta setup checks, pass params.complianceAudit=true to audit active ads with their Ad Set placements.',
-    inputSchema: createPerformanceInputSchema(['since', 'until']),
+    inputSchema: createPerformanceInputSchema([]),
   },
   {
     name: 'ads_get_change_history',
@@ -313,7 +318,8 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
   },
   {
     name: 'ads_pause_adset',
-    description: 'Pause a Meta ad set (sets status to PAUSED). All ads in it stop delivering. Reversible with ads_resume_adset.',
+    description:
+      'Pause a Meta ad set (sets status to PAUSED). All ads in it stop delivering. Reversible with ads_resume_adset.',
     inputSchema: createAdSetIdInputSchema(),
   },
   {
@@ -855,8 +861,9 @@ function buildPerformanceEnvelope(
 ): AdsPerformanceEnvelope {
   const firstRow = rows[0];
   const requestedMetrics = parseStringArray(request.params.metrics);
+  const metricAliases = normalizeMetricAliases(requestedMetrics);
   const requestedDimensions = parseStringArray(request.params.dimensions);
-  const metrics = requestedMetrics.length ? requestedMetrics : inferMetrics(rows);
+  const metrics = requestedMetrics.length ? metricAliases.metrics : inferMetrics(rows);
   const dimensions = requestedDimensions.length
     ? requestedDimensions
     : inferDimensions(level, rows);
@@ -867,6 +874,9 @@ function buildPerformanceEnvelope(
     field: `metrics.${metric}`,
     severity: 'warning' as const,
   }));
+  const projectedRows = requestedMetrics.length
+    ? rows.map((row) => projectMetricRecord(row, metrics, request.params.includeRaw === true))
+    : rows;
 
   return {
     provider: response.provider ?? request.provider ?? firstRow?.provider ?? 'meta',
@@ -883,11 +893,15 @@ function buildPerformanceEnvelope(
     level,
     dimensions,
     metrics,
-    rows,
+    rows: projectedRows,
     paging: {
       nextCursor: typeof response.meta?.nextCursor === 'string' ? response.meta.nextCursor : null,
     },
-    warnings: [...warningObjects, ...extractWarningObjects(response.meta?.warnings)],
+    warnings: [
+      ...metricAliases.warnings,
+      ...warningObjects,
+      ...extractWarningObjects(response.meta?.warnings),
+    ],
     dataFreshness: {
       retrievedAt: new Date().toISOString(),
     },
@@ -914,6 +928,7 @@ const SUPPORTED_CANONICAL_METRICS = new Set([
   'outbound_ctr',
   'cpc',
   'results',
+  'cost_per_result',
   'conversions',
   'conversion_value',
   'roas',
@@ -926,6 +941,77 @@ const SUPPORTED_CANONICAL_METRICS = new Set([
   'video_views',
   'engagements',
 ]);
+
+function normalizeMetricAliases(metrics: string[]): {
+  metrics: string[];
+  warnings: AdsPerformanceEnvelope['warnings'];
+} {
+  const normalized: string[] = [];
+  const warnings: AdsPerformanceEnvelope['warnings'] = [];
+  for (const metric of metrics) {
+    const canonical = metric === 'cpa' ? 'cost_per_result' : metric;
+    if (!normalized.includes(canonical)) normalized.push(canonical);
+    if (canonical !== metric) {
+      warnings.push({
+        code: 'METRIC_ALIAS',
+        message: `${metric} is interpreted as ${canonical}.`,
+        field: `metrics.${metric}`,
+        severity: 'info',
+      });
+    }
+  }
+  return { metrics: normalized, warnings };
+}
+
+function projectMetricRecord(
+  row: AdsMetricRecord,
+  metrics: string[],
+  includeRaw: boolean
+): AdsMetricRecord {
+  const requested = new Set(metrics);
+  const projected: AdsMetricRecord = {
+    provider: row.provider,
+    level: row.level,
+    identity: row.identity,
+    setup: row.setup,
+    time: row.time,
+    delivery: {
+      spend: row.delivery.spend,
+      impressions: row.delivery.impressions,
+      ...pickMetricFields(row.delivery, requested),
+    },
+    dimensions: row.dimensions,
+    creative: row.creative,
+    diagnostics: row.diagnostics,
+  };
+
+  for (const [key, group] of [
+    ['clicks', row.clicks],
+    ['conversions', row.conversions],
+    ['commerce', row.commerce],
+    ['leads', row.leads],
+    ['video', row.video],
+    ['engagement', row.engagement],
+    ['calculated', row.calculated],
+  ] as const) {
+    const selected = pickMetricFields(group, requested);
+    if (selected) Object.assign(projected, { [key]: selected });
+  }
+
+  if (includeRaw) projected.raw = row.raw;
+  return projected;
+}
+
+function pickMetricFields<T extends object>(
+  group: T | undefined,
+  requested: Set<string>
+): Partial<T> | undefined {
+  if (!group) return undefined;
+  const selected = Object.fromEntries(
+    Object.entries(group).filter(([key]) => requested.has(key))
+  ) as Partial<T>;
+  return Object.keys(selected).length > 0 ? selected : undefined;
+}
 
 function parseStringArray(value: unknown): string[] {
   return Array.isArray(value)
@@ -1031,7 +1117,7 @@ function getAdsCapabilities(request: AdsBrokerRequest): AdsBrokerResponse<Record
       ],
       supportedProviders: [...ADS_PROVIDER_IDS],
       metricCatalog: {
-        common: ['spend', 'impressions', 'reach', 'clicks', 'ctr', 'cpc', 'cpm'],
+        common: ['spend', 'impressions', 'reach', 'clicks', 'ctr', 'cpc', 'cpm', 'cost_per_result'],
         byProvider: {
           meta: ['inline_link_clicks', 'purchase_roas', 'purchases', 'purchase_value', 'leads'],
           tiktok: ['conversions', 'conversion_value', 'roas', 'video_views'],
@@ -1054,6 +1140,7 @@ function getAdsCapabilities(request: AdsBrokerRequest): AdsBrokerResponse<Record
           'purchase_roas',
           'leads',
           'cost_per_lead',
+          'cost_per_result',
         ],
         dimensions: ['account', 'campaign', 'adset', 'adgroup', 'ad', 'creative'],
         breakdowns: ['date', 'country', 'region', 'platform', 'placement', 'product'],
@@ -1528,7 +1615,20 @@ function createCreateAdCreativeInputSchema() {
       creativeSpec: {
         type: 'object',
         description:
-          'Detail materi sesuai creativeFormat. Field per format: single_image memakai imageHash, primaryText, destinationUrl, headline, description, callToAction, dan pageWelcomeMessage (opsional, untuk Click-to-WhatsApp/Messenger); video memakai videoId, thumbnailImageHash (opsional — kalau kosong, otomatis diisi dari thumbnail bawaan video via GET /{videoId}?fields=picture; hanya berbahaya diabaikan kalau video belum selesai diproses Meta dan tidak punya thumbnail sama sekali), primaryText, destinationUrl, headline, description, callToAction, dan pageWelcomeMessage (opsional, untuk Click-to-WhatsApp/Messenger); carousel memakai primaryText, destinationUrl, cards (imageHash atau videoId, headline, description, destinationUrl); catalog memakai productSetId, primaryText, destinationUrl, templateUrl, fallbackImageHash; collection memakai instantExperienceId, coverImageHash atau coverVideoId, productSetId, primaryText, destinationUrl; flexible memakai primaryText, primaryTexts, imageHashes dan/atau videoIds, headlines, descriptions, destinationUrl; placement_image memakai feedImageHash, verticalImageHash, primaryText, headline, destinationUrl, callToAction, dan pageWelcomeMessage; existing_post memakai objectStoryId.',
+          'Detail materi sesuai creativeFormat. Field per format: single_image memakai imageHash, primaryText, destinationUrl, headline, description, callToAction, dan pageWelcomeMessage (opsional, untuk Click-to-WhatsApp/Messenger); video memakai videoId, thumbnailImageHash (opsional — kalau kosong, otomatis diisi dari thumbnail bawaan video via GET /{videoId}?fields=picture; hanya berbahaya diabaikan kalau video belum selesai diproses Meta dan tidak punya thumbnail sama sekali), primaryText, destinationUrl, headline, description, callToAction, dan pageWelcomeMessage (opsional, untuk Click-to-WhatsApp/Messenger); carousel memakai primaryText, destinationUrl, cards (imageHash atau videoId, headline, description, destinationUrl); catalog memakai productSetId, primaryText, destinationUrl, templateUrl, fallbackImageHash; collection memakai instantExperienceId, coverImageHash atau coverVideoId, productSetId, primaryText, destinationUrl; flexible memakai primaryText, primaryTexts, imageHashes dan/atau videoIds, headlines, descriptions, destinationUrl, dan messageExtensions opsional; placement_image memakai feedImageHash, verticalImageHash, primaryText, headline, destinationUrl, callToAction, pageWelcomeMessage, dan messageExtensions opsional; existing_post memakai objectStoryId.',
+        properties: {
+          messageExtensions: {
+            type: 'array',
+            description:
+              'Opsional untuk format yang membangun asset_feed_spec (mis. flexible/placement_image). Dipetakan ke asset_feed_spec.message_extensions. SDK resmi Meta mendefinisikan item sebagai { type: string }; contoh dari read-back Meta: [{ "type": "whatsapp" }].',
+            items: {
+              type: 'object',
+              properties: { type: { type: 'string', minLength: 1 } },
+              required: ['type'],
+              additionalProperties: false,
+            },
+          },
+        },
         additionalProperties: true,
       },
       collaborativeProductSetId: {
@@ -1683,6 +1783,15 @@ function createCreateAdCreativeInputSchema() {
             },
           },
           call_to_action_types: { type: 'array', minItems: 1, items: { type: 'string' } },
+          message_extensions: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: { type: { type: 'string', minLength: 1 } },
+              required: ['type'],
+              additionalProperties: false,
+            },
+          },
         },
         required: ['ad_formats', 'bodies', 'titles', 'images', 'link_urls', 'call_to_action_types'],
         additionalProperties: true,
@@ -2052,7 +2161,29 @@ function createPerformanceInputSchema(required: string[]) {
       },
       filters: {
         type: 'array',
-        items: { type: 'object', additionalProperties: true },
+        items: {
+          type: 'object',
+          properties: {
+            field: { type: 'string' },
+            operator: { type: 'string', enum: [...ADS_FILTER_OPERATORS] },
+            value: {
+              anyOf: [
+                { type: 'string' },
+                { type: 'number' },
+                { type: 'boolean' },
+                {
+                  type: 'array',
+                  minItems: 1,
+                  items: {
+                    anyOf: [{ type: 'string' }, { type: 'number' }, { type: 'boolean' }],
+                  },
+                },
+              ],
+            },
+          },
+          required: ['field', 'operator', 'value'],
+          additionalProperties: false,
+        },
         description: 'Explicit filters over normalized or provider-supported fields.',
       },
       sortBy: {

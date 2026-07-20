@@ -9,7 +9,12 @@ import {
   toAdsBrokerRequest,
 } from '../src/broker/mcpTools.js';
 import type { AdsBroker } from '../src/broker/AdsBroker.js';
-import type { AdsBrokerRequest, AdsBrokerResponse, AdsMetricRecord, AdsReport } from '../src/broker/types.js';
+import type {
+  AdsBrokerRequest,
+  AdsBrokerResponse,
+  AdsMetricRecord,
+  AdsReport,
+} from '../src/broker/types.js';
 
 const legacyToolNames = [
   'meta_get_ad_accounts',
@@ -99,24 +104,29 @@ function createBrokerStub(): AdsBroker {
         date_range: { since: '2026-05-01', until: '2026-05-07' },
         totals: { spend: 10, impressions: 100, clicks: 0 },
         findings: ['Analyzed 1 normalized ads performance row.'],
-        recommendations: ['Review objective-specific success metrics before making optimization decisions.'],
-        disclaimer: 'These recommendations are suggestions only. Review performance context and business constraints before taking action.',
+        recommendations: [
+          'Review objective-specific success metrics before making optimization decisions.',
+        ],
+        disclaimer:
+          'These recommendations are suggestions only. Review performance context and business constraints before taking action.',
       } satisfies AdsReport,
     }),
     getAdDestinations: async () => ({
       ok: true,
       provider: 'meta',
-      data: [{
-        ad_id: 'ad_123',
-        ad_name: 'Test Ad',
-        status: 'ACTIVE',
-        effective_status: 'ACTIVE',
-        creative_id: 'cr_123',
-        creative_type: 'link',
-        destination_url: 'https://example.com',
-        all_urls: ['https://example.com'],
-        resolution_method: 'link_data.link',
-      }],
+      data: [
+        {
+          ad_id: 'ad_123',
+          ad_name: 'Test Ad',
+          status: 'ACTIVE',
+          effective_status: 'ACTIVE',
+          creative_id: 'cr_123',
+          creative_type: 'link',
+          destination_url: 'https://example.com',
+          all_urls: ['https://example.com'],
+          resolution_method: 'link_data.link',
+        },
+      ],
     }),
     readAdCreativeFull: async () => ({
       ok: true,
@@ -146,7 +156,9 @@ function createBrokerStub(): AdsBroker {
   } as unknown as AdsBroker;
 }
 
-function parseToolResponse(response: Awaited<ReturnType<typeof handleAdsMcpToolCall>>): AdsBrokerResponse {
+function parseToolResponse(
+  response: Awaited<ReturnType<typeof handleAdsMcpToolCall>>
+): AdsBrokerResponse {
   return JSON.parse(response.content[0].text) as AdsBrokerResponse;
 }
 
@@ -192,8 +204,12 @@ describe('ads MCP broker tools', () => {
     expect(isAdsMcpWriteTool('ads_create_campaign')).toBe(true);
     expect(isAdsMcpWriteTool('ads_archive_ad')).toBe(true);
 
-    const defaultToolNames = getAdsMcpToolDefinitions({ includeWrites: false }).map((tool) => tool.name);
-    const fullToolNames = getAdsMcpToolDefinitions({ includeWrites: true }).map((tool) => tool.name);
+    const defaultToolNames = getAdsMcpToolDefinitions({ includeWrites: false }).map(
+      (tool) => tool.name
+    );
+    const fullToolNames = getAdsMcpToolDefinitions({ includeWrites: true }).map(
+      (tool) => tool.name
+    );
 
     expect(defaultToolNames).toContain('ads_get_performance');
     expect(defaultToolNames).toContain('ads_get_capabilities');
@@ -201,6 +217,39 @@ describe('ads MCP broker tools', () => {
     expect(defaultToolNames).not.toContain('ads_archive_ad');
     expect(defaultToolNames).not.toContain('ads_upload_image');
     expect(fullToolNames).toEqual(ADS_MCP_TOOL_DEFINITIONS.map((tool) => tool.name));
+  });
+
+  it('defines a structured canonical filter schema for ads_get_performance', () => {
+    const tool = ADS_MCP_TOOL_DEFINITIONS.find(({ name }) => name === 'ads_get_performance');
+    const properties = tool?.inputSchema.properties as Record<string, unknown>;
+    const filters = properties.filters as {
+      items?: {
+        type?: string;
+        properties?: Record<string, unknown>;
+        required?: string[];
+        additionalProperties?: boolean;
+      };
+    };
+
+    expect(filters.items).toMatchObject({
+      type: 'object',
+      required: ['field', 'operator', 'value'],
+      additionalProperties: false,
+      properties: {
+        field: { type: 'string' },
+        operator: {
+          type: 'string',
+          enum: ['eq', 'ne', 'gt', 'gte', 'lt', 'lte', 'in', 'not_in', 'contains', 'not_contains'],
+        },
+      },
+    });
+  });
+
+  it('does not require since/until for ads_get_creatives compliance audits', () => {
+    const tool = ADS_MCP_TOOL_DEFINITIONS.find(({ name }) => name === 'ads_get_creatives');
+
+    expect(tool?.inputSchema.required).not.toContain('since');
+    expect(tool?.inputSchema.required).not.toContain('until');
   });
 
   it('defines new ads tools without removing legacy names from expected server surface', () => {
@@ -271,7 +320,6 @@ describe('ads MCP broker tools', () => {
     expect(legacyToolNames).toContain('meta_get_campaign_insights');
     expect(legacyToolNames).toContain('meta_get_ads_insights');
   });
-
 
   it('routes canonical ads_get_performance by level without removing legacy tools', async () => {
     let receivedRequest: AdsBrokerRequest | undefined;
@@ -361,6 +409,47 @@ describe('ads MCP broker tools', () => {
     });
   });
 
+  it('aliases cpa to cost_per_result and omits unrequested heavy metric groups', async () => {
+    const row: AdsMetricRecord = {
+      ...createRecord(),
+      conversions: { results: 2, result_type: 'purchase', cost_per_result: 5 },
+      actions: Array.from({ length: 20 }, (_, index) => ({
+        action_type: `action_${index}`,
+        value: index,
+      })),
+      video: { video_views: 500, watched_100_percent: 100 },
+    };
+    const broker = {
+      ...createBrokerStub(),
+      getAdPerformance: async () => ({ ok: true, provider: 'meta' as const, data: [row] }),
+    } as unknown as AdsBroker;
+
+    const response = await handleAdsMcpToolCall(broker, 'ads_get_performance', {
+      provider: 'meta',
+      accountId: 'act_123',
+      since: '2026-05-01',
+      until: '2026-05-07',
+      level: 'ad',
+      metrics: ['spend', 'cpa'],
+    });
+
+    const parsed = parseToolResponse(response);
+    expect(parsed.data).toMatchObject({
+      metrics: ['spend', 'cost_per_result'],
+      unsupportedMetrics: [],
+      warnings: expect.arrayContaining([
+        expect.objectContaining({ code: 'METRIC_ALIAS', field: 'metrics.cpa' }),
+      ]),
+      rows: [
+        expect.objectContaining({
+          conversions: { cost_per_result: 5 },
+        }),
+      ],
+    });
+    expect(parsed.data?.rows?.[0]).not.toHaveProperty('actions');
+    expect(parsed.data?.rows?.[0]).not.toHaveProperty('video');
+  });
+
   it('routes ads_get_creatives to creative performance with canonical creative envelope', async () => {
     let receivedRequest: AdsBrokerRequest | undefined;
     const broker = {
@@ -387,12 +476,14 @@ describe('ads MCP broker tools', () => {
   });
 
   it('returns canonical change history response for Meta and structured fallback for other providers', async () => {
-    const metaResponse = parseToolResponse(await handleAdsMcpToolCall(createBrokerStub(), 'ads_get_change_history', {
-      provider: 'meta',
-      accountId: 'act_123',
-      since: '2026-05-01',
-      until: '2026-05-07',
-    }));
+    const metaResponse = parseToolResponse(
+      await handleAdsMcpToolCall(createBrokerStub(), 'ads_get_change_history', {
+        provider: 'meta',
+        accountId: 'act_123',
+        since: '2026-05-01',
+        until: '2026-05-07',
+      })
+    );
 
     expect(metaResponse).toMatchObject({ ok: true, provider: 'meta' });
     expect(metaResponse.data).toMatchObject({
@@ -404,10 +495,12 @@ describe('ads MCP broker tools', () => {
       dataFreshness: { retrievedAt: expect.any(String) },
     });
 
-    const tiktokResponse = parseToolResponse(await handleAdsMcpToolCall(createBrokerStub(), 'ads_get_change_history', {
-      provider: 'tiktok',
-      accountId: 'advertiser_1',
-    }));
+    const tiktokResponse = parseToolResponse(
+      await handleAdsMcpToolCall(createBrokerStub(), 'ads_get_change_history', {
+        provider: 'tiktok',
+        accountId: 'advertiser_1',
+      })
+    );
 
     expect(tiktokResponse).toMatchObject({
       ok: false,
@@ -426,14 +519,23 @@ describe('ads MCP broker tools', () => {
     const parsed = parseToolResponse(response);
     expect(parsed).toMatchObject({ ok: true, provider: 'meta' });
     expect(parsed.data).toMatchObject({
-      canonicalTools: expect.arrayContaining(['ads_get_performance', 'ads_get_creatives', 'ads_get_capabilities']),
+      canonicalTools: expect.arrayContaining([
+        'ads_get_performance',
+        'ads_get_creatives',
+        'ads_get_capabilities',
+      ]),
       registeredProviders: expect.arrayContaining([expect.objectContaining({ id: 'meta' })]),
       metricCatalog: expect.objectContaining({
         common: expect.arrayContaining(['spend', 'impressions', 'clicks']),
         byProvider: expect.objectContaining({ meta: expect.arrayContaining(['purchase_roas']) }),
       }),
-      read: expect.objectContaining({ levels: expect.arrayContaining(['account', 'campaign', 'ad']) }),
-      writes: expect.objectContaining({ optionalTools: expect.arrayContaining(['ads_pause_campaign']) }),
+      read: expect.objectContaining({
+        levels: expect.arrayContaining(['account', 'campaign', 'ad']),
+        metrics: expect.arrayContaining(['cost_per_result']),
+      }),
+      writes: expect.objectContaining({
+        optionalTools: expect.arrayContaining(['ads_pause_campaign']),
+      }),
     });
   });
 
@@ -532,7 +634,6 @@ describe('ads MCP broker tools', () => {
     }
   });
 
-
   it('routes ads_get_account_performance through AdsBroker', async () => {
     let receivedRequest: AdsBrokerRequest | undefined;
     const broker = {
@@ -573,7 +674,11 @@ describe('ads MCP broker tools', () => {
     });
 
     expect(parseToolResponse(response).ok).toBe(true);
-    expect(receivedRequest).toMatchObject({ provider: 'meta', accountId: 'act_123', params: { limit: 10 } });
+    expect(receivedRequest).toMatchObject({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: { limit: 10 },
+    });
   });
 
   it('routes ads_create_ecommerce_campaign_bundle through AdsBroker with top-level params', async () => {
@@ -599,13 +704,17 @@ describe('ads MCP broker tools', () => {
     } as unknown as AdsBroker;
 
     try {
-      const response = await handleAdsMcpToolCall(broker, 'ads_create_ecommerce_campaign_bundle' as never, {
-        provider: 'meta',
-        accountId: 'act_123',
-        campaignName: 'Sales Campaign',
-        dailyBudget: 150000,
-        dryRun: true,
-      });
+      const response = await handleAdsMcpToolCall(
+        broker,
+        'ads_create_ecommerce_campaign_bundle' as never,
+        {
+          provider: 'meta',
+          accountId: 'act_123',
+          campaignName: 'Sales Campaign',
+          dailyBudget: 150000,
+          dryRun: true,
+        }
+      );
 
       expect(parseToolResponse(response).ok).toBe(true);
       expect(receivedRequest).toMatchObject({
@@ -689,11 +798,17 @@ describe('ads MCP broker tools', () => {
     const creativeResponse = parseToolResponse(
       await handleAdsMcpToolCall(broker, 'ads_get_creative_performance', {})
     );
-    const reportResponse = parseToolResponse(await handleAdsMcpToolCall(broker, 'ads_generate_report', {}));
+    const reportResponse = parseToolResponse(
+      await handleAdsMcpToolCall(broker, 'ads_generate_report', {})
+    );
 
     expect(creativeResponse.errors?.[0].code).toBe('NOT_IMPLEMENTED');
     expect(reportResponse.ok).toBe(true);
-    expect(reportResponse.data).toMatchObject({ provider: 'meta', report_kind: 'ads', format: 'summary' });
+    expect(reportResponse.data).toMatchObject({
+      provider: 'meta',
+      report_kind: 'ads',
+      format: 'summary',
+    });
   });
 
   it('returns safe invalid provider response from AdsBroker path', async () => {
@@ -719,7 +834,13 @@ describe('ads MCP broker tools', () => {
       getCampaignPerformance: async () => ({
         ok: false,
         provider: 'meta' as const,
-        errors: [{ provider: 'meta' as const, code: 'MISSING_ENV_CREDENTIALS', message: 'Missing credentials' }],
+        errors: [
+          {
+            provider: 'meta' as const,
+            code: 'MISSING_ENV_CREDENTIALS',
+            message: 'Missing credentials',
+          },
+        ],
       }),
     } as unknown as AdsBroker;
 
@@ -754,100 +875,102 @@ describe('ads MCP broker tools', () => {
     expect(response.content[0].text).toContain('[REDACTED]');
   });
 
+  describe('handleAdsMcpToolCall — per-request connectionKey passthrough', () => {
+    it('passes connectionKey through to AdsBrokerRequest', async () => {
+      let capturedRequest: AdsBrokerRequest | undefined;
+      const broker = {
+        ...createBrokerStub(),
+        listAccounts: async (request: AdsBrokerRequest) => {
+          capturedRequest = request;
+          return {
+            ok: true,
+            provider: 'meta',
+            data: [{ account_id: 'act_123', account_name: 'Test' }],
+          };
+        },
+      } as unknown as AdsBroker;
 
-describe('handleAdsMcpToolCall — per-request connectionKey passthrough', () => {
-  it('passes connectionKey through to AdsBrokerRequest', async () => {
-    let capturedRequest: AdsBrokerRequest | undefined;
-    const broker = {
-      ...createBrokerStub(),
-      listAccounts: async (request: AdsBrokerRequest) => {
-        capturedRequest = request;
-        return { ok: true, provider: 'meta', data: [{ account_id: 'act_123', account_name: 'Test' }] };
-      },
-    } as unknown as AdsBroker;
+      const response = await handleAdsMcpToolCall(
+        broker,
+        'ads_list_accounts',
+        {},
+        'cuk_test-key-123'
+      );
 
-    const response = await handleAdsMcpToolCall(
-      broker,
-      'ads_list_accounts',
-      {},
-      'cuk_test-key-123'
-    );
+      expect(response.isError).toBeFalsy();
+      expect(capturedRequest?.connectionKey).toBe('cuk_test-key-123');
+    });
 
-    expect(response.isError).toBeFalsy();
-    expect(capturedRequest?.connectionKey).toBe('cuk_test-key-123');
-  });
+    it('passes undefined connectionKey when not provided', async () => {
+      let capturedRequest: AdsBrokerRequest | undefined;
+      const broker = {
+        ...createBrokerStub(),
+        listAccounts: async (request: AdsBrokerRequest) => {
+          capturedRequest = request;
+          return { ok: true, provider: 'meta', data: [] };
+        },
+      } as unknown as AdsBroker;
 
-  it('passes undefined connectionKey when not provided', async () => {
-    let capturedRequest: AdsBrokerRequest | undefined;
-    const broker = {
-      ...createBrokerStub(),
-      listAccounts: async (request: AdsBrokerRequest) => {
-        capturedRequest = request;
-        return { ok: true, provider: 'meta', data: [] };
-      },
-    } as unknown as AdsBroker;
+      await handleAdsMcpToolCall(broker, 'ads_list_accounts', {});
+      expect(capturedRequest?.connectionKey).toBeUndefined();
+    });
 
-    await handleAdsMcpToolCall(broker, 'ads_list_accounts', {});
-    expect(capturedRequest?.connectionKey).toBeUndefined();
-  });
+    it('returns a valid MCP text response contract for ads_list_accounts', async () => {
+      const broker = {
+        ...createBrokerStub(),
+        listAccounts: async () => ({
+          ok: true,
+          provider: 'meta' as const,
+          data: [{ account_id: 'act_123', account_name: 'Test Account' }],
+        }),
+      } as unknown as AdsBroker;
 
-  it('returns a valid MCP text response contract for ads_list_accounts', async () => {
-    const broker = {
-      ...createBrokerStub(),
-      listAccounts: async () => ({
-        ok: true,
-        provider: 'meta' as const,
-        data: [{ account_id: 'act_123', account_name: 'Test Account' }],
-      }),
-    } as unknown as AdsBroker;
+      const response = await handleAdsMcpToolCall(broker, 'ads_list_accounts', {});
 
-    const response = await handleAdsMcpToolCall(broker, 'ads_list_accounts', {});
+      expect(Array.isArray(response.content)).toBe(true);
+      expect(response.content[0]?.type).toBe('text');
+      expect(typeof response.content[0]?.text).toBe('string');
+      expect(response.content[0]?.text).not.toContain('response does not match expected contract');
+      expect(JSON.parse(response.content[0]!.text)).toMatchObject({ ok: true, provider: 'meta' });
+    });
 
-    expect(Array.isArray(response.content)).toBe(true);
-    expect(response.content[0]?.type).toBe('text');
-    expect(typeof response.content[0]?.text).toBe('string');
-    expect(response.content[0]?.text).not.toContain('response does not match expected contract');
-    expect(JSON.parse(response.content[0]!.text)).toMatchObject({ ok: true, provider: 'meta' });
-  });
+    it('passes OAuth auth context to remote-safe ads_list_accounts flow', async () => {
+      let capturedRequest: AdsBrokerRequest | undefined;
+      const broker = {
+        ...createBrokerStub(),
+        listAccounts: async (request: AdsBrokerRequest) => {
+          capturedRequest = request;
+          return { ok: true, provider: 'meta' as const, data: [] };
+        },
+      } as unknown as AdsBroker;
 
-  it('passes OAuth auth context to remote-safe ads_list_accounts flow', async () => {
-    let capturedRequest: AdsBrokerRequest | undefined;
-    const broker = {
-      ...createBrokerStub(),
-      listAccounts: async (request: AdsBrokerRequest) => {
-        capturedRequest = request;
-        return { ok: true, provider: 'meta' as const, data: [] };
-      },
-    } as unknown as AdsBroker;
+      await handleAdsMcpToolCall(broker, 'ads_list_accounts', {
+        provider: 'meta',
+        _oauthAuthContext: {
+          authType: 'oauth_token',
+          accessTokenHash: 'oauth-token-hash',
+          clientId: 'client_123',
+          scope: 'mcp read',
+          connectionKeyId: 'ck_123',
+        },
+      });
 
-    await handleAdsMcpToolCall(broker, 'ads_list_accounts', {
-      provider: 'meta',
-      _oauthAuthContext: {
+      expect(capturedRequest?.connectionKey).toBeUndefined();
+      expect(capturedRequest?.oauthAuthContext).toMatchObject({
         authType: 'oauth_token',
         accessTokenHash: 'oauth-token-hash',
-        clientId: 'client_123',
-        scope: 'mcp read',
         connectionKeyId: 'ck_123',
-      },
+      });
     });
 
-    expect(capturedRequest?.connectionKey).toBeUndefined();
-    expect(capturedRequest?.oauthAuthContext).toMatchObject({
-      authType: 'oauth_token',
-      accessTokenHash: 'oauth-token-hash',
-      connectionKeyId: 'ck_123',
+    it('toAdsBrokerRequest includes connectionKey', () => {
+      const request = toAdsBrokerRequest({ provider: 'meta' }, 'cuk_key');
+      expect(request.connectionKey).toBe('cuk_key');
+    });
+
+    it('toAdsBrokerRequest has undefined connectionKey when omitted', () => {
+      const request = toAdsBrokerRequest({ provider: 'meta' });
+      expect(request.connectionKey).toBeUndefined();
     });
   });
-
-  it('toAdsBrokerRequest includes connectionKey', () => {
-    const request = toAdsBrokerRequest({ provider: 'meta' }, 'cuk_key');
-    expect(request.connectionKey).toBe('cuk_key');
-  });
-
-  it('toAdsBrokerRequest has undefined connectionKey when omitted', () => {
-    const request = toAdsBrokerRequest({ provider: 'meta' });
-    expect(request.connectionKey).toBeUndefined();
-  });
-});
-
 });

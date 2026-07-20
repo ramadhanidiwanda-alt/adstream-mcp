@@ -1,5 +1,10 @@
 import type { AccountInsight, AdInsight, AdsetInsight, CampaignInsight } from '../../types.js';
-import type { AdsEntityLevel, AdsMetricRecord, AdsActionMetric, AdsVideoMetrics } from '../../broker/types.js';
+import type {
+  AdsEntityLevel,
+  AdsMetricRecord,
+  AdsActionMetric,
+  AdsVideoMetrics,
+} from '../../broker/types.js';
 
 export type MetaInsightRecord = AccountInsight | CampaignInsight | AdsetInsight | AdInsight;
 
@@ -22,14 +27,21 @@ export function normalizeMetaInsight(
   const purchaseValue = findActionValueFromValues(insight.action_values, 'purchase');
   const purchaseRoasFromMeta = firstNumericValue(insight.purchase_roas);
   const spend = toNumber(insight.spend);
-  const purchaseRoas = purchaseRoasFromMeta ?? calculateRoas(findActionValueFromValues(insight.action_values, 'purchase'), spend);
+  const purchaseRoas =
+    purchaseRoasFromMeta ??
+    calculateRoas(findActionValueFromValues(insight.action_values, 'purchase'), spend);
+  const resultCount = purchases ?? leads;
+  const resultType =
+    purchases !== undefined ? 'purchase' : leads !== undefined ? 'lead' : undefined;
+  const costPerResult = calculateCostPerResult(spend, resultCount);
   const videoActions = normalizeVideoActions(insight as MetaInsightRecord);
 
   const record: AdsMetricRecord = {
     provider: 'meta',
     level: options.level,
     identity: {
-      account_id: 'account_id' in insight && insight.account_id ? insight.account_id : options.accountId,
+      account_id:
+        'account_id' in insight && insight.account_id ? insight.account_id : options.accountId,
       account_name: 'account_name' in insight ? insight.account_name : undefined,
       campaign_id: 'campaign_id' in insight ? insight.campaign_id : undefined,
       campaign_name: 'campaign_name' in insight ? insight.campaign_name : undefined,
@@ -74,12 +86,13 @@ export function normalizeMetaInsight(
     record.commerce = {
       purchases,
       purchase_value: purchaseValue,
+      cost_per_purchase: calculateCostPerResult(spend, purchases),
       purchase_roas: purchaseRoas,
     };
   }
 
   if (leads !== undefined) {
-    record.leads = { leads };
+    record.leads = { leads, cost_per_lead: calculateCostPerResult(spend, leads) };
   }
 
   const country = 'country' in insight ? insight.country : undefined;
@@ -110,8 +123,11 @@ export function normalizeMetaInsight(
     };
   }
 
-  if (purchaseValue !== undefined || purchaseRoas !== undefined) {
+  if (resultCount !== undefined || purchaseValue !== undefined || purchaseRoas !== undefined) {
     record.conversions = {
+      results: resultCount,
+      result_type: resultType,
+      cost_per_result: costPerResult,
       conversion_value: purchaseValue,
       roas: purchaseRoas,
     };
@@ -210,4 +226,9 @@ function calculateRoas(value: number | undefined, spend: number): number | undef
   }
 
   return value / spend;
+}
+
+function calculateCostPerResult(spend: number, results: number | undefined): number | undefined {
+  if (results === undefined || results <= 0) return undefined;
+  return spend / results;
 }

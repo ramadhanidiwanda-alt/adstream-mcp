@@ -429,6 +429,7 @@ function buildFlexible(
   if (videoIds.length > 0) assetFeedSpec.videos = videoIds.map((video_id) => ({ video_id }));
   if (headlines.length > 0) assetFeedSpec.titles = headlines.map((text) => ({ text }));
   if (descriptions.length > 0) assetFeedSpec.descriptions = descriptions.map((text) => ({ text }));
+  addMessageExtensions(assetFeedSpec, creativeSpec.messageExtensions);
 
   const objectStorySpec: Record<string, unknown> = {
     page_id: required(input.pageId, 'pageId'),
@@ -491,6 +492,7 @@ function buildPlacementImage(
   };
 
   if (description) assetFeedSpec.descriptions = [{ text: description }];
+  addMessageExtensions(assetFeedSpec, creativeSpec.messageExtensions);
   if (isClickToMessage || pageWelcomeMessage) {
     assetFeedSpec.additional_data = {
       ...(isClickToMessage ? { is_click_to_message: true } : {}),
@@ -518,6 +520,17 @@ function nonBlankValues(values: string[] | undefined): string[] {
     const normalized = value.trim();
     return normalized ? [normalized] : [];
   });
+}
+
+function addMessageExtensions(
+  assetFeedSpec: Record<string, unknown>,
+  messageExtensions: { type: string }[] | undefined
+): void {
+  const normalized = (messageExtensions ?? []).flatMap((extension) => {
+    const type = extension.type.trim();
+    return type ? [{ type }] : [];
+  });
+  if (normalized.length > 0) assetFeedSpec.message_extensions = normalized;
 }
 
 function instagramIdentity(

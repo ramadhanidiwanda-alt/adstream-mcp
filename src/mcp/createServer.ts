@@ -15,6 +15,7 @@ import {
   generateDailyReport,
   RuleEngine,
   allRuleTemplates,
+  ADS_FILTER_OPERATORS,
   areAdsWriteToolsEnabled,
   getAdsMcpToolDefinitions,
   getAdsMcpToolAnnotations,
@@ -104,13 +105,30 @@ const adsPerformanceInputSchema = {
     .optional()
     .describe('Provider-supported breakdowns such as date, country, platform, or placement.'),
   filters: z
-    .array(z.record(z.unknown()))
+    .array(
+      z.object({
+        field: z.string().min(1),
+        operator: z.enum(ADS_FILTER_OPERATORS),
+        value: z.union([
+          z.string(),
+          z.number(),
+          z.boolean(),
+          z.array(z.union([z.string(), z.number(), z.boolean()])).min(1),
+        ]),
+      })
+    )
     .optional()
     .describe('Explicit filters over normalized or provider-supported fields.'),
   sortBy: z.string().optional().describe('Metric or dimension used for sorting.'),
   sortDirection: z.enum(['asc', 'desc']).optional().describe('Sort direction.'),
   limit: z.number().optional().describe('Maximum number of rows to return.'),
   cursor: z.string().optional().describe('Opaque pagination cursor from a previous response.'),
+};
+
+const adsCreativeInputSchema = {
+  ...adsPerformanceInputSchema,
+  since: z.string().optional().describe('Optional start date in YYYY-MM-DD format.'),
+  until: z.string().optional().describe('Optional end date in YYYY-MM-DD format.'),
 };
 
 const ecommerceLaunchInputSchema = {
@@ -717,11 +735,10 @@ export function createMetaAdsMcpServer(options: CreateMetaAdsMcpServerOptions = 
     const hasCreativeId = toolDefinition.inputSchema.required.includes('creativeId');
 
     let inputSchema: Record<string, z.ZodType<unknown>>;
-    if (
-      toolDefinition.name === 'ads_get_performance' ||
-      toolDefinition.name === 'ads_get_creatives'
-    ) {
+    if (toolDefinition.name === 'ads_get_performance') {
       inputSchema = adsPerformanceInputSchema;
+    } else if (toolDefinition.name === 'ads_get_creatives') {
+      inputSchema = adsCreativeInputSchema;
     } else if (toolDefinition.name === 'ads_create_campaign') {
       inputSchema = createCampaignInputSchema;
     } else if (toolDefinition.name === 'ads_create_adset') {
@@ -732,10 +749,7 @@ export function createMetaAdsMcpServer(options: CreateMetaAdsMcpServerOptions = 
       inputSchema = createAdInputSchema;
     } else if (toolDefinition.name === 'ads_archive_ad') {
       inputSchema = archiveAdInputSchema;
-    } else if (
-      toolDefinition.name === 'ads_pause_ad' ||
-      toolDefinition.name === 'ads_resume_ad'
-    ) {
+    } else if (toolDefinition.name === 'ads_pause_ad' || toolDefinition.name === 'ads_resume_ad') {
       inputSchema = adIdInputSchema;
     } else if (
       toolDefinition.name === 'ads_pause_adset' ||

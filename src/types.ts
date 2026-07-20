@@ -24,6 +24,10 @@ export interface MetaCreativeCopy {
   destinationUrl?: string;
 }
 
+export interface MetaAssetMessageExtension {
+  type: string;
+}
+
 export interface MetaSingleImageCreativeSpec extends MetaCreativeCopy {
   imageHash: string;
   pageWelcomeMessage?: string;
@@ -72,6 +76,7 @@ export interface MetaFlexibleCreativeSpec extends MetaCreativeCopy {
   primaryTexts: string[];
   headlines?: string[];
   descriptions?: string[];
+  messageExtensions?: MetaAssetMessageExtension[];
 }
 
 export interface MetaPlacementImageCreativeSpec extends MetaCreativeCopy {
@@ -80,6 +85,7 @@ export interface MetaPlacementImageCreativeSpec extends MetaCreativeCopy {
   headline: string;
   destinationUrl: string;
   pageWelcomeMessage?: string;
+  messageExtensions?: MetaAssetMessageExtension[];
 }
 
 export interface MetaExistingPostCreativeSpec {

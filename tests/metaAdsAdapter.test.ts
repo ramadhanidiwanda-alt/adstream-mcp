@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { MetaAdsAdapter } from '../src/providers/meta/MetaAdsAdapter.js';
+import { MetaApiError } from '../src/utils/metaError.js';
 
 describe('MetaAdsAdapter', () => {
   it('implements required adapter contract shape', () => {
@@ -90,7 +91,12 @@ describe('MetaAdsAdapter', () => {
       since: '2026-05-01',
       until: '2026-05-07',
       params: {},
-      credentials: { provider: 'meta', accessToken: 'secret-token', accountId: '123', source: 'test' },
+      credentials: {
+        provider: 'meta',
+        accessToken: 'secret-token',
+        accountId: '123',
+        source: 'test',
+      },
     });
 
     expect(capturedPath).toBe('/act_123/activities');
@@ -267,13 +273,61 @@ describe('MetaAdsAdapter', () => {
     expect(receivedOptions).toMatchObject({ adsetId: '120251877326190415' });
   });
 
+  it('translates canonical performance filters before calling Meta insights', async () => {
+    let receivedOptions: Record<string, unknown> | undefined;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        getCampaignInsights: async (_client, options) => {
+          receivedOptions = options as unknown as Record<string, unknown>;
+          return [];
+        },
+      },
+    });
+
+    await adapter.getCampaignPerformance({
+      provider: 'meta',
+      accountId: 'act_123',
+      since: '2026-05-01',
+      until: '2026-05-07',
+      params: {
+        filters: [
+          { field: 'campaign.status', operator: 'eq', value: 'ACTIVE' },
+          { field: 'impressions', operator: 'gte', value: 100 },
+        ],
+      },
+      credentials: {
+        provider: 'meta',
+        accessToken: 'secret-token',
+        accountId: 'act_123',
+        source: 'test',
+      },
+    });
+
+    expect(receivedOptions).toMatchObject({
+      explicitFilters: [
+        { field: 'campaign.status', operator: 'EQUAL', value: 'ACTIVE' },
+        { field: 'impressions', operator: 'GREATER_THAN_OR_EQUAL', value: 100 },
+      ],
+    });
+  });
+
   it('warns when getPerformance returns fewer rows than requested but more data exists', async () => {
     const adapter = new MetaAdsAdapter({
       clientFactory: (config) => ({ config }) as never,
       tools: {
         getAdsInsights: async () =>
           Object.assign(
-            [{ ad_id: 'ad_1', campaign_id: 'c', adset_id: 'as', spend: '1', impressions: '1', clicks: '0' }],
+            [
+              {
+                ad_id: 'ad_1',
+                campaign_id: 'c',
+                adset_id: 'as',
+                spend: '1',
+                impressions: '1',
+                clicks: '0',
+              },
+            ],
             { paging: { cursors: { after: 'more_data_cursor' } } }
           ),
       },
@@ -285,7 +339,12 @@ describe('MetaAdsAdapter', () => {
       since: '2026-05-01',
       until: '2026-05-07',
       params: { limit: 200 },
-      credentials: { provider: 'meta', accessToken: 'secret-token', accountId: 'act_123', source: 'test' },
+      credentials: {
+        provider: 'meta',
+        accessToken: 'secret-token',
+        accountId: 'act_123',
+        source: 'test',
+      },
     });
 
     expect(response.meta?.warnings).toMatchObject([{ code: 'PARTIAL_PAGE' }]);
@@ -314,7 +373,12 @@ describe('MetaAdsAdapter', () => {
       since: '2026-05-01',
       until: '2026-05-07',
       params: { limit: 3 },
-      credentials: { provider: 'meta', accessToken: 'secret-token', accountId: 'act_123', source: 'test' },
+      credentials: {
+        provider: 'meta',
+        accessToken: 'secret-token',
+        accountId: 'act_123',
+        source: 'test',
+      },
     });
 
     expect(response.meta?.warnings).toBeUndefined();
@@ -326,7 +390,16 @@ describe('MetaAdsAdapter', () => {
       tools: {
         getAdsInsights: async () =>
           Object.assign(
-            [{ ad_id: 'ad_1', campaign_id: 'c', adset_id: 'as', spend: '1', impressions: '1', clicks: '0' }],
+            [
+              {
+                ad_id: 'ad_1',
+                campaign_id: 'c',
+                adset_id: 'as',
+                spend: '1',
+                impressions: '1',
+                clicks: '0',
+              },
+            ],
             { paging: {} }
           ),
       },
@@ -338,7 +411,12 @@ describe('MetaAdsAdapter', () => {
       since: '2026-05-01',
       until: '2026-05-07',
       params: { limit: 200 },
-      credentials: { provider: 'meta', accessToken: 'secret-token', accountId: 'act_123', source: 'test' },
+      credentials: {
+        provider: 'meta',
+        accessToken: 'secret-token',
+        accountId: 'act_123',
+        source: 'test',
+      },
     });
 
     expect(response.meta?.warnings).toBeUndefined();
@@ -359,10 +437,53 @@ describe('MetaAdsAdapter', () => {
       provider: 'meta',
       accountId: 'act_123',
       params: { limit: 100 },
-      credentials: { provider: 'meta', accessToken: 'secret-token', accountId: 'act_123', source: 'test' },
+      credentials: {
+        provider: 'meta',
+        accessToken: 'secret-token',
+        accountId: 'act_123',
+        source: 'test',
+      },
     });
 
     expect(response.meta?.warnings).toMatchObject([{ code: 'PARTIAL_PAGE' }]);
+  });
+
+  it('passes raw Meta filtering through creative mapping and destination adapters', async () => {
+    const capturedParams: Array<Record<string, unknown>> = [];
+    const adapter = new MetaAdsAdapter({
+      clientFactory: () =>
+        ({
+          metaGet: async (_path: string, params: Record<string, unknown>) => {
+            capturedParams.push(params);
+            return { data: [], paging: {} };
+          },
+        }) as never,
+    });
+    const request = {
+      provider: 'meta' as const,
+      accountId: 'act_123',
+      params: {
+        filtering: [{ field: 'impressions', operator: 'GREATER_THAN', value: 100 }],
+      },
+      credentials: {
+        provider: 'meta' as const,
+        accessToken: 'secret-token',
+        accountId: 'act_123',
+        source: 'test',
+      },
+    };
+
+    await adapter.getAdCreativeMapping(request);
+    await adapter.getAdDestinations(request);
+
+    expect(capturedParams).toHaveLength(2);
+    for (const params of capturedParams) {
+      expect(JSON.parse(String(params.filtering))).toContainEqual({
+        field: 'impressions',
+        operator: 'GREATER_THAN',
+        value: 100,
+      });
+    }
   });
 
   it('fetches Meta creative assets and maps them to creative records', async () => {
@@ -606,6 +727,44 @@ describe('MetaAdsAdapter', () => {
       },
     });
     expect(response.meta).toMatchObject({ nextCursor: 'next_active_ad' });
+  });
+
+  it('wraps compliance audit permission failures with actionable guidance', async () => {
+    const adapter = new MetaAdsAdapter({
+      clientFactory: () =>
+        ({
+          metaGet: async () => {
+            throw new MetaApiError({
+              message: 'Application does not have the capability to make this API call.',
+              type: 'OAuthException',
+              code: 3,
+            });
+          },
+        }) as never,
+    });
+
+    const response = await adapter.getCreativePerformance({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: { complianceAudit: true },
+      credentials: {
+        provider: 'meta',
+        accessToken: 'secret-token',
+        accountId: 'act_123',
+        source: 'test',
+      },
+    });
+
+    expect(response).toMatchObject({
+      ok: false,
+      errors: [
+        {
+          code: 'META_COMPLIANCE_AUDIT_PERMISSION_REQUIRED',
+          message: expect.stringContaining('ads_read'),
+        },
+      ],
+    });
+    expect(JSON.stringify(response)).not.toContain('secret-token');
   });
 
   it('enables CPAS mode as Meta campaign performance parameters', async () => {
@@ -1457,7 +1616,12 @@ describe('MetaAdsAdapter', () => {
       tools: {
         createAdCreative: async () => {
           createCalls += 1;
-          return { operation: 'create_adcreative', status: 'dry_run', executed: false, preview: {} };
+          return {
+            operation: 'create_adcreative',
+            status: 'dry_run',
+            executed: false,
+            preview: {},
+          };
         },
       },
     });
@@ -1529,6 +1693,54 @@ describe('MetaAdsAdapter', () => {
     expect(receivedOptions?.linkData).toBeUndefined();
   });
 
+  it('preserves creativeSpec.messageExtensions for canonical asset_feed_spec creatives', async () => {
+    let receivedOptions: Record<string, unknown> | undefined;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        createAdCreative: async (_client, options) => {
+          receivedOptions = options as unknown as Record<string, unknown>;
+          return {
+            operation: 'create_adcreative',
+            status: 'dry_run',
+            executed: false,
+            preview: {},
+          };
+        },
+      },
+    });
+
+    const response = await adapter.createAdCreative({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {
+        name: 'Placement CTWA',
+        pageId: 'page-1',
+        creativeFormat: 'placement_image',
+        creativeSpec: {
+          feedImageHash: 'feed-image',
+          verticalImageHash: 'vertical-image',
+          primaryText: 'Chat via WhatsApp',
+          headline: 'Tanya stok',
+          destinationUrl: 'https://api.whatsapp.com/send',
+          callToAction: 'WHATSAPP_MESSAGE',
+          messageExtensions: [{ type: 'whatsapp' }],
+        },
+      },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    });
+
+    expect(response.ok).toBe(true);
+    expect(receivedOptions).toMatchObject({
+      creative: {
+        creativeFormat: 'placement_image',
+        creativeSpec: {
+          messageExtensions: [{ type: 'whatsapp' }],
+        },
+      },
+    });
+  });
+
   it('falls back to objectStorySpec.page_id when top-level pageId is omitted', async () => {
     let receivedOptions: Record<string, unknown> | undefined;
     const adapter = new MetaAdsAdapter({
@@ -1536,7 +1748,12 @@ describe('MetaAdsAdapter', () => {
       tools: {
         createAdCreative: async (_client, options) => {
           receivedOptions = options as unknown as Record<string, unknown>;
-          return { operation: 'create_adcreative', status: 'dry_run', executed: false, preview: {} };
+          return {
+            operation: 'create_adcreative',
+            status: 'dry_run',
+            executed: false,
+            preview: {},
+          };
         },
       },
     });
@@ -1567,7 +1784,12 @@ describe('MetaAdsAdapter', () => {
       tools: {
         createAdCreative: async () => {
           createCalls += 1;
-          return { operation: 'create_adcreative', status: 'dry_run', executed: false, preview: {} };
+          return {
+            operation: 'create_adcreative',
+            status: 'dry_run',
+            executed: false,
+            preview: {},
+          };
         },
       },
     });
@@ -1906,9 +2128,22 @@ describe('MetaAdsAdapter', () => {
   it('errors when cloneAdSet has no sourceAdSetId', async () => {
     const adapter = new MetaAdsAdapter({
       clientFactory: (config) => ({ config }) as never,
-      tools: { cloneAdSet: async () => ({ operation: 'clone_adset', status: 'dry_run', executed: false, sourceAdSetId: '', preview: {} }) },
+      tools: {
+        cloneAdSet: async () => ({
+          operation: 'clone_adset',
+          status: 'dry_run',
+          executed: false,
+          sourceAdSetId: '',
+          preview: {},
+        }),
+      },
     });
-    const response = await adapter.cloneAdSet({ provider: 'meta', accountId: 'act_1', params: {}, credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' } } as never);
+    const response = await adapter.cloneAdSet({
+      provider: 'meta',
+      accountId: 'act_1',
+      params: {},
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    } as never);
     expect(response.ok).toBe(false);
   });
 
@@ -1942,7 +2177,13 @@ describe('MetaAdsAdapter', () => {
       tools: {
         pauseAdSet: async (_client, adSetId) => {
           receivedId = adSetId;
-          return { success: true, id: adSetId, operation: 'pause', entityType: 'adset', response: {} };
+          return {
+            success: true,
+            id: adSetId,
+            operation: 'pause',
+            entityType: 'adset',
+            response: {},
+          };
         },
       },
     });
@@ -1965,7 +2206,13 @@ describe('MetaAdsAdapter', () => {
       tools: {
         resumeAdSet: async (_client, adSetId) => {
           receivedId = adSetId;
-          return { success: true, id: adSetId, operation: 'resume', entityType: 'adset', response: {} };
+          return {
+            success: true,
+            id: adSetId,
+            operation: 'resume',
+            entityType: 'adset',
+            response: {},
+          };
         },
       },
     });
@@ -1989,11 +2236,23 @@ describe('MetaAdsAdapter', () => {
       tools: {
         pauseAdSet: async (_client, adSetId) => {
           pausedId = adSetId;
-          return { success: true, id: adSetId, operation: 'pause', entityType: 'adset', response: {} };
+          return {
+            success: true,
+            id: adSetId,
+            operation: 'pause',
+            entityType: 'adset',
+            response: {},
+          };
         },
         resumeAdSet: async (_client, adSetId) => {
           resumedId = adSetId;
-          return { success: true, id: adSetId, operation: 'resume', entityType: 'adset', response: {} };
+          return {
+            success: true,
+            id: adSetId,
+            operation: 'resume',
+            entityType: 'adset',
+            response: {},
+          };
         },
       },
     });
