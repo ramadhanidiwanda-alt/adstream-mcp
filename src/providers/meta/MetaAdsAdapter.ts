@@ -29,6 +29,7 @@ import type {
   Campaign,
   CampaignInsight,
   MetaAdsMode,
+  MetaApplinkTreatment,
   MetaCollaborativeAppSpec,
   MetaCollaborativeCatalogContext,
   MetaConfig,
@@ -1573,8 +1574,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
           assetFeedSpec: creative ? undefined : assetFeedSpec,
           imageHash:
             typeof request.params.imageHash === 'string' ? request.params.imageHash : undefined,
-          urlTags:
-            typeof request.params.urlTags === 'string' ? request.params.urlTags : undefined,
+          urlTags: typeof request.params.urlTags === 'string' ? request.params.urlTags : undefined,
           instagramUserId:
             typeof request.params.instagramUserId === 'string'
               ? request.params.instagramUserId
@@ -1987,7 +1987,13 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       return {
         ok: false,
         provider: 'meta',
-        errors: [{ provider: 'meta', code: 'MISSING_AD_ID', message: 'adId is required in request.params' }],
+        errors: [
+          {
+            provider: 'meta',
+            code: 'MISSING_AD_ID',
+            message: 'adId is required in request.params',
+          },
+        ],
       };
     }
 
@@ -2031,7 +2037,9 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
     }
   }
 
-  async updateCampaign(request: AdsBrokerRequest): Promise<AdsBrokerResponse<UpdateCampaignResult>> {
+  async updateCampaign(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<UpdateCampaignResult>> {
     const context = this.getCredentialContext(request);
     if (!context.ok) return context.response;
 
@@ -2042,7 +2050,11 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
         ok: false,
         provider: 'meta',
         errors: [
-          { provider: 'meta', code: 'MISSING_CAMPAIGN_ID', message: 'campaignId is required in request.params' },
+          {
+            provider: 'meta',
+            code: 'MISSING_CAMPAIGN_ID',
+            message: 'campaignId is required in request.params',
+          },
         ],
       };
     }
@@ -2059,15 +2071,20 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
               ? (request.params.status as 'ACTIVE' | 'PAUSED' | 'ARCHIVED' | 'DELETED')
               : undefined,
           lifetimeBudget:
-            typeof request.params.lifetimeBudget === 'number' ? request.params.lifetimeBudget : undefined,
-          spendCap: typeof request.params.spendCap === 'number' ? request.params.spendCap : undefined,
+            typeof request.params.lifetimeBudget === 'number'
+              ? request.params.lifetimeBudget
+              : undefined,
+          spendCap:
+            typeof request.params.spendCap === 'number' ? request.params.spendCap : undefined,
           bidStrategy:
             typeof request.params.bidStrategy === 'string' ? request.params.bidStrategy : undefined,
           specialAdCategories: Array.isArray(request.params.specialAdCategories)
             ? (request.params.specialAdCategories as string[])
             : undefined,
-          startTime: typeof request.params.startTime === 'string' ? request.params.startTime : undefined,
-          stopTime: typeof request.params.stopTime === 'string' ? request.params.stopTime : undefined,
+          startTime:
+            typeof request.params.startTime === 'string' ? request.params.startTime : undefined,
+          stopTime:
+            typeof request.params.stopTime === 'string' ? request.params.stopTime : undefined,
           deleteConfirmed: request.params.deleteConfirmed === true,
         },
         {
@@ -3296,6 +3313,10 @@ function parseMetaCreativeSpec(
             spec.pageWelcomeMessage,
             'creativeSpec.pageWelcomeMessage'
           ),
+          applinkTreatment: optionalApplinkTreatment(
+            spec.applinkTreatment,
+            'creativeSpec.applinkTreatment'
+          ),
         },
       };
     case 'video':
@@ -3319,6 +3340,10 @@ function parseMetaCreativeSpec(
           pageWelcomeMessage: optionalString(
             spec.pageWelcomeMessage,
             'creativeSpec.pageWelcomeMessage'
+          ),
+          applinkTreatment: optionalApplinkTreatment(
+            spec.applinkTreatment,
+            'creativeSpec.applinkTreatment'
           ),
         },
       };
@@ -3449,6 +3474,11 @@ function parseMetaCreativeSpec(
         creativeFormat: 'existing_post',
         creativeSpec: {
           objectStoryId: requireString(spec.objectStoryId, 'creativeSpec.objectStoryId'),
+          destinationUrl: optionalString(spec.destinationUrl, 'creativeSpec.destinationUrl'),
+          applinkTreatment: optionalApplinkTreatment(
+            spec.applinkTreatment,
+            'creativeSpec.applinkTreatment'
+          ),
         },
       };
   }
@@ -3474,6 +3504,12 @@ function requireString(value: unknown, path: string): string {
 function optionalString(value: unknown, path: string): string | undefined {
   if (value === undefined) return undefined;
   return requireString(value, path);
+}
+
+function optionalApplinkTreatment(value: unknown, path: string): MetaApplinkTreatment | undefined {
+  // Deliberately not a closed local validation: Meta owns the real enum. Same
+  // free-string policy as CTA types — pass through and let Meta reject unknowns.
+  return optionalString(value, path) as MetaApplinkTreatment | undefined;
 }
 
 function optionalPlainString(value: unknown): string | undefined {
