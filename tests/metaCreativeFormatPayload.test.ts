@@ -996,6 +996,114 @@ describe('buildMetaCreativeFormatPayload', () => {
     expect(result).not.toHaveProperty('applink_treatment');
   });
 
+  it('adds omnichannel_link_spec to a video creative in standard mode when collaborativeAppSpec is given', () => {
+    const result = buildMetaCreativeFormatPayload({
+      mode: 'standard',
+      pageId: 'page-1',
+      collaborativeAppSpec: {
+        applicationId: '957549474255294',
+        android: { appName: 'Shopee ID', packageName: 'com.shopee.id' },
+      },
+      creativeFormat: 'video',
+      creativeSpec: {
+        videoId: 'video-1',
+        thumbnailImageHash: 'thumb-1',
+        primaryText: 'Tonton produknya',
+        destinationUrl: 'https://s.shopee.co.id/video',
+      },
+    });
+
+    expect(result.omnichannel_link_spec).toMatchObject({
+      web: { url: 'https://s.shopee.co.id/video' },
+      app: { application_id: '957549474255294' },
+    });
+    expect(result.applink_treatment).toBe('automatic');
+  });
+
+  it('respects an explicit applinkTreatment override on a video creative', () => {
+    const result = buildMetaCreativeFormatPayload({
+      mode: 'standard',
+      pageId: 'page-1',
+      collaborativeAppSpec: { applicationId: '957549474255294' },
+      creativeFormat: 'video',
+      creativeSpec: {
+        videoId: 'video-1',
+        thumbnailImageHash: 'thumb-1',
+        primaryText: 'Tonton produknya',
+        destinationUrl: 'https://s.shopee.co.id/video',
+        applinkTreatment: 'deeplink_with_appstore_fallback',
+      },
+    });
+
+    expect(result.applink_treatment).toBe('deeplink_with_appstore_fallback');
+  });
+
+  it('adds omnichannel_link_spec to a single-image creative in standard mode when collaborativeAppSpec is given', () => {
+    const result = buildMetaCreativeFormatPayload({
+      mode: 'standard',
+      pageId: 'page-1',
+      collaborativeAppSpec: { applicationId: '957549474255294' },
+      creativeFormat: 'single_image',
+      creativeSpec: {
+        imageHash: 'image-1',
+        primaryText: 'Belanja sekarang',
+        destinationUrl: 'https://s.shopee.co.id/product',
+      },
+    });
+
+    expect(result.omnichannel_link_spec).toMatchObject({
+      web: { url: 'https://s.shopee.co.id/product' },
+      app: { application_id: '957549474255294' },
+    });
+    expect(result.applink_treatment).toBe('automatic');
+  });
+
+  it('omits omnichannel fields from video/single_image creatives without collaborativeAppSpec', () => {
+    const video = buildMetaCreativeFormatPayload({
+      mode: 'standard',
+      pageId: 'page-1',
+      creativeFormat: 'video',
+      creativeSpec: {
+        videoId: 'video-1',
+        thumbnailImageHash: 'thumb-1',
+        primaryText: 'Tonton produknya',
+        destinationUrl: 'https://example.com/video',
+      },
+    });
+    expect(video).not.toHaveProperty('omnichannel_link_spec');
+    expect(video).not.toHaveProperty('applink_treatment');
+
+    const singleImage = buildMetaCreativeFormatPayload({
+      mode: 'standard',
+      pageId: 'page-1',
+      creativeFormat: 'single_image',
+      creativeSpec: {
+        imageHash: 'image-1',
+        primaryText: 'Belanja sekarang',
+        destinationUrl: 'https://example.com/product',
+      },
+    });
+    expect(singleImage).not.toHaveProperty('omnichannel_link_spec');
+    expect(singleImage).not.toHaveProperty('applink_treatment');
+  });
+
+  it('still requires collaborativeProductSetId for video in explicit collaborative_ads mode', () => {
+    expect(() =>
+      buildMetaCreativeFormatPayload({
+        mode: 'collaborative_ads',
+        pageId: 'page-1',
+        collaborativeAppSpec: { applicationId: '957549474255294' },
+        creativeFormat: 'video',
+        creativeSpec: {
+          videoId: 'video-1',
+          thumbnailImageHash: 'thumb-1',
+          primaryText: 'Tonton produknya',
+          destinationUrl: 'https://example.com/video',
+        },
+      })
+    ).toThrow(/Product set Collaborative Ads wajib diisi/i);
+  });
+
   it('rejects identical feed and vertical image hashes', () => {
     expect(() =>
       buildMetaCreativeFormatPayload({
