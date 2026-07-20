@@ -9,6 +9,7 @@ import type {
   AdsMutationResult,
   AdDestinationResult,
   ArchiveAdResult,
+  CloneUiAdResult,
   CloneAdSetResult,
   CreateAdCreativeResult,
   CreateAdResult,
@@ -89,6 +90,7 @@ type AdapterWriteMethod =
   | 'createAdSet'
   | 'createAdCreative'
   | 'createAd'
+  | 'cloneUiAd'
   | 'archiveAd'
   | 'pauseAd'
   | 'resumeAd'
@@ -526,6 +528,10 @@ export class AdsBroker {
     return this.executeWrite<CreateAdResult>(request, 'createAd');
   }
 
+  cloneUiAd(request: AdsBrokerRequest): Promise<AdsBrokerResponse<CloneUiAdResult>> {
+    return this.executeWrite<CloneUiAdResult>(request, 'cloneUiAd');
+  }
+
   archiveAd(request: AdsBrokerRequest): Promise<AdsBrokerResponse<ArchiveAdResult>> {
     return this.executeWrite<ArchiveAdResult>(request, 'archiveAd');
   }
@@ -648,6 +654,7 @@ export class AdsBroker {
       | CreateAdSetResult
       | CreateAdCreativeResult
       | CreateAdResult
+      | CloneUiAdResult
       | ArchiveAdResult
       | CloneAdSetResult
       | UpdateAdSetResult

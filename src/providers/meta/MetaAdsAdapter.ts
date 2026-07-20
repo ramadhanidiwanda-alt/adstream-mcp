@@ -47,6 +47,7 @@ import { createCampaign as createCampaignTool } from '../../tools/createCampaign
 import { createAdSet as createAdSetTool } from '../../tools/createAdSet.js';
 import { createAdCreative as createAdCreativeTool } from '../../tools/createAdCreative.js';
 import { createAd as createAdTool } from '../../tools/createAd.js';
+import { cloneUiAd as cloneUiAdTool } from '../../tools/cloneUiAd.js';
 import { archiveAd as archiveAdTool } from '../../tools/archiveAd.js';
 import { pauseAd as pauseAdTool } from '../../tools/pauseAd.js';
 import { resumeAd as resumeAdTool } from '../../tools/resumeAd.js';
@@ -64,6 +65,7 @@ import type {
   CreateAdSetResult,
   CreateAdCreativeResult,
   CreateAdResult,
+  CloneUiAdResult,
   ArchiveAdResult,
   CloneAdSetResult,
   UpdateAdSetResult,
@@ -272,6 +274,11 @@ export interface MetaAdsAdapterTools {
     options: import('../../tools/createAd.js').CreateAdOptions,
     execOptions?: { dryRun?: boolean; confirmed?: boolean; maxRetries?: number }
   ): Promise<import('../../tools/createAd.js').CreateAdResult>;
+  cloneUiAd(
+    client: MetaClient,
+    options: import('../../tools/cloneUiAd.js').CloneUiAdOptions,
+    execOptions?: { dryRun?: boolean; confirmed?: boolean; maxRetries?: number }
+  ): Promise<import('../../tools/cloneUiAd.js').CloneUiAdResult>;
   archiveAd(
     client: MetaClient,
     options: import('../../tools/archiveAd.js').ArchiveAdOptions,
@@ -387,6 +394,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       createAdSet: createAdSetTool,
       createAdCreative: createAdCreativeTool,
       createAd: createAdTool,
+      cloneUiAd: cloneUiAdTool,
       archiveAd: archiveAdTool,
       pauseAd: pauseAdTool,
       resumeAd: resumeAdTool,
@@ -1614,6 +1622,60 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
           dedupeByName: request.params.dedupeByName === true,
           skipOmnichannelCheck: request.params.skipOmnichannelCheck === true,
           skipPlacementCompatibilityCheck: request.params.skipPlacementCompatibilityCheck === true,
+          externalReference:
+            typeof request.params.externalReference === 'string'
+              ? request.params.externalReference
+              : undefined,
+        },
+        {
+          dryRun: request.params.dryRun !== false,
+          confirmed: request.params.confirmed === true,
+        }
+      );
+      return { ok: result.status !== 'failed', provider: 'meta', data: result };
+    } catch (error) {
+      return this.writeErrorResponse(error);
+    }
+  }
+
+  async cloneUiAd(request: AdsBrokerRequest): Promise<AdsBrokerResponse<CloneUiAdResult>> {
+    const context = this.getCredentialContext(request);
+    if (!context.ok) return context.response;
+
+    const adAccountId = request.accountId ?? context.credential.accountId;
+    const name = typeof request.params.name === 'string' ? request.params.name : undefined;
+    const adSetId = typeof request.params.adSetId === 'string' ? request.params.adSetId : undefined;
+    const sourceAdId =
+      typeof request.params.sourceAdId === 'string' ? request.params.sourceAdId : undefined;
+
+    if (!adAccountId || !name || !adSetId || !sourceAdId) {
+      return {
+        ok: false,
+        provider: 'meta',
+        errors: [
+          {
+            provider: 'meta',
+            code: 'MISSING_REQUIRED_PARAMS',
+            message: 'accountId, name, adSetId, and sourceAdId are required',
+          },
+        ],
+      };
+    }
+
+    try {
+      const client = this.createClient(context.credential);
+      const result = await this.tools.cloneUiAd(
+        client,
+        {
+          adAccountId,
+          name,
+          adSetId,
+          sourceAdId,
+          status:
+            typeof request.params.status === 'string'
+              ? (request.params.status as import('../../tools/cloneUiAd.js').CloneUiAdAdStatus)
+              : undefined,
+          dedupeByName: request.params.dedupeByName === true,
           externalReference:
             typeof request.params.externalReference === 'string'
               ? request.params.externalReference

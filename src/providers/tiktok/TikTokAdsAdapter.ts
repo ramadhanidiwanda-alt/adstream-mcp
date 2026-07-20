@@ -5,6 +5,7 @@ import type {
   AdsMetricRecord,
   AdsMutationResult,
   ArchiveAdResult,
+  CloneUiAdResult,
   CloneAdSetResult,
   CreateAdCreativeResult,
   CreateAdResult,
@@ -638,6 +639,10 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
       provider: 'tiktok',
       data: { operation: 'archive_ad', status: r.ok ? 'executed' as const : 'failed' as const, success: r.ok, id: r.data?.id, error: !r.ok ? 'Failed to archive ad' : undefined },
     }));
+  }
+
+  async cloneUiAd(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<CloneUiAdResult>> {
+    return Promise.resolve(this.writeNotImplemented() as unknown as AdsBrokerResponse<CloneUiAdResult>);
   }
 
   async cloneAdSet(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<CloneAdSetResult>> {

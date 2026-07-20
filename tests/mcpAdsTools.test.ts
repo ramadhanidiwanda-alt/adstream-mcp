@@ -279,6 +279,7 @@ describe('ads MCP broker tools', () => {
       'ads_create_adset',
       'ads_create_adcreative',
       'ads_create_ad',
+      'ads_clone_ui_ad',
       'ads_archive_ad',
       'ads_pause_ad',
       'ads_resume_ad',

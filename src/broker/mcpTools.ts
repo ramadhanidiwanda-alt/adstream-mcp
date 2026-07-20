@@ -52,6 +52,7 @@ export const ADS_MCP_TOOL_NAMES = [
   'ads_create_adset',
   'ads_create_adcreative',
   'ads_create_ad',
+  'ads_clone_ui_ad',
   'ads_archive_ad',
   'ads_update_adset',
   'ads_clone_adset',
@@ -123,6 +124,7 @@ const ADDITIVE_WRITE_TOOLS = new Set<AdsMcpToolName>([
   'ads_create_adset',
   'ads_create_adcreative',
   'ads_create_ad',
+  'ads_clone_ui_ad',
   'ads_create_ecommerce_campaign_bundle',
   'ads_clone_adset',
   'ads_upload_image',
@@ -309,6 +311,12 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
     description:
       'Create a Meta ad by linking an existing ad set to an existing creative. Dry-run by default. Set dryRun=false and confirmed=true to execute. Ad is created PAUSED by default.',
     inputSchema: createCreateAdInputSchema(),
+  },
+  {
+    name: 'ads_clone_ui_ad',
+    description:
+      'Clone a Meta ad by resolving its creative ID and creating a PAUSED ad with source_ad_id plus that creative_id. Use for Ads Manager-created messaging ads where UI-only setup such as WhatsApp phone selection and per-placement creative customizations must be preserved. This tool intentionally does not accept creativeId from callers.',
+    inputSchema: createCloneUiAdInputSchema(),
   },
   {
     name: 'ads_archive_ad',
@@ -721,6 +729,8 @@ function callBrokerMethod(
       return broker.createAdCreative(request);
     case 'ads_create_ad':
       return broker.createAd(request);
+    case 'ads_clone_ui_ad':
+      return broker.cloneUiAd(request);
     case 'ads_archive_ad':
       return broker.archiveAd(request);
     case 'ads_pause_ad':
@@ -1889,6 +1899,45 @@ function createCreateAdInputSchema() {
       confirmed: { type: 'boolean', description: 'Must be true to execute after preview.' },
     },
     required: ['accountId', 'name', 'adSetId', 'creativeId'],
+  };
+}
+
+function createCloneUiAdInputSchema() {
+  const schema = createAdsInputSchema([]);
+
+  return {
+    type: 'object',
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      name: { type: 'string', description: 'Name for the cloned ad.' },
+      sourceAdId: {
+        type: 'string',
+        description:
+          'The Ads Manager-created source ad ID to clone. The source creative is preserved; do not use this tool when you need to replace the creative.',
+      },
+      adSetId: {
+        type: 'string',
+        description:
+          'The destination ad set ID. Use the same ad set as the source when preserving UI-only WhatsApp phone and placement setup.',
+      },
+      status: {
+        type: 'string',
+        enum: ['ACTIVE', 'PAUSED'],
+        description: 'Ad status. Defaults to PAUSED.',
+      },
+      dedupeByName: {
+        type: 'boolean',
+        description:
+          'Check for an existing ad with the same name under the ad set before cloning.',
+      },
+      externalReference: {
+        type: 'string',
+        description: 'Caller-provided reference for duplicate prevention and audit correlation.',
+      },
+      dryRun: { type: 'boolean', description: 'Defaults to true. Set false only after preview.' },
+      confirmed: { type: 'boolean', description: 'Must be true to execute after preview.' },
+    },
+    required: ['accountId', 'name', 'sourceAdId', 'adSetId'],
   };
 }
 

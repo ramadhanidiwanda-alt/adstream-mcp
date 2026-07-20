@@ -5,6 +5,7 @@ import type {
   AdsMetricRecord,
   AdsMutationResult,
   ArchiveAdResult,
+  CloneUiAdResult,
   CloneAdSetResult,
   CreateAdCreativeResult,
   CreateAdResult,
@@ -311,6 +312,10 @@ export class GoogleAdsAdapter implements AdsProviderAdapter {
 
   async createAd(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<CreateAdResult>> {
     return this.writeNotImplemented() as unknown as AdsBrokerResponse<CreateAdResult>;
+  }
+
+  async cloneUiAd(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<CloneUiAdResult>> {
+    return this.writeNotImplemented() as unknown as AdsBrokerResponse<CloneUiAdResult>;
   }
 
   async archiveAd(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<ArchiveAdResult>> {

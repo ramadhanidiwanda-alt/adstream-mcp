@@ -52,6 +52,11 @@ function cta(
   destinationUrl: string,
   collaborativeAppSpec?: MetaCollaborativeAppSpec
 ): Record<string, unknown> {
+  const normalizedType = type?.trim() || 'LEARN_MORE';
+  if (normalizedType === 'WHATSAPP_MESSAGE' && !collaborativeAppSpec) {
+    return { type: normalizedType };
+  }
+
   const value: Record<string, unknown> = { link: destinationUrl };
   if (collaborativeAppSpec) {
     value.application = required(
@@ -77,7 +82,7 @@ function cta(
   }
 
   return {
-    type: type?.trim() || 'LEARN_MORE',
+    type: normalizedType,
     value,
   };
 }

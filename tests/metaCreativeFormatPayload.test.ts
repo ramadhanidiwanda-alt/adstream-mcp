@@ -103,8 +103,12 @@ describe('buildMetaCreativeFormatPayload', () => {
     });
 
     expect(result.object_story_spec).toMatchObject({
-      link_data: { page_welcome_message: '{"type":"VISUAL_EDITOR"}' },
+      link_data: {
+        call_to_action: { type: 'WHATSAPP_MESSAGE' },
+        page_welcome_message: '{"type":"VISUAL_EDITOR"}',
+      },
     });
+    expect(result.object_story_spec.link_data.call_to_action).not.toHaveProperty('value');
   });
 
   it('omits page_welcome_message from single_image when not provided', () => {
@@ -144,8 +148,12 @@ describe('buildMetaCreativeFormatPayload', () => {
     });
 
     expect(result.object_story_spec).toMatchObject({
-      video_data: { page_welcome_message: '{"type":"VISUAL_EDITOR"}' },
+      video_data: {
+        call_to_action: { type: 'WHATSAPP_MESSAGE' },
+        page_welcome_message: '{"type":"VISUAL_EDITOR"}',
+      },
     });
+    expect(result.object_story_spec.video_data.call_to_action).not.toHaveProperty('value');
   });
 
   it('adds official asset_feed_spec message_extensions to placement-image creatives', () => {
@@ -874,7 +882,6 @@ describe('buildMetaCreativeFormatPayload', () => {
           link: 'https://api.whatsapp.com/send?phone=628123',
           call_to_action: {
             type: 'WHATSAPP_MESSAGE',
-            value: { link: 'https://api.whatsapp.com/send?phone=628123' },
           },
           page_welcome_message: '{"type":"VISUAL_EDITOR","version":2}',
         },

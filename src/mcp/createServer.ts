@@ -625,6 +625,31 @@ const createAdInputSchema = {
   confirmed: z.boolean().optional().describe('Must be true to execute after preview.'),
 };
 
+const cloneUiAdInputSchema = {
+  ...adsBaseInputSchema,
+  accountId: z.string().describe('Provider account id. Required for UI ad cloning.'),
+  name: z.string().describe('Name for the cloned ad.'),
+  sourceAdId: z
+    .string()
+    .describe(
+      'The Ads Manager-created source ad ID to clone without creative override, preserving UI-only WhatsApp and placement setup.'
+    ),
+  adSetId: z
+    .string()
+    .describe('The destination ad set ID. Use the source ad set for safest UI-state preservation.'),
+  status: z.enum(['ACTIVE', 'PAUSED']).optional().describe('Ad status. Defaults to PAUSED.'),
+  dedupeByName: z
+    .boolean()
+    .optional()
+    .describe('Check for an existing ad with the same name under the ad set before cloning.'),
+  externalReference: z
+    .string()
+    .optional()
+    .describe('Caller-provided reference for duplicate prevention and audit correlation.'),
+  dryRun: z.boolean().optional().describe('Defaults to true. Set false only after preview.'),
+  confirmed: z.boolean().optional().describe('Must be true to execute after preview.'),
+};
+
 const archiveAdInputSchema = {
   ...adsBaseInputSchema,
   adId: z.string().describe('The ad ID to archive.'),
@@ -810,6 +835,8 @@ export function createMetaAdsMcpServer(options: CreateMetaAdsMcpServerOptions = 
       inputSchema = createAdCreativeInputSchema;
     } else if (toolDefinition.name === 'ads_create_ad') {
       inputSchema = createAdInputSchema;
+    } else if (toolDefinition.name === 'ads_clone_ui_ad') {
+      inputSchema = cloneUiAdInputSchema;
     } else if (toolDefinition.name === 'ads_archive_ad') {
       inputSchema = archiveAdInputSchema;
     } else if (toolDefinition.name === 'ads_pause_ad' || toolDefinition.name === 'ads_resume_ad') {
