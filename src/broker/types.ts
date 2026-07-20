@@ -962,6 +962,8 @@ export interface AdsProviderAdapter {
   archiveAd(request: AdsBrokerRequest): Promise<AdsBrokerResponse<ArchiveAdResult>>;
   pauseAd(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>>;
   resumeAd(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>>;
+  pauseAdSet(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>>;
+  resumeAdSet(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>>;
   cloneAdSet(request: AdsBrokerRequest): Promise<AdsBrokerResponse<CloneAdSetResult>>;
   updateAdSet(request: AdsBrokerRequest): Promise<AdsBrokerResponse<UpdateAdSetResult>>;
   getTargetingOptions(request: AdsBrokerRequest): Promise<AdsBrokerResponse<GetTargetingOptionsResult>>;

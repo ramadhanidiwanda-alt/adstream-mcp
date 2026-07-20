@@ -312,6 +312,17 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
     inputSchema: createAdIdInputSchema(),
   },
   {
+    name: 'ads_pause_adset',
+    description: 'Pause a Meta ad set (sets status to PAUSED). All ads in it stop delivering. Reversible with ads_resume_adset.',
+    inputSchema: createAdSetIdInputSchema(),
+  },
+  {
+    name: 'ads_resume_adset',
+    description:
+      'Resume/activate a paused Meta ad set (sets status to ACTIVE). Ads in it deliver per the ad set schedule and budget once active.',
+    inputSchema: createAdSetIdInputSchema(),
+  },
+  {
     name: 'ads_clone_adset',
     description:
       'Clone an existing Meta ad set into a new one, copying targeting, custom audiences, promoted object (CPAS/omnichannel), attribution, optimization, and bidding from a source ad set. Override name, campaignId, status, startTime, endTime, or budget. Dry-run by default; set dryRun=false and confirmed=true to execute. New ad set defaults to PAUSED.',
@@ -677,6 +688,10 @@ function callBrokerMethod(
       return broker.pauseAd(request);
     case 'ads_resume_ad':
       return broker.resumeAd(request);
+    case 'ads_pause_adset':
+      return broker.pauseAdSet(request);
+    case 'ads_resume_adset':
+      return broker.resumeAdSet(request);
     case 'ads_clone_adset':
       return broker.cloneAdSet(request);
     case 'ads_update_adset':
@@ -711,6 +726,10 @@ function callBrokerMethod(
       return broker.uploadImage(request);
     case 'ads_upload_video':
       return broker.uploadVideo(request);
+    case 'ads_list_adimages':
+      return broker.listAdImages(request);
+    case 'ads_list_advideos':
+      return broker.listAdVideos(request);
     // --- TikTok GMV Max ---
     case 'tiktok_gmv_max_create_campaign':
       return broker.gmvMaxCreateCampaign(request);
@@ -1731,6 +1750,19 @@ function createAdIdInputSchema() {
       adId: { type: 'string', description: 'The ad ID to pause or resume.' },
     },
     required: ['adId'],
+  };
+}
+
+function createAdSetIdInputSchema() {
+  const schema = createAdsInputSchema([]);
+
+  return {
+    type: 'object',
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      adSetId: { type: 'string', description: 'The ad set ID to pause or resume.' },
+    },
+    required: ['adSetId'],
   };
 }
 

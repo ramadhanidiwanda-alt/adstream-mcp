@@ -1529,6 +1529,69 @@ describe('MetaAdsAdapter', () => {
     expect(receivedOptions?.linkData).toBeUndefined();
   });
 
+  it('falls back to objectStorySpec.page_id when top-level pageId is omitted', async () => {
+    let receivedOptions: Record<string, unknown> | undefined;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        createAdCreative: async (_client, options) => {
+          receivedOptions = options as unknown as Record<string, unknown>;
+          return { operation: 'create_adcreative', status: 'dry_run', executed: false, preview: {} };
+        },
+      },
+    });
+
+    const response = await adapter.createAdCreative({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {
+        name: 'Dynamic Creative',
+        objectStorySpec: { page_id: 'page-from-object-story-spec' },
+        assetFeedSpec: {
+          bodies: [{ text: 'Primary text' }],
+          titles: [{ text: 'Headline' }],
+          link_urls: [{ website_url: 'https://example.com' }],
+        },
+      },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    });
+
+    expect(response.ok).toBe(true);
+    expect(receivedOptions).toMatchObject({ pageId: 'page-from-object-story-spec' });
+  });
+
+  it('still rejects when neither top-level pageId nor objectStorySpec.page_id is given', async () => {
+    let createCalls = 0;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        createAdCreative: async () => {
+          createCalls += 1;
+          return { operation: 'create_adcreative', status: 'dry_run', executed: false, preview: {} };
+        },
+      },
+    });
+
+    const response = await adapter.createAdCreative({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {
+        name: 'Dynamic Creative',
+        objectStorySpec: {},
+        assetFeedSpec: {
+          bodies: [{ text: 'Primary text' }],
+          titles: [{ text: 'Headline' }],
+          link_urls: [{ website_url: 'https://example.com' }],
+        },
+      },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    });
+
+    expect(response.ok).toBe(false);
+    expect(response.errors).toMatchObject([{ provider: 'meta', code: 'VALIDATION_ERROR' }]);
+    expect(createCalls).toBe(0);
+  });
+
   it('exposes structured local validation errors without posting to Meta', async () => {
     let postCalls = 0;
     const adapter = new MetaAdsAdapter({
@@ -1870,6 +1933,108 @@ describe('MetaAdsAdapter', () => {
 
     expect(response.ok).toBe(true);
     expect(receivedId).toBe('ad_1');
+  });
+
+  it('pauses an ad set by adSetId', async () => {
+    let receivedId: string | undefined;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        pauseAdSet: async (_client, adSetId) => {
+          receivedId = adSetId;
+          return { success: true, id: adSetId, operation: 'pause', entityType: 'adset', response: {} };
+        },
+      },
+    });
+
+    const response = await adapter.pauseAdSet({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: { adSetId: 'adset_1' },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    } as never);
+
+    expect(response.ok).toBe(true);
+    expect(receivedId).toBe('adset_1');
+  });
+
+  it('resumes an ad set by adSetId', async () => {
+    let receivedId: string | undefined;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        resumeAdSet: async (_client, adSetId) => {
+          receivedId = adSetId;
+          return { success: true, id: adSetId, operation: 'resume', entityType: 'adset', response: {} };
+        },
+      },
+    });
+
+    const response = await adapter.resumeAdSet({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: { adSetId: 'adset_1' },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    } as never);
+
+    expect(response.ok).toBe(true);
+    expect(receivedId).toBe('adset_1');
+  });
+
+  it('accepts the adsetId alias (lowercase set) for pauseAdSet/resumeAdSet', async () => {
+    let pausedId: string | undefined;
+    let resumedId: string | undefined;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        pauseAdSet: async (_client, adSetId) => {
+          pausedId = adSetId;
+          return { success: true, id: adSetId, operation: 'pause', entityType: 'adset', response: {} };
+        },
+        resumeAdSet: async (_client, adSetId) => {
+          resumedId = adSetId;
+          return { success: true, id: adSetId, operation: 'resume', entityType: 'adset', response: {} };
+        },
+      },
+    });
+
+    await adapter.pauseAdSet({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: { adsetId: 'adset_2' },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    } as never);
+    await adapter.resumeAdSet({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: { adsetId: 'adset_2' },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    } as never);
+
+    expect(pausedId).toBe('adset_2');
+    expect(resumedId).toBe('adset_2');
+  });
+
+  it('errors when pauseAdSet/resumeAdSet have no adSetId', async () => {
+    const adapter = new MetaAdsAdapter({ clientFactory: (config) => ({ config }) as never });
+
+    const pauseResponse = await adapter.pauseAdSet({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {},
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    } as never);
+    const resumeResponse = await adapter.resumeAdSet({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {},
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    } as never);
+
+    expect(pauseResponse.ok).toBe(false);
+    expect(pauseResponse.errors).toMatchObject([{ code: 'MISSING_ADSET_ID' }]);
+    expect(resumeResponse.ok).toBe(false);
+    expect(resumeResponse.errors).toMatchObject([{ code: 'MISSING_ADSET_ID' }]);
   });
 
   it('passes startTime and endTime into ad set updates', async () => {

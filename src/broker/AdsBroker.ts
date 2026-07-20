@@ -88,6 +88,8 @@ type AdapterWriteMethod =
   | 'archiveAd'
   | 'pauseAd'
   | 'resumeAd'
+  | 'pauseAdSet'
+  | 'resumeAdSet'
   | 'cloneAdSet'
   | 'updateAdSet'
   | 'createEcommerceCampaignBundle'
@@ -465,6 +467,14 @@ export class AdsBroker {
 
   resumeAd(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>> {
     return this.executeWrite<AdsMutationResult>(request, 'resumeAd');
+  }
+
+  pauseAdSet(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>> {
+    return this.executeWrite<AdsMutationResult>(request, 'pauseAdSet');
+  }
+
+  resumeAdSet(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>> {
+    return this.executeWrite<AdsMutationResult>(request, 'resumeAdSet');
   }
 
   cloneAdSet(request: AdsBrokerRequest): Promise<AdsBrokerResponse<CloneAdSetResult>> {

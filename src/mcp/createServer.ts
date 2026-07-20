@@ -560,6 +560,11 @@ const adIdInputSchema = {
   adId: z.string().describe('The ad ID to pause or resume.'),
 };
 
+const adSetIdInputSchema = {
+  ...adsBaseInputSchema,
+  adSetId: z.string().describe('The ad set ID to pause or resume.'),
+};
+
 const cloneAdSetInputSchema = {
   ...adsBaseInputSchema,
   accountId: z.string().describe('Provider account id. Required to clone.'),
@@ -732,6 +737,11 @@ export function createMetaAdsMcpServer(options: CreateMetaAdsMcpServerOptions = 
       toolDefinition.name === 'ads_resume_ad'
     ) {
       inputSchema = adIdInputSchema;
+    } else if (
+      toolDefinition.name === 'ads_pause_adset' ||
+      toolDefinition.name === 'ads_resume_adset'
+    ) {
+      inputSchema = adSetIdInputSchema;
     } else if (toolDefinition.name === 'ads_clone_adset') {
       inputSchema = cloneAdSetInputSchema;
     } else if (toolDefinition.name === 'ads_update_adset') {

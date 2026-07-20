@@ -232,6 +232,8 @@ describe('ads MCP broker tools', () => {
       'ads_archive_ad',
       'ads_pause_ad',
       'ads_resume_ad',
+      'ads_pause_adset',
+      'ads_resume_adset',
       'ads_clone_adset',
       'ads_update_adset',
       'ads_get_targeting_options',

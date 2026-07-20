@@ -168,6 +168,76 @@ describe('MCP server builder', () => {
     );
   });
 
+  it('dispatches ads_list_adimages and ads_list_advideos to the broker (previously fell through to UNSUPPORTED_OPERATION)', async () => {
+    const adsBroker = {
+      ...createBrokerStub(),
+      listAdImages: vi.fn(async () => ({
+        ok: true,
+        provider: 'meta',
+        data: [{ hash: 'image-hash-1' }],
+      })),
+      listAdVideos: vi.fn(async () => ({ ok: true, provider: 'meta', data: [{ id: 'video-1' }] })),
+    } as unknown as AdsBroker;
+    const { client, server } = await createConnectedClient({
+      config: { adAccountId: 'act_123' },
+      adsBroker,
+    });
+
+    try {
+      const imagesResponse = await client.callTool({
+        name: 'ads_list_adimages',
+        arguments: { accountId: 'act_123' },
+      });
+      expect(imagesResponse.isError).not.toBe(true);
+      expect(adsBroker.listAdImages).toHaveBeenCalledTimes(1);
+
+      const videosResponse = await client.callTool({
+        name: 'ads_list_advideos',
+        arguments: { accountId: 'act_123' },
+      });
+      expect(videosResponse.isError).not.toBe(true);
+      expect(adsBroker.listAdVideos).toHaveBeenCalledTimes(1);
+    } finally {
+      await Promise.all([client.close(), server.close()]);
+    }
+  });
+
+  it('registers and dispatches ads_pause_adset/ads_resume_adset (previously named but never wired up)', async () => {
+    process.env.ADSTREAM_ENABLE_WRITES = 'true';
+    const adsBroker = {
+      ...createBrokerStub(),
+      pauseAdSet: vi.fn(async () => ({ ok: true, provider: 'meta', data: { success: true, id: 'adset_1' } })),
+      resumeAdSet: vi.fn(async () => ({ ok: true, provider: 'meta', data: { success: true, id: 'adset_1' } })),
+    } as unknown as AdsBroker;
+    const { client, server } = await createConnectedClient({
+      config: { adAccountId: 'act_123' },
+      adsBroker,
+    });
+
+    try {
+      const tools = await client.listTools();
+      const names = tools.tools.map((tool) => tool.name);
+      expect(names).toContain('ads_pause_adset');
+      expect(names).toContain('ads_resume_adset');
+
+      const pauseResponse = await client.callTool({
+        name: 'ads_pause_adset',
+        arguments: { accountId: 'act_123', adSetId: 'adset_1' },
+      });
+      expect(pauseResponse.isError).not.toBe(true);
+      expect(adsBroker.pauseAdSet).toHaveBeenCalledTimes(1);
+
+      const resumeResponse = await client.callTool({
+        name: 'ads_resume_adset',
+        arguments: { accountId: 'act_123', adSetId: 'adset_1' },
+      });
+      expect(resumeResponse.isError).not.toBe(true);
+      expect(adsBroker.resumeAdSet).toHaveBeenCalledTimes(1);
+    } finally {
+      await Promise.all([client.close(), server.close()]);
+    }
+  });
+
   it('documents objectStorySpec for Dynamic Creative payloads', async () => {
     process.env.ADSTREAM_ENABLE_WRITES = 'true';
     const response = await listRegisteredTools();

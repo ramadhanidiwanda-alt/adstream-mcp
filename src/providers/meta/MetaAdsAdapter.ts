@@ -50,6 +50,8 @@ import { createAd as createAdTool } from '../../tools/createAd.js';
 import { archiveAd as archiveAdTool } from '../../tools/archiveAd.js';
 import { pauseAd as pauseAdTool } from '../../tools/pauseAd.js';
 import { resumeAd as resumeAdTool } from '../../tools/resumeAd.js';
+import { pauseAdSet as pauseAdSetTool } from '../../tools/pauseAdSet.js';
+import { resumeAdSet as resumeAdSetTool } from '../../tools/resumeAdSet.js';
 import { cloneAdSet as cloneAdSetTool } from '../../tools/cloneAdSet.js';
 import { updateAdSet as updateAdSetTool } from '../../tools/updateAdSet.js';
 import { getTargetingOptions as getTargetingOptionsTool } from '../../tools/getTargetingOptions.js';
@@ -264,6 +266,8 @@ export interface MetaAdsAdapterTools {
   ): Promise<import('../../tools/archiveAd.js').ArchiveAdResult>;
   pauseAd(client: MetaClient, adId: string): Promise<MutationResult>;
   resumeAd(client: MetaClient, adId: string): Promise<MutationResult>;
+  pauseAdSet(client: MetaClient, adSetId: string): Promise<MutationResult>;
+  resumeAdSet(client: MetaClient, adSetId: string): Promise<MutationResult>;
   cloneAdSet(
     client: MetaClient,
     options: import('../../tools/cloneAdSet.js').CloneAdSetOptions,
@@ -361,6 +365,8 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       archiveAd: archiveAdTool,
       pauseAd: pauseAdTool,
       resumeAd: resumeAdTool,
+      pauseAdSet: pauseAdSetTool,
+      resumeAdSet: resumeAdSetTool,
       cloneAdSet: cloneAdSetTool,
       updateAdSet: updateAdSetTool,
       getTargetingOptions: getTargetingOptionsTool,
@@ -1392,8 +1398,19 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       }
     }
 
-    if (!pageId && creative?.creativeFormat !== 'existing_post') {
-      return validationResponse(new Error('pageId wajib diisi.'));
+    // For custom/Dynamic Creative payloads, page_id may already be nested
+    // inside objectStorySpec — don't demand it a second time at top level.
+    const objectStorySpecPageId =
+      isRecord(request.params.objectStorySpec) &&
+      typeof request.params.objectStorySpec.page_id === 'string'
+        ? request.params.objectStorySpec.page_id
+        : undefined;
+    const effectivePageId = pageId ?? objectStorySpecPageId;
+
+    if (!effectivePageId && creative?.creativeFormat !== 'existing_post') {
+      return validationResponse(
+        new Error('pageId wajib diisi (langsung, atau di dalam objectStorySpec.page_id).')
+      );
     }
 
     try {
@@ -1465,7 +1482,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
         {
           adAccountId,
           name,
-          pageId,
+          pageId: effectivePageId,
           mode,
           creative,
           collaborativeProductSetId,
@@ -1621,6 +1638,64 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
     try {
       const client = this.createClient(context.credential);
       const result = await this.tools.resumeAd(client, adId);
+      return { ok: true, provider: 'meta', data: this.toAdsMutationResult(result) };
+    } catch (error) {
+      return this.writeErrorResponse(error);
+    }
+  }
+
+  async pauseAdSet(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>> {
+    const context = this.getCredentialContext(request);
+    if (!context.ok) return context.response;
+
+    const adSetId =
+      typeof request.params.adSetId === 'string'
+        ? request.params.adSetId
+        : typeof request.params.adsetId === 'string'
+          ? request.params.adsetId
+          : undefined;
+    if (!adSetId) {
+      return {
+        ok: false,
+        provider: 'meta',
+        errors: [
+          { provider: 'meta', code: 'MISSING_ADSET_ID', message: 'adSetId is required in request.params' },
+        ],
+      };
+    }
+
+    try {
+      const client = this.createClient(context.credential);
+      const result = await this.tools.pauseAdSet(client, adSetId);
+      return { ok: true, provider: 'meta', data: this.toAdsMutationResult(result) };
+    } catch (error) {
+      return this.writeErrorResponse(error);
+    }
+  }
+
+  async resumeAdSet(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>> {
+    const context = this.getCredentialContext(request);
+    if (!context.ok) return context.response;
+
+    const adSetId =
+      typeof request.params.adSetId === 'string'
+        ? request.params.adSetId
+        : typeof request.params.adsetId === 'string'
+          ? request.params.adsetId
+          : undefined;
+    if (!adSetId) {
+      return {
+        ok: false,
+        provider: 'meta',
+        errors: [
+          { provider: 'meta', code: 'MISSING_ADSET_ID', message: 'adSetId is required in request.params' },
+        ],
+      };
+    }
+
+    try {
+      const client = this.createClient(context.credential);
+      const result = await this.tools.resumeAdSet(client, adSetId);
       return { ok: true, provider: 'meta', data: this.toAdsMutationResult(result) };
     } catch (error) {
       return this.writeErrorResponse(error);
