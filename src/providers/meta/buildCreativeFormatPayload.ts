@@ -227,7 +227,25 @@ function buildCarousel(
 function buildExistingPost(
   input: Extract<BuildMetaCreativeFormatPayloadInput, { creativeFormat: 'existing_post' }>
 ): Record<string, unknown> {
-  return { object_story_id: required(input.creativeSpec.objectStoryId, 'objectStoryId') };
+  const { creativeSpec } = input;
+  const payload: Record<string, unknown> = {
+    object_story_id: required(creativeSpec.objectStoryId, 'objectStoryId'),
+  };
+
+  if (!input.collaborativeAppSpec) return payload;
+
+  const destinationUrl = required(
+    creativeSpec.destinationUrl,
+    'destinationUrl untuk existing_post ber-omnichannel'
+  );
+  return {
+    ...payload,
+    ...buildOmnichannelLinkFields(
+      destinationUrl,
+      input.collaborativeAppSpec,
+      creativeSpec.applinkTreatment
+    ),
+  };
 }
 
 function buildCatalog(

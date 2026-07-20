@@ -434,6 +434,40 @@ describe('buildMetaCreativeFormatPayload', () => {
     ).toEqual({ object_story_id: 'page-1_post-1' });
   });
 
+  it('adds omnichannel_link_spec to an existing_post creative when collaborativeAppSpec and destinationUrl are given', () => {
+    const result = buildMetaCreativeFormatPayload({
+      mode: 'standard',
+      pageId: 'page-1',
+      collaborativeAppSpec: { applicationId: '957549474255294' },
+      creativeFormat: 'existing_post',
+      creativeSpec: {
+        objectStoryId: 'page-1_post-1',
+        destinationUrl: 'https://s.shopee.co.id/product',
+      },
+    });
+
+    expect(result).toMatchObject({
+      object_story_id: 'page-1_post-1',
+      omnichannel_link_spec: {
+        web: { url: 'https://s.shopee.co.id/product' },
+        app: { application_id: '957549474255294' },
+      },
+      applink_treatment: 'automatic',
+    });
+  });
+
+  it('requires destinationUrl for an existing_post creative when collaborativeAppSpec is given', () => {
+    expect(() =>
+      buildMetaCreativeFormatPayload({
+        mode: 'standard',
+        pageId: 'page-1',
+        collaborativeAppSpec: { applicationId: '957549474255294' },
+        creativeFormat: 'existing_post',
+        creativeSpec: { objectStoryId: 'page-1_post-1' },
+      })
+    ).toThrow(/destinationUrl.*wajib diisi/i);
+  });
+
   it('builds a catalog template with top-level product_set_id', () => {
     const result = buildMetaCreativeFormatPayload({
       mode: 'standard',
