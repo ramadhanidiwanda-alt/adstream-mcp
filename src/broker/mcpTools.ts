@@ -27,6 +27,7 @@ import { redactErrorMessage, redactTokenLikeValues } from './credentials.js';
 export const ADS_MCP_TOOL_NAMES = [
   'ads_list_accounts',
   'ads_list_campaigns',
+  'ads_check_launch_readiness',
   'ads_get_performance',
   'ads_get_creatives',
   'ads_get_change_history',
@@ -70,6 +71,9 @@ export const ADS_MCP_TOOL_NAMES = [
   'ads_list_pages',
   'ads_list_instagram_accounts',
   'ads_list_threads_profiles',
+  'ads_list_pixels',
+  'ads_list_catalogs',
+  'ads_list_product_sets',
   // --- WhatsApp Discovery ---
   'ads_list_whatsapp_accounts',
   'ads_list_whatsapp_phone_numbers',
@@ -181,6 +185,12 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
     name: 'ads_list_campaigns',
     description: 'List campaigns under an ad account through the AdsBroker',
     inputSchema: createAdsInputSchema([]),
+  },
+  {
+    name: 'ads_check_launch_readiness',
+    description:
+      'Non-coding launch checklist for Meta Ads. Given a plain-language workflow and known inputs, returns ready/missing status, next questions, warnings, and the recommended setup path before any write tools are used.',
+    inputSchema: createLaunchReadinessInputSchema(),
   },
   {
     name: 'ads_get_performance',
@@ -435,6 +445,24 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
     inputSchema: createAdsInputSchema([]),
   },
   {
+    name: 'ads_list_pixels',
+    description:
+      'List Meta Pixels connected to an ad account. Use before website sales, lead, or CPAS workflows when the user does not know their pixel ID. Calls GET /act_{id}/adspixels.',
+    inputSchema: createAdsInputSchema([]),
+  },
+  {
+    name: 'ads_list_catalogs',
+    description:
+      'List product catalogs owned by a Meta Business. Use before CPAS/catalog sales workflows when the user does not know the catalog ID. Requires businessId.',
+    inputSchema: createBusinessIdInputSchema(),
+  },
+  {
+    name: 'ads_list_product_sets',
+    description:
+      'List product sets inside a Meta product catalog. Use before CPAS/catalog sales workflows when the user does not know the productSetId. Requires catalogId.',
+    inputSchema: createCatalogIdInputSchema(),
+  },
+  {
     name: 'ads_list_whatsapp_accounts',
     description:
       'Discover WhatsApp Business Accounts (WABA) — both owned and client-shared. Calls GET /{businessId}/owned_whatsapp_business_accounts and /{businessId}/client_whatsapp_business_accounts.',
@@ -643,6 +671,11 @@ function callBrokerMethod(
       return broker.listAccounts(request);
     case 'ads_list_campaigns':
       return broker.listCampaigns(request);
+    case 'ads_check_launch_readiness':
+      return broker.checkLaunchReadiness({
+        ...request,
+        params: { ...request.params, writesEnabled: areAdsWriteToolsEnabled() },
+      });
     case 'ads_get_performance':
       return callCanonicalPerformanceTool(broker, request);
     case 'ads_get_creatives':
@@ -722,6 +755,12 @@ function callBrokerMethod(
       return broker.listInstagramAccounts(request);
     case 'ads_list_threads_profiles':
       return broker.listThreadsProfiles(request);
+    case 'ads_list_pixels':
+      return broker.listPixels(request);
+    case 'ads_list_catalogs':
+      return broker.listCatalogs(request);
+    case 'ads_list_product_sets':
+      return broker.listProductSets(request);
     case 'ads_list_whatsapp_accounts':
       return broker.listWhatsAppAccounts(request);
     case 'ads_list_whatsapp_phone_numbers':
@@ -2129,6 +2168,78 @@ function createAdsInputSchema(required: string[]) {
       },
     },
     required,
+  };
+}
+
+function createLaunchReadinessInputSchema() {
+  const schema = createAdsInputSchema([]);
+  return {
+    type: 'object',
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      workflow: {
+        type: 'string',
+        enum: [
+          'whatsapp_sales',
+          'website_sales',
+          'lead_generation',
+          'cpas_catalog_sales',
+          'creative_testing',
+          'existing_post',
+        ],
+        description: 'Plain-language launch preset. Defaults to website_sales when omitted.',
+      },
+      productOrOffer: { type: 'string', description: 'Product or offer being promoted.' },
+      pageId: { type: 'string', description: 'Meta Page ID.' },
+      pixelId: { type: 'string', description: 'Meta Pixel ID for conversion workflows.' },
+      destinationUrl: { type: 'string', description: 'Website, marketplace, or WhatsApp URL.' },
+      dailyBudget: { type: 'number', description: 'Daily budget in account minor units.' },
+      countries: { type: 'array', items: { type: 'string' }, description: 'Target countries.' },
+      primaryText: { type: 'string', description: 'Primary ad text.' },
+      headline: { type: 'string', description: 'Ad headline.' },
+      imageHash: { type: 'string', description: 'Existing Meta image hash.' },
+      videoId: { type: 'string', description: 'Existing Meta video ID.' },
+      imageFilePath: { type: 'string', description: 'Local image path for upload.' },
+      videoFilePath: { type: 'string', description: 'Local video path for upload.' },
+      creativeId: { type: 'string', description: 'Existing creative ID.' },
+      existingPostId: { type: 'string', description: 'Existing object_story_id/post ID.' },
+      whatsappPhoneNumberId: { type: 'string', description: 'WhatsApp phone number ID.' },
+      businessId: { type: 'string', description: 'Meta Business ID for catalog discovery.' },
+      catalogId: { type: 'string', description: 'Meta product catalog ID.' },
+      productSetId: { type: 'string', description: 'Meta product set ID.' },
+      specialAdCategories: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'Special ad categories, or [] after confirming none apply.',
+      },
+    },
+    required: ['accountId'],
+  };
+}
+
+function createBusinessIdInputSchema() {
+  const schema = createAdsInputSchema([]);
+  return {
+    type: 'object',
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      businessId: { type: 'string', description: 'Meta Business ID.' },
+      limit: { type: 'number', description: 'Maximum rows to return.' },
+    },
+    required: ['businessId'],
+  };
+}
+
+function createCatalogIdInputSchema() {
+  const schema = createAdsInputSchema([]);
+  return {
+    type: 'object',
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      catalogId: { type: 'string', description: 'Meta Product Catalog ID.' },
+      limit: { type: 'number', description: 'Maximum rows to return.' },
+    },
+    required: ['catalogId'],
   };
 }
 

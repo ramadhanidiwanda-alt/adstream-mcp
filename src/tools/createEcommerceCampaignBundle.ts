@@ -58,6 +58,15 @@ export interface EcommerceCampaignBundleResult {
   operation: 'create_ecommerce_campaign_bundle';
   status: EcommerceLaunchStatus;
   executed: boolean;
+  summary: {
+    goal: string;
+    budget: string;
+    destination: string;
+    audience: string;
+    creative: string;
+    statusAfterCreate: string;
+    needsReview: boolean;
+  };
   preview: EcommerceCampaignBundlePreview;
   ids?: {
     campaignId?: string;
@@ -94,15 +103,20 @@ export async function createEcommerceCampaignBundle(
     operation: 'create_ecommerce_campaign_bundle',
     status: 'dry_run',
     executed: false,
+    summary: buildHumanSummary(payload),
     preview,
     warnings: [
       'All entities are created as PAUSED by default; review in Meta Ads Manager before publishing.',
       'This ecommerce MVP optimizes for the PURCHASE pixel event using OUTCOME_SALES.',
       ...(payload.imageFilePath?.trim()
-        ? [`Will upload image file: ${payload.imageFilePath.trim().split('/').pop() || payload.imageFilePath.trim()}`]
+        ? [
+            `Will upload image file: ${payload.imageFilePath.trim().split('/').pop() || payload.imageFilePath.trim()}`,
+          ]
         : []),
       ...(payload.videoFilePath?.trim()
-        ? [`Will upload video file: ${payload.videoFilePath.trim().split('/').pop() || payload.videoFilePath.trim()}`]
+        ? [
+            `Will upload video file: ${payload.videoFilePath.trim().split('/').pop() || payload.videoFilePath.trim()}`,
+          ]
         : []),
     ],
   };
@@ -127,15 +141,19 @@ export async function createEcommerceCampaignBundle(
 
   try {
     // Step 1: Create campaign (PAUSED, OUTCOME_SALES)
-    const campaignResult = await createCampaign(client, {
-      adAccountId: payload.adAccountId,
-      name: payload.campaignName.trim(),
-      objective: 'OUTCOME_SALES',
-      status: 'PAUSED',
-      specialAdCategories: payload.specialAdCategories,
-      dailyBudget: payload.dailyBudget,
-      bidStrategy: payload.bidStrategy,
-    }, { dryRun: false, confirmed: true, maxRetries });
+    const campaignResult = await createCampaign(
+      client,
+      {
+        adAccountId: payload.adAccountId,
+        name: payload.campaignName.trim(),
+        objective: 'OUTCOME_SALES',
+        status: 'PAUSED',
+        specialAdCategories: payload.specialAdCategories,
+        dailyBudget: payload.dailyBudget,
+        bidStrategy: payload.bidStrategy,
+      },
+      { dryRun: false, confirmed: true, maxRetries }
+    );
 
     if (campaignResult.status === 'failed' || !campaignResult.id) {
       return failedResult(`Campaign creation failed: ${campaignResult.error}`);
@@ -144,25 +162,29 @@ export async function createEcommerceCampaignBundle(
     ids.campaignId = campaignId;
 
     // Step 2: Create ad set
-    const adSetResult = await createAdSet(client, {
-      adAccountId: payload.adAccountId,
-      campaignId,
-      name: payload.adSetName.trim(),
-      status: 'PAUSED',
-      billingEvent: payload.billingEvent ?? 'IMPRESSIONS',
-      optimizationGoal: payload.optimizationGoal ?? 'OFFSITE_CONVERSIONS',
-      bidStrategy: payload.bidStrategy ?? 'LOWEST_COST_WITHOUT_CAP',
-      targeting: {
-        geoLocations: { countries: payload.countries },
-        ageMin: payload.ageMin ?? 18,
-        ...(payload.ageMax ? { ageMax: payload.ageMax } : {}),
-        ...(payload.publisherPlatforms ? { publisherPlatforms: payload.publisherPlatforms } : {}),
+    const adSetResult = await createAdSet(
+      client,
+      {
+        adAccountId: payload.adAccountId,
+        campaignId,
+        name: payload.adSetName.trim(),
+        status: 'PAUSED',
+        billingEvent: payload.billingEvent ?? 'IMPRESSIONS',
+        optimizationGoal: payload.optimizationGoal ?? 'OFFSITE_CONVERSIONS',
+        bidStrategy: payload.bidStrategy ?? 'LOWEST_COST_WITHOUT_CAP',
+        targeting: {
+          geoLocations: { countries: payload.countries },
+          ageMin: payload.ageMin ?? 18,
+          ...(payload.ageMax ? { ageMax: payload.ageMax } : {}),
+          ...(payload.publisherPlatforms ? { publisherPlatforms: payload.publisherPlatforms } : {}),
+        },
+        promotedObject: {
+          pixel_id: payload.pixelId.trim(),
+          custom_event_type: payload.customEventType ?? 'PURCHASE',
+        },
       },
-      promotedObject: {
-        pixel_id: payload.pixelId.trim(),
-        custom_event_type: payload.customEventType ?? 'PURCHASE',
-      },
-    }, { dryRun: false, confirmed: true, maxRetries });
+      { dryRun: false, confirmed: true, maxRetries }
+    );
 
     if (adSetResult.status === 'failed' || !adSetResult.id) {
       return failedResult(`Ad set creation failed: ${adSetResult.error}`);
@@ -194,24 +216,28 @@ export async function createEcommerceCampaignBundle(
     }
 
     // Step 4: Create creative
-    const creativeResult = await createAdCreative(client, {
-      adAccountId: payload.adAccountId,
-      name: `${payload.adName.trim()} Creative`,
-      pageId: payload.pageId.trim(),
-      linkData: {
-        link: payload.destinationUrl.trim(),
-        message: payload.primaryText.trim(),
-        name: payload.headline.trim(),
-        description: payload.description?.trim(),
-        imageHash,
-        callToAction: {
-          type: payload.callToActionType ?? 'SHOP_NOW',
-          value: { link: payload.destinationUrl.trim() },
+    const creativeResult = await createAdCreative(
+      client,
+      {
+        adAccountId: payload.adAccountId,
+        name: `${payload.adName.trim()} Creative`,
+        pageId: payload.pageId.trim(),
+        linkData: {
+          link: payload.destinationUrl.trim(),
+          message: payload.primaryText.trim(),
+          name: payload.headline.trim(),
+          description: payload.description?.trim(),
+          imageHash,
+          callToAction: {
+            type: payload.callToActionType ?? 'SHOP_NOW',
+            value: { link: payload.destinationUrl.trim() },
+          },
         },
+        instagramUserId: payload.instagramUserId?.trim(),
+        threadsProfileId: payload.threadsProfileId?.trim(),
       },
-      instagramUserId: payload.instagramUserId?.trim(),
-      threadsProfileId: payload.threadsProfileId?.trim(),
-    }, { dryRun: false, confirmed: true, maxRetries });
+      { dryRun: false, confirmed: true, maxRetries }
+    );
 
     if (creativeResult.status === 'failed' || !creativeResult.id) {
       return failedResult(`Creative creation failed: ${creativeResult.error}`);
@@ -220,13 +246,17 @@ export async function createEcommerceCampaignBundle(
     ids.creativeId = creativeId;
 
     // Step 5: Create ad
-    const adResult = await createAd(client, {
-      adAccountId: payload.adAccountId,
-      name: payload.adName.trim(),
-      adSetId,
-      creativeId,
-      status: 'PAUSED',
-    }, { dryRun: false, confirmed: true, maxRetries });
+    const adResult = await createAd(
+      client,
+      {
+        adAccountId: payload.adAccountId,
+        name: payload.adName.trim(),
+        adSetId,
+        creativeId,
+        status: 'PAUSED',
+      },
+      { dryRun: false, confirmed: true, maxRetries }
+    );
 
     if (adResult.status === 'failed' || !adResult.id) {
       return failedResult(`Ad creation failed: ${adResult.error}`);
@@ -249,6 +279,31 @@ export async function createEcommerceCampaignBundle(
   } catch (error) {
     return failedResult(error);
   }
+}
+
+function buildHumanSummary(
+  payload: EcommerceCampaignBundlePayload
+): NonNullable<EcommerceCampaignBundleResult['summary']> {
+  const currency = payload.currency?.trim() || 'account currency';
+  const creative = payload.imageFilePath?.trim()
+    ? `Image file: ${payload.imageFilePath.trim().split('/').pop() || payload.imageFilePath.trim()}`
+    : payload.videoFilePath?.trim()
+      ? `Video file: ${payload.videoFilePath.trim().split('/').pop() || payload.videoFilePath.trim()}`
+      : payload.imageHash?.trim()
+        ? 'Existing Meta image hash'
+        : payload.videoId?.trim()
+          ? 'Existing Meta video'
+          : 'Creative asset belum dipilih';
+
+  return {
+    goal: 'Sales ke website',
+    budget: `${currency} ${payload.dailyBudget}/hari`,
+    destination: payload.destinationUrl.trim(),
+    audience: payload.countries.join(', '),
+    creative,
+    statusAfterCreate: 'PAUSED',
+    needsReview: true,
+  };
 }
 
 function buildPreview(payload: EcommerceCampaignBundlePayload): EcommerceCampaignBundlePreview {
@@ -341,8 +396,15 @@ function validatePayload(payload: EcommerceCampaignBundlePayload): void {
     throw new Error('countries must include at least one ISO country code');
   }
 
-  if (!payload.imageHash?.trim() && !payload.videoId?.trim() && !payload.imageFilePath?.trim() && !payload.videoFilePath?.trim()) {
-    throw new Error('imageHash, videoId, imageFilePath, or videoFilePath is required for the launch creative');
+  if (
+    !payload.imageHash?.trim() &&
+    !payload.videoId?.trim() &&
+    !payload.imageFilePath?.trim() &&
+    !payload.videoFilePath?.trim()
+  ) {
+    throw new Error(
+      'imageHash, videoId, imageFilePath, or videoFilePath is required for the launch creative'
+    );
   }
 
   try {

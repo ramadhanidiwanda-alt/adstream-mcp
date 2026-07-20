@@ -1,7 +1,7 @@
 ---
 name: meta-ads-launch
 description: Safely draft and launch Meta Ads ecommerce sales campaigns. Use when the user wants to create, set up, launch, or build a Meta/Facebook/Instagram sales campaign end-to-end.
-argument-hint: "<product/offer and ecommerce launch goal>"
+argument-hint: '<product/offer and ecommerce launch goal>'
 ---
 
 # Meta Ads — Safe Ecommerce Launch
@@ -21,6 +21,38 @@ Follow `../shared/preamble.md` first for MCP detection, config resolution, accou
 - If the offer may fall under credit, employment, housing, social issues, elections, or politics, require the correct `specialAdCategories` instead of defaulting to `[]`.
 - Never expose access tokens, provider tokens, connection keys, or authorization headers.
 
+## Non-Coding User Flow
+
+Treat the MCP tools as the machine layer and this skill as the media-buyer assistant layer. Do not expose API field names unless the user asks.
+
+1. Understand the user's business goal in plain language.
+2. Pick a launch preset:
+   - `whatsapp_sales` — "jualan/chat ke WhatsApp"
+   - `website_sales` — "jualan ke website/landing page"
+   - `lead_generation` — "cari leads/pendaftaran"
+   - `cpas_catalog_sales` — "CPAS/catalog/product set"
+   - `creative_testing` — "test banyak gambar/copy/placement"
+   - `existing_post` — "boost postingan existing"
+3. Call `ads_check_launch_readiness` with the known inputs.
+4. Ask only the missing questions returned by readiness, one at a time, in user-friendly wording.
+5. Use discovery tools when the user does not know technical IDs:
+   - Page: `ads_list_pages`
+   - Pixel: `ads_list_pixels`
+   - WhatsApp: `ads_list_whatsapp_accounts`, then `ads_list_whatsapp_phone_numbers`
+   - CPAS: `ads_list_catalogs`, then `ads_list_product_sets`
+   - Existing media: `ads_list_adimages`, `ads_list_advideos`
+6. Run dry-run preview.
+7. Explain the preview in human language before showing any raw payload:
+   - Goal
+   - Budget
+   - Destination
+   - Audience/country
+   - Creative assets
+   - Status after create (`PAUSED`)
+   - Any missing/risks/warnings
+8. Execute only after explicit confirmation.
+9. Do not activate campaign/ad set/ad without a second explicit approval.
+
 ## Required Inputs
 
 Ask one question at a time until all required fields are known:
@@ -37,12 +69,19 @@ Ask one question at a time until all required fields are known:
 8. Primary text and headline
 9. Special ad category applicability
 
+Additional CPAS/catalog inputs:
+
+10. Business ID
+11. Catalog ID
+12. Product set ID
+13. Collaborative pixel/app context when required by the retailer setup
+
 ## Launch Modes
 
-| Mode | Allowed behavior |
-|------|------------------|
-| `draft_only` | Prepare structure and copy, no tool call |
-| `dry_run_launch` | Call individual create tools with `dryRun: true` or use `ads_create_ecommerce_campaign_bundle` with `dryRun: true` |
+| Mode                         | Allowed behavior                                                                                                        |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `draft_only`                 | Prepare structure and copy, no tool call                                                                                |
+| `dry_run_launch`             | Call individual create tools with `dryRun: true` or use `ads_create_ecommerce_campaign_bundle` with `dryRun: true`      |
 | `execute_after_confirmation` | Execute the confirmed tools with `dryRun: false` and `confirmed: true` only after the user approves the dry-run preview |
 
 ## Launch Paths
@@ -57,7 +96,7 @@ Use `ads_create_ecommerce_campaign_bundle` when the user has all inputs ready. T
 
 ### Path B — Individual Tools (For Custom Setups)
 
-When you need fine-grained control (e.g., reuse an existing creative, use a specific ad set):
+When you need fine-grained control (e.g., reuse an existing creative, use a specific ad set, CPAS/catalog, Dynamic Creative, placement-specific assets):
 
 1. `ads_create_campaign` — create campaign (PAUSED)
 2. `ads_create_adset` — create ad set under the campaign (PAUSED). Pre-flight checks will validate CBO/bid strategy against the campaign.
@@ -66,6 +105,21 @@ When you need fine-grained control (e.g., reuse an existing creative, use a spec
 5. `ads_create_ad` — link ad set and creative
 6. Show summary of all created entities
 7. User can later activate by setting status to ACTIVE via update tools
+
+### Path C — CPAS / Collaborative Ads
+
+Use this when the user asks for CPAS, catalog sales, retailer catalog, product set, Shopee/Tokopedia-style collaborative catalog, or shared catalog ads.
+
+1. Run `ads_check_launch_readiness` with `workflow: "cpas_catalog_sales"`.
+2. If the user does not know IDs:
+   - Ask for/select `businessId`, then call `ads_list_catalogs`.
+   - Ask for/select `catalogId`, then call `ads_list_product_sets`.
+   - Ask for/select `pixelId`, using `ads_list_pixels` if needed.
+3. Create campaign/ad set/creative/ad with `mode: "collaborative_ads"`.
+4. Pass `collaborativeCatalog.productSetId` at ad set level.
+5. Pass `collaborativeProductSetId` at creative level.
+6. Use only supported collaborative creative formats: `single_image`, `video`, `carousel`, `catalog`, or `collection`.
+7. Explain that catalog sharing/product-set access must already exist in Meta; the connector cannot create the retailer partnership.
 
 **Pre-flight reminder:** When creating an ad set, the tool will automatically check the parent campaign's bid strategy. If the campaign uses `COST_CAP` or `LOWEST_COST_WITH_BID_CAP`, you must provide `bidAmount` (in cents). Example: `bidAmount: 500000` for Rp5.000.
 
@@ -103,6 +157,7 @@ Use `ads_upload_image` or `ads_upload_video`:
 ```
 
 Supported formats:
+
 - Images: `.jpg`, `.jpeg`, `.png` (max 30 MB)
 - Videos: `.mp4`, `.mov`, `.avi`, `.wmv` (max 1 GB)
 
@@ -115,5 +170,6 @@ Instead of uploading separately, you can pass `imageFilePath` or `videoFilePath`
 After execution, confirm the `image_hash` or `video_id` was returned and the campaign bundle was created with PAUSED status.
 
 **Local vs Remote MCP:**
+
 - **Local (stdio):** File path refers to the machine running the MCP server (your laptop).
 - **Remote (HTTP/SSE):** File path refers to the server machine. Place files in `/data/uploads/` directory (mounted volume).

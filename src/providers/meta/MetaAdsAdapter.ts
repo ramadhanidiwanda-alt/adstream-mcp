@@ -80,6 +80,10 @@ import { getAdPreview } from '../../tools/getAdPreview.js';
 import { listPages as listPagesTool } from '../../tools/listPages.js';
 import { listInstagramAccounts as listInstagramAccountsTool } from '../../tools/listInstagramAccounts.js';
 import { listThreadsProfiles as listThreadsProfilesTool } from '../../tools/listThreadsProfiles.js';
+import { checkLaunchReadiness as checkLaunchReadinessTool } from '../../tools/checkLaunchReadiness.js';
+import { listPixels as listPixelsTool } from '../../tools/listPixels.js';
+import { listCatalogs as listCatalogsTool } from '../../tools/listCatalogs.js';
+import { listProductSets as listProductSetsTool } from '../../tools/listProductSets.js';
 import { listWhatsAppAccounts as listWhatsAppAccountsTool } from '../../tools/listWhatsAppAccounts.js';
 import { listWhatsAppPhoneNumbers as listWhatsAppPhoneNumbersTool } from '../../tools/listWhatsAppPhoneNumbers.js';
 import { listWhatsAppMessageTemplates as listWhatsAppMessageTemplatesTool } from '../../tools/listWhatsAppMessageTemplates.js';
@@ -104,12 +108,16 @@ import type {
   AdVideoResult,
   AdPreviewResult,
   MetaPageResult,
+  MetaPixelResult,
+  MetaCatalogResult,
+  MetaProductSetResult,
   InstagramAccountResult,
   ThreadsProfileResult,
   WhatsAppAccountResult,
   WhatsAppPhoneNumberResult,
   WhatsAppTemplateResult,
 } from '../../broker/types.js';
+import type { LaunchReadinessResult } from '../../tools/checkLaunchReadiness.js';
 import { ADS_PROVIDER_CAPABILITY_MATRIX } from '../../broker/types.js';
 import { redactErrorMessage } from '../../broker/credentials.js';
 import { assertLocationBreakdowns } from '../../utils/locationBreakdowns.js';
@@ -314,6 +322,18 @@ export interface MetaAdsAdapterTools {
     client: MetaClient,
     options?: { limit?: number }
   ): Promise<import('../../tools/listPages.js').MetaPageResult[]>;
+  listPixels(
+    client: MetaClient,
+    options: { adAccountId: string; limit?: number }
+  ): Promise<MetaPixelResult[]>;
+  listCatalogs(
+    client: MetaClient,
+    options: { businessId: string; limit?: number }
+  ): Promise<MetaCatalogResult[]>;
+  listProductSets(
+    client: MetaClient,
+    options: { catalogId: string; limit?: number }
+  ): Promise<MetaProductSetResult[]>;
   listInstagramAccounts(
     client: MetaClient,
     options?: { limit?: number }
@@ -381,6 +401,9 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       listAdImages,
       listAdVideos,
       getAdPreview,
+      listPixels: listPixelsTool,
+      listCatalogs: listCatalogsTool,
+      listProductSets: listProductSetsTool,
       listPages: listPagesTool,
       listInstagramAccounts: listInstagramAccountsTool,
       listThreadsProfiles: listThreadsProfilesTool,
@@ -2543,6 +2566,127 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
     }
   }
 
+  async checkLaunchReadiness(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<LaunchReadinessResult>> {
+    try {
+      const result = checkLaunchReadinessTool({
+        workflow: optionalPlainString(request.params.workflow),
+        productOrOffer: optionalPlainString(request.params.productOrOffer),
+        pageId: optionalPlainString(request.params.pageId),
+        pixelId: optionalPlainString(request.params.pixelId),
+        destinationUrl: optionalPlainString(request.params.destinationUrl),
+        dailyBudget:
+          typeof request.params.dailyBudget === 'number' ? request.params.dailyBudget : undefined,
+        countries: Array.isArray(request.params.countries)
+          ? request.params.countries.filter((item): item is string => typeof item === 'string')
+          : undefined,
+        primaryText: optionalPlainString(request.params.primaryText),
+        headline: optionalPlainString(request.params.headline),
+        imageHash: optionalPlainString(request.params.imageHash),
+        videoId: optionalPlainString(request.params.videoId),
+        imageFilePath: optionalPlainString(request.params.imageFilePath),
+        videoFilePath: optionalPlainString(request.params.videoFilePath),
+        creativeId: optionalPlainString(request.params.creativeId),
+        existingPostId: optionalPlainString(request.params.existingPostId),
+        whatsappPhoneNumberId: optionalPlainString(request.params.whatsappPhoneNumberId),
+        productSetId: optionalPlainString(request.params.productSetId),
+        catalogId: optionalPlainString(request.params.catalogId),
+        businessId: optionalPlainString(request.params.businessId),
+        specialAdCategories: Array.isArray(request.params.specialAdCategories)
+          ? request.params.specialAdCategories.filter(
+              (item): item is string => typeof item === 'string'
+            )
+          : undefined,
+        writesEnabled: request.params.writesEnabled === true,
+      });
+      return { ok: true, provider: 'meta', data: result };
+    } catch (error) {
+      return this.errorResponse(error);
+    }
+  }
+
+  async listPixels(request: AdsBrokerRequest): Promise<AdsBrokerResponse<MetaPixelResult[]>> {
+    const context = this.getCredentialContext(request);
+    if (!context.ok) return context.response;
+
+    const adAccountId = request.accountId ?? context.credential.accountId;
+    if (!adAccountId) {
+      return {
+        ok: false,
+        provider: 'meta',
+        errors: [
+          {
+            provider: 'meta',
+            code: 'MISSING_ACCOUNT_ID',
+            message: 'Meta account ID is required to list pixels',
+          },
+        ],
+      };
+    }
+
+    try {
+      const client = this.createClient(context.credential);
+      const limit = typeof request.params.limit === 'number' ? request.params.limit : undefined;
+      const pixels = await this.tools.listPixels(client, { adAccountId, limit });
+      return { ok: true, provider: 'meta', data: pixels };
+    } catch (error) {
+      return this.errorResponse(error);
+    }
+  }
+
+  async listCatalogs(request: AdsBrokerRequest): Promise<AdsBrokerResponse<MetaCatalogResult[]>> {
+    const context = this.getCredentialContext(request);
+    if (!context.ok) return context.response;
+
+    const businessId = optionalPlainString(request.params.businessId);
+    if (!businessId) {
+      return {
+        ok: false,
+        provider: 'meta',
+        errors: [
+          { provider: 'meta', code: 'MISSING_BUSINESS_ID', message: 'businessId is required' },
+        ],
+      };
+    }
+
+    try {
+      const client = this.createClient(context.credential);
+      const limit = typeof request.params.limit === 'number' ? request.params.limit : undefined;
+      const catalogs = await this.tools.listCatalogs(client, { businessId, limit });
+      return { ok: true, provider: 'meta', data: catalogs };
+    } catch (error) {
+      return this.errorResponse(error);
+    }
+  }
+
+  async listProductSets(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<MetaProductSetResult[]>> {
+    const context = this.getCredentialContext(request);
+    if (!context.ok) return context.response;
+
+    const catalogId = optionalPlainString(request.params.catalogId);
+    if (!catalogId) {
+      return {
+        ok: false,
+        provider: 'meta',
+        errors: [
+          { provider: 'meta', code: 'MISSING_CATALOG_ID', message: 'catalogId is required' },
+        ],
+      };
+    }
+
+    try {
+      const client = this.createClient(context.credential);
+      const limit = typeof request.params.limit === 'number' ? request.params.limit : undefined;
+      const productSets = await this.tools.listProductSets(client, { catalogId, limit });
+      return { ok: true, provider: 'meta', data: productSets };
+    } catch (error) {
+      return this.errorResponse(error);
+    }
+  }
+
   async listInstagramAccounts(
     request: AdsBrokerRequest
   ): Promise<AdsBrokerResponse<InstagramAccountResult[]>> {
@@ -3126,6 +3270,10 @@ function requireString(value: unknown, path: string): string {
 function optionalString(value: unknown, path: string): string | undefined {
   if (value === undefined) return undefined;
   return requireString(value, path);
+}
+
+function optionalPlainString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined;
 }
 
 function requireStringArray(value: unknown, path: string): string[] {

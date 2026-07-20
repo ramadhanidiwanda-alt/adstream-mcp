@@ -1,4 +1,5 @@
 import type { MetaAdsMode, StructuredMutationError } from '../types.js';
+import type { LaunchReadinessResult } from '../tools/checkLaunchReadiness.js';
 
 export const ADS_PROVIDER_IDS = ['meta', 'tiktok', 'google'] as const;
 export type AdsProviderId = (typeof ADS_PROVIDER_IDS)[number];
@@ -618,6 +619,15 @@ export interface EcommerceCampaignBundleResult {
   operation: 'create_ecommerce_campaign_bundle';
   status: 'dry_run' | 'pending_confirmation' | 'executed' | 'failed';
   executed: boolean;
+  summary?: {
+    goal: string;
+    budget: string;
+    destination: string;
+    audience: string;
+    creative: string;
+    statusAfterCreate: string;
+    needsReview: boolean;
+  };
   preview: {
     campaign: Record<string, unknown>;
     adSet: Record<string, unknown>;
@@ -932,6 +942,26 @@ export interface MetaPageResult {
   can_advertise?: boolean;
 }
 
+export interface MetaPixelResult {
+  id: string;
+  name?: string;
+  last_fired_time?: string;
+}
+
+export interface MetaCatalogResult {
+  id: string;
+  name?: string;
+  product_count?: number;
+  vertical?: string;
+}
+
+export interface MetaProductSetResult {
+  id: string;
+  name?: string;
+  product_count?: number;
+  catalog_id?: string;
+}
+
 export interface InstagramAccountResult {
   igId: string;
   username: string;
@@ -1033,6 +1063,12 @@ export interface AdsProviderAdapter {
   listAdImages(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdImageResult[]>>;
   listAdVideos(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdVideoResult[]>>;
   getAdPreview(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdPreviewResult[]>>;
+  checkLaunchReadiness?(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<LaunchReadinessResult>>;
+  listPixels?(request: AdsBrokerRequest): Promise<AdsBrokerResponse<MetaPixelResult[]>>;
+  listCatalogs?(request: AdsBrokerRequest): Promise<AdsBrokerResponse<MetaCatalogResult[]>>;
+  listProductSets?(request: AdsBrokerRequest): Promise<AdsBrokerResponse<MetaProductSetResult[]>>;
   listPages?(request: AdsBrokerRequest): Promise<AdsBrokerResponse<MetaPageResult[]>>;
   listInstagramAccounts?(
     request: AdsBrokerRequest

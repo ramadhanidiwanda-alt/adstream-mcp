@@ -108,6 +108,16 @@ export { listAdVideos } from './tools/listAdVideos.js';
 export type { ListAdVideosOptions } from './tools/listAdVideos.js';
 export { getAdPreview } from './tools/getAdPreview.js';
 export type { GetAdPreviewOptions, AdPreviewFormat } from './tools/getAdPreview.js';
+export { checkLaunchReadiness } from './tools/checkLaunchReadiness.js';
+export type * from './tools/checkLaunchReadiness.js';
+export { getLaunchPreset, inferLaunchWorkflow } from './tools/launchPresets.js';
+export type * from './tools/launchPresets.js';
+export { listPixels } from './tools/listPixels.js';
+export type { ListPixelsOptions } from './tools/listPixels.js';
+export { listCatalogs } from './tools/listCatalogs.js';
+export type { ListCatalogsOptions } from './tools/listCatalogs.js';
+export { listProductSets } from './tools/listProductSets.js';
+export type { ListProductSetsOptions } from './tools/listProductSets.js';
 export { listPages } from './tools/listPages.js';
 export type { MetaPageResult } from './tools/listPages.js';
 export { listInstagramAccounts } from './tools/listInstagramAccounts.js';
@@ -209,13 +219,6 @@ export { buildMetaCreativeFormatPayload } from './providers/meta/buildCreativeFo
 export type { BuildMetaCreativeFormatPayloadInput } from './providers/meta/buildCreativeFormatPayload.js';
 export type * from './broker/types.js';
 export {
-  VideoSourceResult,
-  AdCreativeMappingResult,
-  AdDestinationResult,
-  AdCreativeFullResult,
-  AdImageResult,
-  AdVideoResult,
-  AdPreviewResult,
   ADS_PROVIDER_IDS,
   ADS_ENTITY_LEVELS,
   ADS_FILTER_OPERATORS,

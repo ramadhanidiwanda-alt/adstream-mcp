@@ -61,17 +61,27 @@ describe('createEcommerceCampaignBundle', () => {
     });
     expect(result.preview.adSet.daily_budget).toBeUndefined();
     expect(result.preview.ad).toMatchObject({ name: payload.adName, status: 'PAUSED' });
+    expect(result.summary).toMatchObject({
+      goal: 'Sales ke website',
+      budget: 'IDR 150000/hari',
+      destination: 'https://example.com/products/hero',
+      statusAfterCreate: 'PAUSED',
+      needsReview: true,
+    });
   });
-
 
   it('includes Instagram and Threads identities in creative preview', async () => {
     const client = createMockClient();
 
-    const result = await createEcommerceCampaignBundle(client, {
-      ...payload,
-      instagramUserId: 'ig_123',
-      threadsProfileId: 'threads_456',
-    }, { dryRun: true });
+    const result = await createEcommerceCampaignBundle(
+      client,
+      {
+        ...payload,
+        instagramUserId: 'ig_123',
+        threadsProfileId: 'threads_456',
+      },
+      { dryRun: true }
+    );
 
     expect(result.preview.creative.object_story_spec).toMatchObject({
       page_id: payload.pageId,
@@ -142,8 +152,7 @@ describe('createEcommerceCampaignBundle', () => {
 
   it('redacts credentials and signed URLs from generic bundle errors', async () => {
     const credentialFixture = 'final_review_bundle_credential_123456789';
-    const signedUrl =
-      `https://cdn.example.test/private/bundle.mp4?X-Amz-Signature=${credentialFixture}&expires=60`;
+    const signedUrl = `https://cdn.example.test/private/bundle.mp4?X-Amz-Signature=${credentialFixture}&expires=60`;
     const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'adstream-bundle-redaction-'));
     const videoFilePath = path.join(tempDir, 'creative.mp4');
     fs.writeFileSync(videoFilePath, 'video-fixture');
@@ -154,11 +163,11 @@ describe('createEcommerceCampaignBundle', () => {
       mockPost
         .mockResolvedValueOnce({ id: 'cmp_redaction' })
         .mockResolvedValueOnce({ id: 'adset_redaction' });
-      client.metaUploadMultipart = vi.fn().mockRejectedValueOnce(
-        new Error(
-          `Bundle provider failed: access_token=${credentialFixture}; asset=${signedUrl}`
-        )
-      ) as MetaClient['metaUploadMultipart'];
+      client.metaUploadMultipart = vi
+        .fn()
+        .mockRejectedValueOnce(
+          new Error(`Bundle provider failed: access_token=${credentialFixture}; asset=${signedUrl}`)
+        ) as MetaClient['metaUploadMultipart'];
 
       const result = await createEcommerceCampaignBundle(
         client,

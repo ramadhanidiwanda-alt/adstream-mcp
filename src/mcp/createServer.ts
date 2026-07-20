@@ -131,6 +131,56 @@ const adsCreativeInputSchema = {
   until: z.string().optional().describe('Optional end date in YYYY-MM-DD format.'),
 };
 
+const launchReadinessInputSchema = {
+  ...adsBaseInputSchema,
+  accountId: z.string().describe('Provider account id. Required for launch readiness checks.'),
+  workflow: z
+    .enum([
+      'whatsapp_sales',
+      'website_sales',
+      'lead_generation',
+      'cpas_catalog_sales',
+      'creative_testing',
+      'existing_post',
+    ])
+    .optional()
+    .describe('Plain-language launch preset. Defaults to website_sales when omitted.'),
+  productOrOffer: z.string().optional().describe('Product or offer being promoted.'),
+  pageId: z.string().optional().describe('Meta Page ID.'),
+  pixelId: z.string().optional().describe('Meta Pixel ID for conversion workflows.'),
+  destinationUrl: z.string().optional().describe('Website, marketplace, or WhatsApp URL.'),
+  dailyBudget: z.number().optional().describe('Daily budget in account minor units.'),
+  countries: z.array(z.string()).optional().describe('Target countries.'),
+  primaryText: z.string().optional().describe('Primary ad text.'),
+  headline: z.string().optional().describe('Ad headline.'),
+  imageHash: z.string().optional().describe('Existing Meta image hash.'),
+  videoId: z.string().optional().describe('Existing Meta video ID.'),
+  imageFilePath: z.string().optional().describe('Local image path for upload.'),
+  videoFilePath: z.string().optional().describe('Local video path for upload.'),
+  creativeId: z.string().optional().describe('Existing creative ID.'),
+  existingPostId: z.string().optional().describe('Existing object_story_id/post ID.'),
+  whatsappPhoneNumberId: z.string().optional().describe('WhatsApp phone number ID.'),
+  businessId: z.string().optional().describe('Meta Business ID for catalog discovery.'),
+  catalogId: z.string().optional().describe('Meta product catalog ID.'),
+  productSetId: z.string().optional().describe('Meta product set ID.'),
+  specialAdCategories: z
+    .array(z.string())
+    .optional()
+    .describe('Special ad categories, or [] after confirming none apply.'),
+};
+
+const businessIdInputSchema = {
+  ...adsBaseInputSchema,
+  businessId: z.string().describe('Meta Business ID.'),
+  limit: z.number().optional().describe('Maximum rows to return.'),
+};
+
+const catalogIdInputSchema = {
+  ...adsBaseInputSchema,
+  catalogId: z.string().describe('Meta Product Catalog ID.'),
+  limit: z.number().optional().describe('Maximum rows to return.'),
+};
+
 const ecommerceLaunchInputSchema = {
   ...adsBaseInputSchema,
   accountId: z.string().describe('Provider account id. Required for ecommerce campaign creation.'),
@@ -739,6 +789,12 @@ export function createMetaAdsMcpServer(options: CreateMetaAdsMcpServerOptions = 
       inputSchema = adsPerformanceInputSchema;
     } else if (toolDefinition.name === 'ads_get_creatives') {
       inputSchema = adsCreativeInputSchema;
+    } else if (toolDefinition.name === 'ads_check_launch_readiness') {
+      inputSchema = launchReadinessInputSchema;
+    } else if (toolDefinition.name === 'ads_list_catalogs') {
+      inputSchema = businessIdInputSchema;
+    } else if (toolDefinition.name === 'ads_list_product_sets') {
+      inputSchema = catalogIdInputSchema;
     } else if (toolDefinition.name === 'ads_create_campaign') {
       inputSchema = createCampaignInputSchema;
     } else if (toolDefinition.name === 'ads_create_adset') {
