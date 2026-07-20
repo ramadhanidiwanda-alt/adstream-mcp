@@ -123,7 +123,12 @@ function buildSingleImage(
     destinationUrl
   );
 
-  return withDirectOmnichannelLinkFields(input, payload, destinationUrl, creativeSpec.applinkTreatment);
+  return withDirectOmnichannelLinkFields(
+    input,
+    payload,
+    destinationUrl,
+    creativeSpec.applinkTreatment
+  );
 }
 
 function buildVideo(
@@ -161,7 +166,12 @@ function buildVideo(
     destinationUrl
   );
 
-  return withDirectOmnichannelLinkFields(input, payload, destinationUrl, creativeSpec.applinkTreatment);
+  return withDirectOmnichannelLinkFields(
+    input,
+    payload,
+    destinationUrl,
+    creativeSpec.applinkTreatment
+  );
 }
 
 function buildCarousel(
@@ -289,9 +299,7 @@ function buildOmnichannelLinkFields(
     omnichannelLinkSpec.app = buildCollaborativeAppSpec(collaborativeAppSpec);
   }
   return {
-    ...(collaborativeAppSpec
-      ? { applink_treatment: applinkTreatmentOverride ?? 'automatic' }
-      : {}),
+    ...(collaborativeAppSpec ? { applink_treatment: applinkTreatmentOverride ?? 'automatic' } : {}),
     omnichannel_link_spec: omnichannelLinkSpec,
   };
 }
@@ -338,7 +346,11 @@ function withDirectOmnichannelLinkFields(
   if (input.mode === 'collaborative_ads' || !input.collaborativeAppSpec) return payload;
   return {
     ...payload,
-    ...buildOmnichannelLinkFields(destinationUrl, input.collaborativeAppSpec, applinkTreatmentOverride),
+    ...buildOmnichannelLinkFields(
+      destinationUrl,
+      input.collaborativeAppSpec,
+      applinkTreatmentOverride
+    ),
   };
 }
 
