@@ -253,8 +253,43 @@ describe('MCP server builder', () => {
 
     expect(creativeTool?.inputSchema.properties).toHaveProperty('objectStorySpec');
     expect(creativeTool?.inputSchema.properties).toHaveProperty('assetFeedSpec');
+    expect(creativeTool?.inputSchema.properties).toHaveProperty('urlTags');
     expect(creativeTool?.inputSchema.required).not.toContain('message');
     expect(creativeTool?.description).toContain('Dynamic Creative');
+  });
+
+  it('accepts urlTags at the MCP schema boundary for Meta URL parameters', async () => {
+    process.env.ADSTREAM_ENABLE_WRITES = 'true';
+    const adsBroker = createBrokerStub();
+    const urlTags =
+      'utm_source={{site_source_name}}&utm_medium={{placement}}&utm_campaign={{campaign.name}}&utm_content={{ad.id}}';
+    const { client, server } = await createConnectedClient({
+      config: { adAccountId: 'act_123' },
+      adsBroker,
+    });
+
+    try {
+      const response = await client.callTool({
+        name: 'ads_create_adcreative',
+        arguments: {
+          accountId: 'act_123',
+          name: 'Creative with URL tags',
+          pageId: 'page_123',
+          link: 'https://example.com',
+          message: 'Belanja sekarang',
+          urlTags,
+        },
+      });
+
+      expect(response.isError).not.toBe(true);
+      expect(adsBroker.createAdCreative).toHaveBeenCalledWith(
+        expect.objectContaining({
+          params: expect.objectContaining({ urlTags }),
+        })
+      );
+    } finally {
+      await Promise.all([client.close(), server.close()]);
+    }
   });
 
   it('exposes canonical Collaborative Ads and creative-format fields without adding create tools', async () => {
