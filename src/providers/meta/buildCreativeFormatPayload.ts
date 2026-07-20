@@ -123,10 +123,15 @@ function buildVideo(
     call_to_action: cta(creativeSpec.callToAction, destinationUrl, input.collaborativeAppSpec),
   };
   const thumbnailImageHash = optional(creativeSpec.thumbnailImageHash, 'thumbnailImageHash');
+  const thumbnailImageUrl = optional(creativeSpec.thumbnailImageUrl, 'thumbnailImageUrl');
   const headline = optional(creativeSpec.headline, 'headline');
   const pageWelcomeMessage = optional(creativeSpec.pageWelcomeMessage, 'pageWelcomeMessage');
 
+  // Meta requires exactly one of image_hash / image_url on video_data.
+  // Prefer an explicit hash; fall back to a URL (e.g. the video's own
+  // auto-generated thumbnail, filled in by the caller when neither was given).
   if (thumbnailImageHash) videoData.image_hash = thumbnailImageHash;
+  else if (thumbnailImageUrl) videoData.image_url = thumbnailImageUrl;
   if (headline) videoData.title = headline;
   if (pageWelcomeMessage) videoData.page_welcome_message = pageWelcomeMessage;
 

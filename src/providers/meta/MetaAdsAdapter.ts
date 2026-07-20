@@ -664,7 +664,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       const response = await this.createClient(context.credential).metaGet<{
         data: MetaActivityRecord[];
         paging?: { cursors?: { after?: string } };
-      }>(`/act_${accountId}/activities`, {
+      }>(`/act_${normalizeAccountId(accountId)}/activities`, {
         fields:
           'event_time,event_type,translated_event_type,object_id,object_name,object_type,actor_id,actor_name,extra_data',
         since: request.since,
@@ -738,13 +738,16 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
         mode: validation.options.mode,
       });
 
+      const nextCursor = insights.paging?.cursors?.after ?? null;
+
       return {
         ok: true,
         provider: 'meta',
         data,
         meta: {
           ...(validation.options.mode === 'cpas' ? { mode: 'cpas' } : {}),
-          nextCursor: insights.paging?.cursors?.after ?? null,
+          nextCursor,
+          ...partialPageWarningMeta(data.length, validation.options.limit, nextCursor),
         },
       };
     } catch (error) {
@@ -1374,6 +1377,19 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       }
     } catch (error) {
       return validationResponse(error);
+    }
+
+    if (creative) {
+      const ignoredLegacyFields = LEGACY_CREATIVE_FIELDS.filter(
+        (field) => request.params[field] !== undefined
+      );
+      if (ignoredLegacyFields.length > 0) {
+        return validationResponse(
+          new Error(
+            `creativeFormat dan creativeSpec sedang dipakai, tapi field top-level berikut juga diisi dan akan DIABAIKAN (tidak digabung): ${ignoredLegacyFields.join(', ')}. Pindahkan nilainya ke dalam creativeSpec (mis. primaryText untuk teks utama, headline, destinationUrl, callToAction, imageHash/videoId sesuai creativeFormat), atau lepas creativeFormat+creativeSpec sepenuhnya untuk memakai jalur legacy top-level.`
+          )
+        );
+      }
     }
 
     if (!pageId && creative?.creativeFormat !== 'existing_post') {
@@ -2070,11 +2086,19 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       });
 
       const page = result as AdDestinationResult[] & { paging?: { cursors?: { after?: string } } };
+      const nextCursor = page.paging?.cursors?.after ?? null;
       return {
         ok: true,
         provider: 'meta',
         data: page,
-        meta: { nextCursor: page.paging?.cursors?.after ?? null },
+        meta: {
+          nextCursor,
+          ...partialPageWarningMeta(
+            page.length,
+            typeof request.params.limit === 'number' ? request.params.limit : 100,
+            nextCursor
+          ),
+        },
       };
     } catch (error) {
       return this.errorResponse(error);
@@ -2656,10 +2680,56 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
   }
 }
 
+// Top-level params that only apply to the legacy (no creativeFormat/creativeSpec)
+// linkData path in createAdCreative. When creativeFormat+creativeSpec are used
+// instead, these are silently ignored rather than merged — flag the ambiguity
+// instead of letting the caller assume they were applied.
+const LEGACY_CREATIVE_FIELDS = [
+  'link',
+  'message',
+  'headline',
+  'description',
+  'imageHash',
+  'videoId',
+  'callToActionType',
+] as const;
+
 function parseIdParam(value: unknown): string | string[] | undefined {
   if (typeof value === 'string') return value;
   if (Array.isArray(value) && value.every((item) => typeof item === 'string')) return value;
   return undefined;
+}
+
+/**
+ * Meta's Graph API may return fewer rows than the requested `limit` for
+ * reasons outside this client's control — most commonly an internal query
+ * complexity budget for endpoints requesting deeply nested fields (e.g.
+ * object_story_spec/asset_feed_spec on every ad). This is easy to mistake
+ * for "the tool ignored my limit". Surface it explicitly whenever the page
+ * came back short of the request AND Meta says there's more (a nextCursor),
+ * so callers reach for pagination instead of assuming the row count is final.
+ */
+function partialPageWarningMeta(
+  rowCount: number,
+  requestedLimit: number | undefined,
+  nextCursor: string | null
+): { warnings?: Array<{ code: string; message: string; severity: 'info' }> } {
+  if (
+    typeof requestedLimit !== 'number' ||
+    rowCount >= requestedLimit ||
+    nextCursor === null
+  ) {
+    return {};
+  }
+  return {
+    warnings: [
+      {
+        code: 'PARTIAL_PAGE',
+        message: `Meta returned ${rowCount} row(s), fewer than the requested limit of ${requestedLimit}, but more data is available (nextCursor is set). This is usually Meta's own query-complexity budget for heavily nested fields, not a client-side cap — pass cursor to fetch the next page instead of assuming this is the full result set.`,
+        severity: 'info',
+      },
+    ],
+  };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -2780,6 +2850,10 @@ function parseMetaCreativeSpec(
           thumbnailImageHash: optionalString(
             spec.thumbnailImageHash,
             'creativeSpec.thumbnailImageHash'
+          ),
+          thumbnailImageUrl: optionalString(
+            spec.thumbnailImageUrl,
+            'creativeSpec.thumbnailImageUrl'
           ),
           primaryText: requireString(spec.primaryText, 'creativeSpec.primaryText'),
           destinationUrl: requireString(spec.destinationUrl, 'creativeSpec.destinationUrl'),

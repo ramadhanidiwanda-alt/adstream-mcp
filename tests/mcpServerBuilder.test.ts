@@ -331,6 +331,42 @@ describe('MCP server builder', () => {
     }
   });
 
+  it('accepts a non-enumerated callToActionType (e.g. BOOK_TRAVEL) at the MCP schema boundary', async () => {
+    // Regression: callToActionType used to be a closed Zod enum missing many
+    // real Meta CTA types (BOOK_TRAVEL, WHATSAPP_MESSAGE, ...) used in
+    // practice, while creativeSpec.callToAction already accepted any string.
+    // It's now a free string too, matching the field it duplicates.
+    process.env.ADSTREAM_ENABLE_WRITES = 'true';
+    const adsBroker = createBrokerStub();
+    const { client, server } = await createConnectedClient({
+      config: { adAccountId: 'act_123' },
+      adsBroker,
+    });
+
+    try {
+      const response = await client.callTool({
+        name: 'ads_create_adcreative',
+        arguments: {
+          accountId: 'act_123',
+          name: 'CPAS Shopee creative',
+          pageId: 'page_123',
+          link: 'https://example.com',
+          message: 'Belanja sekarang',
+          callToActionType: 'BOOK_TRAVEL',
+        },
+      });
+
+      expect(response.isError).not.toBe(true);
+      expect(adsBroker.createAdCreative).toHaveBeenCalledWith(
+        expect.objectContaining({
+          params: expect.objectContaining({ callToActionType: 'BOOK_TRAVEL' }),
+        })
+      );
+    } finally {
+      await Promise.all([client.close(), server.close()]);
+    }
+  });
+
   it('rejects a Dynamic Creative payload without headline variants', async () => {
     process.env.ADSTREAM_ENABLE_WRITES = 'true';
     const { client, server } = await createConnectedClient();

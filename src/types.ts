@@ -32,6 +32,12 @@ export interface MetaSingleImageCreativeSpec extends MetaCreativeCopy {
 export interface MetaVideoCreativeSpec extends MetaCreativeCopy {
   videoId: string;
   thumbnailImageHash?: string;
+  /**
+   * Alternative to thumbnailImageHash — Meta's video_data accepts a direct
+   * image URL as well as an uploaded image_hash. Used internally to auto-fill
+   * the video's own default picture when neither thumbnail field is supplied.
+   */
+  thumbnailImageUrl?: string;
   pageWelcomeMessage?: string;
 }
 

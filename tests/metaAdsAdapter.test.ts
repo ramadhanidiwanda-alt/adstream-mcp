@@ -60,7 +60,7 @@ describe('MetaAdsAdapter', () => {
       },
     });
 
-    expect(capturedPath).toBe('/act_act_123/activities');
+    expect(capturedPath).toBe('/act_123/activities');
     expect(capturedParams).toMatchObject({ limit: 50, after: 'prev_cursor' });
     expect(response.ok).toBe(true);
     expect(response.data).toMatchObject({
@@ -70,6 +70,30 @@ describe('MetaAdsAdapter', () => {
       rows: [expect.objectContaining({ object_id: 'cmp_1', actor_name: 'Media Buyer' })],
     });
     expect(JSON.stringify(response)).not.toContain('secret-token');
+  });
+
+  it('accepts a bare numeric accountId for change history without double-prefixing act_', async () => {
+    let capturedPath: string | undefined;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: () =>
+        ({
+          metaGet: async (path: string) => {
+            capturedPath = path;
+            return { data: [], paging: {} };
+          },
+        }) as never,
+    });
+
+    await adapter.getChangeHistory({
+      provider: 'meta',
+      accountId: '123',
+      since: '2026-05-01',
+      until: '2026-05-07',
+      params: {},
+      credentials: { provider: 'meta', accessToken: 'secret-token', accountId: '123', source: 'test' },
+    });
+
+    expect(capturedPath).toBe('/act_123/activities');
   });
 
   it('wraps account insights tool and normalizes account-level response', async () => {
@@ -191,6 +215,154 @@ describe('MetaAdsAdapter', () => {
 
     expect(receivedOptions).toMatchObject({ cursor: 'prev_cursor' });
     expect(response.meta).toMatchObject({ nextCursor: 'next_cursor' });
+  });
+
+  it('threads params.adsetId (and params.adSetId alias) from the request into getAdsetInsights', async () => {
+    let receivedOptions: Record<string, unknown> | undefined;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        getAdsetInsights: async (_client, options) => {
+          receivedOptions = options as unknown as Record<string, unknown>;
+          return [];
+        },
+      },
+    });
+
+    await adapter.getAdsetOrAdgroupPerformance({
+      provider: 'meta',
+      accountId: 'act_123',
+      since: '2026-05-01',
+      until: '2026-05-07',
+      params: { adsetId: '120251877326190415', campaignId: '120216685951590415' },
+      credentials: {
+        provider: 'meta',
+        accessToken: 'secret-token',
+        accountId: 'act_123',
+        source: 'test',
+      },
+    });
+
+    expect(receivedOptions).toMatchObject({
+      adsetId: '120251877326190415',
+      campaignId: '120216685951590415',
+    });
+
+    // Regression: the alias used by other tools (adSetId) must also work,
+    // since callers reasonably guess either casing.
+    await adapter.getAdsetOrAdgroupPerformance({
+      provider: 'meta',
+      accountId: 'act_123',
+      since: '2026-05-01',
+      until: '2026-05-07',
+      params: { adSetId: '120251877326190415' },
+      credentials: {
+        provider: 'meta',
+        accessToken: 'secret-token',
+        accountId: 'act_123',
+        source: 'test',
+      },
+    });
+
+    expect(receivedOptions).toMatchObject({ adsetId: '120251877326190415' });
+  });
+
+  it('warns when getPerformance returns fewer rows than requested but more data exists', async () => {
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        getAdsInsights: async () =>
+          Object.assign(
+            [{ ad_id: 'ad_1', campaign_id: 'c', adset_id: 'as', spend: '1', impressions: '1', clicks: '0' }],
+            { paging: { cursors: { after: 'more_data_cursor' } } }
+          ),
+      },
+    });
+
+    const response = await adapter.getAdPerformance({
+      provider: 'meta',
+      accountId: 'act_123',
+      since: '2026-05-01',
+      until: '2026-05-07',
+      params: { limit: 200 },
+      credentials: { provider: 'meta', accessToken: 'secret-token', accountId: 'act_123', source: 'test' },
+    });
+
+    expect(response.meta?.warnings).toMatchObject([{ code: 'PARTIAL_PAGE' }]);
+  });
+
+  it('does not warn when getPerformance returns as many rows as requested', async () => {
+    const rows = Array.from({ length: 3 }, (_, i) => ({
+      ad_id: `ad_${i}`,
+      campaign_id: 'c',
+      adset_id: 'as',
+      spend: '1',
+      impressions: '1',
+      clicks: '0',
+    }));
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        getAdsInsights: async () =>
+          Object.assign(rows, { paging: { cursors: { after: 'more_data_cursor' } } }),
+      },
+    });
+
+    const response = await adapter.getAdPerformance({
+      provider: 'meta',
+      accountId: 'act_123',
+      since: '2026-05-01',
+      until: '2026-05-07',
+      params: { limit: 3 },
+      credentials: { provider: 'meta', accessToken: 'secret-token', accountId: 'act_123', source: 'test' },
+    });
+
+    expect(response.meta?.warnings).toBeUndefined();
+  });
+
+  it('does not warn when a short page has no nextCursor (genuinely the last page)', async () => {
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        getAdsInsights: async () =>
+          Object.assign(
+            [{ ad_id: 'ad_1', campaign_id: 'c', adset_id: 'as', spend: '1', impressions: '1', clicks: '0' }],
+            { paging: {} }
+          ),
+      },
+    });
+
+    const response = await adapter.getAdPerformance({
+      provider: 'meta',
+      accountId: 'act_123',
+      since: '2026-05-01',
+      until: '2026-05-07',
+      params: { limit: 200 },
+      credentials: { provider: 'meta', accessToken: 'secret-token', accountId: 'act_123', source: 'test' },
+    });
+
+    expect(response.meta?.warnings).toBeUndefined();
+  });
+
+  it('warns when getAdDestinations returns fewer ads than requested but more data exists', async () => {
+    const adapter = new MetaAdsAdapter({
+      clientFactory: () =>
+        ({
+          metaGet: async () => ({
+            data: [{ id: 'ad_1', name: 'POSTER', status: 'ACTIVE', effective_status: 'ACTIVE' }],
+            paging: { cursors: { after: 'more_ads_cursor' } },
+          }),
+        }) as never,
+    });
+
+    const response = await adapter.getAdDestinations({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: { limit: 100 },
+      credentials: { provider: 'meta', accessToken: 'secret-token', accountId: 'act_123', source: 'test' },
+    });
+
+    expect(response.meta?.warnings).toMatchObject([{ code: 'PARTIAL_PAGE' }]);
   });
 
   it('fetches Meta creative assets and maps them to creative records', async () => {
@@ -1274,7 +1446,47 @@ describe('MetaAdsAdapter', () => {
     expect(createCalls).toBe(0);
   });
 
-  it('prefers a complete canonical creative pair over legacy fields', async () => {
+  it('rejects a creativeFormat/creativeSpec pair mixed with legacy top-level fields instead of silently dropping them', async () => {
+    // Regression: this combination used to succeed with the canonical
+    // creativeSpec silently winning and the legacy link/message fields
+    // silently discarded — easy to mistake for "both were merged". It's now
+    // rejected up front with a clear error naming the ignored fields.
+    let createCalls = 0;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        createAdCreative: async () => {
+          createCalls += 1;
+          return { operation: 'create_adcreative', status: 'dry_run', executed: false, preview: {} };
+        },
+      },
+    });
+
+    const response = await adapter.createAdCreative({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {
+        name: 'Ambiguous mix',
+        pageId: 'page-1',
+        creativeFormat: 'single_image',
+        creativeSpec: {
+          imageHash: 'canonical-image',
+          primaryText: 'Canonical copy',
+          destinationUrl: 'https://example.com/canonical',
+        },
+        link: 'https://example.com/legacy',
+        message: 'Legacy copy',
+      },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    });
+
+    expect(response.ok).toBe(false);
+    expect(response.errors).toMatchObject([{ provider: 'meta', code: 'VALIDATION_ERROR' }]);
+    expect(response.errors?.[0]?.message).toMatch(/link, message/);
+    expect(createCalls).toBe(0);
+  });
+
+  it('accepts creativeFormat/creativeSpec alone without tripping the legacy-field ambiguity check', async () => {
     let receivedOptions: Record<string, unknown> | undefined;
     const adapter = new MetaAdsAdapter({
       clientFactory: (config) => ({ config }) as never,
@@ -1295,7 +1507,7 @@ describe('MetaAdsAdapter', () => {
       provider: 'meta',
       accountId: 'act_123',
       params: {
-        name: 'Canonical wins',
+        name: 'Canonical only',
         pageId: 'page-1',
         creativeFormat: 'single_image',
         creativeSpec: {
@@ -1303,8 +1515,6 @@ describe('MetaAdsAdapter', () => {
           primaryText: 'Canonical copy',
           destinationUrl: 'https://example.com/canonical',
         },
-        link: 'https://example.com/legacy',
-        message: 'Legacy copy',
       },
       credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
     });
