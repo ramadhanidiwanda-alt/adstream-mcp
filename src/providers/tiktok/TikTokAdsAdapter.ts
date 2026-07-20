@@ -13,6 +13,8 @@ import type {
   CreateCampaignResult,
   GetTargetingOptionsResult,
   UpdateAdSetResult,
+  UpdateAdResult,
+  UpdateCampaignResult,
   EcommerceCampaignBundleResult,
   AdsProviderAdapter,
   VideoSourceResult,
@@ -576,6 +578,14 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
     } catch (error) {
       return this.errorResponse(error);
     }
+  }
+
+  async updateAd(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<UpdateAdResult>> {
+    return this.writeNotImplemented() as unknown as AdsBrokerResponse<UpdateAdResult>;
+  }
+
+  async updateCampaign(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<UpdateCampaignResult>> {
+    return this.writeNotImplemented() as unknown as AdsBrokerResponse<UpdateCampaignResult>;
   }
 
   async createAdCreative(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<CreateAdCreativeResult>> {

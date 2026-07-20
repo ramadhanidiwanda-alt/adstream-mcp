@@ -892,6 +892,35 @@ export interface UpdateAdSetResult {
   error?: string;
 }
 
+export type UpdateAdStatus = 'dry_run' | 'pending_confirmation' | 'executed' | 'failed';
+
+export interface UpdateAdResult {
+  operation: 'update_ad';
+  status: UpdateAdStatus;
+  executed: boolean;
+  preview: Record<string, unknown>;
+  success: boolean;
+  id?: string;
+  response?: Record<string, unknown>;
+  error?: string;
+  structuredError?: StructuredMutationError;
+  confirmedCreativeId?: string;
+}
+
+export type UpdateCampaignStatus = 'dry_run' | 'pending_confirmation' | 'executed' | 'failed';
+
+export interface UpdateCampaignResult {
+  operation: 'update_campaign';
+  status: UpdateCampaignStatus;
+  executed: boolean;
+  preview: Record<string, unknown>;
+  success: boolean;
+  id?: string;
+  response?: Record<string, unknown>;
+  error?: string;
+  structuredError?: StructuredMutationError;
+}
+
 export interface TargetingOption {
   id: string;
   name: string;
@@ -1073,6 +1102,8 @@ export interface AdsProviderAdapter {
   resumeAdSet(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>>;
   cloneAdSet(request: AdsBrokerRequest): Promise<AdsBrokerResponse<CloneAdSetResult>>;
   updateAdSet(request: AdsBrokerRequest): Promise<AdsBrokerResponse<UpdateAdSetResult>>;
+  updateAd(request: AdsBrokerRequest): Promise<AdsBrokerResponse<UpdateAdResult>>;
+  updateCampaign(request: AdsBrokerRequest): Promise<AdsBrokerResponse<UpdateCampaignResult>>;
   getTargetingOptions(
     request: AdsBrokerRequest
   ): Promise<AdsBrokerResponse<GetTargetingOptionsResult>>;
