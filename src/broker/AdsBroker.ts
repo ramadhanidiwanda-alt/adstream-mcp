@@ -33,6 +33,9 @@ import type {
   AdVideoResult,
   AdPreviewResult,
   MetaPageResult,
+  MetaPixelResult,
+  MetaCatalogResult,
+  MetaProductSetResult,
   InstagramAccountResult,
   ThreadsProfileResult,
   WhatsAppAccountResult,
@@ -42,6 +45,7 @@ import type {
   AdSetFullResult,
 } from './types.js';
 import { defaultDenyWritePermissionPolicy, isAdsProviderId } from './types.js';
+import type { LaunchReadinessResult } from '../tools/checkLaunchReadiness.js';
 import type { CredentialResolverContract } from './credentials.js';
 import { redactErrorMessage, redactTokenLikeValues } from './credentials.js';
 import type { ProviderRegistry } from './providerRegistry.js';
@@ -143,7 +147,9 @@ export class AdsBroker {
     return this.executeRead(request, 'getPlacementPerformance');
   }
 
-  getChangeHistory(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsChangeHistoryEnvelope>> {
+  getChangeHistory(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<AdsChangeHistoryEnvelope>> {
     return this.executeRead(request, 'getChangeHistory');
   }
 
@@ -151,7 +157,9 @@ export class AdsBroker {
     return this.executeRead(request, 'getVideoSource');
   }
 
-  getAdCreativeMapping(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdCreativeMappingResult[]>> {
+  getAdCreativeMapping(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<AdCreativeMappingResult[]>> {
     return this.executeRead(request, 'getAdCreativeMapping');
   }
 
@@ -183,33 +191,73 @@ export class AdsBroker {
     return this.executeRead(request, 'getAdPreview');
   }
 
+  checkLaunchReadiness(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<LaunchReadinessResult>> {
+    return this.callOptionalReadMethod(request, 'checkLaunchReadiness');
+  }
+
+  listPixels(request: AdsBrokerRequest): Promise<AdsBrokerResponse<MetaPixelResult[]>> {
+    return this.callOptionalReadMethod(request, 'listPixels');
+  }
+
+  listCatalogs(request: AdsBrokerRequest): Promise<AdsBrokerResponse<MetaCatalogResult[]>> {
+    return this.callOptionalReadMethod(request, 'listCatalogs');
+  }
+
+  listProductSets(request: AdsBrokerRequest): Promise<AdsBrokerResponse<MetaProductSetResult[]>> {
+    return this.callOptionalReadMethod(request, 'listProductSets');
+  }
+
   listPages(request: AdsBrokerRequest): Promise<AdsBrokerResponse<MetaPageResult[]>> {
     return this.callOptionalReadMethod(request, 'listPages');
   }
 
-  listInstagramAccounts(request: AdsBrokerRequest): Promise<AdsBrokerResponse<InstagramAccountResult[]>> {
+  listInstagramAccounts(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<InstagramAccountResult[]>> {
     return this.callOptionalReadMethod(request, 'listInstagramAccounts');
   }
 
-  listThreadsProfiles(request: AdsBrokerRequest): Promise<AdsBrokerResponse<ThreadsProfileResult[]>> {
+  listThreadsProfiles(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<ThreadsProfileResult[]>> {
     return this.callOptionalReadMethod(request, 'listThreadsProfiles');
   }
 
-  listWhatsAppAccounts(request: AdsBrokerRequest): Promise<AdsBrokerResponse<WhatsAppAccountResult[]>> {
+  listWhatsAppAccounts(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<WhatsAppAccountResult[]>> {
     return this.callOptionalReadMethod(request, 'listWhatsAppAccounts');
   }
 
-  listWhatsAppPhoneNumbers(request: AdsBrokerRequest): Promise<AdsBrokerResponse<WhatsAppPhoneNumberResult[]>> {
+  listWhatsAppPhoneNumbers(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<WhatsAppPhoneNumberResult[]>> {
     return this.callOptionalReadMethod(request, 'listWhatsAppPhoneNumbers');
   }
 
-  listWhatsAppMessageTemplates(request: AdsBrokerRequest): Promise<AdsBrokerResponse<WhatsAppTemplateResult[]>> {
+  listWhatsAppMessageTemplates(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<WhatsAppTemplateResult[]>> {
     return this.callOptionalReadMethod(request, 'listWhatsAppMessageTemplates');
   }
 
   private async callOptionalReadMethod<TData>(
     request: AdsBrokerRequest,
-    method: keyof Pick<AdsProviderAdapter, 'listPages' | 'listInstagramAccounts' | 'listThreadsProfiles' | 'listWhatsAppAccounts' | 'listWhatsAppPhoneNumbers' | 'listWhatsAppMessageTemplates'>
+    method: keyof Pick<
+      AdsProviderAdapter,
+      | 'checkLaunchReadiness'
+      | 'listPixels'
+      | 'listCatalogs'
+      | 'listProductSets'
+      | 'listPages'
+      | 'listInstagramAccounts'
+      | 'listThreadsProfiles'
+      | 'listWhatsAppAccounts'
+      | 'listWhatsAppPhoneNumbers'
+      | 'listWhatsAppMessageTemplates'
+    >
   ): Promise<AdsBrokerResponse<TData>> {
     const provider = this.resolveProviderId(request);
     if (!provider.ok) return provider.response;
@@ -227,7 +275,11 @@ export class AdsBroker {
     }
 
     if (!this.permissionPolicy.canRead(credential.credential, request)) {
-      return this.errorResponse(provider.provider, 'READ_NOT_ALLOWED', 'Read operation is not allowed');
+      return this.errorResponse(
+        provider.provider,
+        'READ_NOT_ALLOWED',
+        'Read operation is not allowed'
+      );
     }
 
     const adapter = this.getAdapter(provider.provider);
@@ -235,12 +287,18 @@ export class AdsBroker {
 
     const optionalMethod = adapter.adapter[method];
     if (!optionalMethod) {
-      return this.errorResponse(provider.provider, 'PROVIDER_METHOD_NOT_IMPLEMENTED', `${method} is not implemented for provider ${provider.provider}`);
+      return this.errorResponse(
+        provider.provider,
+        'PROVIDER_METHOD_NOT_IMPLEMENTED',
+        `${method} is not implemented for provider ${provider.provider}`
+      );
     }
 
     try {
       const adapterRequest = this.withCredential(request, provider.provider, credential.credential);
-      const callable = optionalMethod as (request: AdsBrokerRequest) => Promise<AdsBrokerResponse<TData>>;
+      const callable = optionalMethod as (
+        request: AdsBrokerRequest
+      ) => Promise<AdsBrokerResponse<TData>>;
       const response = await callable.call(adapter.adapter, adapterRequest);
       return this.sanitizeResponse(response as AdsBrokerResponse<TData>);
     } catch (error) {
@@ -259,7 +317,11 @@ export class AdsBroker {
       .filter((adapter) => !requestedProvider || adapter.id === requestedProvider);
 
     if (requestedProvider && adapters.length === 0) {
-      return this.errorResponse(requestedProvider, 'PROVIDER_NOT_REGISTERED', 'Provider adapter is not registered');
+      return this.errorResponse(
+        requestedProvider,
+        'PROVIDER_NOT_REGISTERED',
+        'Provider adapter is not registered'
+      );
     }
 
     return {
@@ -299,7 +361,8 @@ export class AdsBroker {
         sortBy: typeof request.params.sortBy === 'string' ? request.params.sortBy : undefined,
         sortDirection: parseSortDirection(request.params.sortDirection),
         topLimit: typeof request.params.topLimit === 'number' ? request.params.topLimit : undefined,
-        bottomLimit: typeof request.params.bottomLimit === 'number' ? request.params.bottomLimit : undefined,
+        bottomLimit:
+          typeof request.params.bottomLimit === 'number' ? request.params.bottomLimit : undefined,
         includeAllRows: request.params.includeAllRows === true,
         comparisonMode: request.params.comparisonMode === 'none' ? 'none' : 'previous_period',
       }),
@@ -318,9 +381,10 @@ export class AdsBroker {
       return this.generateCrossProviderReport(request, reportLevel);
     }
 
-    const performance = reportLevel === 'campaign'
-      ? await this.getCampaignPerformance(request)
-      : await this.getAccountPerformance(request);
+    const performance =
+      reportLevel === 'campaign'
+        ? await this.getCampaignPerformance(request)
+        : await this.getAccountPerformance(request);
     if (!performance.ok) {
       return {
         ok: false,
@@ -351,9 +415,10 @@ export class AdsBroker {
         providers: undefined,
       };
 
-      const performance = reportLevel === 'campaign'
-        ? await this.getCampaignPerformance(singleRequest)
-        : await this.getAccountPerformance(singleRequest);
+      const performance =
+        reportLevel === 'campaign'
+          ? await this.getCampaignPerformance(singleRequest)
+          : await this.getAccountPerformance(singleRequest);
 
       if (!performance.ok) {
         for (const error of performance.errors ?? []) {
@@ -406,7 +471,11 @@ export class AdsBroker {
     }
 
     if (!this.permissionPolicy.canRead(credential.credential, request)) {
-      return this.errorResponse(provider.provider, 'READ_NOT_ALLOWED', 'Read operation is not allowed');
+      return this.errorResponse(
+        provider.provider,
+        'READ_NOT_ALLOWED',
+        'Read operation is not allowed'
+      );
     }
 
     const adapter = this.getAdapter(provider.provider);
@@ -485,14 +554,19 @@ export class AdsBroker {
     return this.executeWrite<UpdateAdSetResult>(request, 'updateAdSet');
   }
 
-  getTargetingOptions(request: AdsBrokerRequest): Promise<AdsBrokerResponse<GetTargetingOptionsResult>> {
+  getTargetingOptions(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<GetTargetingOptionsResult>> {
     return this.executeRead<GetTargetingOptionsResult>(request, 'getTargetingOptions');
   }
 
   createEcommerceCampaignBundle(
     request: AdsBrokerRequest
   ): Promise<AdsBrokerResponse<EcommerceCampaignBundleResult>> {
-    return this.executeWrite<EcommerceCampaignBundleResult>(request, 'createEcommerceCampaignBundle');
+    return this.executeWrite<EcommerceCampaignBundleResult>(
+      request,
+      'createEcommerceCampaignBundle'
+    );
   }
 
   uploadImage(request: AdsBrokerRequest): Promise<AdsBrokerResponse<ImageUploadResult>> {
@@ -505,7 +579,9 @@ export class AdsBroker {
 
   // --- TikTok GMV Max (routed via optional interface methods) ---
 
-  gmvMaxCreateCampaign(request: AdsBrokerRequest): Promise<AdsBrokerResponse<EcommerceCampaignBundleResult>> {
+  gmvMaxCreateCampaign(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<EcommerceCampaignBundleResult>> {
     return this.callOptionalMethod<EcommerceCampaignBundleResult>(request, 'gmvMaxCreateCampaign');
   }
 
@@ -525,21 +601,30 @@ export class AdsBroker {
     return this.callOptionalMethod<AdsMutationResult>(request, 'gmvMaxDeleteSession');
   }
 
-  gmvMaxGetCampaignInfo(request: AdsBrokerRequest): Promise<AdsBrokerResponse<Record<string, unknown>[]>> {
+  gmvMaxGetCampaignInfo(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<Record<string, unknown>[]>> {
     return this.callOptionalMethod<Record<string, unknown>[]>(request, 'gmvMaxGetCampaignInfo');
   }
 
   // --- TikTok Smart Plus (routed via optional interface methods) ---
 
-  smartPlusCreateCampaign(request: AdsBrokerRequest): Promise<AdsBrokerResponse<EcommerceCampaignBundleResult>> {
-    return this.callOptionalMethod<EcommerceCampaignBundleResult>(request, 'smartPlusCreateCampaign');
+  smartPlusCreateCampaign(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<EcommerceCampaignBundleResult>> {
+    return this.callOptionalMethod<EcommerceCampaignBundleResult>(
+      request,
+      'smartPlusCreateCampaign'
+    );
   }
 
   smartPlusPauseCampaign(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>> {
     return this.callOptionalMethod<AdsMutationResult>(request, 'smartPlusPauseCampaign');
   }
 
-  smartPlusResumeCampaign(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>> {
+  smartPlusResumeCampaign(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<AdsMutationResult>> {
     return this.callOptionalMethod<AdsMutationResult>(request, 'smartPlusResumeCampaign');
   }
 
@@ -555,10 +640,21 @@ export class AdsBroker {
     return this.callOptionalMethod<AdsMutationResult>(request, 'smartPlusResumeAdGroup');
   }
 
-  private async executeWrite<TData extends AdsMutationResult | EcommerceCampaignBundleResult | CreateCampaignResult | CreateAdSetResult | CreateAdCreativeResult | CreateAdResult | ArchiveAdResult | CloneAdSetResult | UpdateAdSetResult | GetTargetingOptionsResult | ImageUploadResult | VideoUploadResult>(
-    request: AdsBrokerRequest,
-    method: AdapterWriteMethod
-  ): Promise<AdsBrokerResponse<TData>> {
+  private async executeWrite<
+    TData extends
+      | AdsMutationResult
+      | EcommerceCampaignBundleResult
+      | CreateCampaignResult
+      | CreateAdSetResult
+      | CreateAdCreativeResult
+      | CreateAdResult
+      | ArchiveAdResult
+      | CloneAdSetResult
+      | UpdateAdSetResult
+      | GetTargetingOptionsResult
+      | ImageUploadResult
+      | VideoUploadResult,
+  >(request: AdsBrokerRequest, method: AdapterWriteMethod): Promise<AdsBrokerResponse<TData>> {
     const provider = this.resolveProviderId(request);
     if (!provider.ok) return provider.response;
 
@@ -579,7 +675,11 @@ export class AdsBroker {
     }
 
     if (!this.permissionPolicy.canWrite(credential.credential, request)) {
-      return this.errorResponse(provider.provider, 'WRITE_NOT_ALLOWED', 'Write operation is not allowed by the current permission policy');
+      return this.errorResponse(
+        provider.provider,
+        'WRITE_NOT_ALLOWED',
+        'Write operation is not allowed by the current permission policy'
+      );
     }
 
     const adapter = this.getAdapter(provider.provider);
@@ -598,9 +698,9 @@ export class AdsBroker {
     }
   }
 
-  private resolveProviderId(request: AdsBrokerRequest):
-    | { ok: true; provider: AdsProviderId }
-    | { ok: false; response: AdsBrokerResponse<never> } {
+  private resolveProviderId(
+    request: AdsBrokerRequest
+  ): { ok: true; provider: AdsProviderId } | { ok: false; response: AdsBrokerResponse<never> } {
     const provider = request.provider ?? request.providers?.[0] ?? this.defaultProvider;
 
     if (!isAdsProviderId(provider)) {
@@ -617,15 +717,19 @@ export class AdsBroker {
     return Array.isArray(request.providers) && request.providers.length > 1;
   }
 
-  private getAdapter(provider: AdsProviderId):
-    | { ok: true; adapter: AdsProviderAdapter }
-    | { ok: false; response: AdsBrokerResponse<never> } {
+  private getAdapter(
+    provider: AdsProviderId
+  ): { ok: true; adapter: AdsProviderAdapter } | { ok: false; response: AdsBrokerResponse<never> } {
     try {
       const adapter = this.providerRegistry.get(provider);
       if (!adapter) {
         return {
           ok: false,
-          response: this.errorResponse(provider, 'PROVIDER_NOT_REGISTERED', 'Provider adapter is not registered'),
+          response: this.errorResponse(
+            provider,
+            'PROVIDER_NOT_REGISTERED',
+            'Provider adapter is not registered'
+          ),
         };
       }
 
@@ -665,7 +769,13 @@ export class AdsBroker {
       return {
         ok: false,
         provider: resolved.provider,
-        errors: [{ provider: resolved.provider, code: 'NOT_IMPLEMENTED', message: `Method ${method} is not implemented by this provider` }],
+        errors: [
+          {
+            provider: resolved.provider,
+            code: 'NOT_IMPLEMENTED',
+            message: `Method ${method} is not implemented by this provider`,
+          },
+        ],
       } as AdsBrokerResponse<TData>;
     }
 
@@ -707,7 +817,10 @@ export class AdsBroker {
     };
   }
 
-  private notImplementedResponse(message: string, provider?: AdsProviderId): AdsBrokerResponse<never> {
+  private notImplementedResponse(
+    message: string,
+    provider?: AdsProviderId
+  ): AdsBrokerResponse<never> {
     return this.errorResponse(provider, 'NOT_IMPLEMENTED', message);
   }
 }

@@ -19,6 +19,106 @@ describe('MetaAdsAdapter', () => {
     expect(typeof adapter.getChangeHistory).toBe('function');
   });
 
+  it('returns human-readable launch readiness questions for non-coding users', async () => {
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+    });
+
+    const response = await adapter.checkLaunchReadiness({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {
+        workflow: 'whatsapp_sales',
+        productOrOffer: 'Skincare bundle',
+        dailyBudget: 100000,
+        countries: ['ID'],
+        destinationUrl: 'https://wa.me/628123456789',
+        writesEnabled: true,
+      },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    });
+
+    expect(response.ok).toBe(true);
+    expect(response.data).toMatchObject({
+      ready: false,
+      workflow: 'whatsapp_sales',
+      recommendedWorkflow: 'whatsapp_sales',
+      missing: expect.arrayContaining(['pageId', 'whatsappPhoneNumberId', 'creativeAsset']),
+      nextQuestions: expect.arrayContaining([
+        'Page Facebook mana yang mau dipakai untuk iklan ini?',
+      ]),
+      summary: expect.stringContaining('Belum siap'),
+      writesEnabled: true,
+    });
+    expect(JSON.stringify(response)).not.toContain('secret-token');
+  });
+
+  it('lists pixels, catalogs, and product sets from Meta discovery endpoints', async () => {
+    const captured: Array<{ path: string; params: Record<string, unknown> }> = [];
+    const adapter = new MetaAdsAdapter({
+      clientFactory: () =>
+        ({
+          metaGet: async (path: string, params: Record<string, unknown>) => {
+            captured.push({ path, params });
+            if (path === '/act_123/adspixels') {
+              return { data: [{ id: 'pixel-1', name: 'Pixel 1', last_fired_time: '2026-07-19' }] };
+            }
+            if (path === '/business-1/owned_product_catalogs') {
+              return { data: [{ id: 'catalog-1', name: 'Catalog 1', product_count: 10 }] };
+            }
+            if (path === '/catalog-1/product_sets') {
+              return {
+                data: [
+                  {
+                    id: 'set-1',
+                    name: 'Shoes',
+                    product_count: 5,
+                    product_catalog: { id: 'catalog-1' },
+                  },
+                ],
+              };
+            }
+            return { data: [] };
+          },
+        }) as never,
+    });
+    const baseRequest = {
+      provider: 'meta' as const,
+      accountId: 'act_123',
+      credentials: {
+        provider: 'meta' as const,
+        accessToken: 'secret-token',
+        source: 'test' as const,
+      },
+    };
+
+    await expect(
+      adapter.listPixels({ ...baseRequest, params: { limit: 25 } })
+    ).resolves.toMatchObject({
+      ok: true,
+      data: [{ id: 'pixel-1', name: 'Pixel 1', last_fired_time: '2026-07-19' }],
+    });
+    await expect(
+      adapter.listCatalogs({ ...baseRequest, params: { businessId: 'business-1' } })
+    ).resolves.toMatchObject({
+      ok: true,
+      data: [{ id: 'catalog-1', name: 'Catalog 1', product_count: 10 }],
+    });
+    await expect(
+      adapter.listProductSets({ ...baseRequest, params: { catalogId: 'catalog-1' } })
+    ).resolves.toMatchObject({
+      ok: true,
+      data: [{ id: 'set-1', name: 'Shoes', product_count: 5, catalog_id: 'catalog-1' }],
+    });
+
+    expect(captured.map(({ path }) => path)).toEqual([
+      '/act_123/adspixels',
+      '/business-1/owned_product_catalogs',
+      '/catalog-1/product_sets',
+    ]);
+    expect(JSON.stringify(captured)).not.toContain('secret-token');
+  });
+
   it('fetches Meta account activities and normalizes change history envelope', async () => {
     let capturedPath: string | undefined;
     let capturedParams: Record<string, unknown> | undefined;

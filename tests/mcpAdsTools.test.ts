@@ -258,6 +258,7 @@ describe('ads MCP broker tools', () => {
     expect(adsToolNames).toEqual([
       'ads_list_accounts',
       'ads_list_campaigns',
+      'ads_check_launch_readiness',
       'ads_get_performance',
       'ads_get_creatives',
       'ads_get_change_history',
@@ -301,6 +302,9 @@ describe('ads MCP broker tools', () => {
       'ads_list_pages',
       'ads_list_instagram_accounts',
       'ads_list_threads_profiles',
+      'ads_list_pixels',
+      'ads_list_catalogs',
+      'ads_list_product_sets',
       'ads_list_whatsapp_accounts',
       'ads_list_whatsapp_phone_numbers',
       'ads_list_whatsapp_message_templates',
@@ -319,6 +323,60 @@ describe('ads MCP broker tools', () => {
     ]);
     expect(legacyToolNames).toContain('meta_get_campaign_insights');
     expect(legacyToolNames).toContain('meta_get_ads_insights');
+  });
+
+  it('dispatches launch readiness checks and CPAS discovery tools to the broker', async () => {
+    const calls: string[] = [];
+    const broker = {
+      ...createBrokerStub(),
+      checkLaunchReadiness: async (request: AdsBrokerRequest) => {
+        calls.push('checkLaunchReadiness');
+        return {
+          ok: true,
+          provider: 'meta',
+          data: {
+            ready: false,
+            workflow: 'whatsapp_sales',
+            recommendedWorkflow: 'whatsapp_sales',
+            missing: ['pageId'],
+            nextQuestions: ['Page Facebook mana yang mau dipakai?'],
+            checks: [],
+            warnings: [],
+            summary: 'Belum siap dibuat. Ada 1 informasi yang masih kurang.',
+            writesEnabled: request.params.writesEnabled === true,
+          },
+        };
+      },
+      listPixels: async () => {
+        calls.push('listPixels');
+        return { ok: true, provider: 'meta', data: [{ id: 'pixel-1', name: 'Pixel 1' }] };
+      },
+      listCatalogs: async () => {
+        calls.push('listCatalogs');
+        return { ok: true, provider: 'meta', data: [{ id: 'catalog-1', name: 'Catalog 1' }] };
+      },
+      listProductSets: async () => {
+        calls.push('listProductSets');
+        return { ok: true, provider: 'meta', data: [{ id: 'set-1', name: 'Set 1' }] };
+      },
+    } as unknown as AdsBroker;
+
+    for (const [name, args] of [
+      ['ads_check_launch_readiness', { accountId: 'act_123', workflow: 'whatsapp_sales' }],
+      ['ads_list_pixels', { accountId: 'act_123' }],
+      ['ads_list_catalogs', { accountId: 'act_123', businessId: 'business-1' }],
+      ['ads_list_product_sets', { accountId: 'act_123', catalogId: 'catalog-1' }],
+    ] as const) {
+      const parsed = parseToolResponse(await handleAdsMcpToolCall(broker, name, args));
+      expect(parsed.ok).toBe(true);
+    }
+
+    expect(calls).toEqual([
+      'checkLaunchReadiness',
+      'listPixels',
+      'listCatalogs',
+      'listProductSets',
+    ]);
   });
 
   it('routes canonical ads_get_performance by level without removing legacy tools', async () => {
