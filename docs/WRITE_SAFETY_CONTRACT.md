@@ -39,6 +39,8 @@ Safe single-entity status/name changes:
 | `ads_rename_adset` | Ad Set | Low |
 | `ads_rename_ad` | Ad | Low |
 | `ads_archive_ad` | Ad | Low (irreversible via API) |
+| `ads_update_ad` | Ad | Medium (name/status/creative swap; see §12a) |
+| `ads_update_campaign` | Campaign | Medium (name/status/budget/schedule; see §12a) |
 
 ### ✅ Supported — Batch 3 (Budget Write)
 
@@ -241,3 +243,31 @@ Once Batch 1–3 are stable:
 5. Add budget schedule tools (start/end time + budget allocation).
 
 All Batch 4 and beyond additions MUST update this contract and pass the existing test suite before merging.
+
+---
+
+## 12a. `ads_update_ad` / `ads_update_campaign` Notes
+
+Added alongside `ads_update_adset` as the general update tools for Ad and
+Campaign entities. Both follow the same dry-run/confirm lifecycle as every
+other write tool in this contract (§2).
+
+- **`ads_update_ad` creative swap:** `creativeId` points an existing ad at a
+  different, already-created creative — the supported way to change
+  UTM/tracking parameters on a live ad, since Meta only accepts `url_tags`
+  at creative-creation time. After a successful swap, the tool reads back
+  `/{ad_id}?fields=creative` and reports the confirmed creative id in the
+  result; this read-back is best-effort and does not fail the operation if
+  it errors.
+- **`ads_update_campaign` budget guard:** `lifetimeBudget` and `spendCap`
+  reuse the exact increase-safety guard from `ads_update_campaign_budget`
+  (fetch current value, reject if the new value exceeds
+  `current * (1 + maxBudgetIncrease)`, default `maxBudgetIncrease` 2.0).
+- **`ads_update_campaign` delete guard:** `status: "DELETED"` additionally
+  requires `deleteConfirmed: true` in the same request, mirroring the
+  `replaceTargetingConfirmed` pattern `ads_update_adset` uses for its own
+  dangerous sub-operation. Without it, the tool returns `status: "failed"`
+  and does not call the Meta API. `status: "ARCHIVED"` is available as a
+  reversible-ish alternative (Meta archive semantics still apply).
+- **`objective` is not exposed** on `ads_update_campaign` — Meta treats it
+  as effectively immutable once a campaign has ads.
