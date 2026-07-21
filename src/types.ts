@@ -202,7 +202,11 @@ export interface ActionValue {
   value: string;
 }
 
-export const LOCATION_BREAKDOWNS = ['country', 'region', 'dma'] as const;
+// Meta deprecated the `dma` breakdown Graph API-wide (error: "dma breakdown
+// is no longer supported; ... use comscore_market breakdown"), confirmed
+// live against a real ad account — so it is intentionally excluded here even
+// though older code/docs still reference it.
+export const LOCATION_BREAKDOWNS = ['country', 'region'] as const;
 export type LocationBreakdown = (typeof LOCATION_BREAKDOWNS)[number];
 
 export const META_PLACEMENT_BREAKDOWNS = ['publisher_platform', 'platform_position'] as const;

@@ -795,15 +795,15 @@ const legacyDateRangeInputSchema = {
   since: z.string().describe('Start date in YYYY-MM-DD format'),
   until: z.string().describe('End date in YYYY-MM-DD format'),
   breakdowns: z
-    .array(z.enum(['country', 'region', 'dma']))
+    .array(z.enum(['country', 'region']))
     .optional()
-    .describe('Optional location breakdowns. Supported: country, region, dma.'),
+    .describe('Optional location breakdowns. Supported: country, region.'),
 };
 
 const locationBreakdownSchema = z
-  .array(z.enum(['country', 'region', 'dma']))
+  .array(z.enum(['country', 'region']))
   .min(1)
-  .describe('Location breakdowns to apply. Supported: country, region, dma.');
+  .describe('Location breakdowns to apply. Supported: country, region.');
 
 const legacyLocationBreakdownInputSchema = {
   ...legacyDateRangeInputSchema,
@@ -1120,7 +1120,7 @@ export function createMetaAdsMcpServer(options: CreateMetaAdsMcpServerOptions = 
     'meta_get_insights_by_breakdown',
     {
       description:
-        'Fetch Meta Ads insights by supported location breakdowns (country, region, dma)',
+        'Fetch Meta Ads insights by supported location breakdowns (country, region)',
       inputSchema: legacyLocationBreakdownInputSchema,
     },
     async (args: ToolArguments) =>
@@ -1135,7 +1135,7 @@ export function createMetaAdsMcpServer(options: CreateMetaAdsMcpServerOptions = 
     'meta_get_location_insights',
     {
       description:
-        'Fetch Meta Ads insights grouped and ranked by location (country, region, dma) with totals',
+        'Fetch Meta Ads insights grouped and ranked by location (country, region) with totals',
       inputSchema: legacyLocationInsightsInputSchema,
     },
     async (args: ToolArguments) =>

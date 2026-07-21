@@ -23,7 +23,6 @@ export interface SummarizeNestedLocationOptions {
 const DIMENSION_KEY: Record<LocationBreakdown, 'country' | 'region' | 'dma'> = {
   country: 'country',
   region: 'region',
-  dma: 'dma',
 };
 
 function toNumber(value: string | undefined): number {
@@ -176,7 +175,6 @@ function computeMetrics(rows: LocationInsightRow[]): LocationMetrics {
 const DIMENSION_KEY_MAP: Record<LocationBreakdown, 'country' | 'region' | 'dma'> = {
   country: 'country',
   region: 'region',
-  dma: 'dma',
 };
 
 export function summarizeNestedLocationInsights(
