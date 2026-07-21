@@ -1,4 +1,9 @@
-import type { MetaAdsMode, MetaCollaborativeAppSpec, MetaCreativeSpec } from '../../types.js';
+import type {
+  MetaAdsMode,
+  MetaApplinkTreatment,
+  MetaCollaborativeAppSpec,
+  MetaCreativeSpec,
+} from '../../types.js';
 import { assertMetaCreativeCompatibility } from './creativeFormatCompatibility.js';
 
 export type BuildMetaCreativeFormatPayloadInput = MetaCreativeSpec & {
@@ -106,7 +111,7 @@ function buildSingleImage(
   if (description) linkData.description = description;
   if (pageWelcomeMessage) linkData.page_welcome_message = pageWelcomeMessage;
 
-  return withCollaborativeCatalogContext(
+  const payload = withCollaborativeCatalogContext(
     input,
     {
       object_story_spec: {
@@ -116,6 +121,13 @@ function buildSingleImage(
       },
     },
     destinationUrl
+  );
+
+  return withDirectOmnichannelLinkFields(
+    input,
+    payload,
+    destinationUrl,
+    creativeSpec.applinkTreatment
   );
 }
 
@@ -142,7 +154,7 @@ function buildVideo(
   if (headline) videoData.title = headline;
   if (pageWelcomeMessage) videoData.page_welcome_message = pageWelcomeMessage;
 
-  return withCollaborativeCatalogContext(
+  const payload = withCollaborativeCatalogContext(
     input,
     {
       object_story_spec: {
@@ -152,6 +164,13 @@ function buildVideo(
       },
     },
     destinationUrl
+  );
+
+  return withDirectOmnichannelLinkFields(
+    input,
+    payload,
+    destinationUrl,
+    creativeSpec.applinkTreatment
   );
 }
 
@@ -208,7 +227,25 @@ function buildCarousel(
 function buildExistingPost(
   input: Extract<BuildMetaCreativeFormatPayloadInput, { creativeFormat: 'existing_post' }>
 ): Record<string, unknown> {
-  return { object_story_id: required(input.creativeSpec.objectStoryId, 'objectStoryId') };
+  const { creativeSpec } = input;
+  const payload: Record<string, unknown> = {
+    object_story_id: required(creativeSpec.objectStoryId, 'objectStoryId'),
+  };
+
+  if (!input.collaborativeAppSpec) return payload;
+
+  const destinationUrl = required(
+    creativeSpec.destinationUrl,
+    'destinationUrl untuk existing_post ber-omnichannel'
+  );
+  return {
+    ...payload,
+    ...buildOmnichannelLinkFields(
+      destinationUrl,
+      input.collaborativeAppSpec,
+      creativeSpec.applinkTreatment
+    ),
+  };
 }
 
 function buildCatalog(
@@ -270,7 +307,8 @@ function buildCatalog(
  */
 function buildOmnichannelLinkFields(
   destinationUrl: string,
-  collaborativeAppSpec?: MetaCollaborativeAppSpec
+  collaborativeAppSpec?: MetaCollaborativeAppSpec,
+  applinkTreatmentOverride?: MetaApplinkTreatment
 ): Record<string, unknown> {
   const omnichannelLinkSpec: Record<string, unknown> = {
     web: { url: required(destinationUrl, 'Destination URL Omnichannel') },
@@ -279,7 +317,7 @@ function buildOmnichannelLinkFields(
     omnichannelLinkSpec.app = buildCollaborativeAppSpec(collaborativeAppSpec);
   }
   return {
-    ...(collaborativeAppSpec ? { applink_treatment: 'automatic' } : {}),
+    ...(collaborativeAppSpec ? { applink_treatment: applinkTreatmentOverride ?? 'automatic' } : {}),
     omnichannel_link_spec: omnichannelLinkSpec,
   };
 }
@@ -307,6 +345,30 @@ function withCollaborativeCatalogContext(
         }
       : {}),
     ...buildOmnichannelLinkFields(destinationUrl, input.collaborativeAppSpec),
+  };
+}
+
+/**
+ * Adds omnichannel applink fields directly whenever collaborativeAppSpec is
+ * present, independent of mode/product set — same trigger buildPlacementImage
+ * already uses. Skipped when mode is 'collaborative_ads': withCollaborativeCatalogContext
+ * already applies buildOmnichannelLinkFields for that catalog-bound path, which
+ * requires a matching product set there.
+ */
+function withDirectOmnichannelLinkFields(
+  input: BuildMetaCreativeFormatPayloadInput,
+  payload: Record<string, unknown>,
+  destinationUrl: string,
+  applinkTreatmentOverride?: MetaApplinkTreatment
+): Record<string, unknown> {
+  if (input.mode === 'collaborative_ads' || !input.collaborativeAppSpec) return payload;
+  return {
+    ...payload,
+    ...buildOmnichannelLinkFields(
+      destinationUrl,
+      input.collaborativeAppSpec,
+      applinkTreatmentOverride
+    ),
   };
 }
 

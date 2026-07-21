@@ -29,7 +29,7 @@ const REQUIREMENTS: Record<MetaCreativeFormat, string[]> = {
     'headline',
     'destinationUrl',
   ],
-  existing_post: ['objectStoryId'],
+  existing_post: ['objectStoryId', 'destinationUrl (wajib jika collaborativeAppSpec diisi)'],
 };
 
 export function assertMetaCreativeCompatibility(input: {

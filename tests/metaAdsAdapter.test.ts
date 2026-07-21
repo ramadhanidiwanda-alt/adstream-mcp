@@ -1503,6 +1503,70 @@ describe('MetaAdsAdapter', () => {
     }
   );
 
+  it('threads a video creativeSpec.applinkTreatment override through parsing into the dry-run omnichannel preview', async () => {
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+    });
+
+    const response = await adapter.createAdCreative({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {
+        name: 'Video omnichannel creative',
+        pageId: 'page-1',
+        mode: 'standard',
+        creativeFormat: 'video',
+        creativeSpec: {
+          videoId: 'video-1',
+          thumbnailImageHash: 'thumb-1',
+          primaryText: 'Video copy',
+          destinationUrl: 'https://example.com/video',
+          applinkTreatment: 'deeplink_with_appstore_fallback',
+        },
+        collaborativeAppSpec: {
+          applicationId: '957549474255294',
+        },
+      },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    });
+
+    expect(response.ok).toBe(true);
+    const preview = response.ok ? (response.data?.preview as Record<string, unknown>) : undefined;
+    expect(preview?.applink_treatment).toBe('deeplink_with_appstore_fallback');
+    expect(preview?.omnichannel_link_spec).toEqual(expect.any(Object));
+  });
+
+  it('threads existing_post creativeSpec.destinationUrl through parsing into the dry-run omnichannel preview', async () => {
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+    });
+
+    const response = await adapter.createAdCreative({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {
+        name: 'Existing post omnichannel creative',
+        creativeFormat: 'existing_post',
+        creativeSpec: {
+          objectStoryId: '123_456',
+          destinationUrl: 'https://s.shopee.co.id/product',
+        },
+        collaborativeAppSpec: {
+          applicationId: '957549474255294',
+        },
+      },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    });
+
+    expect(response.ok).toBe(true);
+    const preview = response.ok ? (response.data?.preview as Record<string, unknown>) : undefined;
+    expect(preview?.object_story_id).toBe('123_456');
+    expect(preview?.applink_treatment).toBe('automatic');
+    expect(preview?.omnichannel_link_spec).toMatchObject({
+      web: { url: 'https://s.shopee.co.id/product' },
+    });
+  });
+
   it('attaches image and video creatives to separate ads in the same ad set', async () => {
     const adCreateCalls: Array<{ adsetId: string; creativeId: string }> = [];
     const adapter = new MetaAdsAdapter({
