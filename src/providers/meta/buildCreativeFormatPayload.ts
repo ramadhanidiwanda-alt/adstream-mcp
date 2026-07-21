@@ -12,6 +12,14 @@ export type BuildMetaCreativeFormatPayloadInput = MetaCreativeSpec & {
   instagramUserId?: string;
   collaborativeProductSetId?: string;
   collaborativeAppSpec?: MetaCollaborativeAppSpec;
+  /**
+   * Nama-nama fitur degrees_of_freedom_spec yang di-OPT_OUT (disable).
+   * Contoh: ['image_auto_crop', 'text_optimizations', 'image_templates'].
+   * Jika diisi, degrees_of_freedom_spec akan diset untuk SEMUA format creative
+   * (flexible, video, single_image, carousel).
+   * Jika tidak diisi, degrees_of_freedom_spec tidak disertakan (backward compatible).
+   */
+  optOutEnhancements?: string[];
 };
 
 export function buildMetaCreativeFormatPayload(
@@ -123,11 +131,14 @@ function buildSingleImage(
     destinationUrl
   );
 
-  return withDirectOmnichannelLinkFields(
-    input,
-    payload,
-    destinationUrl,
-    creativeSpec.applinkTreatment
+  return withDegreesOfFreedomSpec(
+    withDirectOmnichannelLinkFields(
+      input,
+      payload,
+      destinationUrl,
+      creativeSpec.applinkTreatment
+    ),
+    input.optOutEnhancements
   );
 }
 
@@ -166,11 +177,14 @@ function buildVideo(
     destinationUrl
   );
 
-  return withDirectOmnichannelLinkFields(
-    input,
-    payload,
-    destinationUrl,
-    creativeSpec.applinkTreatment
+  return withDegreesOfFreedomSpec(
+    withDirectOmnichannelLinkFields(
+      input,
+      payload,
+      destinationUrl,
+      creativeSpec.applinkTreatment
+    ),
+    input.optOutEnhancements
   );
 }
 
@@ -207,20 +221,23 @@ function buildCarousel(
   const destinationUrl =
     creativeSpec.destinationUrl?.trim() || creativeSpec.cards[0]?.destinationUrl;
 
-  return withCollaborativeCatalogContext(
-    input,
-    {
-      object_story_spec: {
-        page_id: required(input.pageId, 'pageId'),
-        ...instagramIdentity(input),
-        link_data: {
-          message: required(creativeSpec.primaryText, 'primaryText'),
-          attachment_style: 'link',
-          child_attachments: childAttachments,
+  return withDegreesOfFreedomSpec(
+    withCollaborativeCatalogContext(
+      input,
+      {
+        object_story_spec: {
+          page_id: required(input.pageId, 'pageId'),
+          ...instagramIdentity(input),
+          link_data: {
+            message: required(creativeSpec.primaryText, 'primaryText'),
+            attachment_style: 'link',
+            child_attachments: childAttachments,
+          },
         },
       },
-    },
-    destinationUrl ?? ''
+      destinationUrl ?? ''
+    ),
+    input.optOutEnhancements
   );
 }
 
@@ -471,9 +488,37 @@ function buildFlexible(
   input: Extract<BuildMetaCreativeFormatPayloadInput, { creativeFormat: 'flexible' }>
 ): Record<string, unknown> {
   const { creativeSpec } = input;
-  const imageHashes = nonBlankValues(creativeSpec.imageHashes);
-  const videoIds = nonBlankValues(creativeSpec.videoIds);
-  const primaryTexts = nonBlankValues(creativeSpec.primaryTexts);
+  const assetFeedSpec = creativeSpec.assetFeedSpec;
+
+  // Priority: creativeSpec fields > assetFeedSpec fields > defaults
+  const imageHashes = nonBlankValues(creativeSpec.imageHashes).length > 0
+    ? nonBlankValues(creativeSpec.imageHashes)
+    : (assetFeedSpec?.images ?? []).map((img) => img.hash).filter(Boolean);
+  const videoIds = nonBlankValues(creativeSpec.videoIds).length > 0
+    ? nonBlankValues(creativeSpec.videoIds)
+    : (assetFeedSpec?.videos ?? []).map((vid) => vid.video_id).filter(Boolean);
+  const primaryTexts = nonBlankValues(creativeSpec.primaryTexts).length > 0
+    ? nonBlankValues(creativeSpec.primaryTexts)
+    : (assetFeedSpec?.bodies ?? []).map((b) => b.text).filter(Boolean);
+  const headlines = nonBlankValues(creativeSpec.headlines).length > 0
+    ? nonBlankValues(creativeSpec.headlines)
+    : (assetFeedSpec?.titles ?? []).map((t) => t.text).filter(Boolean);
+  const descriptions = nonBlankValues(creativeSpec.descriptions).length > 0
+    ? nonBlankValues(creativeSpec.descriptions)
+    : [];
+
+  // Destination URL: creativeSpec > first assetFeedSpec.link_urls > required
+  const destinationUrl = creativeSpec.destinationUrl?.trim()
+    || assetFeedSpec?.link_urls?.[0]?.website_url?.trim()
+    || '';
+  if (!destinationUrl) {
+    throw new Error('Flexible creative memerlukan destinationUrl atau assetFeedSpec.link_urls.');
+  }
+
+  // CTA: creativeSpec > first assetFeedSpec.call_to_action_types > default
+  const callToAction = creativeSpec.callToAction?.trim()
+    || assetFeedSpec?.call_to_action_types?.[0]?.trim()
+    || 'LEARN_MORE';
 
   if (imageHashes.length === 0 && videoIds.length === 0) {
     throw new Error('Flexible creative wajib memiliki minimal satu media.');
@@ -482,34 +527,39 @@ function buildFlexible(
     throw new Error('Flexible creative wajib memiliki minimal satu primary text.');
   }
 
-  const assetFeedSpec: Record<string, unknown> = {
+  const feedSpec: Record<string, unknown> = {
     bodies: primaryTexts.map((text) => ({ text })),
-    link_urls: [{ website_url: required(creativeSpec.destinationUrl, 'destinationUrl') }],
-    call_to_action_types: [creativeSpec.callToAction?.trim() || 'LEARN_MORE'],
+    link_urls: [{ website_url: destinationUrl }],
+    call_to_action_types: [callToAction],
     ad_formats: [
       ...(imageHashes.length > 0 ? ['SINGLE_IMAGE'] : []),
       ...(videoIds.length > 0 ? ['SINGLE_VIDEO'] : []),
     ],
   };
-  const headlines = nonBlankValues(creativeSpec.headlines);
-  const descriptions = nonBlankValues(creativeSpec.descriptions);
 
-  if (imageHashes.length > 0) assetFeedSpec.images = imageHashes.map((hash) => ({ hash }));
-  if (videoIds.length > 0) assetFeedSpec.videos = videoIds.map((video_id) => ({ video_id }));
-  if (headlines.length > 0) assetFeedSpec.titles = headlines.map((text) => ({ text }));
-  if (descriptions.length > 0) assetFeedSpec.descriptions = descriptions.map((text) => ({ text }));
-  addMessageExtensions(assetFeedSpec, creativeSpec.messageExtensions);
+  if (imageHashes.length > 0) feedSpec.images = imageHashes.map((hash) => ({ hash }));
+  if (videoIds.length > 0) feedSpec.videos = videoIds.map((video_id) => ({ video_id }));
+  if (headlines.length > 0) feedSpec.titles = headlines.map((text) => ({ text }));
+  if (descriptions.length > 0) feedSpec.descriptions = descriptions.map((text) => ({ text }));
+  addMessageExtensions(feedSpec, creativeSpec.messageExtensions);
 
   const objectStorySpec: Record<string, unknown> = {
     page_id: required(input.pageId, 'pageId'),
   };
   const instagramUserId = optional(input.instagramUserId, 'instagramUserId');
-  if (instagramUserId) objectStorySpec.instagram_actor_id = instagramUserId;
+  if (instagramUserId) objectStorySpec.instagram_user_id = instagramUserId;
 
-  return {
+  const payload: Record<string, unknown> = {
     object_story_spec: objectStorySpec,
-    asset_feed_spec: assetFeedSpec,
+    asset_feed_spec: feedSpec,
   };
+
+  // Fix #4: degrees_of_freedom_spec jika optOutEnhancements diisi
+  if (input.optOutEnhancements && input.optOutEnhancements.length > 0) {
+    payload.degrees_of_freedom_spec = buildCreativeFeatureOptOutSpec(input.optOutEnhancements);
+  }
+
+  return payload;
 }
 
 function buildPlacementImage(
@@ -625,30 +675,49 @@ function buildPlacementCustomizedCtwa(
     portrait_customizations: {
       image_hash: verticalImageHash,
     },
-    degrees_of_freedom_spec: buildCreativeFeatureOptOutSpec(),
+    degrees_of_freedom_spec: buildCreativeFeatureOptOutSpec(input.optOutEnhancements),
     media_sourcing_spec: {
       related_media: [],
     },
   };
 }
 
-function buildCreativeFeatureOptOutSpec(): Record<string, unknown> {
-  const features = [
-    'image_auto_crop',
-    'text_optimizations',
-    'image_templates',
-    'image_brightness_and_contrast',
-    'image_animation',
-    'image_background_gen',
-    'image_uncrop',
-    'catalog_feed_tag',
-    'product_extensions',
-  ];
+function buildCreativeFeatureOptOutSpec(
+  features?: string[]
+): Record<string, unknown> {
+  const featureList = features?.length
+    ? features
+    : [
+        'image_auto_crop',
+        'text_optimizations',
+        'image_templates',
+        'image_brightness_and_contrast',
+        'image_animation',
+        'image_background_gen',
+        'image_uncrop',
+        'catalog_feed_tag',
+        'product_extensions',
+      ];
 
   return {
     creative_features_spec: Object.fromEntries(
-      features.map((feature) => [feature, { enroll_status: 'OPT_OUT' }])
+      featureList.map((feature) => [feature, { enroll_status: 'OPT_OUT' }])
     ),
+  };
+}
+
+/**
+ * Wrap payload with degrees_of_freedom_spec when optOutEnhancements is provided.
+ * Used by single_image, video, carousel, and flexible builders.
+ */
+function withDegreesOfFreedomSpec(
+  payload: Record<string, unknown>,
+  optOutEnhancements: string[] | undefined
+): Record<string, unknown> {
+  if (!optOutEnhancements || optOutEnhancements.length === 0) return payload;
+  return {
+    ...payload,
+    degrees_of_freedom_spec: buildCreativeFeatureOptOutSpec(optOutEnhancements),
   };
 }
 

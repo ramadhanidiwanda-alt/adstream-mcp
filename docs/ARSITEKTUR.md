@@ -2,120 +2,150 @@
 
 > Deep dive tentang desain dan struktur project
 
-**Versi:** 1.0 | **Terakhir Diupdate:** 2026-05-29
+**Versi:** 2.0 | **Terakhir Diupdate:** 2026-07-21
 
 ## 🏗️ Struktur Project
 
 ```
 adstream-mcp/
-├── src/                    # TypeScript library
-│   ├── index.ts           # Public API surface
-│   ├── metaClient.ts      # HTTP client (read-only)
+├── src/                    # TypeScript source
+│   ├── index.ts           # Entry point + MCP server bootstrap
+│   ├── types.ts           # Shared TypeScript types & interfaces
 │   ├── config.ts          # Environment config loader
-│   ├── types.ts           # Semua TypeScript types
-│   ├── tools/             # 6 fungsi read
-│   ├── analysis/          # Business logic
-│   ├── rules/             # Rule engine (26 templates)
-│   └── utils/             # Helper functions
+│   ├── broker/            # AdsBroker — MCP tool definitions, provider routing, types
+│   │   ├── AdsBroker.ts          # Core broker (orchestrates provider + tools)
+│   │   ├── mcpTools.ts           # MCP tool registration
+│   │   ├── providerRegistry.ts   # Provider adapter registration
+│   │   ├── factory.ts            # Factory functions
+│   │   ├── contentMatrix.ts      # Content matrix engine
+│   │   ├── reportEngine.ts       # Report generation engine
+│   │   ├── commerceReportEngine.ts
+│   │   ├── commerceTools.ts
+│   │   ├── cuanInsight.ts
+│   │   ├── cuanInsightClient.ts
+│   │   ├── credentials.ts
+│   │   ├── remoteAuth.ts
+│   │   ├── config.ts
+│   │   └── types.ts
+│   ├── providers/          # Provider adapters (normalized interface)
+│   │   ├── meta/           # Meta Ads adapter
+│   │   │   ├── MetaAdsAdapter.ts
+│   │   │   ├── normalizer.ts
+│   │   │   ├── creativeCompliance.ts
+│   │   │   ├── creativeFormatCompatibility.ts
+│   │   │   ├── buildCreativeFormatPayload.ts
+│   │   │   └── metaCreativeErrorGuidance.ts
+│   │   ├── tiktok/         # TikTok Ads adapter
+│   │   │   ├── TikTokAdsAdapter.ts
+│   │   │   ├── normalizer.ts
+│   │   │   └── gmvMaxNormalizer.ts
+│   │   └── google/         # Google Ads adapter
+│   │       ├── GoogleAdsAdapter.ts
+│   │       └── normalizer.ts
+│   ├── tools/              # Individual tool implementations (read + write)
+│   │   ├── (read tools)    # getPerformance, getCreatives, getCapabilities, dsb.
+│   │   ├── (write tools)   # createCampaign, createAdSet, createAd, update*, pause*, resume*, dsb.
+│   │   └── tiktok/         # TikTok-specific write tools
+│   ├── mcp/                # MCP server (transport, HTTP, auth)
+│   │   ├── index.ts
+│   │   ├── createServer.ts
+│   │   ├── http.ts
+│   │   ├── authorizeForm.ts
+│   │   ├── oauthStore.ts
+│   │   └── oauthStoreSupabase.ts
+│   ├── analysis/           # Business logic (legacy — akan dipindah bertahap)
+│   ├── rules/              # Rule engine templates (legacy — akan dipindah bertahap)
+│   └── utils/              # Helper functions
 ├── skills/                 # AI skills (markdown)
 │   └── meta-ads/
 │       ├── audit/         # Performance auditing
 │       ├── manage/        # Campaign management
 │       └── shared/        # Shared context
-├── src/mcp/               # MCP server entry
-│   └── src/index.ts
 ├── tests/                 # Test files
+├── __test_real__/         # Real API integration tests
 └── docs/                  # Documentation (folder ini)
 ```
 
 ## 🧩 Layer Architecture
 
-### Layer 1: Core Client (`metaClient.ts`)
+### Layer 1: Broker (`src/broker/`)
 
 **Tanggung jawab:**
-- HTTP communication dengan Meta Marketing API
-- Token management (tidak pernah di-log)
-- Error handling (throw `MetaApiError`)
-- Rate limiting awareness
+- **AdsBroker** — Central orchestrator yang meneruskan request dari MCP tools ke provider adapter yang sesuai
+- **MCP Tools** — Registrasi semua tool definitions (read + write) untuk MCP protocol
+- **Provider Registry** — Mapping provider → adapter (Meta, TikTok, Google)
+- **Report Engine** — Normalisasi data lintas provider untuk report generik
+- **Content Matrix** — Ad-hoc performance grouping
 
-**Key methods:**
-- `metaGet<T>(path, params)` - GET request dengan type safety
+**Key classes:**
+- `AdsBroker` — Entry point broker, delegasi ke provider berdasarkan `provider` parameter
+- `MCPTools` — Mendaftarkan seluruh tool ke MCP server
+- `ProviderRegistry` — Menyimpan dan lookup adapter per provider
 
 **Prinsip:**
-- Read-only by design
-- No retry logic (caller decides)
-- Type-safe responses
+- Provider-agnostic interface
+- Satu broker untuk semua MCP tools
+- Normalisasi data dilakukan di adapter, bukan di broker
 
-### Layer 2: Tools (`src/tools/`)
+### Layer 2: Providers (`src/providers/`)
 
 **Tanggung jawab:**
-- Wrapper functions untuk Meta API endpoints
-- Parameter validation
-- Response transformation
+- Implementasi adapter untuk masing-masing platform (Meta, TikTok, Google)
+- Normalisasi response API ke format internal yang seragam
+- Handle auth, rate limit, dan error spesifik platform
 
-**6 Tools saat ini:**
-1. `getAdAccounts` - List ad accounts
-2. `getCampaigns` - List campaigns
-3. `getCampaignInsights` - Campaign performance data
-4. `getAdsetInsights` - Ad set performance data
-5. `getAdsInsights` - Individual ad performance data
-6. `generateDailyReport` - Aggregated daily report
+**Adapter saat ini:**
+| Provider | Adapter | Status |
+|----------|---------|--------|
+| Meta | `MetaAdsAdapter` | ✅ Mature |
+| TikTok | `TikTokAdsAdapter` | ✅ Active |
+| Google | `GoogleAdsAdapter` | 🚧 Early |
 
-**Pattern:**
+**Pattern adapter:**
 ```typescript
-export interface GetXOptions {
-  adAccountId: string;
-  // ... specific params
-}
-
-export async function getX(
-  client: MetaClient,
-  options: GetXOptions
-): Promise<X[]> {
-  // Implementation
+export interface AdsProviderAdapter {
+  getPerformance(
+    params: PerformanceParams
+  ): Promise<PerformanceResponse>;
+  getCreatives(params: CreativeParams): Promise<CreativeResponse>;
+  // ... methods lain
 }
 ```
 
-### Layer 3: Analysis (`src/analysis/`)
+### Layer 3: Tools (`src/tools/`)
 
 **Tanggung jawab:**
-- Business logic untuk performance analysis
-- Anomaly detection
-- Recommendation generation
+- Implementasi individual tool functions
+- Parameter validation & transformation
+- Baik read tools (query data) maupun write tools (mutasi campaign)
 
-**2 Modules saat ini:**
-1. `analyzeCampaignPerformance` - Analyze campaign metrics
-2. `recommendActions` - Generate actionable recommendations
-
-**Prinsip:**
-- Input dari insight types
-- Output include disclaimer
-- No side effects
-
-### Layer 4: Rules Engine (`src/rules/`)
-
-**Tanggung jawab:**
-- Configurable thresholds
-- Business-specific rules
-- Template management
-
-**26 Rule templates:**
-- E-commerce (8 rules)
-- Lead generation (7 rules)
-- Brand awareness (6 rules)
-- General (5 rules)
+**Kategori tools:**
+- **Read tools** — `getPerformance`, `getCreatives`, `getCapabilities`, `getChangeHistory`, dsb.
+- **Write tools** — `createCampaign`, `createAdSet`, `createAd`, `updateCampaign`, `pauseAd`, `resumeAd`, `deleteAd`, `renameCampaign`, `updateCampaignBudget`, `updateAdSet`, `updateAd`, `uploadImage`, `uploadVideo`, dsb.
+- **TikTok-specific** — `createTikTokCampaign`, `createTikTokAdGroup`, `createTikTokAd`, `createTikTokGmvMax`, `createTikTokSmartPlus`
 
 **Pattern:**
 ```typescript
-export interface Rule {
-  id: string;
-  name: string;
-  category: 'ecommerce' | 'leadgen' | 'brand' | 'general';
-  condition: (insight: CampaignInsight) => boolean;
-  recommendation: string;
-  severity: 'critical' | 'warning' | 'info';
+export async function getPerformance(
+  broker: AdsBroker,
+  params: PerformanceParams
+): Promise<PerformanceResponse> {
+  return broker.execute('getPerformance', params);
 }
 ```
+
+### Layer 4: MCP Server (`src/mcp/`)
+
+**Tanggung jawab:**
+- Setup HTTP/SSE transport
+- OAuth flow (authorize + callback)
+- Server lifecycle management
+
+**Komponen:**
+- `createServer.ts` — Factory untuk MCP server instance
+- `http.ts` — HTTP transport layer
+- `authorizeForm.ts` — OAuth authorization form
+- `oauthStore.ts` / `oauthStoreSupabase.ts` — Token storage
 
 ### Layer 5: AI Skills (`skills/meta-ads/`)
 
@@ -125,13 +155,13 @@ export interface Rule {
 - Workflow guidance
 
 **2 Skills saat ini:**
-1. `audit/SKILL.md` - Performance auditing workflow
-2. `manage/SKILL.md` - Campaign management workflow
+1. `audit/SKILL.md` — Performance auditing workflow
+2. `manage/SKILL.md` — Campaign management workflow
 
 **Shared context:**
-- `preamble.md` - Introduction dan context
-- `meta-math.md` - Metric calculations
-- `references.md` - Common patterns
+- `preamble.md` — Introduction dan context
+- `meta-math.md` — Metric calculations
+- `references.md` — Common patterns
 
 ## 🔄 Data Flow
 
@@ -140,17 +170,17 @@ User/Agent
     ↓
 AI Skills (natural language)
     ↓
-Tools (function calls)
+MCP Tools (tool definitions)
     ↓
-MetaClient (HTTP)
+AdsBroker (orchestrator)
     ↓
-Meta Marketing API
+Provider Adapter (normalized call)
     ↓
-MetaClient (response)
+Provider API (Meta/TikTok/Google)
     ↓
-Analysis (business logic)
+Provider Adapter (normalized response)
     ↓
-Rules Engine (recommendations)
+AdsBroker → Tools
     ↓
 User/Agent (insights)
 ```
@@ -164,19 +194,19 @@ User/Agent (insights)
 - Easier refactoring
 - Self-documenting code
 
-### Mengapa ESM?
+### Mengapa Provider Adapter Pattern?
 
-- Modern JavaScript standard
-- Better tree-shaking
-- Native browser support (future)
-- Aligns dengan Node.js direction
+- Isolasi perbedaan API tiap platform
+- Normalisasi data di satu tempat
+- Mudah menambah provider baru
+- Testing independen per platform
 
-### Mengapa Read-Only First?
+### Mengapa Single Broker Architecture?
 
-- Safer untuk MVP
-- Easier to test
-- Lower risk
-- Write operations butuh approval workflow (v0.4)
+- Satu entry point untuk semua MCP tools
+- Provider routing transparan
+- Consistent error handling
+- Future-proof untuk multi-provider reporting
 
 ### Mengapa Separate Skills Layer?
 
@@ -184,13 +214,6 @@ User/Agent (insights)
 - Easier untuk non-technical contributors
 - AI agents butuh business context
 - Markdown lebih mudah di-maintain
-
-### Mengapa Rule Engine?
-
-- Configurable tanpa code changes
-- Business users bisa customize
-- Easier A/B testing
-- Scalable untuk multiple verticals
 
 ## 🔐 Security Architecture
 
@@ -201,42 +224,39 @@ Environment Variable (.env)
     ↓
 Config Loader (config.ts)
     ↓
-MetaClient (private field)
+Provider Adapter (private field)
     ↓
-URL Query Param (never logged)
+URL/Auth Header (never logged)
     ↓
-Meta API
+Provider API
 ```
 
 **Prinsip:**
 - Token tidak pernah di-log
 - Token tidak pernah di-return
 - Token tidak pernah di-expose di error messages
+- OAuth tokens disimpan di Supabase (production) atau file (development)
 
-### Read-Only Constraint
+### Permission Model
 
-**Current (v0.3):**
-- Permission: `ads_read`
-- Operations: GET only
-- No mutations
-
-**Future (v0.4):**
-- Permission: `ads_management`
-- Operations: POST, PUT, DELETE
-- Approval workflow required
+**Current:**
+- Meta: `ads_read` + `ads_management` untuk write tools
+- TikTok: `STANDARD` + `GMV_MAX` untuk commerce
+- Google: Standard OAuth scopes
 
 ## 📊 Performance Considerations
 
 ### API Rate Limits
 
-Meta API rate limits:
-- 200 calls per hour per user
-- 4800 calls per hour per app
+Setiap provider punya rate limit sendiri:
+- **Meta API:** 200 calls/hour/user, 4800 calls/hour/app
+- **TikTok API:** 100 calls/second per advertiser
+- **Google API:** Berdasarkan quota project
 
 **Strategy:**
-- No automatic retry
-- Caller decides retry logic
+- No automatic retry (caller decides)
 - Batch requests when possible
+- Provider adapter handle rate limit headers
 
 ### Memory Usage
 
@@ -257,43 +277,38 @@ Meta API rate limits:
 - Business logic di `src/analysis/`
 - Rule engine di `src/rules/`
 - Utilities di `src/utils/`
+- Provider normalizer
 
 ### Integration Tests
 
-- Mock `MetaClient`
+- Mock provider adapter
 - Test tools dengan fake responses
-- No real API calls
+- Test broker routing
+- No real API calls (kecuali `__test_real__/`)
 
-### E2E Tests (future)
+### E2E Tests (`__test_real__/`)
 
-- Real Meta API calls
-- Sandbox ad account
-- CI/CD integration
+- Real API calls ke Meta/TikTok
+- Sandbox/specific ad account
+- Manual trigger (not in CI)
 
 ## 🚀 Extensibility
+
+### Menambah Provider Baru
+
+1. Buat folder di `src/providers/newProvider/`
+2. Implement `AdsProviderAdapter` interface
+3. Buat normalizer untuk response API
+4. Daftarkan di `providerRegistry.ts`
+5. Tambahkan test
 
 ### Menambah Tool Baru
 
 1. Buat file di `src/tools/newTool.ts`
-2. Define interface untuk options
-3. Implement function dengan `MetaClient`
+2. Gunakan `AdsBroker` untuk akses provider
+3. Daftarkan tool di `mcpTools.ts`
 4. Export dari `src/index.ts`
 5. Tambahkan test
-
-### Menambah Analysis Module
-
-1. Buat file di `src/analysis/newAnalysis.ts`
-2. Input dari existing insight types
-3. Output include recommendations
-4. Export dari `src/index.ts`
-5. Tambahkan test
-
-### Menambah Rule Template
-
-1. Buat file di `src/rules/templates/newTemplate.ts`
-2. Define rules dengan pattern yang ada
-3. Export dari `src/rules/templates/index.ts`
-4. Update rule engine
 
 ### Menambah AI Skill
 
@@ -302,29 +317,36 @@ Meta API rate limits:
 3. Reference shared context
 4. Test dengan real agent
 
-## 🔮 Future Architecture (v1.0)
+### Menambah Adapter Method
+
+1. Tambahkan method di `AdsProviderAdapter` interface
+2. Implementasi di tiap provider adapter
+3. Tambahkan tool wrapper di `src/tools/`
+4. Daftarkan di MCP tools
+
+## 🔮 Future Architecture (v2.0+)
 
 ### Planned Additions
 
-1. **Write Operations Layer** (v0.4)
-   - Approval workflow
-   - Audit logging
-   - Rollback capability
+1. **Multi-Provider Reporting** (v2.1)
+   - Cross-platform performance comparison
+   - Unified metrics normalization
+   - Combined dashboards
 
-2. **OAuth Layer** (v0.5)
-   - Token refresh
+2. **Bulk Operations** (v2.2)
+   - Batch campaign creation/update
+   - Bulk pause/resume
+   - CSV import/export
+
+3. **OAuth Refresh** (v2.3)
+   - Automatic token refresh
    - Multi-user support
-   - Secure token storage
+   - Secure token storage via Supabase
 
-3. **Multi-Account Layer** (v0.6)
-   - Account switching
-   - Bulk operations
-   - Cross-account reporting
-
-4. **Monitoring Layer** (v1.0)
-   - Error tracking
-   - Performance metrics
-   - Usage analytics
+4. **AI-Driven Optimization** (v3.0)
+   - Automated bid adjustment
+   - Smart budget allocation
+   - Anomaly detection & alerting
 
 ---
 

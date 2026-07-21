@@ -309,7 +309,7 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
   {
     name: 'ads_create_adcreative',
     description:
-      'Create a Meta ad creative with image/video, headline, body, CTA, or official Dynamic Creative inputs: objectStorySpec plus top-level assetFeedSpec. assetFeedSpec supports multiple primary texts and headlines. Dry-run by default. Set dryRun=false and confirmed=true to execute.',
+      'Create a Meta ad creative with image/video, headline, body, CTA, or official Dynamic Creative inputs: objectStorySpec plus top-level assetFeedSpec. assetFeedSpec supports multiple primary texts and headlines. Gunakan optOutEnhancements untuk disable Advantage+ Creative enhancement. Dry-run by default. Set dryRun=false and confirmed=true to execute.',
     inputSchema: createCreateAdCreativeInputSchema(),
   },
   {
@@ -1891,6 +1891,12 @@ function createCreateAdCreativeInputSchema() {
       externalReference: {
         type: 'string',
         description: 'Caller-provided reference for duplicate prevention and audit correlation.',
+      },
+      optOutEnhancements: {
+        type: 'array',
+        items: { type: 'string' },
+        description:
+          'Nama fitur Advantage+ Creative enhancement yang di-disable (OPT_OUT). Contoh: ["image_auto_crop", "text_optimizations", "image_templates", "image_brightness_and_contrast", "image_animation", "image_background_gen", "image_uncrop", "catalog_feed_tag", "product_extensions", "standard_enhancements", "enhance_cta", "inline_comment", "pac_relaxation", "video_auto_crop", "video_filtering", "advantage_plus_creative", "site_extensions"]. Berlaku untuk SEMUA format creative (video, single_image, carousel, flexible, placement_customized_ctwa). Jika tidak diisi, Meta mengontrol enhancement secara default.',
       },
       dryRun: { type: 'boolean', description: 'Defaults to true. Set false only after preview.' },
       confirmed: { type: 'boolean', description: 'Must be true to execute after preview.' },

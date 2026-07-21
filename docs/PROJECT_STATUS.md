@@ -1,6 +1,6 @@
 # Project Status — Adstream MCP
 
-> **Updated:** 2026-07-06  
+> **Updated:** 2026-07-21  
 > **Version:** v0.6.0  
 > **Current Roadmap:** v0.6.0 — Canonical MCP Connector API
 
@@ -32,7 +32,7 @@
 - **Cuan Insight** is the credential authority. It stores and manages all Meta access tokens, user/workspace/plan data, and account mappings.
 - **adstream-mcp** is the MCP server. It does **not** store provider tokens — credentials are resolved from Cuan Insight at runtime.
 - The server supports **multi-user** and **multi-workspace** usage through remote credential resolution (Connection Key or OAuth Token modes).
-- Most tools remain read-oriented, but campaign-level write operations are now implemented behind explicit dry-run/confirmation and safety guards. Adset/ad write operations are next.
+- Most tools remain read-oriented, but full write operations are now implemented across campaigns, ad sets, and ads — including create, update, pause/resume, archive, clone, and safety guards (budget cap, dry-run approval workflow).
 - Broker permission policy now performs minimal credential-aware read gating for provider, account allow-list, and ads scopes while keeping writes denied by default unless explicitly configured.
 - **Connection Key support** (Phase 17.5C): MCP server sends `x-cuan-mcp-connection-key` header when `CUAN_INSIGHT_AUTH_MODE=connection_key`.
 
@@ -238,11 +238,18 @@ The MCP SDK is upgraded to `^1.29.0`, Streamable HTTP is implemented, and Phase 
 
 ### Write Operations
 
-- Minimal RBAC foundation is in place for read paths: credential provider must match the request provider, requested account must be allowed by `allowedAccountIds`/`accountId`, and scoped credentials must include ads read/write/admin scope.
-- Campaign-level write operations are implemented for pause, resume, budget update, and rename.
-- Write tools must preserve the existing safety model: dry-run first, explicit confirmation before execution, audit entry, no token leakage.
-- Adset/ad write operations, batch operations, rollback, and whitelist/blacklist guardrails are planned for v0.6.0.
-- Create operations remain out of scope.
+- Full write operations are now implemented across all entity levels: campaign, ad set, ad, and creative.
+- Campaign-level: pause, resume, budget update, rename, create, update.
+- Ad set-level: pause, resume, create, update, clone.
+- Ad-level: pause, resume, create, update, archive.
+- Creative-level: create (flexible, video, single_image, carousel), upload image/video.
+- TikTok GMV Max: create/update/delete campaigns and sessions.
+- TikTok Smart Plus: create/pause/resume campaigns and ad groups.
+- Safety guards: `budgetSafetyGuard` (max 200% increase), `campaignBudgetSafetyGuard`, rate-limit awareness.
+- Approval workflow: dry-run → confirm → execute → audit entry, no token leakage. MCP tool annotations separate destructive (archive, pause, update) from additive (create, resume) writes.
+- Clone tools: `ads_clone_adset`, `ads_clone_ui_ad` (duplicate UI ad configuration from an existing ad).
+- Read-full tools: `ads_read_creative_full` (reverse-engineer creative payload), `ads_read_adset_full` (full targeting/budget config).
+- Create operations remain behind explicit confirmation.
 
 ---
 
@@ -257,9 +264,11 @@ The MCP SDK is upgraded to `^1.29.0`, Streamable HTTP is implemented, and Phase 
 7. ✅ **TikTok parity + Meta CPAS read mode** — TikTok regular placement/read parity, TikTok GMV Max commerce data, and Meta CPAS `params.mode="cpas"`.
 8. ✅ **Google Ads read-only provider foundation** — account/campaign/adgroup/ad performance normalizer, provider registration, and REST SearchStream client.
 9. ✅ **RBAC minimal foundation** — provider/account/scope read gating plus default-deny write policy.
-10. ⏳ **v0.6.0 — Adset/ad write operations** — extend mutation coverage below campaign level.
-11. ⏳ **Safety guard expansion** — batch limits, rollback, whitelist, blacklist, and max-change rate limits.
-12. ⏳ **Release hygiene** — keep `package.json`, `CHANGELOG.md`, `ROADMAP.md`, tags, and project status synchronized.
+10. ✅ **v0.6.0 — Adset/ad write operations** — create, update, pause/resume, archive, clone across ad sets and ads plus creative creation.
+11. ✅ **Safety guard expansion** — `budgetSafetyGuard`, `campaignBudgetSafetyGuard`, destructive/additive tool annotations, rate-limit awareness.
+12. ✅ **TikTok write operations** — GMV Max create/update/delete campaigns and sessions; Smart Plus create/pause/resume campaigns and ad groups.
+13. ✅ **Read-full tools** — `ads_read_creative_full`, `ads_read_adset_full` for reverse engineering live ad configurations.
+14. ⏳ **Release hygiene** — keep `package.json`, `CHANGELOG.md`, `ROADMAP.md`, tags, and project status synchronized.
 
 ---
 

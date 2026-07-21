@@ -293,6 +293,7 @@ export async function getAdDestinations(
     buildMetaIdFilteringRules([
       { field: 'campaign.id', value: campaignId },
       { field: 'adset.id', value: adSetId },
+      { field: 'id', value: adIds },
     ]),
     explicitFilters
   );
@@ -310,12 +311,7 @@ export async function getAdDestinations(
     paging?: { cursors?: { after?: string } };
   }>(`/act_${adAccountId}/ads`, params);
 
-  let ads = response.data || [];
-
-  // Filter by specific ad IDs if requested
-  if (adIds && adIds.length > 0) {
-    ads = ads.filter((ad) => ad.id && adIds.includes(ad.id));
-  }
+  const ads = response.data || [];
 
   const result: AdDestinationInfo[] = ads.map((ad) => {
     const creative = ad.creative;

@@ -54,6 +54,13 @@ export interface CreateAdCreativeOptions {
   whatsappPhoneNumberId?: string;
   pageWelcomeMessage?: string;
   whatsappWelcomeMessageSequenceId?: string;
+  /**
+   * Nama-nama fitur degrees_of_freedom_spec yang di-OPT_OUT (disable).
+   * Contoh: ['image_auto_crop', 'text_optimizations', 'image_templates'].
+   * Jika diisi, degrees_of_freedom_spec akan diset untuk SEMUA format creative
+   * (flexible, video, single_image, carousel).
+   */
+  optOutEnhancements?: string[];
 }
 
 export type CreateAdCreativeStatus =
@@ -479,6 +486,7 @@ function buildCreativePayload(options: CreateAdCreativeOptions): Record<string, 
         instagramUserId: options.instagramUserId,
         collaborativeProductSetId: options.collaborativeProductSetId,
         collaborativeAppSpec: options.collaborativeAppSpec,
+        optOutEnhancements: options.optOutEnhancements,
       })
     );
   } else if (options.objectStorySpec) {
