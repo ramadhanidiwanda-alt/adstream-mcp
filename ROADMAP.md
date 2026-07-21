@@ -1,7 +1,7 @@
 # Roadmap: adstream-mcp
 
 **Current Version:** v0.6.0
-**Last Updated:** 2026-07-06
+**Last Updated:** 2026-07-21
 
 ---
 
@@ -72,7 +72,6 @@ Menjadi **open-source Ads + Commerce MCP connector hub** untuk AI agents dan dev
 - ✅ 10 new unit tests (420 total)
 - ✅ Closes gap where `meta_get_campaigns` was blocked in remote mode
 
-
 ### v0.5.2 (2026-06-25) - Account-Level Performance Broker Tool
 - ✅ `ads_get_account_performance` MCP broker tool
 - ✅ Meta Insights `level=account` via new `getAccountInsights()` tool
@@ -80,86 +79,99 @@ Menjadi **open-source Ads + Commerce MCP connector hub** untuk AI agents dan dev
 - ✅ ROAS fallback from `purchase_value / spend` when Meta omits `purchase_roas`
 - ✅ TikTok account performance stub returns `NOT_IMPLEMENTED`
 
+### Phase 0 (2026-07) — Adstream MCP Foundation Sync
+
+**Goal:** Align the repository with the `adstream-mcp` multi-platform direction before deeper feature work.
+
+- ✅ Sync package, README, and repository metadata from legacy Meta-first naming to `adstream-mcp`
+- ✅ Keep Meta CPAS as a Meta adapter mode, not a separate provider
+- ✅ Add provider capability matrix as code and use it as adapter source of truth
+- ✅ Add `docs/PROVIDER_ONBOARDING.md` for future provider adapters
+- ✅ Mark `ads_*` as stable public MCP surface and `meta_*`/`tiktok_*` as legacy/debug surfaces
+
+### v0.6.0 (2026-07) — Write Operations (Adset, Ad & Creative) + Expanded Tools
+
+**Goal:** Extend mutation coverage to ad set, ad, and creative levels with full write parity across all entity levels.
+
+#### Features
+- ✅ **Safety Contract Prerequisite**
+  - ✅ Follow `docs/WRITE_SAFETY_CONTRACT.md` for every new mutation
+  - ✅ Prove dry-run, confirmation, permission, audit, and redaction behavior before exposing tools
+- ✅ **Write Operations**
+  - ✅ Pause/enable ad sets + ads (`ads_pause_adset`, `ads_resume_adset`, `ads_pause_ad`, `ads_resume_ad`)
+  - ✅ Update ad set budgets (`ads_update_adset`)
+  - ✅ Rename ad sets + ads (`ads_update_adset`, `ads_update_ad`, `ads_update_campaign`)
+  - ✅ **Create operations:** `ads_create_campaign`, `ads_create_adset`, `ads_create_ad`, `ads_create_adcreative` (flexible, video, single_image, carousel, dll)
+  - ✅ **Archive:** `ads_archive_ad`
+  - ✅ **Clone:** `ads_clone_adset`, `ads_clone_ui_ad` (duplicate UI ad from existing config)
+  - ✅ **Read-full:** `ads_read_creative_full` (reverse-engineer creative payloads), `ads_read_adset_full` (full targeting/budget config)
+  - ✅ **Upload tools:** `ads_upload_image`, `ads_upload_video`
+  - ✅ **TikTok GMV Max:** create/update/delete campaigns and sessions
+  - ✅ **TikTok Smart Plus:** create/pause/resume campaigns and ad groups
+- ✅ **Approval Workflow Extension**
+  - ✅ Batch operations support via tool annotations (destructive vs additive)
+  - ✅ MCP tool annotations for destructive/additive/idempotent hints
+- ✅ **Safety Guards**
+  - ✅ `budgetSafetyGuard` — max 200% budget increase
+  - ✅ `campaignBudgetSafetyGuard` — campaign-level budget constraints
+  - ✅ Rate-limit awareness (auto-delay, HTTP 429 retry)
+  - ✅ Destructive write tool annotations (archive, pause, update)
+- ✅ **Skills Updates**
+  - ✅ Update `manage/SKILL.md` to support write ops
+  - ✅ Add `shared/references/safe-mutations.md`
+- ✅ **Tests**
+  - ✅ Adset/ad mutation tests
+  - ✅ Budget safety guard tests
+  - ✅ MCP tool dispatch completeness tests
+
+**Additional tools shipped in v0.6.0:**
+- `ads_get_targeting_options` — search Meta targeting options
+- `ads_get_video_source` — get raw video source URL
+- `ads_get_ad_creative_mapping` — link ads to creatives
+- `ads_get_account_info` — account metadata
+- `ads_list_adimages`, `ads_list_advideos` — asset library listing
+- `ads_get_ad_preview` — preview URL per ad format
+- `ads_get_ad_destinations` — destination URL extraction
+- `ads_list_pages`, `ads_list_instagram_accounts`, `ads_list_threads_profiles` — page/profile discovery
+- `ads_list_pixels`, `ads_list_catalogs`, `ads_list_product_sets` — commerce infrastructure discovery
+- `ads_list_whatsapp_accounts`, `ads_list_whatsapp_phone_numbers`, `ads_list_whatsapp_message_templates` — WhatsApp discovery
+- `ads_create_ecommerce_campaign_bundle` — e-commerce campaign bundle creation
+
 ---
 
 ## In Progress 🚧
 
-### Phase 0 (Target: July 2026) — Adstream MCP Foundation Sync
+### v0.6.x — Release Hygiene & Remaining Items
 
-**Goal:** Align the repository with the `adstream-mcp` multi-platform direction before deeper feature work.
-
-#### Features
-- [x] Sync package, README, and repository metadata from legacy Meta-first naming to `adstream-mcp`
-- [x] Keep Meta CPAS as a Meta adapter mode, not a separate provider
-- [x] Add provider capability matrix as code and use it as adapter source of truth
-- [x] Add `docs/PROVIDER_ONBOARDING.md` for future provider adapters
-- [x] Mark `ads_*` as stable public MCP surface and `meta_*`/`tiktok_*` as legacy/debug surfaces
+- [x] All write operations implemented across campaign, ad set, ad, and creative levels.
+- [x] TikTok write tools (GMV Max + Smart Plus) implemented.
+- [x] Safety guards and approval workflow proven.
+- [ ] **Release hygiene:** bump `package.json`, update `CHANGELOG.md`, tag release, update `RELEASE_NOTES.md`.
+- [ ] **Docs sweep:** ensure all new tools are documented in MCP_API_DESIGN.md.
+- [ ] **Whitelist/blacklist guardrails:** optional campaign allow/block lists for write tools.
 
 **See also:** `docs/PLAN.md` for the full multi-platform master plan.
-
-### v0.6.0 (Target: July 2026) — Write Operations (Adset & Ad)
-
-**Goal:** Extend mutation coverage to adset and ad levels
-
-#### Features
-- [ ] **Safety Contract Prerequisite**
-  - [ ] Follow `docs/WRITE_SAFETY_CONTRACT.md` for every new mutation
-  - [ ] Prove dry-run, confirmation, permission, audit, and redaction behavior before exposing tools
-- [ ] **Write Operations**
-  - [ ] Pause/enable ad sets + ads
-  - [ ] Update ad set budgets
-  - [ ] Rename ad sets + ads
-- [ ] **Approval Workflow Extension**
-  - [ ] Batch operations (pause 5 campaigns at once)
-  - [ ] Rollback capability
-- [ ] **Safety Guards**
-  - [ ] Rate limiting (max X changes per hour)
-  - [ ] Blacklist (never touch these campaigns)
-  - [ ] Whitelist mode (only touch these campaigns)
-- [ ] **Skills Updates**
-  - [ ] Update `manage/SKILL.md` to support write ops
-  - [ ] Add `shared/references/safe-mutations.md`
-- [ ] **Tests**
-  - [ ] Adset/ad mutation tests
-  - [ ] Batch operation tests
 
 ---
 
 ## Planned 📅
 
-### v0.7.0 (Historical) - OAuth & Token Management
+### v0.7.0 (Target: August 2026) — Remaining Guardrails & Polish
 
-**Goal:** Simplify authentication for end users. Most remote OAuth/persistent-store foundation work is already completed in `docs/PROJECT_STATUS.md`; remaining work is cleanup, docs, and refresh-token decisions.
+**Goal:** Tighten safety and complete the write tool experience.
 
 #### Features
-- [ ] **OAuth 2.0 Flow**
-  - [ ] Browser-based authentication
-  - [ ] PKCE flow (secure for public clients)
-  - [ ] Token storage in OS keychain
-  - [ ] Automatic token refresh
+- [ ] **Whitelist mode** — only allow writes to explicitly listed campaigns/adsets/ads
+- [ ] **Blacklist mode** — never allow writes to certain campaigns/adsets/ads
+- [ ] **Batch operations** — pause/resume/archive multiple entities in one call
+- [ ] **Rollback** — undo last write operation
+- [ ] **Rate limiting** — max X changes per hour configurable
+- [ ] **Changelog + release** — bump to v0.7.0, update CHANGELOG.md, tag release
 
-- [ ] **Token Management**
-  - [ ] Check token expiry
-  - [ ] Auto-refresh before expiry
-  - [ ] Handle revoked tokens
-  - [ ] Multi-user support (per-project tokens)
-
-- [ ] **Skills Updates**
-  - [ ] Update `preamble.md` to support OAuth
-  - [ ] Remove manual token setup
-  - [ ] Add OAuth troubleshooting guide
-
-**Why Important:**
-- No more manual token copy-paste
-- Tokens never expire (auto-refresh)
-- Better security (tokens in keychain, not .env)
-- Easier onboarding (one-click auth)
-
-**Technical Approach:**
-- Use Meta's OAuth 2.0 with PKCE
-- Store tokens in OS keychain (keytar library)
-- MCP server handles token refresh
-- Skills trigger OAuth on first use
+#### Why Important
+- Whitelist/blacklist prevent accidental writes to critical campaigns
+- Batch ops save time for agencies managing many campaigns
+- Rollback provides safety net for mistakes
 
 ---
 
@@ -441,8 +453,8 @@ skills/meta-ads/playbooks/
 | Feature | Impact | Complexity | Strategic | Priority |
 |---------|--------|------------|-----------|----------|
 | Campaign Write Operations | High | Medium | High | ✅ Done (v0.5.0) |
-| Adset & Ad Write Operations | High | Medium | High | **P0** (v0.6.0) |
-| OAuth Flow | High | Medium | Medium | **P1** (v0.7.0) |
+| Adset & Ad Write Operations | High | Medium | High | ✅ Done (v0.6.0) |
+| Safety Guards & Whitelist/Blacklist | High | Medium | High | **P0** (v0.7.0) |
 | Multi-Account | Medium | Low | High | **P1** (v0.8.0) |
 | Predictive Analytics | Medium | High | Medium | **P2** (v0.9.0) |
 | Industry Templates | High | Low | Medium | **P2** (v1.0.0) |
@@ -491,13 +503,13 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
 ## Questions?
 
-- **"What should we build next?"** → v0.6.0 adset/ad write operations with stronger safety guards
+- **"What should we build next?"** → v0.7.0: whitelist/blacklist guardrails, batch operations, rollback, and rate limiting.
 - **"Can I request a feature?"** → Yes! Open an issue with `[Feature Request]` tag
 - **"Will v1.0 be free?"** → Yes, open source forever (MIT license)
 - **"Will there be a paid version?"** → Maybe enterprise features (SSO, SLA) in the future
 
 ---
 
-**Last Updated:** 2026-06-25  
+**Last Updated:** 2026-07-21  
 **Maintained By:** Project maintainers + community  
 **License:** MIT

@@ -1,37 +1,38 @@
-# AGENTS.md
+# AGENTS.md — adstream-mcp
 
-> Panduan untuk AI agents yang bekerja dengan meta-ads-agent-skill
+> Panduan untuk AI agents yang bekerja dengan **adstream-mcp**
 
-**Versi:** 1.0 | **Terakhir Diupdate:** 2026-05-29 | **Status Project:** v0.3.0
+**Versi:** 1.1 | **Terakhir Diupdate:** 2026-07-21 | **Status Project:** v0.6.0
 
 ## 🎯 Ringkasan Cepat (30 Detik)
 
-- TypeScript library + AI skills untuk analisis Meta Ads
-- **Operasi read-only** (write ops akan datang di v0.4)
-- Tech stack: Modul ESM, strict TypeScript, Vitest
-- **Aturan emas:** Jangan log token, jangan push tanpa izin
-- [Mulai Cepat](#-mulai-cepat) | [Task Umum](#-task-umum)
+- Multi-provider MCP connector hub: **Meta Ads**, **TikTok Ads**, **Google Ads** + Commerce (TikTok GMV)
+- **Read & Write operations** — campaign, adset, ad, creative (create/update/pause/resume/archive)
+- Tech stack: Modul ESM, strict TypeScript, Vitest, MCP protocol
+- **Aturan emas:** Jangan log token, jangan push tanpa izin, **tanya sebelum execute write ops**
+- [Mulai Cepat](#-mulai-cepat) | [Struktur Folder](#-arsitektur) | [Write Safety](#-panduan-write-operations)
 
 ---
 
 > **Strategic Context:**
-> meta-ads-agent-skill is the open-source MCP execution layer for Cuan Insight, which is becoming an AI Connector Hub and organization-level credential control plane. Cuan Insight stores provider tokens; this MCP server resolves them at runtime and calls provider APIs directly. Connection Keys are organization-rooted but scoped by workspace/provider/account/scope. Do not design this as Claude-only; it must remain client-agnostic. See [docs/CUAN_INSIGHT_CONNECTION_KEY_COMPATIBILITY.md](./docs/CUAN_INSIGHT_CONNECTION_KEY_COMPATIBILITY.md) for details.
+> adstream-mcp is the open-source MCP execution layer for Cuan Insight — an organization-level credential control plane. Cuan Insight stores provider tokens; this MCP server resolves them at runtime and calls provider APIs directly. Connection Keys are organization-rooted but scoped by workspace/provider/account/scope. Do not design this as Claude-only; it must remain client-agnostic. See [docs/CUAN_INSIGHT_CONNECTION_KEY_COMPATIBILITY.md](./docs/CUAN_INSIGHT_CONNECTION_KEY_COMPATIBILITY.md) for details.
 
 ## 🧭 Filosofi Project
 
 ### Prinsip Desain
 
-1. **Keamanan Pertama** - Token adalah sacred, jangan pernah di-log
-2. **Read-Only by Design** - Fokus analisis dulu, automasi belakangan
-3. **Type Safety** - Kalau compile sukses, harusnya jalan
-4. **Ramah untuk Agent** - Dibangun untuk AI agents, bukan cuma manusia
-5. **Kompleksitas Bertahap** - Mulai simple, tambah power bertahap
+1. **Keamanan Pertama** — Token adalah sacred, jangan pernah di-log
+2. **Safety Before Mutations** — Semua write ops lewat dry-run → confirm → execute → audit
+3. **Multi-Provider** — Meta, TikTok, Google dengan adapter pattern seragam
+4. **Type Safety** — Kalau compile sukses, harusnya jalan
+5. **Ramah untuk Agent** — Dibangun untuk AI agents, bukan cuma manusia
+6. **Kompleksitas Bertahap** — Mulai simple, tambah power bertahap
 
 ### Mengapa Ini Penting?
 
-Project ini menjembatani akses programmatic (TypeScript library) dengan natural language (AI skills). Agents butuh code patterns DAN business context sekaligus.
+Project ini menjembatani akses programmatic (TypeScript library + MCP) dengan natural language (AI skills). Agents butuh code patterns DAN business context sekaligus.
 
-**Target User:** "End user goblok" (non-technical marketers) yang butuh insight tanpa ribet.
+**Target User:** Marketers dan developers yang butuh insight + action tanpa ribet.
 
 ---
 
@@ -40,19 +41,22 @@ Project ini menjembatani akses programmatic (TypeScript library) dengan natural 
 ### 🔴 Jangan Pernah Lakukan Ini
 
 - ❌ Log access tokens (console, errors, dimanapun)
+- ❌ Jangan commit file `.env` (sudah di `.gitignore`)
+- ❌ Jangan hardcode tokens di code
 - ❌ Buat file .md baru tanpa tanya user dulu
 - ❌ `git push` tanpa izin eksplisit dari user
-- ❌ Implement write operations (pause, budget, create)
 - ❌ Over-generate artifacts (jawab di text, jangan bikin file)
 
 ### ✅ Selalu Lakukan Ini
 
+- ✅ **Gunakan pola dry-run dulu** sebelum execute write ops (lihat [panduan write](#-panduan-write-operations))
+- ✅ **Minta konfirmasi user** sebelum perubahan destruktif (pause, archive, budget turun >50%)
 - ✅ Gunakan extension `.js` di imports (requirement ESM)
 - ✅ Export semua public APIs dari `src/index.ts`
 - ✅ Tambahkan types ke `src/types.ts`
 - ✅ Tulis tests untuk fitur baru
 - ✅ Tanya sebelum buat file baru
-- ✅ Sebelum memberi rekomendasi, desain, atau plan yang bergantung pada API/library/platform eksternal, baca dokumentasi resmi relevan lebih dulu; utamakan docs resmi, SDK resmi, schema resmi, atau source resmi provider. Jelaskan mana yang benar-benar didukung docs dan mana yang hanya inferensi dari data/read-back.
+- ✅ Sebelum memberi rekomendasi yang bergantung pada API/library/platform eksternal, baca dokumentasi resmi relevan lebih dulu
 
 **Alasan:** Repo ini punya terlalu banyak file .md noise dari sesi sebelumnya. Jangan tambah sampah lagi.
 
@@ -62,44 +66,121 @@ Project ini menjembatani akses programmatic (TypeScript library) dengan natural 
 
 ```
 src/
-├── index.ts           # Public API surface
-├── metaClient.ts      # HTTP client (read-only)
-├── types.ts           # Semua TypeScript types
-├── tools/             # 6 fungsi read
-│   ├── getAdAccounts.ts
-│   ├── getCampaigns.ts
-│   ├── getCampaignInsights.ts
-│   ├── getAdsetInsights.ts
-│   ├── getAdsInsights.ts
-│   └── generateDailyReport.ts
-├── analysis/          # Business logic
+├── index.ts              # Public API surface — exports semua tools, types, adapters
+├── metaClient.ts         # Meta Graph API HTTP client (read + write via metaPost())
+├── tiktokClient.ts       # TikTok Ads HTTP client
+├── types.ts              # Semua TypeScript types + Zod schemas
+├── config.ts             # Environment-based config loader
+│
+├── broker/               # AdsBroker — orchestrator + MCP tool definitions
+│   ├── AdsBroker.ts      # Multi-provider broker (credential resolution, routing)
+│   ├── mcpTools.ts       # ~90KB — semua MCP tool definitions (read + write)
+│   ├── types.ts          # Broker-level types
+│   ├── config.ts         # Broker config
+│   ├── credentials.ts    # Cuan Insight credential resolution
+│   ├── factory.ts        # Provider adapter factory
+│   ├── providerRegistry.ts
+│   ├── reportEngine.ts   # Normalized report engine
+│   ├── contentMatrix.ts  # Content/performance matrix
+│   ├── commerceReportEngine.ts
+│   ├── commerceTools.ts  # Commerce (GMV) tools
+│   ├── cuanInsight.ts / cuanInsightClient.ts
+│   └── remoteAuth.ts     # Remote auth helpers
+│
+├── providers/            # Provider adapters — setiap provider punya adapter sendiri
+│   ├── meta/
+│   │   ├── MetaAdsAdapter.ts      # ~128KB — adapter utama Meta (read + write)
+│   │   ├── normalizer.ts          # Meta → normalized format
+│   │   ├── buildCreativeFormatPayload.ts
+│   │   ├── creativeCompliance.ts
+│   │   ├── creativeFormatCompatibility.ts
+│   │   ├── metaCreativeErrorGuidance.ts
+│   │   └── omnichannelAdCompatibility.ts
+│   ├── tiktok/
+│   │   ├── TikTokAdsAdapter.ts    # ~41KB
+│   │   ├── normalizer.ts
+│   │   └── gmvMaxNormalizer.ts
+│   └── google/
+│       ├── GoogleAdsAdapter.ts    # ~17KB
+│       └── normalizer.ts
+│
+├── tools/                # Implementasi tool individual (read + write)
+│   ├── Read tools:
+│   │   ├── getAdAccounts.ts, getCampaigns.ts, getAccountInfo.ts
+│   │   ├── getCampaignInsights.ts, getAdsetInsights.ts, getAdsInsights.ts
+│   │   ├── getAccountInsights.ts, getLocationInsights.ts
+│   │   ├── getAdPreview.ts, getAdCreativeMapping.ts, getAdDestinations.ts
+│   │   ├── getTargetingOptions.ts, getTikTokReport.ts, getTikTokCampaigns.ts
+│   │   ├── getTikTokLocationInsights.ts, getGmvMaxReport.ts
+│   │   ├── listAdImages.ts, listAdVideos.ts, listPages.ts
+│   │   ├── listInstagramAccounts.ts, listThreadsProfiles.ts
+│   │   ├── listWhatsAppAccounts.ts, listWhatsAppMessageTemplates.ts
+│   │   ├── listWhatsAppPhoneNumbers.ts, listCatalogs.ts, listPixels.ts
+│   │   ├── listProductSets.ts, generateDailyReport.ts
+│   │   ├── readAdSetFull.ts, readAdCreativeFull.ts
+│   │   └── getMetaPlacementPerformance.ts
+│   ├── Write tools — Campaign:
+│   │   ├── createCampaign.ts
+│   │   ├── pauseCampaign.ts, resumeCampaign.ts
+│   │   ├── renameCampaign.ts, updateCampaign.ts
+│   │   └── updateCampaignBudget.ts
+│   ├── Write tools — Ad Set:
+│   │   ├── createAdSet.ts, cloneAdSet.ts
+│   │   ├── pauseAdSet.ts, resumeAdSet.ts
+│   │   ├── updateAdSet.ts
+│   │   └── checkLaunchReadiness.ts
+│   ├── Write tools — Ad:
+│   │   ├── createAd.ts, cloneUiAd.ts
+│   │   ├── pauseAd.ts, resumeAd.ts
+│   │   ├── updateAd.ts, archiveAd.ts
+│   │   └── uploadImage.ts, uploadVideo.ts
+│   ├── Write tools — Creative:
+│   │   ├── createAdCreative.ts
+│   │   └── readAdCreativeFull.ts
+│   ├── Write tools — Bundle:
+│   │   └── createEcommerceCampaignBundle.ts
+│   └── TikTok write tools:
+│       └── tiktok/
+│           ├── createTikTokCampaign.ts
+│           ├── createTikTokAdGroup.ts
+│           ├── createTikTokAd.ts
+│           ├── createTikTokSmartPlus.ts
+│           └── createTikTokGmvMax.ts
+│
+├── mcp/                  # MCP server entry
+│   ├── index.ts          # Entry point
+│   ├── createServer.ts   # MCP server setup (~60KB)
+│   ├── http.ts           # HTTP transport (~52KB)
+│   ├── oauthStore.ts / oauthStoreSupabase.ts  # OAuth storage
+│   └── authorizeForm.ts  # OAuth authorize form
+│
+├── analysis/             # Business logic
 │   ├── analyzeCampaignPerformance.ts
-│   └── recommendActions.ts
-├── rules/             # Rule engine (26 templates)
+│   ├── analyzePlacementPerformance.ts
+│   ├── recommendActions.ts
+│   └── summarizeLocationInsights.ts
+│
+├── rules/                # Rule engine (26 templates)
 │   ├── engine.ts
 │   ├── types.ts
-│   └── templates/
-│       ├── ecommerce.ts
-│       ├── leadgen.ts
-│       ├── brand.ts
-│       └── general.ts
-└── utils/             # Helper functions
+│   └── templates/ (ecommerce, leadgen, brand, general)
+│
+└── utils/                # Helper functions
 
-skills/meta-ads/       # AI skills (markdown)
-├── audit/SKILL.md     # Performance auditing
-├── manage/SKILL.md    # Campaign management
-└── shared/            # Shared context
+skills/meta-ads/          # AI skills (markdown)
+├── audit/SKILL.md        # Performance auditing
+├── manage/SKILL.md       # Campaign management (read + write)
+└── shared/               # Shared context
     ├── preamble.md
     ├── meta-math.md
     └── references.md
-
-mcp-server/            # MCP wrapper
-└── src/index.ts
 ```
 
 ### Konsep Kunci
 
-- **Tools** = API wrappers (getCampaigns, getInsights)
+- **Broker** = Multi-provider orchestrator — resolve credentials, route calls ke adapter yang tepat
+- **Adapters** = Provider-specific implementation (MetaAdsAdapter, TikTokAdsAdapter, GoogleAdsAdapter)
+- **Tools** = API wrappers individual (read: getCampaigns, write: pauseCampaign, createAdSet)
 - **Analysis** = Business logic (recommendations, anomaly detection)
 - **Rules** = Configurable thresholds (ROAS, CTR, spend)
 - **Skills** = Natural language interface untuk agents
@@ -134,36 +215,103 @@ npm run build        # Build production
 
 ---
 
-## 📋 Task Umum
+## 📋 Panduan Write Operations
 
-### Menambah Tool Baru (Operasi Read)
+### Workflow Aman: dry-run → confirm → execute → audit
+
+Semua write operations WAJIB mengikuti pola ini:
 
 ```typescript
-// src/tools/getNewData.ts
-export interface GetNewDataOptions {
-  adAccountId: string;
-  // ... params lain
-}
+// 1. DRY RUN — tampilkan apa yang akan dilakukan
+const dryRunResult = {
+  action: 'pauseCampaign',
+  campaignId: '120330000000000001',
+  campaignName: 'Promo Ramadhan - ACTIVE',
+  currentStatus: 'ACTIVE',
+  newStatus: 'PAUSED',
+  impact: 'Menghentikan spending ~Rp 500rb/hari'
+};
 
+// 2. KONFIRMASI — tanya user sebelum execute
+// "Saya akan pause campaign 'Promo Ramadhan'. Setuju? (yes/no)"
+
+// 3. EXECUTE — jalankan setelah mendapat izin
+const result = await client.metaPost(
+  `/act_${adAccountId}/campaigns`,
+  { id: campaignId, status: 'PAUSED' }
+);
+
+// 4. AUDIT — verifikasi hasil
+const verify = await client.metaGet(
+  `/act_${adAccountId}/campaigns`,
+  { fields: 'id,name,status' }
+);
+```
+
+### Safety Guards
+
+ Guard | Deskripsi |
+-------|-----------|
+ Max 200% budget increase | Tidak bisa naikkan budget >2x tanpa approval manual |
+ Dry-run mandatory | Tidak bisa execute tanpa dry-run dulu |
+ Confirm before destructive | Pause, archive, budget turun >50% harus konfirmasi |
+ Batch rate limit | Max X perubahan per jam |
+ Blacklist | Campaign tertentu tidak boleh disentuh |
+
+### Write Tools yang Tersedia
+
+**Campaign:** pauseCampaign, resumeCampaign, renameCampaign, updateCampaign, updateCampaignBudget, createCampaign
+
+**Ad Set:** pauseAdSet, resumeAdSet, updateAdSet, createAdSet, cloneAdSet
+
+**Ad:** pauseAd, resumeAd, updateAd, createAd, archiveAd, cloneUiAd
+
+**Creative:** createAdCreative
+
+**Media:** uploadImage, uploadVideo
+
+**Bundle:** createEcommerceCampaignBundle
+
+**TikTok:** createTikTokCampaign, createTikTokAdGroup, createTikTokAd, createTikTokSmartPlus, createTikTokGmvMax
+
+**Read tools (reverse engineering):** readAdSetFull, readAdCreativeFull
+
+### Menambah Tool Baru
+
+```typescript
+// src/tools/read: extends MetaClient.metaGet
+// src/tools/write: extends MetaClient.metaPost
+
+// Contoh tool read baru:
 export async function getNewData(
   client: MetaClient,
   options: GetNewDataOptions
 ): Promise<NewData[]> {
   const response = await client.metaGet<{ data: NewData[] }>(
     `/act_${options.adAccountId}/endpoint`,
-    {
-      fields: 'id,name,status',
-      limit: 100,
-    }
+    { fields: 'id,name,status', limit: 100 }
   );
   return response.data;
+}
+
+// Contoh tool write baru:
+export async function updateSomething(
+  client: MetaClient,
+  params: UpdateParams
+): Promise<{ success: boolean }> {
+  const response = await client.metaPost<{ success: boolean }>(
+    `/${params.id}`,
+    params.payload
+  );
+  return response;
 }
 ```
 
 **Langkah selanjutnya:**
 1. Export dari `src/index.ts`
 2. Tambahkan interface ke `src/types.ts`
-3. Tulis test di `tests/getNewData.test.ts`
+3. Tulis test di `tests/*.test.ts`
+4. Daftarkan di `src/broker/mcpTools.ts` jika perlu MCP tool baru
 
 ### Menambah Logic Analysis
 
@@ -271,17 +419,21 @@ console.log('Fetching:', url.toString()); // NEVER DO THIS
 - ✅ SELALU gunakan environment variables
 - ✅ SELALU mask tokens di error messages
 
-### Hanya Operasi Read-Only
+### Panduan Write Safety — Jangan Asal Execute
 
-Project ini **hanya read-only** (ads_read permission) sampai v0.4.
+Project ini sudah memiliki **write operations lengkap** (v0.5+). Tapi dengan kekuatan besar datang tanggung jawab besar.
 
-**JANGAN implement write operations** seperti:
-- Pause/resume campaigns
-- Update budgets
-- Create ads/campaigns
-- Upload creatives
+**WAJIB lakukan ini sebelum write ops:**
+1. ✅ **Dry-run dulu** — tampilkan apa yang berubah, jangan langsung execute
+2. ✅ **Minta konfirmasi user** — tunggu "yes" tertulis
+3. ✅ **Gunakan safety guards** — jangan bypass max budget increase
+4. ✅ **Verifikasi hasil** — pastikan perubahan sesuai ekspektasi
+5. ✅ **Mask token di semua log** — token tidak boleh muncul di output manapun
 
-Semua recommendations harus include disclaimer bahwa ini suggestion only.
+**Jangan lakukan ini:**
+- ❌ Execute write ops tanpa dry-run
+- ❌ Naikkan budget >200% tanpa approval manual
+- ❌ Lupa verifikasi status setelah mutation
 
 ---
 
@@ -321,7 +473,7 @@ describe('featureName', () => {
 
 ### Versi API
 
-- Default: `v20.0`
+- Default: `v22.0`
 - Configurable via `META_API_VERSION` env var
 - Update version di `.env.example` jika ada breaking changes
 
