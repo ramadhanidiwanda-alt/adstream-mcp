@@ -58,10 +58,9 @@ export async function getAccountInfo(
     'disable_reason',
   ];
 
-  const raw = await client.metaGet<AccountInfoRaw>(
-    `/act_${adAccountId}`,
-    { fields: fields.join(',') }
-  );
+  const raw = await client.metaGetObject<AccountInfoRaw>(`/act_${adAccountId}`, {
+    fields: fields.join(','),
+  });
 
   return {
     id: raw.id,
