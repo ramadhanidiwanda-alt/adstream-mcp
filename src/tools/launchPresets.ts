@@ -181,7 +181,9 @@ const PRESETS: Record<MetaLaunchWorkflow, LaunchPreset> = {
       'ads_create_adcreative',
       'ads_create_ad',
     ],
-    safetyNotes: ['Use isDynamicCreative=true when attaching flexible asset_feed_spec creatives.'],
+    safetyNotes: [
+      'Flexible Ad Format (creativeFormat: flexible) replaces Dynamic Creative rather than depending on it — do not set isDynamicCreative=true on the ad set for this workflow.',
+    ],
   },
   existing_post: {
     workflow: 'existing_post',
