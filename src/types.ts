@@ -73,6 +73,15 @@ export interface MetaCollectionCreativeSpec extends MetaCreativeCopy {
   productSetId?: string;
 }
 
+export interface MetaFlexibleAssetFeedSpec {
+  images?: Array<{ hash: string }>;
+  videos?: Array<{ video_id: string }>;
+  bodies?: Array<{ text: string }>;
+  titles?: Array<{ text: string }>;
+  link_urls?: Array<{ website_url: string }>;
+  call_to_action_types?: string[];
+}
+
 export interface MetaFlexibleCreativeSpec extends MetaCreativeCopy {
   imageHashes?: string[];
   videoIds?: string[];
@@ -80,6 +89,12 @@ export interface MetaFlexibleCreativeSpec extends MetaCreativeCopy {
   headlines?: string[];
   descriptions?: string[];
   messageExtensions?: MetaAssetMessageExtension[];
+  /**
+   * Alternative input: raw asset_feed_spec fields (images, videos, bodies, titles, etc).
+   * Mapped into creativeSpec fields with priority: creativeSpec fields > assetFeedSpec fields > defaults.
+   * Useful when callers already have a Meta-formatted asset_feed_spec structure.
+   */
+  assetFeedSpec?: MetaFlexibleAssetFeedSpec;
 }
 
 export interface MetaPlacementImageCreativeSpec extends MetaCreativeCopy {

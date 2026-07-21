@@ -525,3 +525,20 @@ Before adding any new public MCP tool, ask:
 Do not create a new public tool if the need can be met by `ads_get_performance` with explicit canonical parameters. Do not add MCP-core tools for daily reports, weekly reports, creative audits, recommendations, KPI scoring, or top/bottom rankings; implement those as AI/skill workflows over data tools.
 
 New public analytics inputs should prefer these names: `provider`, `accountId`, `since`, `until`, `level`, `metrics`, `dimensions`, `breakdowns`, `filters`, `sortBy`, `sortDirection`, `limit`, and `cursor`. Provider-native names such as `adAccountId`, `advertiserId`, `startDate`, and `endDate` may remain in legacy APIs or internal adapters, but should not be introduced as the default public MCP contract.
+
+---
+
+## 📋 Local Agent Config
+
+Setiap agent yang bekerja di repo ini WAJIB:
+
+1. **Cek config lokal** di urutan:
+   - `.agent-config.yaml` di folder ini
+   - `.local/agent-config.yaml` di folder ini
+2. **Jika ada** — ikuti rules delegation-nya (task pattern → model)
+3. **Prioritas model China** — nggak perlu OpenAI/Anthropic
+4. **Jika tidak ada** — pakai default:
+   - `deepseek-v4-flash` untuk daily ($0.14)
+   - `deepseek-v4-pro` untuk task berat ($0.43)
+
+Config di `.local/` sudah di gitignore — aman buat disimpan.

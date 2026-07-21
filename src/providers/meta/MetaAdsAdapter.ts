@@ -1588,6 +1588,9 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
             typeof request.params.externalReference === 'string'
               ? request.params.externalReference
               : undefined,
+          optOutEnhancements: Array.isArray(request.params.optOutEnhancements)
+            ? (request.params.optOutEnhancements as string[])
+            : undefined,
         },
         {
           dryRun: request.params.dryRun !== false,
