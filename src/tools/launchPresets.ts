@@ -182,7 +182,7 @@ const PRESETS: Record<MetaLaunchWorkflow, LaunchPreset> = {
       'ads_create_ad',
     ],
     safetyNotes: [
-      'Flexible Ad Format (creativeFormat: flexible) replaces Dynamic Creative rather than depending on it — do not set isDynamicCreative=true on the ad set for this workflow.',
+      'Use isDynamicCreative=true on the ad set when attaching a flexible asset_feed_spec creative with multiple bodies/titles. Verified live: Meta rejects ad creation with "Dynamic Creative Ad cannot be created under a non-Dynamic Creative Ad Set" (subcode 1885998) when this is unset, even though creative creation itself succeeds. Some third-party sources claim Flexible Ad Format replaces Dynamic Creative and makes this unnecessary — that does not hold for this API path.',
     ],
   },
   existing_post: {
