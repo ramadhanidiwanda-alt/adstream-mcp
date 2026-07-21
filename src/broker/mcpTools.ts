@@ -25,6 +25,7 @@ import {
   isAdsProviderId,
 } from './types.js';
 import { redactErrorMessage, redactTokenLikeValues } from './credentials.js';
+import { LOCATION_BREAKDOWNS } from '../types.js';
 
 export const ADS_MCP_TOOL_NAMES = [
   'ads_list_accounts',
@@ -1214,7 +1215,10 @@ function getAdsCapabilities(request: AdsBrokerRequest): AdsBrokerResponse<Record
           'cost_per_result',
         ],
         dimensions: ['account', 'campaign', 'adset', 'adgroup', 'ad', 'creative'],
-        breakdowns: ['date', 'country', 'region', 'platform', 'placement', 'product'],
+        // Must match what assertLocationBreakdowns() (src/utils/locationBreakdowns.ts)
+        // actually accepts — advertising unimplemented values here breaks callers
+        // who trust ads_get_capabilities over trial-and-error.
+        breakdowns: [...LOCATION_BREAKDOWNS],
         pagination: { cursor: true, limit: true },
         dataFreshness: { retrievedAt: true },
       },
