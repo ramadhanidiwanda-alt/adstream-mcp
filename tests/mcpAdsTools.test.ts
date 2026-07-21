@@ -626,6 +626,31 @@ describe('ads MCP broker tools', () => {
     });
   });
 
+  it('never advertises a read breakdown that assertLocationBreakdowns() actually rejects', async () => {
+    // Regression: ads_get_capabilities used to list ['date', 'country', 'region',
+    // 'platform', 'placement', 'product'] as supported breakdowns, but the real
+    // validator behind ads_get_performance / meta_get_location_insights only
+    // ever accepted ['country', 'region', 'dma'] — every other advertised value
+    // failed with "Invalid location breakdown: <value>" the moment a caller
+    // actually tried it.
+    const { assertLocationBreakdowns } = await import('../src/utils/locationBreakdowns.js');
+    const broker = createBrokerStub();
+
+    const response = parseToolResponse(
+      await handleAdsMcpToolCall(broker, 'ads_get_capabilities', { provider: 'meta' })
+    );
+    const advertisedBreakdowns = (response.data as { read: { breakdowns: string[] } }).read
+      .breakdowns;
+
+    expect(advertisedBreakdowns.length).toBeGreaterThan(0);
+    for (const breakdown of advertisedBreakdowns) {
+      expect(
+        () => assertLocationBreakdowns([breakdown]),
+        `${breakdown} is advertised in ads_get_capabilities but rejected by assertLocationBreakdowns()`
+      ).not.toThrow();
+    }
+  });
+
   it('never advertises optionalTools without a real, dispatchable tool definition behind it', async () => {
     // Regression: optionalTools used to be derived from the raw
     // ADS_MCP_TOOL_NAMES array, which can (and did) contain names with no
