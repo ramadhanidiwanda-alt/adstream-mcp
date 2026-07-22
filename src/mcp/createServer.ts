@@ -775,6 +775,18 @@ const updateCampaignInputSchema = {
     .boolean()
     .optional()
     .describe('Required when status="DELETED" — deletion is irreversible via the API.'),
+  adsetBudgets: z
+    .array(
+      z.object({
+        adsetId: z.string(),
+        dailyBudget: z.number().optional(),
+        lifetimeBudget: z.number().optional(),
+      })
+    )
+    .optional()
+    .describe(
+      "Toggles the campaign between Campaign Budget Optimization (CBO) and Ad Set Budget (ABO) using Meta's adset_budgets mechanism — converts an existing CBO campaign to ABO in place, no need to recreate the campaign. Must include every non-deleted, non-archived ad set under the campaign (Meta rejects the request otherwise). Each entry needs adsetId plus exactly one of dailyBudget or lifetimeBudget."
+    ),
   dryRun: z.boolean().optional().describe('Defaults to true. Set false only after preview.'),
   confirmed: z.boolean().optional().describe('Must be true to execute after preview.'),
 };

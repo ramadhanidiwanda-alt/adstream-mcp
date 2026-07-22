@@ -108,4 +108,73 @@ describe('updateCampaign', () => {
     const r = await updateCampaign(mockClient, { ...baseOpts, name: 'Fail' }, { dryRun: false, confirmed: true });
     expect(r.status).toBe('failed');
   });
+
+  describe('adsetBudgets (CBO <-> ABO toggle)', () => {
+    it('maps adsetBudgets into the dry-run preview', async () => {
+      const r = await updateCampaign(mockClient, {
+        ...baseOpts,
+        adsetBudgets: [
+          { adsetId: 'as1', dailyBudget: 50000 },
+          { adsetId: 'as2', lifetimeBudget: 100000 },
+        ],
+      });
+      expect(r.status).toBe('dry_run');
+      expect(r.preview.adset_budgets).toEqual([
+        { adset_id: 'as1', daily_budget: 50000 },
+        { adset_id: 'as2', lifetime_budget: 100000 },
+      ]);
+    });
+
+    it('executes with adset_budgets in the POST payload', async () => {
+      mockMetaPost.mockResolvedValueOnce({ success: true });
+      const r = await updateCampaign(
+        mockClient,
+        {
+          ...baseOpts,
+          adsetBudgets: [{ adsetId: 'as1', dailyBudget: 50000 }],
+        },
+        { dryRun: false, confirmed: true }
+      );
+      expect(r.status).toBe('executed');
+      expect(mockMetaPost.mock.calls[0][1]).toEqual({
+        adset_budgets: [{ adset_id: 'as1', daily_budget: 50000 }],
+      });
+    });
+
+    it('rejects an empty adsetBudgets array', async () => {
+      const r = await updateCampaign(
+        mockClient,
+        { ...baseOpts, adsetBudgets: [] },
+        { dryRun: false, confirmed: true }
+      );
+      expect(r.status).toBe('failed');
+      expect(r.structuredError?.code).toBe('INVALID_ADSET_BUDGETS');
+      expect(mockMetaPost).not.toHaveBeenCalled();
+    });
+
+    it('rejects an entry with neither dailyBudget nor lifetimeBudget', async () => {
+      const r = await updateCampaign(
+        mockClient,
+        { ...baseOpts, adsetBudgets: [{ adsetId: 'as1' }] },
+        { dryRun: false, confirmed: true }
+      );
+      expect(r.status).toBe('failed');
+      expect(r.structuredError?.code).toBe('INVALID_ADSET_BUDGETS');
+      expect(mockMetaPost).not.toHaveBeenCalled();
+    });
+
+    it('rejects an entry with both dailyBudget and lifetimeBudget', async () => {
+      const r = await updateCampaign(
+        mockClient,
+        {
+          ...baseOpts,
+          adsetBudgets: [{ adsetId: 'as1', dailyBudget: 50000, lifetimeBudget: 100000 }],
+        },
+        { dryRun: false, confirmed: true }
+      );
+      expect(r.status).toBe('failed');
+      expect(r.structuredError?.code).toBe('INVALID_ADSET_BUDGETS');
+      expect(mockMetaPost).not.toHaveBeenCalled();
+    });
+  });
 });

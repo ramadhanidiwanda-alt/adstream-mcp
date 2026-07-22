@@ -374,7 +374,7 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
   {
     name: 'ads_update_campaign',
     description:
-      "Update an existing Meta campaign (name, status, lifetimeBudget, spendCap, bidStrategy, specialAdCategories, schedule). lifetimeBudget/spendCap reuse the same increase-safety guard as ads_update_campaign_budget. status='DELETED' additionally requires deleteConfirmed=true since deletion is irreversible. Dry-run by default. Set dryRun=false and confirmed=true to execute.",
+      "Update an existing Meta campaign (name, status, lifetimeBudget, spendCap, bidStrategy, specialAdCategories, schedule). lifetimeBudget/spendCap reuse the same increase-safety guard as ads_update_campaign_budget. status='DELETED' additionally requires deleteConfirmed=true since deletion is irreversible. Pass adsetBudgets to toggle the campaign between CBO and ABO in place — see its description for the 'include every ad set' requirement. Dry-run by default. Set dryRun=false and confirmed=true to execute.",
     inputSchema: createUpdateCampaignInputSchema(),
   },
   {
@@ -2188,6 +2188,20 @@ function createUpdateCampaignInputSchema() {
       deleteConfirmed: {
         type: 'boolean',
         description: 'Required when status="DELETED" — deletion is irreversible via the API.',
+      },
+      adsetBudgets: {
+        type: 'array',
+        description:
+          'Toggles the campaign between Campaign Budget Optimization (CBO) and Ad Set Budget (ABO) using Meta\'s adset_budgets mechanism — converts an existing CBO campaign to ABO in place, no need to recreate the campaign. Must include every non-deleted, non-archived ad set under the campaign (Meta rejects the request otherwise). Each entry needs adsetId plus exactly one of dailyBudget or lifetimeBudget.',
+        items: {
+          type: 'object',
+          properties: {
+            adsetId: { type: 'string' },
+            dailyBudget: { type: 'number' },
+            lifetimeBudget: { type: 'number' },
+          },
+          required: ['adsetId'],
+        },
       },
       dryRun: { type: 'boolean', description: 'Defaults to true. Set false only after preview.' },
       confirmed: { type: 'boolean', description: 'Must be true to execute after preview.' },
