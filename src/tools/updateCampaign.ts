@@ -17,6 +17,13 @@ export interface UpdateCampaignOptions {
   deleteConfirmed?: boolean;
   /** Max budget increase as fraction. Default 2.0 (200%), same as updateCampaignBudget. Set 0 to disable. */
   maxBudgetIncrease?: number;
+  /**
+   * Toggles the campaign between Campaign Budget Optimization (CBO) and Ad Set Budget (ABO).
+   * Must include every non-deleted, non-archived ad set under the campaign — Meta rejects the
+   * request otherwise (error_subcode 1885937). Each entry needs exactly one of dailyBudget or
+   * lifetimeBudget. Passing this converts an existing CBO campaign to ABO without recreating it.
+   */
+  adsetBudgets?: Array<{ adsetId: string; dailyBudget?: number; lifetimeBudget?: number }>;
 }
 
 export type UpdateCampaignStatus = 'dry_run' | 'pending_confirmation' | 'executed' | 'failed';
@@ -83,6 +90,29 @@ export async function updateCampaign(
     };
   }
 
+  if (options.adsetBudgets !== undefined) {
+    const invalidEntry = options.adsetBudgets.find(
+      (entry) =>
+        !entry.adsetId ||
+        (entry.dailyBudget === undefined) === (entry.lifetimeBudget === undefined)
+    );
+    if (options.adsetBudgets.length === 0 || invalidEntry) {
+      return {
+        ...baseResult,
+        status: 'failed',
+        error:
+          'adsetBudgets must be a non-empty array where every entry has an adsetId and exactly one of dailyBudget or lifetimeBudget.',
+        structuredError: {
+          code: 'INVALID_ADSET_BUDGETS',
+          message: 'Invalid adsetBudgets entry.',
+          provider: 'meta',
+          actionableFix:
+            'Provide adsetId plus exactly one of dailyBudget/lifetimeBudget per entry, and include every non-deleted, non-archived ad set under the campaign.',
+        },
+      };
+    }
+  }
+
   try {
     const maxIncreasePct = options.maxBudgetIncrease ?? 2.0;
 
@@ -144,6 +174,14 @@ function buildUpdateCampaignPayload(options: UpdateCampaignOptions): Record<stri
   if (options.specialAdCategories !== undefined) payload.special_ad_categories = options.specialAdCategories;
   if (options.startTime !== undefined) payload.start_time = options.startTime;
   if (options.stopTime !== undefined) payload.stop_time = options.stopTime;
+  if (options.adsetBudgets !== undefined) {
+    payload.adset_budgets = options.adsetBudgets.map((entry) => {
+      const mapped: Record<string, unknown> = { adset_id: entry.adsetId };
+      if (entry.dailyBudget !== undefined) mapped.daily_budget = entry.dailyBudget;
+      if (entry.lifetimeBudget !== undefined) mapped.lifetime_budget = entry.lifetimeBudget;
+      return mapped;
+    });
+  }
 
   return payload;
 }

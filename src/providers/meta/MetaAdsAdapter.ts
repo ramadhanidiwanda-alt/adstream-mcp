@@ -2089,6 +2089,15 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
           stopTime:
             typeof request.params.stopTime === 'string' ? request.params.stopTime : undefined,
           deleteConfirmed: request.params.deleteConfirmed === true,
+          adsetBudgets: Array.isArray(request.params.adsetBudgets)
+            ? (request.params.adsetBudgets as Array<Record<string, unknown>>).map((entry) => ({
+                adsetId: String(entry.adsetId),
+                dailyBudget:
+                  typeof entry.dailyBudget === 'number' ? entry.dailyBudget : undefined,
+                lifetimeBudget:
+                  typeof entry.lifetimeBudget === 'number' ? entry.lifetimeBudget : undefined,
+              }))
+            : undefined,
         },
         {
           dryRun: request.params.dryRun !== false,
