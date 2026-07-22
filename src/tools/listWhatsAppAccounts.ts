@@ -57,7 +57,7 @@ export async function listWhatsAppAccounts(
     // Owned WABAs
     const owned = await client.metaGet<{ data: MetaWabaEntry[] }>(
       `/${businessId}/owned_whatsapp_business_accounts`,
-      { fields: 'id,name,currency,timezone_id,owner_business,account_status', limit }
+      { fields: 'id,name,currency,timezone_id,account_status', limit }
     );
     for (const waba of owned.data || []) {
       if (waba.id) {
@@ -76,7 +76,7 @@ export async function listWhatsAppAccounts(
     // Client WABAs (shared by clients)
     const clientWabas = await client.metaGet<{ data: MetaWabaEntry[] }>(
       `/${businessId}/client_whatsapp_business_accounts`,
-      { fields: 'id,name,currency,timezone_id,owner_business,account_status', limit }
+      { fields: 'id,name,currency,timezone_id,account_status', limit }
     );
     for (const waba of clientWabas.data || []) {
       if (waba.id) {
