@@ -468,6 +468,42 @@ describe('buildMetaCreativeFormatPayload', () => {
     ).toThrow(/destinationUrl.*wajib diisi/i);
   });
 
+  it('builds an existing_post creative from sourceInstagramMediaId when the IG media has no Page post', () => {
+    expect(
+      buildMetaCreativeFormatPayload({
+        mode: 'standard',
+        pageId: 'page-1',
+        creativeFormat: 'existing_post',
+        creativeSpec: { sourceInstagramMediaId: '17895695668004550' },
+      })
+    ).toEqual({ source_instagram_media_id: '17895695668004550' });
+  });
+
+  it('rejects an existing_post creative missing both objectStoryId and sourceInstagramMediaId', () => {
+    expect(() =>
+      buildMetaCreativeFormatPayload({
+        mode: 'standard',
+        pageId: 'page-1',
+        creativeFormat: 'existing_post',
+        creativeSpec: {},
+      })
+    ).toThrow(/pilih salah satu objectStoryId.*sourceInstagramMediaId/i);
+  });
+
+  it('rejects an existing_post creative that sets both objectStoryId and sourceInstagramMediaId', () => {
+    expect(() =>
+      buildMetaCreativeFormatPayload({
+        mode: 'standard',
+        pageId: 'page-1',
+        creativeFormat: 'existing_post',
+        creativeSpec: {
+          objectStoryId: 'page-1_post-1',
+          sourceInstagramMediaId: '17895695668004550',
+        },
+      })
+    ).toThrow(/pilih salah satu objectStoryId.*sourceInstagramMediaId/i);
+  });
+
   it('builds a catalog template with top-level product_set_id', () => {
     const result = buildMetaCreativeFormatPayload({
       mode: 'standard',

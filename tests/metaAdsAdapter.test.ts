@@ -119,6 +119,64 @@ describe('MetaAdsAdapter', () => {
     expect(JSON.stringify(captured)).not.toContain('secret-token');
   });
 
+  it('lists Instagram media for a connected IG Business account', async () => {
+    const adapter = new MetaAdsAdapter({
+      clientFactory: () =>
+        ({
+          metaGet: async (path: string) => {
+            expect(path).toBe('/ig-1/media');
+            return {
+              data: [
+                {
+                  id: '178956',
+                  permalink: 'https://www.instagram.com/reel/DbFng09vfYg/',
+                  media_type: 'VIDEO',
+                  media_product_type: 'REELS',
+                },
+              ],
+            };
+          },
+        }) as never,
+    });
+
+    await expect(
+      adapter.listInstagramMedia({
+        provider: 'meta',
+        accountId: 'act_123',
+        params: { igUserId: 'ig-1' },
+        credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+      })
+    ).resolves.toMatchObject({
+      ok: true,
+      data: [
+        {
+          id: '178956',
+          permalink: 'https://www.instagram.com/reel/DbFng09vfYg/',
+          mediaType: 'VIDEO',
+          mediaProductType: 'REELS',
+        },
+      ],
+    });
+  });
+
+  it('rejects listInstagramMedia without igUserId', async () => {
+    const adapter = new MetaAdsAdapter({
+      clientFactory: () => ({ metaGet: async () => ({ data: [] }) }) as never,
+    });
+
+    await expect(
+      adapter.listInstagramMedia({
+        provider: 'meta',
+        accountId: 'act_123',
+        params: {},
+        credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+      })
+    ).resolves.toMatchObject({
+      ok: false,
+      errors: [{ code: 'MISSING_IG_USER_ID' }],
+    });
+  });
+
   it('fetches Meta account activities and normalizes change history envelope', async () => {
     let capturedPath: string | undefined;
     let capturedParams: Record<string, unknown> | undefined;

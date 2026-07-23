@@ -245,9 +245,21 @@ function buildExistingPost(
   input: Extract<BuildMetaCreativeFormatPayloadInput, { creativeFormat: 'existing_post' }>
 ): Record<string, unknown> {
   const { creativeSpec } = input;
-  const payload: Record<string, unknown> = {
-    object_story_id: required(creativeSpec.objectStoryId, 'objectStoryId'),
-  };
+  const objectStoryId = optional(creativeSpec.objectStoryId, 'objectStoryId');
+  const sourceInstagramMediaId = optional(
+    creativeSpec.sourceInstagramMediaId,
+    'sourceInstagramMediaId'
+  );
+
+  if (Boolean(objectStoryId) === Boolean(sourceInstagramMediaId)) {
+    throw new Error(
+      'Pilih salah satu objectStoryId (post di Facebook Page) atau sourceInstagramMediaId (media IG yang tidak di-cross-post) untuk existing_post.'
+    );
+  }
+
+  const payload: Record<string, unknown> = objectStoryId
+    ? { object_story_id: objectStoryId }
+    : { source_instagram_media_id: sourceInstagramMediaId };
 
   if (!input.collaborativeAppSpec) return payload;
 
