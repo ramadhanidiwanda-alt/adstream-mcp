@@ -76,6 +76,7 @@ export const ADS_MCP_TOOL_NAMES = [
   'ads_read_adset_full',
   'ads_list_pages',
   'ads_list_instagram_accounts',
+  'ads_list_instagram_media',
   'ads_list_threads_profiles',
   'ads_list_pixels',
   'ads_list_catalogs',
@@ -467,6 +468,12 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
     inputSchema: createAdsInputSchema([]),
   },
   {
+    name: 'ads_list_instagram_media',
+    description:
+      'List media (feed posts, Reels, carousels) for an Instagram Business Account. Calls GET /{ig-user-id}/media. Requires igUserId (from ads_list_instagram_accounts). Pass permalinkUrls (raw instagram.com/reel or /p URLs pasted by a user) to resolve them into media IDs by matching shortcode — paginates up to 10 pages looking for matches and returns only the matched media, ready to use as sourceInstagramMediaId on an existing_post ad creative.',
+    inputSchema: createInstagramMediaInputSchema(),
+  },
+  {
     name: 'ads_list_threads_profiles',
     description: "List Threads profiles connected to the user's Facebook Pages.",
     inputSchema: createAdsInputSchema([]),
@@ -786,6 +793,8 @@ function callBrokerMethod(
       return broker.listPages(request);
     case 'ads_list_instagram_accounts':
       return broker.listInstagramAccounts(request);
+    case 'ads_list_instagram_media':
+      return broker.listInstagramMedia(request);
     case 'ads_list_threads_profiles':
       return broker.listThreadsProfiles(request);
     case 'ads_list_pixels':
@@ -1691,7 +1700,7 @@ function createCreateAdCreativeInputSchema() {
       creativeSpec: {
         type: 'object',
         description:
-          'Detail materi sesuai creativeFormat. Field per format: single_image memakai imageHash, primaryText, destinationUrl, headline, description, callToAction, pageWelcomeMessage (opsional, untuk Click-to-WhatsApp/Messenger), dan applinkTreatment (opsional, lihat properti applinkTreatment); video memakai videoId, thumbnailImageHash (opsional — kalau kosong, otomatis diisi dari thumbnail bawaan video via GET /{videoId}?fields=picture; hanya berbahaya diabaikan kalau video belum selesai diproses Meta dan tidak punya thumbnail sama sekali), primaryText, destinationUrl, headline, description, callToAction, pageWelcomeMessage (opsional, untuk Click-to-WhatsApp/Messenger), dan applinkTreatment (opsional, lihat properti applinkTreatment); carousel memakai primaryText, destinationUrl, cards (imageHash atau videoId, headline, description, destinationUrl); catalog memakai productSetId, primaryText, destinationUrl, templateUrl, fallbackImageHash; collection memakai instantExperienceId, coverImageHash atau coverVideoId, productSetId, primaryText, destinationUrl; flexible memakai primaryText, primaryTexts, imageHashes dan/atau videoIds, headlines, descriptions, destinationUrl, dan messageExtensions opsional; placement_image memakai asset_feed_spec; placement_customized_ctwa memakai feedImageHash, verticalImageHash, primaryText, headline, destinationUrl, pageWelcomeMessage di link_data, platform_customizations, portrait_customizations, dan Advantage+ opt-out; existing_post memakai objectStoryId, plus destinationUrl dan applinkTreatment (opsional; destinationUrl wajib diisi kalau collaborativeAppSpec diisi, dipakai untuk omnichannel_link_spec.web.url — CATATAN: field ini tidak bisa memperbaiki object_store_urls yang hilang dari call_to_action post lama yang sudah dipublikasikan; untuk ad set CPAS omnichannel disarankan pakai creativeFormat video langsung).',
+          'Detail materi sesuai creativeFormat. Field per format: single_image memakai imageHash, primaryText, destinationUrl, headline, description, callToAction, pageWelcomeMessage (opsional, untuk Click-to-WhatsApp/Messenger), dan applinkTreatment (opsional, lihat properti applinkTreatment); video memakai videoId, thumbnailImageHash (opsional — kalau kosong, otomatis diisi dari thumbnail bawaan video via GET /{videoId}?fields=picture; hanya berbahaya diabaikan kalau video belum selesai diproses Meta dan tidak punya thumbnail sama sekali), primaryText, destinationUrl, headline, description, callToAction, pageWelcomeMessage (opsional, untuk Click-to-WhatsApp/Messenger), dan applinkTreatment (opsional, lihat properti applinkTreatment); carousel memakai primaryText, destinationUrl, cards (imageHash atau videoId, headline, description, destinationUrl); catalog memakai productSetId, primaryText, destinationUrl, templateUrl, fallbackImageHash; collection memakai instantExperienceId, coverImageHash atau coverVideoId, productSetId, primaryText, destinationUrl; flexible memakai primaryText, primaryTexts, imageHashes dan/atau videoIds, headlines, descriptions, destinationUrl, dan messageExtensions opsional; placement_image memakai asset_feed_spec; placement_customized_ctwa memakai feedImageHash, verticalImageHash, primaryText, headline, destinationUrl, pageWelcomeMessage di link_data, platform_customizations, portrait_customizations, dan Advantage+ opt-out; existing_post memakai objectStoryId (post id Facebook Page, format {page_id}_{post_id}) ATAU sourceInstagramMediaId (media id IG yang tidak di-cross-post ke Page — dapatkan dari ads_list_instagram_media, cocokkan permalink-nya ke URL instagram.com/reel atau /p yang dimiliki user; wajib isi tepat satu dari dua field ini), plus destinationUrl dan applinkTreatment (opsional; destinationUrl wajib diisi kalau collaborativeAppSpec diisi, dipakai untuk omnichannel_link_spec.web.url — CATATAN: field ini tidak bisa memperbaiki object_store_urls yang hilang dari call_to_action post lama yang sudah dipublikasikan; untuk ad set CPAS omnichannel disarankan pakai creativeFormat video langsung).',
         properties: {
           messageExtensions: {
             type: 'array',
@@ -2431,6 +2440,29 @@ function createCatalogIdInputSchema() {
       limit: { type: 'number', description: 'Maximum rows to return.' },
     },
     required: ['catalogId'],
+  };
+}
+
+function createInstagramMediaInputSchema() {
+  const schema = createAdsInputSchema([]);
+  return {
+    type: 'object',
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      igUserId: {
+        type: 'string',
+        description: 'Instagram Business Account ID (from ads_list_instagram_accounts).',
+      },
+      limit: { type: 'number', description: 'Maximum rows to return per page.' },
+      cursor: { type: 'string', description: 'Pagination cursor from a previous call.' },
+      permalinkUrls: {
+        type: 'array',
+        items: { type: 'string' },
+        description:
+          'Raw instagram.com post/reel/tv URLs to resolve into media IDs by matching shortcode. When set, only matching media is returned.',
+      },
+    },
+    required: ['igUserId'],
   };
 }
 

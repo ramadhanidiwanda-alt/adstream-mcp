@@ -115,7 +115,18 @@ export interface MetaPlacementCustomizedCtwaCreativeSpec extends MetaCreativeCop
 }
 
 export interface MetaExistingPostCreativeSpec {
-  objectStoryId: string;
+  /**
+   * Facebook Page post ID, format {page_id}_{post_id}. Use this when the content
+   * was cross-posted to (or natively lives on) the connected Facebook Page.
+   * Exactly one of objectStoryId or sourceInstagramMediaId is required.
+   */
+  objectStoryId?: string;
+  /**
+   * Instagram media ID (from ads_list_instagram_media) for content that was never
+   * cross-posted to the Facebook Page — e.g. an IG-only Reel. Exactly one of
+   * objectStoryId or sourceInstagramMediaId is required.
+   */
+  sourceInstagramMediaId?: string;
   /**
    * Required together with collaborativeAppSpec to build omnichannel_link_spec.web.url
    * for CPAS/omnichannel ad sets. Cannot retroactively fix object_store_urls missing
@@ -303,6 +314,7 @@ export interface MetaCreativeVerificationSummary {
   productSetId?: string;
   hasObjectStoryId: boolean;
   hasEffectiveObjectStoryId: boolean;
+  hasSourceInstagramMediaId?: boolean;
   hasObjectStorySpec: boolean;
   hasLinkData: boolean;
   hasVideoData: boolean;

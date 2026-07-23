@@ -40,6 +40,7 @@ import type {
   MetaCatalogResult,
   MetaProductSetResult,
   InstagramAccountResult,
+  InstagramMediaResult,
   ThreadsProfileResult,
   WhatsAppAccountResult,
   WhatsAppPhoneNumberResult,
@@ -225,6 +226,12 @@ export class AdsBroker {
     return this.callOptionalReadMethod(request, 'listInstagramAccounts');
   }
 
+  listInstagramMedia(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<InstagramMediaResult[]>> {
+    return this.callOptionalReadMethod(request, 'listInstagramMedia');
+  }
+
   listThreadsProfiles(
     request: AdsBrokerRequest
   ): Promise<AdsBrokerResponse<ThreadsProfileResult[]>> {
@@ -259,6 +266,7 @@ export class AdsBroker {
       | 'listProductSets'
       | 'listPages'
       | 'listInstagramAccounts'
+      | 'listInstagramMedia'
       | 'listThreadsProfiles'
       | 'listWhatsAppAccounts'
       | 'listWhatsAppPhoneNumbers'

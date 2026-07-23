@@ -181,6 +181,21 @@ const catalogIdInputSchema = {
   limit: z.number().optional().describe('Maximum rows to return.'),
 };
 
+const instagramMediaInputSchema = {
+  ...adsBaseInputSchema,
+  igUserId: z
+    .string()
+    .describe('Instagram Business Account ID (from ads_list_instagram_accounts).'),
+  limit: z.number().optional().describe('Maximum rows to return per page.'),
+  cursor: z.string().optional().describe('Pagination cursor from a previous call.'),
+  permalinkUrls: z
+    .array(z.string())
+    .optional()
+    .describe(
+      'Raw instagram.com post/reel/tv URLs to resolve into media IDs by matching shortcode. When set, only matching media is returned.'
+    ),
+};
+
 const ecommerceLaunchInputSchema = {
   ...adsBaseInputSchema,
   accountId: z.string().describe('Provider account id. Required for ecommerce campaign creation.'),
@@ -515,7 +530,7 @@ const createAdCreativeInputSchema = {
     .record(z.unknown())
     .optional()
     .describe(
-      'Detail materi sesuai creativeFormat. Field per format: single_image memakai imageHash, primaryText, destinationUrl, headline, description, callToAction, pageWelcomeMessage (opsional, untuk Click-to-WhatsApp/Messenger), dan applinkTreatment (opsional, enum: deeplink_with_appstore_fallback, deeplink_with_web_fallback, web_only, deeplink_disabled — hanya berlaku saat collaborativeAppSpec diisi, default automatic; pada mode: collaborative_ads field ini diabaikan untuk video/single_image); video memakai videoId, thumbnailImageHash (opsional — kalau kosong, otomatis diisi dari thumbnail bawaan video via GET /{videoId}?fields=picture; hanya berbahaya diabaikan kalau video belum selesai diproses Meta dan tidak punya thumbnail sama sekali), primaryText, destinationUrl, headline, description, callToAction, pageWelcomeMessage (opsional, untuk Click-to-WhatsApp/Messenger), dan applinkTreatment (opsional, sama seperti single_image); carousel memakai primaryText, destinationUrl, cards (imageHash atau videoId, headline, description, destinationUrl); catalog memakai productSetId, primaryText, destinationUrl, templateUrl, fallbackImageHash; collection memakai instantExperienceId, coverImageHash atau coverVideoId, productSetId, primaryText, destinationUrl; flexible memakai primaryText, primaryTexts, imageHashes dan/atau videoIds, headlines, descriptions, destinationUrl; placement_image memakai asset_feed_spec; placement_customized_ctwa memakai link_data utama, platform_customizations, portrait_customizations, dan pageWelcomeMessage di link_data; existing_post memakai objectStoryId, plus destinationUrl dan applinkTreatment (opsional; destinationUrl wajib diisi kalau collaborativeAppSpec diisi, dipakai untuk omnichannel_link_spec.web.url — CATATAN: field ini tidak bisa memperbaiki object_store_urls yang hilang dari call_to_action post lama yang sudah dipublikasikan; untuk ad set CPAS omnichannel disarankan pakai creativeFormat video langsung).'
+      'Detail materi sesuai creativeFormat. Field per format: single_image memakai imageHash, primaryText, destinationUrl, headline, description, callToAction, pageWelcomeMessage (opsional, untuk Click-to-WhatsApp/Messenger), dan applinkTreatment (opsional, enum: deeplink_with_appstore_fallback, deeplink_with_web_fallback, web_only, deeplink_disabled — hanya berlaku saat collaborativeAppSpec diisi, default automatic; pada mode: collaborative_ads field ini diabaikan untuk video/single_image); video memakai videoId, thumbnailImageHash (opsional — kalau kosong, otomatis diisi dari thumbnail bawaan video via GET /{videoId}?fields=picture; hanya berbahaya diabaikan kalau video belum selesai diproses Meta dan tidak punya thumbnail sama sekali), primaryText, destinationUrl, headline, description, callToAction, pageWelcomeMessage (opsional, untuk Click-to-WhatsApp/Messenger), dan applinkTreatment (opsional, sama seperti single_image); carousel memakai primaryText, destinationUrl, cards (imageHash atau videoId, headline, description, destinationUrl); catalog memakai productSetId, primaryText, destinationUrl, templateUrl, fallbackImageHash; collection memakai instantExperienceId, coverImageHash atau coverVideoId, productSetId, primaryText, destinationUrl; flexible memakai primaryText, primaryTexts, imageHashes dan/atau videoIds, headlines, descriptions, destinationUrl; placement_image memakai asset_feed_spec; placement_customized_ctwa memakai link_data utama, platform_customizations, portrait_customizations, dan pageWelcomeMessage di link_data; existing_post memakai objectStoryId (post id Facebook Page, format {page_id}_{post_id}) ATAU sourceInstagramMediaId (media id IG yang tidak di-cross-post ke Page — dapatkan dari ads_list_instagram_media, cocokkan permalink-nya ke URL instagram.com/reel atau /p yang dimiliki user; wajib isi tepat satu dari dua field ini), plus destinationUrl dan applinkTreatment (opsional; destinationUrl wajib diisi kalau collaborativeAppSpec diisi, dipakai untuk omnichannel_link_spec.web.url — CATATAN: field ini tidak bisa memperbaiki object_store_urls yang hilang dari call_to_action post lama yang sudah dipublikasikan; untuk ad set CPAS omnichannel disarankan pakai creativeFormat video langsung).'
     ),
   collaborativeProductSetId: z
     .string()
@@ -898,6 +913,8 @@ export function createMetaAdsMcpServer(options: CreateMetaAdsMcpServerOptions = 
       inputSchema = businessIdInputSchema;
     } else if (toolDefinition.name === 'ads_list_product_sets') {
       inputSchema = catalogIdInputSchema;
+    } else if (toolDefinition.name === 'ads_list_instagram_media') {
+      inputSchema = instagramMediaInputSchema;
     } else if (toolDefinition.name === 'ads_create_campaign') {
       inputSchema = createCampaignInputSchema;
     } else if (toolDefinition.name === 'ads_create_adset') {

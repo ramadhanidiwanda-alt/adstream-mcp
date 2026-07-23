@@ -86,6 +86,7 @@ import { listAdVideos } from '../../tools/listAdVideos.js';
 import { getAdPreview } from '../../tools/getAdPreview.js';
 import { listPages as listPagesTool } from '../../tools/listPages.js';
 import { listInstagramAccounts as listInstagramAccountsTool } from '../../tools/listInstagramAccounts.js';
+import { listInstagramMedia as listInstagramMediaTool } from '../../tools/listInstagramMedia.js';
 import { listThreadsProfiles as listThreadsProfilesTool } from '../../tools/listThreadsProfiles.js';
 import { checkLaunchReadiness as checkLaunchReadinessTool } from '../../tools/checkLaunchReadiness.js';
 import { listPixels as listPixelsTool } from '../../tools/listPixels.js';
@@ -119,6 +120,7 @@ import type {
   MetaCatalogResult,
   MetaProductSetResult,
   InstagramAccountResult,
+  InstagramMediaResult,
   ThreadsProfileResult,
   WhatsAppAccountResult,
   WhatsAppPhoneNumberResult,
@@ -360,6 +362,15 @@ export interface MetaAdsAdapterTools {
     client: MetaClient,
     options?: { limit?: number }
   ): Promise<InstagramAccountResult[]>;
+  listInstagramMedia(
+    client: MetaClient,
+    options: {
+      igUserId: string;
+      limit?: number;
+      cursor?: string;
+      permalinkUrls?: string[];
+    }
+  ): Promise<InstagramMediaResult[]>;
   listThreadsProfiles(
     client: MetaClient,
     options?: { limit?: number }
@@ -431,6 +442,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       listProductSets: listProductSetsTool,
       listPages: listPagesTool,
       listInstagramAccounts: listInstagramAccountsTool,
+      listInstagramMedia: listInstagramMediaTool,
       listThreadsProfiles: listThreadsProfilesTool,
       listWhatsAppAccounts: listWhatsAppAccountsTool,
       listWhatsAppPhoneNumbers: listWhatsAppPhoneNumbersTool,
@@ -2910,6 +2922,43 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       const limit = typeof request.params.limit === 'number' ? request.params.limit : undefined;
       const accounts = await this.tools.listInstagramAccounts(client, { limit });
       return { ok: true, provider: 'meta', data: accounts };
+    } catch (error) {
+      return this.errorResponse(error);
+    }
+  }
+
+  async listInstagramMedia(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<InstagramMediaResult[]>> {
+    const context = this.getCredentialContext(request);
+    if (!context.ok) return context.response;
+
+    const igUserId = optionalPlainString(request.params.igUserId);
+    if (!igUserId) {
+      return {
+        ok: false,
+        provider: 'meta',
+        errors: [{ provider: 'meta', code: 'MISSING_IG_USER_ID', message: 'igUserId is required' }],
+      };
+    }
+
+    try {
+      const client = this.createClient(context.credential);
+      const limit = typeof request.params.limit === 'number' ? request.params.limit : undefined;
+      const cursor =
+        typeof request.params.cursor === 'string' ? request.params.cursor : undefined;
+      const permalinkUrls = Array.isArray(request.params.permalinkUrls)
+        ? request.params.permalinkUrls.filter(
+            (url): url is string => typeof url === 'string'
+          )
+        : undefined;
+      const media = await this.tools.listInstagramMedia(client, {
+        igUserId,
+        limit,
+        cursor,
+        permalinkUrls,
+      });
+      return { ok: true, provider: 'meta', data: media };
     } catch (error) {
       return this.errorResponse(error);
     }

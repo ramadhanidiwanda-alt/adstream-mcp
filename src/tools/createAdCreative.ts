@@ -222,7 +222,7 @@ export async function createAdCreative(
 }
 
 const CREATIVE_READ_BACK_FIELDS =
-  'id,name,object_story_id,object_story_spec,asset_feed_spec,platform_customizations,portrait_customizations,degrees_of_freedom_spec,media_sourcing_spec,product_set_id,omnichannel_link_spec,effective_object_story_id';
+  'id,name,object_story_id,object_story_spec,asset_feed_spec,platform_customizations,portrait_customizations,degrees_of_freedom_spec,media_sourcing_spec,product_set_id,omnichannel_link_spec,effective_object_story_id,source_instagram_media_id';
 
 async function verifyCreatedCreative(
   client: MetaClient,
@@ -287,6 +287,7 @@ function summarizeCreativeVerification(
     ...(productSetId ? { productSetId } : {}),
     hasObjectStoryId: hasNonBlankString(fields.object_story_id),
     hasEffectiveObjectStoryId: hasNonBlankString(fields.effective_object_story_id),
+    hasSourceInstagramMediaId: hasNonBlankString(fields.source_instagram_media_id),
     hasObjectStorySpec: Boolean(storySpec),
     hasLinkData: Boolean(linkData),
     hasVideoData: Boolean(videoData),
@@ -327,7 +328,8 @@ function matchesCreativeFormat(
     case 'existing_post':
       return (
         hasNonBlankString(fields.object_story_id) ||
-        hasNonBlankString(fields.effective_object_story_id)
+        hasNonBlankString(fields.effective_object_story_id) ||
+        hasNonBlankString(fields.source_instagram_media_id)
       );
     case 'flexible':
       return isRecord(fields.asset_feed_spec);

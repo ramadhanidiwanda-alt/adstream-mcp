@@ -330,6 +330,7 @@ describe('ads MCP broker tools', () => {
       'ads_read_adset_full',
       'ads_list_pages',
       'ads_list_instagram_accounts',
+      'ads_list_instagram_media',
       'ads_list_threads_profiles',
       'ads_list_pixels',
       'ads_list_catalogs',

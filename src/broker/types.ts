@@ -1021,6 +1021,17 @@ export interface InstagramAccountResult {
   pageName: string;
 }
 
+export interface InstagramMediaResult {
+  id: string;
+  permalink?: string;
+  mediaType?: string;
+  mediaProductType?: string;
+  caption?: string;
+  timestamp?: string;
+  thumbnailUrl?: string;
+  mediaUrl?: string;
+}
+
 export interface ThreadsProfileResult {
   threadsId: string;
   username: string;
@@ -1126,6 +1137,9 @@ export interface AdsProviderAdapter {
   listInstagramAccounts?(
     request: AdsBrokerRequest
   ): Promise<AdsBrokerResponse<InstagramAccountResult[]>>;
+  listInstagramMedia?(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<InstagramMediaResult[]>>;
   listThreadsProfiles?(
     request: AdsBrokerRequest
   ): Promise<AdsBrokerResponse<ThreadsProfileResult[]>>;
