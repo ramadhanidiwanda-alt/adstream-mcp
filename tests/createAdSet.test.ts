@@ -693,4 +693,61 @@ describe('createAdSet — bid strategy + pre-flight validation', () => {
       expect(targeting.device_platforms).toEqual(['mobile']);
     });
   });
+
+  describe('flexible_spec (behaviors / work_employers / work_positions)', () => {
+    it('serializes a flexibleSpec group into targeting.flexible_spec', async () => {
+      const client = createMockClient();
+      const result = await createAdSet(
+        client,
+        {
+          ...defaultOptions,
+          targeting: {
+            interests: [{ id: '6003139266461', name: 'Movies' }],
+            flexibleSpec: [
+              {
+                behaviors: [{ id: '6002714895372', name: 'Engaged Shoppers' }],
+                work_employers: [{ id: '50431654', name: 'Tech Company' }],
+                work_positions: [{ id: '789012', name: 'Engineer' }],
+              },
+            ],
+          },
+        },
+        { dryRun: true }
+      );
+      const targeting = result.preview.targeting as Record<string, unknown>;
+      expect(targeting.interests).toEqual([{ id: '6003139266461', name: 'Movies' }]);
+      expect(targeting.flexible_spec).toEqual([
+        {
+          behaviors: [{ id: '6002714895372', name: 'Engaged Shoppers' }],
+          work_employers: [{ id: '50431654', name: 'Tech Company' }],
+          work_positions: [{ id: '789012', name: 'Engineer' }],
+        },
+      ]);
+    });
+
+    it('deep-merges metaTargetingOverride as the base, with typed fields winning on conflicts', async () => {
+      const client = createMockClient();
+      const result = await createAdSet(
+        client,
+        {
+          ...defaultOptions,
+          targeting: {
+            interests: [{ id: '6003139266461', name: 'Movies' }],
+            metaTargetingOverride: {
+              interests: [{ id: 'should-be-overridden' }],
+              custom_audiences: [{ id: 'aud_1' }],
+              flexible_spec: [{ life_events: [{ id: 'life_1' }] }],
+            },
+          },
+        },
+        { dryRun: true }
+      );
+      const targeting = result.preview.targeting as Record<string, unknown>;
+      // typed interests wins over the override's interests
+      expect(targeting.interests).toEqual([{ id: '6003139266461', name: 'Movies' }]);
+      // fields only present in the override still pass through
+      expect(targeting.custom_audiences).toEqual([{ id: 'aud_1' }]);
+      expect(targeting.flexible_spec).toEqual([{ life_events: [{ id: 'life_1' }] }]);
+    });
+  });
 });

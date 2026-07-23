@@ -84,6 +84,8 @@ export interface AdSetTargeting {
   exclusions?: Record<string, unknown>;
   targetingOptimization?: string;
   targetingAutomation?: Record<string, unknown>;
+  /** Raw targeting override merged in as the base of the outgoing payload; explicit typed fields above win on key conflicts. */
+  metaTargetingOverride?: Record<string, unknown>;
 }
 
 export interface CreateAdSetOptions {
@@ -650,6 +652,26 @@ function buildCollaborativePromotedObject(
   };
 }
 
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/** Recursively merges `override` on top of `base`. Nested plain objects are merged key-by-key; arrays and primitives in `override` fully replace the corresponding value in `base`. */
+function deepMergeTargeting(
+  base: Record<string, unknown>,
+  override: Record<string, unknown>
+): Record<string, unknown> {
+  const result: Record<string, unknown> = { ...base };
+  for (const [key, value] of Object.entries(override)) {
+    const baseValue = result[key];
+    result[key] =
+      isPlainObject(baseValue) && isPlainObject(value)
+        ? deepMergeTargeting(baseValue, value)
+        : value;
+  }
+  return result;
+}
+
 function buildTargetingPayload(targeting: AdSetTargeting): Record<string, unknown> {
   const result: Record<string, unknown> = {};
 
@@ -692,6 +714,10 @@ function buildTargetingPayload(targeting: AdSetTargeting): Record<string, unknow
   // Default to 0 (disabled) when user provides custom targeting
   if (!('targeting_automation' in result)) {
     result.targeting_automation = { advantage_audience: 0 };
+  }
+
+  if (targeting.metaTargetingOverride) {
+    return deepMergeTargeting(targeting.metaTargetingOverride, result);
   }
 
   return result;

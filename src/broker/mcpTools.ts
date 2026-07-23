@@ -1710,6 +1710,21 @@ function createCreateAdSetInputSchema() {
         type: 'array',
         description: 'Interest targeting array [{ id, name }].',
       },
+      behaviors: {
+        type: 'array',
+        description:
+          'Behavior targeting array [{ id, name }] (e.g. "Engaged Shoppers", "Frequent international travelers"). Combined with workEmployers/workPositions (if any) in one OR-matched group, ANDed against interests.',
+      },
+      workEmployers: {
+        type: 'array',
+        description:
+          'Employer targeting array [{ id, name }]. Combined with behaviors/workPositions (if any) in one OR-matched group, ANDed against interests.',
+      },
+      workPositions: {
+        type: 'array',
+        description:
+          'Job title targeting array [{ id, name }]. Combined with behaviors/workEmployers (if any) in one OR-matched group, ANDed against interests.',
+      },
       customAudiences: {
         type: 'array',
         description: 'Custom audiences to include (retargeting), array of [{ id }].',
@@ -1762,6 +1777,12 @@ function createCreateAdSetInputSchema() {
       externalReference: {
         type: 'string',
         description: 'Caller-provided reference for duplicate prevention and audit correlation.',
+      },
+      params: {
+        type: 'object',
+        description:
+          'Optional provider-safe parameters. params.targeting (raw Meta targeting field names, e.g. { work_employers: [...] }) is deep-merged as the base of the outgoing targeting payload — typed fields above (interests, behaviors, workEmployers, workPositions, etc.) take precedence on key conflicts.',
+        additionalProperties: true,
       },
       dryRun: { type: 'boolean', description: 'Defaults to true. Set false only after preview.' },
       confirmed: { type: 'boolean', description: 'Must be true to execute after preview.' },
