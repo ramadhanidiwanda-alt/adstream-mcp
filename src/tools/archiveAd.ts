@@ -6,45 +6,73 @@ export interface ArchiveAdOptions {
   adId: string;
 }
 
+export type ArchiveAdStatus = 'dry_run' | 'pending_confirmation' | 'executed' | 'failed';
+
 export interface ArchiveAdResult {
   operation: 'archive_ad';
-  status: 'executed' | 'failed';
+  status: ArchiveAdStatus;
+  executed: boolean;
+  preview: Record<string, unknown>;
   success: boolean;
   id?: string;
+  response?: Record<string, unknown>;
   error?: string;
   structuredError?: StructuredMutationError;
 }
 
 /**
- * Archive (soft-delete) a Meta ad.
+ * Archive a Meta ad (sets status to ARCHIVED).
+ *
+ * Dry-run by default. Set dryRun=false + confirmed=true to execute.
+ * ARCHIVED cannot be reverted to ACTIVE/PAUSED via the API — Meta has
+ * treated it as equally permanent as DELETED since Oct 2014 (they only
+ * differ in query/quota behavior, not reversibility), so this follows the
+ * same dry-run/confirm lifecycle as ads_update_ad and ads_update_campaign.
  *
  * POST /{ad_id} with status=ARCHIVED
- *
- * Returns success/error.
  */
 export async function archiveAd(
   client: MetaClient,
   options: ArchiveAdOptions,
-  maxRetries: number = 3
+  execOptions: { dryRun?: boolean; confirmed?: boolean; maxRetries?: number } = {}
 ): Promise<ArchiveAdResult> {
+  const { dryRun = true, confirmed = false, maxRetries = 3 } = execOptions;
   const { adId } = options;
 
+  const preview: Record<string, unknown> = { status: 'ARCHIVED' };
+  const baseResult: ArchiveAdResult = {
+    operation: 'archive_ad',
+    status: 'dry_run',
+    executed: false,
+    preview,
+    success: false,
+  };
+
+  if (dryRun) return baseResult;
+
+  if (!confirmed) {
+    return {
+      ...baseResult,
+      status: 'pending_confirmation',
+      error:
+        'Explicit confirmation is required after reviewing the dry-run preview — archiving is permanent and cannot be undone via the API.',
+    };
+  }
+
   try {
-    const result = await client.metaPost<{ success: boolean }>(
-      `/${adId}`,
-      { status: 'ARCHIVED' },
-      maxRetries
-    );
+    const response = await client.metaPost<Record<string, unknown>>(`/${adId}`, preview, maxRetries);
 
     return {
-      operation: 'archive_ad',
+      ...baseResult,
       status: 'executed',
-      success: result.success ?? true,
+      executed: true,
+      success: true,
       id: adId,
+      response,
     };
   } catch (error) {
     return {
-      operation: 'archive_ad',
+      ...baseResult,
       status: 'failed',
       success: false,
       error: formatMetaWriteError(error),

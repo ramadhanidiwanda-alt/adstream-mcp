@@ -109,6 +109,8 @@ Create the corresponding ad set with `isDynamicCreative: true` before attaching 
 
 Write tools are turned off by default for safety, so only read tools appear until you enable them. Set `ADSTREAM_ENABLE_WRITES=true` to expose the write tools above. While they are off, calling one returns a `WRITE_TOOLS_DISABLED` error that explains how to enable them, and `ads_get_capabilities` reports `writes.enabled: false`.
 
+Archiving or deleting a campaign, ad set, or ad is permanent — Meta treats `ARCHIVED` and `DELETED` as equally irreversible (neither can be reverted via the API). These calls (`ads_archive_ad`, and `ads_update_ad`/`ads_update_campaign` when setting status to `ARCHIVED` or `DELETED`) need a second, separate flag: `ADSTREAM_ENABLE_DESTRUCTIVE_ACTIONS=true`, off by default. Without it they fail with `DESTRUCTIVE_ACTIONS_DISABLED` even if `ADSTREAM_ENABLE_WRITES` is on.
+
 Legacy and provider-specific tools remain available for compatibility, but new report-specific tools should be avoided. Daily reports, weekly reports, creative audits, KPI scoring, and recommendations should be implemented as AI/skill workflows over the same canonical data tools.
 
 `ads_get_performance`, `ads_get_creatives`, `ads_get_change_history`, and `ads_get_capabilities` are available as non-breaking canonical entry points. Existing level-specific and provider-specific tools remain for compatibility during migration.
@@ -220,6 +222,7 @@ See [Remote Mode](#configuration--remote-mode-with-cuan-insight) for full setup.
 | `TIKTOK_ACCESS_TOKEN` | ❌ | — | TikTok Ads access token |
 | `MCP_HTTP_ENABLED` | ❌ | `false` | Enable HTTP transport |
 | `ADSTREAM_ENABLE_WRITES` | ❌ | `false` | Expose the optional write tools; off by default so only read tools appear |
+| `ADSTREAM_ENABLE_DESTRUCTIVE_ACTIONS` | ❌ | `false` | Separate kill switch for archive/delete calls (`ads_archive_ad`, `ARCHIVED`/`DELETED` status changes); off by default even if writes are enabled |
 | `CUAN_INSIGHT_AUTH_MODE` | ❌ | — | Set to `connection_key` for remote mode |
 
 ---

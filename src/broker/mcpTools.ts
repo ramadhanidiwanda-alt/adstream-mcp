@@ -179,6 +179,30 @@ export function areAdsWriteToolsEnabled(): boolean {
   return process.env[ADS_WRITE_TOOLS_ENABLE_FLAG] === 'true';
 }
 
+/**
+ * Separate, narrower kill switch than ADSTREAM_ENABLE_WRITES. Meta treats
+ * ARCHIVED and DELETED as equally permanent since Oct 2014 (neither can be
+ * reverted via the API — they only differ in query/quota behavior), so both
+ * are gated here regardless of which status string is used.
+ */
+export const ADS_DESTRUCTIVE_ACTIONS_ENABLE_FLAG = 'ADSTREAM_ENABLE_DESTRUCTIVE_ACTIONS';
+
+export function areAdsDestructiveActionsEnabled(): boolean {
+  return process.env[ADS_DESTRUCTIVE_ACTIONS_ENABLE_FLAG] === 'true';
+}
+
+const IRREVERSIBLE_STATUS_TOOLS: Partial<Record<AdsMcpToolName, ReadonlySet<string>>> = {
+  ads_update_ad: new Set(['ARCHIVED']),
+  ads_update_campaign: new Set(['ARCHIVED', 'DELETED']),
+};
+
+export function isIrreversibleAdsCall(name: AdsMcpToolName, args: Record<string, unknown>): boolean {
+  if (name === 'ads_archive_ad') return true;
+
+  const irreversibleStatuses = IRREVERSIBLE_STATUS_TOOLS[name];
+  return irreversibleStatuses !== undefined && irreversibleStatuses.has(args.status as string);
+}
+
 export function getAdsMcpToolDefinitions(options: { includeWrites?: boolean } = {}) {
   return ADS_MCP_TOOL_DEFINITIONS.filter(
     (tool) => options.includeWrites === true || !isAdsMcpWriteTool(tool.name)
@@ -328,7 +352,8 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
   },
   {
     name: 'ads_archive_ad',
-    description: 'Archive (soft-delete) a Meta ad. Sets status to ARCHIVED. Irreversible via API.',
+    description:
+      'Archive a Meta ad. Sets status to ARCHIVED — permanent and cannot be reverted via the API (Meta treats ARCHIVED the same as DELETED here). Dry-run by default. Set dryRun=false and confirmed=true to execute. Also requires ADSTREAM_ENABLE_DESTRUCTIVE_ACTIONS=true.',
     inputSchema: createArchiveAdInputSchema(),
   },
   {
@@ -596,6 +621,10 @@ export async function handleAdsMcpToolCall(
     return writeToolsDisabledResponse(name);
   }
 
+  if (isIrreversibleAdsCall(name, args) && !areAdsDestructiveActionsEnabled()) {
+    return destructiveActionsDisabledResponse(name);
+  }
+
   const request = toAdsBrokerRequest(args, connectionKey);
   const response = await callBrokerMethod(broker, name, request);
   const canonicalResponse = canonicalizeToolResponse(name, request, response);
@@ -626,6 +655,33 @@ function writeToolsDisabledResponse(name: AdsMcpToolName): {
         message: `The "${name}" tool changes your ad account, and change tools are turned off right now.`,
         actionableFix: `Turn on change tools by setting ${ADS_WRITE_TOOLS_ENABLE_FLAG}=true, then try again.`,
         enableFlag: ADS_WRITE_TOOLS_ENABLE_FLAG,
+      },
+    ],
+  };
+
+  return {
+    content: [
+      {
+        type: 'text',
+        text: JSON.stringify(body, null, 2),
+      },
+    ],
+    isError: true,
+  };
+}
+
+function destructiveActionsDisabledResponse(name: AdsMcpToolName): {
+  content: Array<{ type: 'text'; text: string }>;
+  isError: true;
+} {
+  const body = {
+    ok: false,
+    errors: [
+      {
+        code: 'DESTRUCTIVE_ACTIONS_DISABLED',
+        message: `The "${name}" call archives or deletes a Meta object. Meta treats both as permanent — neither can be reverted via the API — so this is turned off right now.`,
+        actionableFix: `Turn on destructive actions by setting ${ADS_DESTRUCTIVE_ACTIONS_ENABLE_FLAG}=true, then try again.`,
+        enableFlag: ADS_DESTRUCTIVE_ACTIONS_ENABLE_FLAG,
       },
     ],
   };
@@ -1244,6 +1300,14 @@ function getAdsCapabilities(request: AdsBrokerRequest): AdsBrokerResponse<Record
           .map((tool) => tool.name)
           .filter((name) => isAdsMcpWriteTool(name)),
         safetyContract: 'docs/WRITE_SAFETY_CONTRACT.md',
+      },
+      destructiveActions: {
+        optIn: true,
+        enabled: areAdsDestructiveActionsEnabled(),
+        enableFlag: ADS_DESTRUCTIVE_ACTIONS_ENABLE_FLAG,
+        description:
+          'Separate kill switch for calls that archive or delete a Meta object. Meta treats ARCHIVED and DELETED as equally permanent (neither reverts via the API), so both are gated the same way regardless of which status string is used.',
+        gatedTools: ['ads_archive_ad', 'ads_update_ad', 'ads_update_campaign'],
       },
       warnings: [
         'ads_get_performance is currently a non-breaking canonical wrapper over legacy level-specific broker methods.',
@@ -2049,6 +2113,8 @@ function createArchiveAdInputSchema() {
     properties: {
       ...(schema.properties as Record<string, unknown>),
       adId: { type: 'string', description: 'The ad ID to archive.' },
+      dryRun: { type: 'boolean', description: 'Defaults to true. Set false only after preview.' },
+      confirmed: { type: 'boolean', description: 'Must be true to execute after preview.' },
     },
     required: ['adId'],
   };

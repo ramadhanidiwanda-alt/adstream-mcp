@@ -289,7 +289,7 @@ export interface MetaAdsAdapterTools {
   archiveAd(
     client: MetaClient,
     options: import('../../tools/archiveAd.js').ArchiveAdOptions,
-    maxRetries?: number
+    execOptions?: { dryRun?: boolean; confirmed?: boolean; maxRetries?: number }
   ): Promise<import('../../tools/archiveAd.js').ArchiveAdResult>;
   pauseAd(client: MetaClient, adId: string): Promise<MutationResult>;
   resumeAd(client: MetaClient, adId: string): Promise<MutationResult>;
@@ -1746,7 +1746,14 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
 
     try {
       const client = this.createClient(context.credential);
-      const result = await this.tools.archiveAd(client, { adId });
+      const result = await this.tools.archiveAd(
+        client,
+        { adId },
+        {
+          dryRun: request.params.dryRun !== false,
+          confirmed: request.params.confirmed === true,
+        }
+      );
       return { ok: result.status !== 'failed', provider: 'meta', data: result };
     } catch (error) {
       return this.writeErrorResponse(error);

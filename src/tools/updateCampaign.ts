@@ -85,7 +85,7 @@ export async function updateCampaign(
         code: 'DELETE_CONFIRMATION_REQUIRED',
         message: 'Explicit delete confirmation is required.',
         provider: 'meta',
-        actionableFix: 'Set deleteConfirmed=true after reviewing the dry-run preview, or use status="ARCHIVED" for a reversible alternative.',
+        actionableFix: 'Set deleteConfirmed=true after reviewing the dry-run preview. Note status="ARCHIVED" is not a safer alternative — Meta treats it as equally permanent (neither reverts via the API).',
       },
     };
   }
