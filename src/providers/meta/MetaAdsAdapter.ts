@@ -3146,6 +3146,12 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
     const targetingAutomation = request.params.targetingAutomation;
     const customAudiences = request.params.customAudiences;
     const excludedCustomAudiences = request.params.excludedCustomAudiences;
+    const facebookPositions = request.params.facebookPositions;
+    const instagramPositions = request.params.instagramPositions;
+    const threadsPositions = request.params.threadsPositions;
+    const messengerPositions = request.params.messengerPositions;
+    const marketplacePositions = request.params.marketplacePositions;
+    const devicePlatforms = request.params.devicePlatforms;
 
     if (
       !geoLocations &&
@@ -3157,7 +3163,13 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       advantageAudience === undefined &&
       !targetingAutomation &&
       !customAudiences &&
-      !excludedCustomAudiences
+      !excludedCustomAudiences &&
+      !facebookPositions &&
+      !instagramPositions &&
+      !threadsPositions &&
+      !messengerPositions &&
+      !marketplacePositions &&
+      !devicePlatforms
     ) {
       return undefined;
     }
@@ -3172,6 +3184,12 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
     if (Array.isArray(customAudiences)) targeting.customAudiences = customAudiences;
     if (Array.isArray(excludedCustomAudiences))
       targeting.excludedCustomAudiences = excludedCustomAudiences;
+    if (Array.isArray(facebookPositions)) targeting.facebookPositions = facebookPositions;
+    if (Array.isArray(instagramPositions)) targeting.instagramPositions = instagramPositions;
+    if (Array.isArray(threadsPositions)) targeting.threadsPositions = threadsPositions;
+    if (Array.isArray(messengerPositions)) targeting.messengerPositions = messengerPositions;
+    if (Array.isArray(marketplacePositions)) targeting.marketplacePositions = marketplacePositions;
+    if (Array.isArray(devicePlatforms)) targeting.devicePlatforms = devicePlatforms;
     if (targetingAutomation && typeof targetingAutomation === 'object') {
       targeting.targetingAutomation = targetingAutomation as Record<string, unknown>;
     } else if (advantageAudience !== undefined) {

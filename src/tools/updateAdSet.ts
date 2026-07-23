@@ -133,6 +133,22 @@ function buildUpdatePayload(options: UpdateAdSetOptions): Record<string, unknown
     if (options.targeting.publisherPlatforms !== undefined) t.publisher_platforms = options.targeting.publisherPlatforms;
     if (options.targeting.interests !== undefined) t.interests = options.targeting.interests;
     if (options.targeting.customAudiences !== undefined) t.custom_audiences = options.targeting.customAudiences;
+    if (options.targeting.excludedCustomAudiences !== undefined)
+      t.excluded_custom_audiences = options.targeting.excludedCustomAudiences;
+    if (options.targeting.facebookPositions !== undefined)
+      t.facebook_positions = options.targeting.facebookPositions;
+    if (options.targeting.instagramPositions !== undefined)
+      t.instagram_positions = options.targeting.instagramPositions;
+    if (options.targeting.threadsPositions !== undefined)
+      t.threads_positions = options.targeting.threadsPositions;
+    if (options.targeting.messengerPositions !== undefined)
+      t.messenger_positions = options.targeting.messengerPositions;
+    if (options.targeting.marketplacePositions !== undefined)
+      t.marketplace_positions = options.targeting.marketplacePositions;
+    if (options.targeting.devicePlatforms !== undefined)
+      t.device_platforms = options.targeting.devicePlatforms;
+    if (options.targeting.targetingAutomation !== undefined)
+      t.targeting_automation = options.targeting.targetingAutomation;
     if (Object.keys(t).length > 0) payload.targeting = t;
   }
 
