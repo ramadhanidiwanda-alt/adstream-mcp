@@ -2200,7 +2200,8 @@ function createUpdateAdSetInputSchema() {
       },
       targetingAutomation: {
         type: 'object',
-        description: 'Raw targeting_automation object, e.g. { advantage_audience: 1 }. Takes precedence over advantageAudience.',
+        description:
+          'Raw targeting_automation object, e.g. { advantage_audience: 1 }. Takes precedence over advantageAudience.',
       },
       startTime: { type: 'string', description: 'Start time in ISO format.' },
       endTime: { type: 'string', description: 'End time in ISO format.' },
