@@ -3145,7 +3145,14 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
     const ageMax = typeof request.params.ageMax === 'number' ? request.params.ageMax : undefined;
     const publisherPlatforms = request.params.publisherPlatforms;
     const interests = request.params.interests;
+    const behaviors = request.params.behaviors;
+    const workEmployers = request.params.workEmployers;
+    const workPositions = request.params.workPositions;
     const genders = request.params.genders;
+    const metaTargetingOverride =
+      typeof request.params.targeting === 'object' && request.params.targeting !== null
+        ? (request.params.targeting as Record<string, unknown>)
+        : undefined;
     const advantageAudience =
       typeof request.params.advantageAudience === 'number'
         ? request.params.advantageAudience
@@ -3166,7 +3173,11 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       ageMax === undefined &&
       !publisherPlatforms &&
       !interests &&
+      !behaviors &&
+      !workEmployers &&
+      !workPositions &&
       !genders &&
+      !metaTargetingOverride &&
       advantageAudience === undefined &&
       !targetingAutomation &&
       !customAudiences &&
@@ -3202,6 +3213,20 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
     } else if (advantageAudience !== undefined) {
       targeting.targetingAutomation = { advantage_audience: advantageAudience };
     }
+
+    // behaviors/work_employers/work_positions are only valid inside flexible_spec
+    // (unlike interests, which Meta also accepts as a top-level shorthand field).
+    // Grouped into one entry so they're OR'd with each other and AND'd against interests.
+    const flexibleSpecGroup: Record<string, unknown> = {};
+    if (Array.isArray(behaviors)) flexibleSpecGroup.behaviors = behaviors;
+    if (Array.isArray(workEmployers)) flexibleSpecGroup.work_employers = workEmployers;
+    if (Array.isArray(workPositions)) flexibleSpecGroup.work_positions = workPositions;
+    if (Object.keys(flexibleSpecGroup).length > 0) {
+      targeting.flexibleSpec = [flexibleSpecGroup];
+    }
+
+    if (metaTargetingOverride) targeting.metaTargetingOverride = metaTargetingOverride;
+
     return targeting;
   }
 

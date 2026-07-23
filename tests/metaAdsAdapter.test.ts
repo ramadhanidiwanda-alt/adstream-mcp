@@ -1253,6 +1253,53 @@ describe('MetaAdsAdapter', () => {
     expect(JSON.stringify(response)).not.toContain('secret-token');
   });
 
+  it('wires behaviors/workEmployers/workPositions into a single flexibleSpec group, and params.targeting into metaTargetingOverride', async () => {
+    let receivedOptions: Record<string, unknown> | undefined;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        createAdSet: async (_client, options) => {
+          receivedOptions = options as unknown as Record<string, unknown>;
+          return {
+            operation: 'create_adset',
+            status: 'dry_run',
+            executed: false,
+            preview: {},
+          };
+        },
+      },
+    });
+
+    const response = await adapter.createAdSet({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {
+        campaignId: 'cmp_123',
+        name: 'Behaviors Test Ad Set',
+        interests: [{ id: 'int_1', name: 'Movies' }],
+        behaviors: [{ id: 'beh_1', name: 'Engaged Shoppers' }],
+        workEmployers: [{ id: 'emp_1', name: 'Tech Company' }],
+        workPositions: [{ id: 'pos_1', name: 'Engineer' }],
+        targeting: { excluded_geo_locations: { countries: ['US'] } },
+      },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    });
+
+    expect(response.ok).toBe(true);
+    const targeting = (receivedOptions?.targeting ?? {}) as Record<string, unknown>;
+    expect(targeting.interests).toEqual([{ id: 'int_1', name: 'Movies' }]);
+    expect(targeting.flexibleSpec).toEqual([
+      {
+        behaviors: [{ id: 'beh_1', name: 'Engaged Shoppers' }],
+        work_employers: [{ id: 'emp_1', name: 'Tech Company' }],
+        work_positions: [{ id: 'pos_1', name: 'Engineer' }],
+      },
+    ]);
+    expect(targeting.metaTargetingOverride).toEqual({
+      excluded_geo_locations: { countries: ['US'] },
+    });
+  });
+
   it('passes a Dynamic Creative objectStorySpec unchanged to the creative tool', async () => {
     let receivedOptions: Record<string, unknown> | undefined;
     const objectStorySpec = {
