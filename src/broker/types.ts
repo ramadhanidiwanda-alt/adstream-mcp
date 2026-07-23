@@ -859,12 +859,18 @@ export interface CloneUiAdResult {
   structuredError?: StructuredMutationError;
 }
 
+export type ArchiveAdStatus = 'dry_run' | 'pending_confirmation' | 'executed' | 'failed';
+
 export interface ArchiveAdResult {
   operation: 'archive_ad';
-  status: 'executed' | 'failed';
+  status: ArchiveAdStatus;
+  executed: boolean;
+  preview: Record<string, unknown>;
   success: boolean;
   id?: string;
+  response?: Record<string, unknown>;
   error?: string;
+  structuredError?: StructuredMutationError;
 }
 
 export interface CloneAdSetResult {

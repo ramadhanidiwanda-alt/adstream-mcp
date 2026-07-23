@@ -747,6 +747,138 @@ describe('ads MCP broker tools', () => {
     }
   });
 
+  describe('destructive actions gate (ARCHIVED/DELETED)', () => {
+    const ENABLE_WRITES = 'ADSTREAM_ENABLE_WRITES';
+    const ENABLE_DESTRUCTIVE = 'ADSTREAM_ENABLE_DESTRUCTIVE_ACTIONS';
+
+    function withEnv(vars: Record<string, string | undefined>, fn: () => Promise<void>) {
+      const previous: Record<string, string | undefined> = {};
+      for (const key of Object.keys(vars)) previous[key] = process.env[key];
+
+      return (async () => {
+        try {
+          for (const [key, value] of Object.entries(vars)) {
+            if (value === undefined) delete process.env[key];
+            else process.env[key] = value;
+          }
+          await fn();
+        } finally {
+          for (const [key, value] of Object.entries(previous)) {
+            if (value === undefined) delete process.env[key];
+            else process.env[key] = value;
+          }
+        }
+      })();
+    }
+
+    it('blocks ads_archive_ad by default even when writes are enabled', async () => {
+      await withEnv({ [ENABLE_WRITES]: 'true', [ENABLE_DESTRUCTIVE]: undefined }, async () => {
+        const broker = createBrokerStub();
+        const response = await handleAdsMcpToolCall(broker, 'ads_archive_ad', {
+          provider: 'meta',
+          adId: 'ad_123',
+        });
+
+        expect(response.isError).toBe(true);
+        const parsed = parseToolResponse(response);
+        expect(parsed.errors?.[0]).toMatchObject({
+          code: 'DESTRUCTIVE_ACTIONS_DISABLED',
+          enableFlag: ENABLE_DESTRUCTIVE,
+        });
+        expect(parsed.errors?.[0]?.actionableFix).toContain(`${ENABLE_DESTRUCTIVE}=true`);
+      });
+    });
+
+    it('blocks ads_update_ad(status=ARCHIVED) but allows other statuses', async () => {
+      await withEnv({ [ENABLE_WRITES]: 'true', [ENABLE_DESTRUCTIVE]: undefined }, async () => {
+        const broker = {
+          ...createBrokerStub(),
+          updateAd: async () => ({
+            ok: true,
+            provider: 'meta' as const,
+            data: { operation: 'update_ad', status: 'dry_run', executed: false, preview: {}, success: false },
+          }),
+        } as unknown as AdsBroker;
+
+        const archived = await handleAdsMcpToolCall(broker, 'ads_update_ad', {
+          provider: 'meta',
+          adId: 'ad_123',
+          status: 'ARCHIVED',
+        });
+        expect(parseToolResponse(archived).errors?.[0]?.code).toBe('DESTRUCTIVE_ACTIONS_DISABLED');
+
+        const paused = await handleAdsMcpToolCall(broker, 'ads_update_ad', {
+          provider: 'meta',
+          adId: 'ad_123',
+          status: 'PAUSED',
+        });
+        expect(parseToolResponse(paused).ok).toBe(true);
+      });
+    });
+
+    it('blocks ads_update_campaign for ARCHIVED and DELETED alike', async () => {
+      await withEnv({ [ENABLE_WRITES]: 'true', [ENABLE_DESTRUCTIVE]: undefined }, async () => {
+        const broker = createBrokerStub();
+
+        for (const status of ['ARCHIVED', 'DELETED']) {
+          const response = await handleAdsMcpToolCall(broker, 'ads_update_campaign', {
+            provider: 'meta',
+            campaignId: 'cmp_123',
+            status,
+          });
+          expect(parseToolResponse(response).errors?.[0]?.code).toBe('DESTRUCTIVE_ACTIONS_DISABLED');
+        }
+      });
+    });
+
+    it('allows ads_archive_ad once both flags are enabled', async () => {
+      await withEnv({ [ENABLE_WRITES]: 'true', [ENABLE_DESTRUCTIVE]: 'true' }, async () => {
+        const broker = {
+          ...createBrokerStub(),
+          archiveAd: async () => ({
+            ok: true,
+            provider: 'meta' as const,
+            data: { operation: 'archive_ad', status: 'dry_run', executed: false, preview: { status: 'ARCHIVED' }, success: false },
+          }),
+        } as unknown as AdsBroker;
+
+        const response = await handleAdsMcpToolCall(broker, 'ads_archive_ad', {
+          provider: 'meta',
+          adId: 'ad_123',
+        });
+
+        expect(response.isError).toBeFalsy();
+        expect(parseToolResponse(response).ok).toBe(true);
+      });
+    });
+
+    it('reports destructiveActions state through ads_get_capabilities', async () => {
+      await withEnv({ [ENABLE_DESTRUCTIVE]: undefined }, async () => {
+        const broker = createBrokerStub();
+        const disabled = parseToolResponse(
+          await handleAdsMcpToolCall(broker, 'ads_get_capabilities', { provider: 'meta' })
+        );
+        expect(disabled.data).toMatchObject({
+          destructiveActions: expect.objectContaining({
+            enabled: false,
+            enableFlag: ENABLE_DESTRUCTIVE,
+            gatedTools: expect.arrayContaining(['ads_archive_ad', 'ads_update_ad', 'ads_update_campaign']),
+          }),
+        });
+      });
+
+      await withEnv({ [ENABLE_DESTRUCTIVE]: 'true' }, async () => {
+        const broker = createBrokerStub();
+        const enabled = parseToolResponse(
+          await handleAdsMcpToolCall(broker, 'ads_get_capabilities', { provider: 'meta' })
+        );
+        expect(enabled.data).toMatchObject({
+          destructiveActions: expect.objectContaining({ enabled: true }),
+        });
+      });
+    });
+  });
+
   it('routes ads_get_account_performance through AdsBroker', async () => {
     let receivedRequest: AdsBrokerRequest | undefined;
     const broker = {

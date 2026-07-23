@@ -38,7 +38,7 @@ Safe single-entity status/name changes:
 | `ads_rename_campaign` | Campaign | Low |
 | `ads_rename_adset` | Ad Set | Low |
 | `ads_rename_ad` | Ad | Low |
-| `ads_archive_ad` | Ad | Low (irreversible via API) |
+| `ads_archive_ad` | Ad | Low (permanent — see §13) |
 | `ads_update_ad` | Ad | Medium (name/status/creative swap; see §12a) |
 | `ads_update_campaign` | Campaign | Medium (name/status/budget/schedule; see §12a) |
 
@@ -267,7 +267,32 @@ other write tool in this contract (§2).
   requires `deleteConfirmed: true` in the same request, mirroring the
   `replaceTargetingConfirmed` pattern `ads_update_adset` uses for its own
   dangerous sub-operation. Without it, the tool returns `status: "failed"`
-  and does not call the Meta API. `status: "ARCHIVED"` is available as a
-  reversible-ish alternative (Meta archive semantics still apply).
+  and does not call the Meta API. `status: "ARCHIVED"` is **not** a safer
+  alternative — see §13.
 - **`objective` is not exposed** on `ads_update_campaign` — Meta treats it
   as effectively immutable once a campaign has ads.
+
+---
+
+## 13. Destructive Actions Contract (ARCHIVED / DELETED)
+
+Since Meta's Oct 2014 status-semantics change, `ARCHIVED` and `DELETED` are
+equally permanent for campaigns, ad sets, and ads: neither can be reverted
+back to `ACTIVE`/`PAUSED` via the API. They differ only in query and quota
+behavior (`ARCHIVED` objects stay queryable as edges and count against a
+50,000-per-type-per-account limit; `DELETED` objects don't), not in
+reversibility. Treat any tool call that sets either status as equally
+irreversible.
+
+- **Gated tools:** `ads_archive_ad` (always), `ads_update_ad` with
+  `status: "ARCHIVED"`, `ads_update_campaign` with `status: "ARCHIVED"` or
+  `"DELETED"`.
+- **Kill switch:** `ADSTREAM_ENABLE_DESTRUCTIVE_ACTIONS` (default `false`,
+  independent of `ADSTREAM_ENABLE_WRITES`). While off, calls to the tools
+  above are rejected before dispatch with a `DESTRUCTIVE_ACTIONS_DISABLED`
+  error, even with `dryRun`/`confirmed` set — this is an operator-level
+  gate, not something a caller can talk its way past.
+  `ads_get_capabilities` reports current state under `destructiveActions`.
+- **Still required when the switch is on:** the standard dry-run/confirm
+  lifecycle (§2) applies on top of the kill switch — `ads_archive_ad`
+  follows it the same way `ads_update_ad`/`ads_update_campaign` do.

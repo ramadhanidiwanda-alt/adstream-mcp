@@ -644,11 +644,50 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
   }
 
   async archiveAd(request: AdsBrokerRequest): Promise<AdsBrokerResponse<ArchiveAdResult>> {
-    return this.adStatusUpdate(request, 'DELETE').then((r) => ({
+    const adId = String(request.params.adId ?? '') || undefined;
+    const preview: Record<string, unknown> = { status: 'DELETE' };
+    const dryRun = request.params.dryRun !== false;
+    const confirmed = request.params.confirmed === true;
+
+    if (dryRun) {
+      return {
+        ok: true,
+        provider: 'tiktok',
+        data: { operation: 'archive_ad', status: 'dry_run', executed: false, preview, success: false, id: adId },
+      };
+    }
+
+    if (!confirmed) {
+      return {
+        ok: true,
+        provider: 'tiktok',
+        data: {
+          operation: 'archive_ad',
+          status: 'pending_confirmation',
+          executed: false,
+          preview,
+          success: false,
+          id: adId,
+          error:
+            'Explicit confirmation is required after reviewing the dry-run preview — archiving is permanent and cannot be undone via the API.',
+        },
+      };
+    }
+
+    const r = await this.adStatusUpdate(request, 'DELETE');
+    return {
       ok: r.ok,
       provider: 'tiktok',
-      data: { operation: 'archive_ad', status: r.ok ? 'executed' as const : 'failed' as const, success: r.ok, id: r.data?.id, error: !r.ok ? 'Failed to archive ad' : undefined },
-    }));
+      data: {
+        operation: 'archive_ad',
+        status: r.ok ? 'executed' as const : 'failed' as const,
+        executed: r.ok,
+        preview,
+        success: r.ok,
+        id: r.data?.id ?? adId,
+        error: !r.ok ? 'Failed to archive ad' : undefined,
+      },
+    };
   }
 
   async cloneUiAd(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<CloneUiAdResult>> {
