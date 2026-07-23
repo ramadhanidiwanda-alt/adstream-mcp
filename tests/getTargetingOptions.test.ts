@@ -21,9 +21,52 @@ describe('getTargetingOptions', () => {
     expect(mockMetaGet).toHaveBeenCalledWith('/search', { type: 'adinterest', limit: 25, q: 'shopping' });
   });
 
-  it('returns empty array on API error', async () => {
+  it('propagates API errors instead of silently returning empty data', async () => {
     mockMetaGet.mockRejectedValueOnce(new Error('API error'));
-    const r = await getTargetingOptions(mockClient, { adAccountId: 'act_123', type: 'behaviors' });
-    expect(r.data).toEqual([]);
+    await expect(
+      getTargetingOptions(mockClient, { adAccountId: 'act_123', type: 'behaviors' })
+    ).rejects.toThrow('API error');
   });
+
+  it.each([
+    ['behaviors', 'behaviors'],
+    ['demographics', 'demographics'],
+    ['industries', 'industries'],
+    ['life_events', 'life_events'],
+    ['family_statuses', 'family_statuses'],
+    ['income', 'income'],
+  ] as const)('searches %s via adTargetingCategory&class=%s', async (type, cls) => {
+    mockMetaGet.mockResolvedValueOnce({ data: [] });
+    await getTargetingOptions(mockClient, { adAccountId: 'act_123', type, query: 'q' });
+    expect(mockMetaGet).toHaveBeenCalledWith('/search', {
+      type: 'adTargetingCategory',
+      class: cls,
+      limit: 25,
+      q: 'q',
+    });
+  });
+
+  it.each([
+    ['work_employers', 'adworkemployer'],
+    ['work_positions', 'adworkposition'],
+    ['work_job_titles', 'adworkposition'],
+  ] as const)('searches %s via type=%s (not nested under adinterest)', async (type, metaType) => {
+    mockMetaGet.mockResolvedValueOnce({ data: [] });
+    await getTargetingOptions(mockClient, { adAccountId: 'act_123', type, query: 'google' });
+    expect(mockMetaGet).toHaveBeenCalledWith('/search', {
+      type: metaType,
+      limit: 25,
+      q: 'google',
+    });
+  });
+
+  it.each(['relationship_statuses', 'education_statuses', 'college_years'] as const)(
+    'rejects %s with a clear explanation instead of querying Meta with a bogus type',
+    async (type) => {
+      await expect(getTargetingOptions(mockClient, { adAccountId: 'act_123', type })).rejects.toThrow(
+        /not searchable/i
+      );
+      expect(mockMetaGet).not.toHaveBeenCalled();
+    }
+  );
 });

@@ -1185,6 +1185,51 @@ describe('MetaAdsAdapter', () => {
     const adapter = new MetaAdsAdapter();
     expect(typeof adapter.listCampaigns).toBe('function');
   });
+
+  it('surfaces getTargetingOptions tool errors as a broker error response instead of swallowing them', async () => {
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        getTargetingOptions: async () => {
+          throw new Error('relationship_statuses is a fixed set of integer codes, not searchable');
+        },
+      },
+    });
+
+    const response = await adapter.getTargetingOptions({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: { type: 'relationship_statuses' },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    });
+
+    expect(response.ok).toBe(false);
+    expect(response.errors?.[0].message).toContain('not searchable');
+    expect(JSON.stringify(response)).not.toContain('secret-token');
+  });
+
+  it('forwards work_employers/work_positions type through to the getTargetingOptions tool', async () => {
+    let receivedOptions: Record<string, unknown> | undefined;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        getTargetingOptions: async (_client, options) => {
+          receivedOptions = options as unknown as Record<string, unknown>;
+          return { operation: 'get_targeting_options', data: [], paging: { nextCursor: null } };
+        },
+      },
+    });
+
+    const response = await adapter.getTargetingOptions({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: { type: 'work_employers', query: 'google' },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    });
+
+    expect(response.ok).toBe(true);
+    expect(receivedOptions).toMatchObject({ type: 'work_employers', query: 'google' });
+  });
   it('passes full ad set write parameters from broker request into createAdSet tool', async () => {
     let receivedOptions: Record<string, unknown> | undefined;
     const adapter = new MetaAdsAdapter({

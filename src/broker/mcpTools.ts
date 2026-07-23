@@ -406,7 +406,7 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
   {
     name: 'ads_get_targeting_options',
     description:
-      'Search Meta targeting options (interests, behaviors, demographics) for ad set creation.',
+      'Search Meta targeting options (interests, behaviors, demographics, work_employers, work_positions) for ad set creation.',
     inputSchema: createGetTargetingOptionsInputSchema(),
   },
   {
@@ -2407,8 +2407,17 @@ function createGetTargetingOptionsInputSchema() {
       ...(schema.properties as Record<string, unknown>),
       type: {
         type: 'string',
-        enum: ['interests', 'behaviors', 'demographics', 'industries', 'life_events'],
-        description: 'Targeting option type to search.',
+        enum: [
+          'interests',
+          'behaviors',
+          'demographics',
+          'industries',
+          'life_events',
+          'work_employers',
+          'work_positions',
+        ],
+        description:
+          'Targeting option type to search. work_employers/work_positions results are id/name pairs for the workEmployers/workPositions params on ads_create_adset.',
       },
       query: { type: 'string', description: 'Search keyword to filter targeting options.' },
       limit: { type: 'number', description: 'Maximum results to return (default: 25).' },
