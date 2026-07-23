@@ -1,7 +1,10 @@
 import type { MetaClient } from '../metaClient.js';
 import type { StructuredMutationError } from '../types.js';
 import type { AdSetTargeting } from './createAdSet.js';
-import { formatMetaWriteError, formatStructuredMetaWriteError } from '../utils/formatMetaWriteError.js';
+import {
+  formatMetaWriteError,
+  formatStructuredMetaWriteError,
+} from '../utils/formatMetaWriteError.js';
 
 export interface UpdateAdSetOptions {
   adSetId: string;
@@ -75,12 +78,14 @@ export async function updateAdSet(
     return {
       ...baseResult,
       status: 'failed',
-      error: 'replaceTargetingConfirmed=true is required when mode="replace" and targeting is provided.',
+      error:
+        'replaceTargetingConfirmed=true is required when mode="replace" and targeting is provided.',
       structuredError: {
         code: 'REPLACE_CONFIRMATION_REQUIRED',
         message: 'Explicit targeting replacement confirmation is required.',
         provider: 'meta',
-        actionableFix: 'Use mode="patch" for merge semantics or set replaceTargetingConfirmed=true after reviewing the dry-run preview.',
+        actionableFix:
+          'Use mode="patch" for merge semantics or set replaceTargetingConfirmed=true after reviewing the dry-run preview.',
       },
     };
   }
@@ -130,9 +135,27 @@ function buildUpdatePayload(options: UpdateAdSetOptions): Record<string, unknown
     if (options.targeting.ageMin !== undefined) t.age_min = options.targeting.ageMin;
     if (options.targeting.ageMax !== undefined) t.age_max = options.targeting.ageMax;
     if (options.targeting.genders !== undefined) t.genders = options.targeting.genders;
-    if (options.targeting.publisherPlatforms !== undefined) t.publisher_platforms = options.targeting.publisherPlatforms;
+    if (options.targeting.publisherPlatforms !== undefined)
+      t.publisher_platforms = options.targeting.publisherPlatforms;
     if (options.targeting.interests !== undefined) t.interests = options.targeting.interests;
-    if (options.targeting.customAudiences !== undefined) t.custom_audiences = options.targeting.customAudiences;
+    if (options.targeting.customAudiences !== undefined)
+      t.custom_audiences = options.targeting.customAudiences;
+    if (options.targeting.excludedCustomAudiences !== undefined)
+      t.excluded_custom_audiences = options.targeting.excludedCustomAudiences;
+    if (options.targeting.facebookPositions !== undefined)
+      t.facebook_positions = options.targeting.facebookPositions;
+    if (options.targeting.instagramPositions !== undefined)
+      t.instagram_positions = options.targeting.instagramPositions;
+    if (options.targeting.threadsPositions !== undefined)
+      t.threads_positions = options.targeting.threadsPositions;
+    if (options.targeting.messengerPositions !== undefined)
+      t.messenger_positions = options.targeting.messengerPositions;
+    if (options.targeting.marketplacePositions !== undefined)
+      t.marketplace_positions = options.targeting.marketplacePositions;
+    if (options.targeting.devicePlatforms !== undefined)
+      t.device_platforms = options.targeting.devicePlatforms;
+    if (options.targeting.targetingAutomation !== undefined)
+      t.targeting_automation = options.targeting.targetingAutomation;
     if (Object.keys(t).length > 0) payload.targeting = t;
   }
 

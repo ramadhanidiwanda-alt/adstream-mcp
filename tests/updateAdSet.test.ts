@@ -27,6 +27,28 @@ describe('updateAdSet', () => {
     expect(r.preview.targeting).toEqual({ geo_locations: { countries: ['ID'] } });
   });
 
+  it('serializes granular placements and targeting_automation into the update payload', async () => {
+    const r = await updateAdSet(mockClient, {
+      ...baseOpts,
+      targeting: {
+        publisherPlatforms: ['instagram', 'threads'],
+        instagramPositions: ['stream', 'reels'],
+        threadsPositions: ['threads_stream'],
+        devicePlatforms: ['mobile'],
+        excludedCustomAudiences: [{ id: 'aud_excl' }],
+        targetingAutomation: { advantage_audience: 1 },
+      },
+    });
+    expect(r.preview.targeting).toEqual({
+      publisher_platforms: ['instagram', 'threads'],
+      instagram_positions: ['stream', 'reels'],
+      threads_positions: ['threads_stream'],
+      device_platforms: ['mobile'],
+      excluded_custom_audiences: [{ id: 'aud_excl' }],
+      targeting_automation: { advantage_audience: 1 },
+    });
+  });
+
   it('requires explicit replace confirmation for targeting replacement', async () => {
     const r = await updateAdSet(mockClient, {
       ...baseOpts,

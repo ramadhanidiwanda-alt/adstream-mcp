@@ -1598,6 +1598,50 @@ function createCreateAdSetInputSchema() {
         items: { type: 'string' },
         description: 'Publisher platforms (e.g. facebook, instagram, messenger).',
       },
+      facebookPositions: {
+        type: 'array',
+        items: { type: 'string' },
+        description:
+          'Granular Facebook placements (e.g. feed, story, video_feeds, marketplace, facebook_reels). Omit for all positions.',
+      },
+      instagramPositions: {
+        type: 'array',
+        items: { type: 'string' },
+        description:
+          'Granular Instagram placements (e.g. stream, story, explore, reels, profile_feed, profile_reels, ig_search). Omit for all positions.',
+      },
+      threadsPositions: {
+        type: 'array',
+        items: { type: 'string', enum: ['threads_stream'] },
+        description:
+          'Threads placements. Only threads_stream is supported by Meta, and it requires Instagram "stream" to also be included in instagramPositions.',
+      },
+      messengerPositions: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'Granular Messenger placements (e.g. sponsored_messages, story).',
+      },
+      marketplacePositions: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'Granular Facebook Marketplace placements.',
+      },
+      devicePlatforms: {
+        type: 'array',
+        items: { type: 'string', enum: ['mobile', 'desktop'] },
+        description: 'Device platforms. Omit for all device types.',
+      },
+      advantageAudience: {
+        type: 'number',
+        enum: [0, 1],
+        description:
+          'Shorthand for targeting_automation.advantage_audience: 1 to enable Advantage+ Audience expansion, 0 to disable. Meta requires this to be explicit when age/gender/custom-audience/detailed-targeting use non-default settings. Ignored if targetingAutomation is also provided.',
+      },
+      targetingAutomation: {
+        type: 'object',
+        description:
+          'Raw targeting_automation object, e.g. { advantage_audience: 1 }. Takes precedence over advantageAudience. Defaults to { advantage_audience: 0 } when neither is provided and other targeting fields are set.',
+      },
       interests: {
         type: 'array',
         description: 'Interest targeting array [{ id, name }].',
@@ -2110,6 +2154,54 @@ function createUpdateAdSetInputSchema() {
         type: 'array',
         items: { type: 'string' },
         description: 'Publisher platforms.',
+      },
+      facebookPositions: {
+        type: 'array',
+        items: { type: 'string' },
+        description:
+          'Granular Facebook placements (e.g. feed, story, video_feeds, marketplace, facebook_reels).',
+      },
+      instagramPositions: {
+        type: 'array',
+        items: { type: 'string' },
+        description:
+          'Granular Instagram placements (e.g. stream, story, explore, reels, profile_feed, profile_reels, ig_search).',
+      },
+      threadsPositions: {
+        type: 'array',
+        items: { type: 'string', enum: ['threads_stream'] },
+        description:
+          'Threads placements. Only threads_stream is supported by Meta, and it requires Instagram "stream" to also be included in instagramPositions.',
+      },
+      messengerPositions: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'Granular Messenger placements (e.g. sponsored_messages, story).',
+      },
+      marketplacePositions: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'Granular Facebook Marketplace placements.',
+      },
+      devicePlatforms: {
+        type: 'array',
+        items: { type: 'string', enum: ['mobile', 'desktop'] },
+        description: 'Device platforms.',
+      },
+      excludedCustomAudiences: {
+        type: 'array',
+        description: 'Custom audiences to exclude, array of [{ id }].',
+      },
+      advantageAudience: {
+        type: 'number',
+        enum: [0, 1],
+        description:
+          'Shorthand for targeting_automation.advantage_audience: 1 to enable Advantage+ Audience expansion, 0 to disable. Ignored if targetingAutomation is also provided.',
+      },
+      targetingAutomation: {
+        type: 'object',
+        description:
+          'Raw targeting_automation object, e.g. { advantage_audience: 1 }. Takes precedence over advantageAudience.',
       },
       startTime: { type: 'string', description: 'Start time in ISO format.' },
       endTime: { type: 'string', description: 'End time in ISO format.' },

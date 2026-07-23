@@ -664,4 +664,33 @@ describe('createAdSet — bid strategy + pre-flight validation', () => {
       expect(targeting?.targeting_automation).toEqual({ advantage_audience: 0 });
     });
   });
+
+  describe('granular placement targeting', () => {
+    it('serializes instagramPositions and threadsPositions into snake_case fields', async () => {
+      const client = createMockClient();
+      const result = await createAdSet(
+        client,
+        {
+          ...defaultOptions,
+          targeting: {
+            publisherPlatforms: ['instagram', 'threads'],
+            instagramPositions: ['stream', 'story', 'explore', 'reels', 'profile_feed'],
+            threadsPositions: ['threads_stream'],
+            devicePlatforms: ['mobile'],
+          },
+        },
+        { dryRun: true }
+      );
+      const targeting = result.preview.targeting as Record<string, unknown>;
+      expect(targeting.instagram_positions).toEqual([
+        'stream',
+        'story',
+        'explore',
+        'reels',
+        'profile_feed',
+      ]);
+      expect(targeting.threads_positions).toEqual(['threads_stream']);
+      expect(targeting.device_platforms).toEqual(['mobile']);
+    });
+  });
 });

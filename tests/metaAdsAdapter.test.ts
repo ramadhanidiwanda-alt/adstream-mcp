@@ -2366,6 +2366,76 @@ describe('MetaAdsAdapter', () => {
     expect(targeting.excludedCustomAudiences).toEqual([{ id: 'aud_excl' }]);
   });
 
+  it('forwards advantageAudience shorthand into targeting_automation', async () => {
+    let receivedOptions: Record<string, unknown> | undefined;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        createAdSet: async (_client, options) => {
+          receivedOptions = options as unknown as Record<string, unknown>;
+          return { operation: 'create_adset', status: 'dry_run', executed: false, preview: {} };
+        },
+      },
+    });
+
+    const response = await adapter.createAdSet({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {
+        campaignId: 'cmp_123',
+        name: 'Advantage Audience Ad Set',
+        ageMin: 25,
+        ageMax: 65,
+        genders: [2],
+        advantageAudience: 1,
+      },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    });
+
+    expect(response.ok).toBe(true);
+    const targeting = receivedOptions?.targeting as Record<string, unknown>;
+    expect(targeting.targetingAutomation).toEqual({ advantage_audience: 1 });
+  });
+
+  it('forwards granular Instagram/Threads/device placements into ad set targeting', async () => {
+    let receivedOptions: Record<string, unknown> | undefined;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        createAdSet: async (_client, options) => {
+          receivedOptions = options as unknown as Record<string, unknown>;
+          return { operation: 'create_adset', status: 'dry_run', executed: false, preview: {} };
+        },
+      },
+    });
+
+    const response = await adapter.createAdSet({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {
+        campaignId: 'cmp_123',
+        name: 'Granular Placement Ad Set',
+        publisherPlatforms: ['instagram', 'threads'],
+        instagramPositions: ['stream', 'story', 'explore', 'reels', 'profile_feed'],
+        threadsPositions: ['threads_stream'],
+        devicePlatforms: ['mobile'],
+      },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    });
+
+    expect(response.ok).toBe(true);
+    const targeting = receivedOptions?.targeting as Record<string, unknown>;
+    expect(targeting.instagramPositions).toEqual([
+      'stream',
+      'story',
+      'explore',
+      'reels',
+      'profile_feed',
+    ]);
+    expect(targeting.threadsPositions).toEqual(['threads_stream']);
+    expect(targeting.devicePlatforms).toEqual(['mobile']);
+  });
+
   it('clones an ad set, passing source id and overrides to the tool', async () => {
     let received: Record<string, unknown> | undefined;
     const adapter = new MetaAdsAdapter({

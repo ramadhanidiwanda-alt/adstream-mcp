@@ -76,6 +76,7 @@ export interface AdSetTargeting {
   publisherPlatforms?: string[];
   facebookPositions?: string[];
   instagramPositions?: string[];
+  threadsPositions?: string[];
   messengerPositions?: string[];
   marketplacePositions?: string[];
   devicePlatforms?: string[];
@@ -671,6 +672,8 @@ function buildTargetingPayload(targeting: AdSetTargeting): Record<string, unknow
     result.facebook_positions = targeting.facebookPositions;
   if (targeting.instagramPositions !== undefined)
     result.instagram_positions = targeting.instagramPositions;
+  if (targeting.threadsPositions !== undefined)
+    result.threads_positions = targeting.threadsPositions;
   if (targeting.messengerPositions !== undefined)
     result.messenger_positions = targeting.messengerPositions;
   if (targeting.marketplacePositions !== undefined)
