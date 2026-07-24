@@ -93,6 +93,23 @@ export async function createAd(
     }
   }
 
+  if (!options.skipPlacementCompatibilityCheck) {
+    const placementCompatibilityError = await getPlacementCompatibilityError(
+      client,
+      options.adSetId,
+      options.creativeId,
+      maxRetries
+    );
+    if (placementCompatibilityError) {
+      return {
+        ...baseResult,
+        status: 'failed',
+        executed: false,
+        error: placementCompatibilityError,
+      };
+    }
+  }
+
   if (dryRun) return baseResult;
 
   if (!confirmed) {
@@ -119,23 +136,6 @@ export async function createAd(
   }
 
   try {
-    if (!options.skipPlacementCompatibilityCheck) {
-      const placementCompatibilityError = await getPlacementCompatibilityError(
-        client,
-        options.adSetId,
-        options.creativeId,
-        maxRetries
-      );
-      if (placementCompatibilityError) {
-        return {
-          ...baseResult,
-          status: 'failed',
-          executed: false,
-          error: placementCompatibilityError,
-        };
-      }
-    }
-
     const response = await client.metaPost<MetaIdResponse>(
       `${accountPath}/ads`,
       preview,
@@ -190,6 +190,11 @@ async function getPlacementCompatibilityError(
   const hasPlacementRules = Array.isArray(assetFeedSpec?.asset_customization_rules)
     ? assetFeedSpec.asset_customization_rules.length > 0
     : false;
+  const hasFlexibleMultiVariants = hasMultiVariantTextAssets(assetFeedSpec) && !hasPlacementRules;
+
+  if (adSet.is_dynamic_creative !== true && hasFlexibleMultiVariants) {
+    return 'Creative flexible multi-varian dengan beberapa primary text/headline memerlukan adset Dynamic Creative pada jalur Meta API ini. Jangan set Dynamic Creative untuk iklan normal; gunakan single_image/video/carousel biasa, atau buat adset dengan isDynamicCreative=true hanya untuk flexible multi-varian yang sudah direview.';
+  }
 
   if (
     adSet.destination_type === 'WHATSAPP' &&
@@ -247,4 +252,13 @@ function buildAdPayload(options: CreateAdOptions): Record<string, unknown> {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function hasMultiVariantTextAssets(assetFeedSpec: Record<string, unknown> | undefined): boolean {
+  if (!assetFeedSpec) return false;
+  return countArray(assetFeedSpec.bodies) > 1 || countArray(assetFeedSpec.titles) > 1;
+}
+
+function countArray(value: unknown): number {
+  return Array.isArray(value) ? value.length : 0;
 }

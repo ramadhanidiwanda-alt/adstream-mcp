@@ -338,7 +338,7 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
   {
     name: 'ads_create_adcreative',
     description:
-      'Create a Meta ad creative with image/video, headline, body, CTA, or official Dynamic Creative inputs: objectStorySpec plus top-level assetFeedSpec. assetFeedSpec supports multiple primary texts and headlines. Gunakan optOutEnhancements untuk disable Advantage+ Creative enhancement. params BUKAN passthrough mentah ke Graph API — hanya field yang terdaftar di schema ini yang dikirim, field lain ditolak dengan error (bukan diabaikan diam-diam). Dry-run by default. Set dryRun=false and confirmed=true to execute.',
+      'Create a Meta ad creative with image/video, headline, body, CTA, or Flexible asset-feed inputs via creativeFormat="flexible" + creativeSpec. Legacy objectStorySpec plus top-level assetFeedSpec tetap diterima untuk kompatibilitas, tapi jangan dipilih sebagai default untuk iklan baru. Gunakan optOutEnhancements untuk disable Advantage+ Creative enhancement. params BUKAN passthrough mentah ke Graph API — hanya field yang terdaftar di schema ini yang dikirim, field lain ditolak dengan error (bukan diabaikan diam-diam). Dry-run by default. Set dryRun=false and confirmed=true to execute.',
     inputSchema: createCreateAdCreativeInputSchema(),
   },
   {
@@ -1758,7 +1758,8 @@ function createCreateAdSetInputSchema() {
       },
       isDynamicCreative: {
         type: 'boolean',
-        description: 'Enable Dynamic Creative for this ad set.',
+        description:
+          'Legacy Meta API compatibility flag. Jangan diisi untuk iklan normal; hanya set true saat attaching flexible asset_feed_spec multi-varian yang sudah direview dan Meta menolak adset non-Dynamic Creative.',
       },
       dsaBeneficiary: {
         type: 'string',
@@ -1931,7 +1932,7 @@ function createCreateAdCreativeInputSchema() {
       objectStorySpec: {
         type: 'object',
         description:
-          'Input advanced/backward-compatible Meta object_story_spec. Untuk Dynamic Creative, gunakan bersama assetFeedSpec tingkat atas; asset_feed_spec bersarang tetap didukung untuk kompatibilitas.',
+          'Input advanced/backward-compatible Meta object_story_spec. Untuk Flexible asset-feed legacy, gunakan bersama assetFeedSpec tingkat atas; asset_feed_spec bersarang tetap didukung hanya untuk kompatibilitas.',
         properties: {
           asset_feed_spec: {
             type: 'object',
@@ -1972,7 +1973,7 @@ function createCreateAdCreativeInputSchema() {
       assetFeedSpec: {
         type: 'object',
         description:
-          'Input advanced/backward-compatible Meta asset_feed_spec untuk Dynamic Creative. Memerlukan ad_formats, images, bodies, titles, link_urls, dan call_to_action_types.',
+          'Input advanced/backward-compatible Meta asset_feed_spec untuk Flexible creative. Untuk iklan baru, prefer creativeFormat="flexible" + creativeSpec; legacy objectStorySpec+assetFeedSpec tetap diterima saat perlu. Memerlukan ad_formats, images, bodies, titles, link_urls, dan call_to_action_types.',
         properties: {
           ad_formats: {
             type: 'array',

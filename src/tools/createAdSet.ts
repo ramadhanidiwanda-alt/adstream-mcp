@@ -114,7 +114,7 @@ export interface CreateAdSetOptions {
   attributionSpec?: Array<Record<string, unknown>>;
   /** Frequency cap specs. Example: [{ event: 'IMPRESSIONS', interval_days: 7, max_frequency: 3 }] */
   frequencyControlSpecs?: Array<Record<string, unknown>>;
-  /** Enable Dynamic Creative for this ad set */
+  /** Legacy Meta API compatibility flag; avoid for normal new ads. */
   isDynamicCreative?: boolean;
   /** DSA beneficiary for European compliance (person/org that benefits from ads). Required for EU-targeted ad sets. */
   dsaBeneficiary?: string;
