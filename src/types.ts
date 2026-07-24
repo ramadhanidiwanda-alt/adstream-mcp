@@ -6,16 +6,21 @@ export interface MetaConfig {
 
 export type MetaAdsMode = 'standard' | 'collaborative_ads';
 
-export type MetaCreativeFormat =
-  | 'single_image'
-  | 'video'
-  | 'carousel'
-  | 'catalog'
-  | 'collection'
-  | 'flexible'
-  | 'placement_image'
-  | 'placement_customized_ctwa'
-  | 'existing_post';
+export const META_CREATIVE_FORMATS = [
+  'single_image',
+  'video',
+  'carousel',
+  'catalog',
+  'collection',
+  'flexible',
+  'placement_image',
+  'placement_customized_ctwa',
+  'existing_post',
+] as const;
+
+export type MetaCreativeFormat = (typeof META_CREATIVE_FORMATS)[number];
+
+export type MetaCreativeDestinationMode = 'EXTERNAL_URL' | 'NONE' | 'INSTANT_FORM' | 'APP';
 
 export interface MetaCreativeCopy {
   primaryText: string;
@@ -23,6 +28,7 @@ export interface MetaCreativeCopy {
   description?: string;
   callToAction?: string;
   destinationUrl?: string;
+  destinationMode?: MetaCreativeDestinationMode;
 }
 
 export interface MetaAssetMessageExtension {
@@ -31,12 +37,14 @@ export interface MetaAssetMessageExtension {
 
 export interface MetaSingleImageCreativeSpec extends MetaCreativeCopy {
   imageHash: string;
+  leadFormId?: string;
   pageWelcomeMessage?: string;
   applinkTreatment?: MetaApplinkTreatment;
 }
 
 export interface MetaVideoCreativeSpec extends MetaCreativeCopy {
   videoId: string;
+  leadFormId?: string;
   thumbnailImageHash?: string;
   /**
    * Alternative to thumbnailImageHash — Meta's video_data accepts a direct
@@ -180,6 +188,13 @@ export interface MetaCollaborativeAppSpec {
   applicationId: string;
   android?: { appName: string; packageName: string };
   ios?: { appName: string; appStoreId: string };
+}
+
+/** App identity for the standard Meta App Promotion install path. */
+export interface MetaStandardAppSpec {
+  applicationId: string;
+  objectStoreUrl: string;
+  deepLinkUrl?: string;
 }
 
 export type MetaApplinkTreatment =

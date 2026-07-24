@@ -9,6 +9,10 @@ import {
   toAdsBrokerRequest,
 } from '../src/broker/mcpTools.js';
 import type { AdsBroker } from '../src/broker/AdsBroker.js';
+import {
+  META_CONVERSION_LOCATIONS,
+  META_ODAX_OBJECTIVES,
+} from '../src/providers/meta/objectiveLaunchMatrix.js';
 import type {
   AdsBrokerRequest,
   AdsBrokerResponse,
@@ -27,6 +31,13 @@ const legacyToolNames = [
   'meta_generate_daily_report',
   'meta_analyze_with_rules',
 ];
+
+const LEGACY_READINESS_WORKFLOW_ALIASES = [
+  'website_sales',
+  'lead_generation',
+  'existing_post',
+  'cpas_catalog_sales',
+] as const;
 
 function createRecord(raw?: unknown): AdsMetricRecord {
   return {
@@ -261,6 +272,20 @@ describe('ads MCP broker tools', () => {
     });
   });
 
+  it('exposes canonical objective and conversionLocation for objective-aware creatives', () => {
+    const tool = ADS_MCP_TOOL_DEFINITIONS.find(({ name }) => name === 'ads_create_adcreative');
+    const properties = tool?.inputSchema.properties as Record<string, unknown>;
+
+    expect(properties.objective).toMatchObject({
+      type: 'string',
+      enum: [...META_ODAX_OBJECTIVES],
+    });
+    expect(properties.conversionLocation).toMatchObject({
+      type: 'string',
+      enum: [...META_CONVERSION_LOCATIONS],
+    });
+  });
+
   it('exposes applinkTreatment enum on ads_create_adcreative for omnichannel creatives', () => {
     const tool = ADS_MCP_TOOL_DEFINITIONS.find(({ name }) => name === 'ads_create_adcreative');
     const creativeSpec = (tool?.inputSchema.properties as Record<string, unknown>).creativeSpec as {
@@ -329,6 +354,7 @@ describe('ads MCP broker tools', () => {
       'ads_read_creative_full',
       'ads_read_adset_full',
       'ads_list_pages',
+      'ads_list_lead_forms',
       'ads_list_instagram_accounts',
       'ads_list_instagram_media',
       'ads_list_threads_profiles',
@@ -357,21 +383,44 @@ describe('ads MCP broker tools', () => {
 
   it('dispatches launch readiness checks and CPAS discovery tools to the broker', async () => {
     const calls: string[] = [];
+    let readinessRequest: AdsBrokerRequest | undefined;
+    let readinessResponse: AdsBrokerResponse | undefined;
     const broker = {
       ...createBrokerStub(),
       checkLaunchReadiness: async (request: AdsBrokerRequest) => {
         calls.push('checkLaunchReadiness');
+        readinessRequest = request;
         return {
           ok: true,
           provider: 'meta',
           data: {
             ready: false,
-            workflow: 'whatsapp_sales',
-            recommendedWorkflow: 'whatsapp_sales',
+            workflow: 'leads_instant_form',
+            recommendedWorkflow: 'leads_instant_form',
             missing: ['pageId'],
             nextQuestions: ['Page Facebook mana yang mau dipakai?'],
             checks: [],
             warnings: [],
+            recommendedTools: [
+              'ads_check_launch_readiness',
+              'ads_create_campaign',
+              'ads_create_adset',
+              'ads_create_adcreative',
+              'ads_create_ad',
+            ],
+            creationOrder: [
+              'ads_create_campaign',
+              'ads_create_adset',
+              'ads_create_adcreative',
+              'ads_create_ad',
+            ],
+            verificationTools: [
+              'ads_list_campaigns',
+              'ads_read_adset_full',
+              'ads_read_creative_full',
+            ],
+            activationOrder: ['ads_resume_campaign', 'ads_resume_adset', 'ads_resume_ad'],
+            requiresSecondActivationApproval: true,
             summary: 'Belum siap dibuat. Ada 1 informasi yang masih kurang.',
             writesEnabled: request.params.writesEnabled === true,
           },
@@ -392,13 +441,29 @@ describe('ads MCP broker tools', () => {
     } as unknown as AdsBroker;
 
     for (const [name, args] of [
-      ['ads_check_launch_readiness', { accountId: 'act_123', workflow: 'whatsapp_sales' }],
+      [
+        'ads_check_launch_readiness',
+        {
+          accountId: 'act_123',
+          workflow: 'leads_instant_form',
+          objective: 'OUTCOME_LEADS',
+          conversionLocation: 'INSTANT_FORM',
+          optimizationGoal: 'LEAD_GENERATION',
+          creativeFormat: 'single_image',
+          apiVersion: 'v25.0',
+          leadFormId: 'form-1',
+          applicationId: 'app-1',
+          objectStoreUrl: 'https://apps.apple.com/app/example',
+          appDeepLinkUrl: 'example://open',
+        },
+      ],
       ['ads_list_pixels', { accountId: 'act_123' }],
       ['ads_list_catalogs', { accountId: 'act_123', businessId: 'business-1' }],
       ['ads_list_product_sets', { accountId: 'act_123', catalogId: 'catalog-1' }],
     ] as const) {
       const parsed = parseToolResponse(await handleAdsMcpToolCall(broker, name, args));
       expect(parsed.ok).toBe(true);
+      if (name === 'ads_check_launch_readiness') readinessResponse = parsed;
     }
 
     expect(calls).toEqual([
@@ -407,6 +472,79 @@ describe('ads MCP broker tools', () => {
       'listCatalogs',
       'listProductSets',
     ]);
+    expect(readinessRequest?.params).toMatchObject({
+      workflow: 'leads_instant_form',
+      objective: 'OUTCOME_LEADS',
+      conversionLocation: 'INSTANT_FORM',
+      optimizationGoal: 'LEAD_GENERATION',
+      creativeFormat: 'single_image',
+      apiVersion: 'v25.0',
+      leadFormId: 'form-1',
+      applicationId: 'app-1',
+      objectStoreUrl: 'https://apps.apple.com/app/example',
+      appDeepLinkUrl: 'example://open',
+    });
+    expect(readinessResponse?.data).toMatchObject({
+      creationOrder: [
+        'ads_create_campaign',
+        'ads_create_adset',
+        'ads_create_adcreative',
+        'ads_create_ad',
+      ],
+      verificationTools: ['ads_list_campaigns', 'ads_read_adset_full', 'ads_read_creative_full'],
+      activationOrder: ['ads_resume_campaign', 'ads_resume_adset', 'ads_resume_ad'],
+      requiresSecondActivationApproval: true,
+    });
+  });
+
+  it('dispatches read-only Instant Form discovery to the broker', async () => {
+    let request: AdsBrokerRequest | undefined;
+    const broker = {
+      ...createBrokerStub(),
+      listLeadForms: async (received: AdsBrokerRequest) => {
+        request = received;
+        return {
+          ok: true,
+          provider: 'meta' as const,
+          data: [{ lead_form_id: 'form-1', name: 'Consultation', status: 'ACTIVE' }],
+        };
+      },
+    } as unknown as AdsBroker;
+
+    const response = parseToolResponse(
+      await handleAdsMcpToolCall(broker, 'ads_list_lead_forms', {
+        accountId: 'act_123',
+        pageId: 'page-1',
+        status: ['ACTIVE'],
+        limit: 10,
+      })
+    );
+
+    expect(response).toMatchObject({
+      ok: true,
+      data: [{ lead_form_id: 'form-1', name: 'Consultation', status: 'ACTIVE' }],
+    });
+    expect(request).toMatchObject({
+      accountId: 'act_123',
+      params: { pageId: 'page-1', status: ['ACTIVE'], limit: 10 },
+    });
+  });
+
+  it('requires an account and Page for Instant Form discovery', () => {
+    const tool = ADS_MCP_TOOL_DEFINITIONS.find((item) => item.name === 'ads_list_lead_forms');
+
+    expect(tool?.inputSchema.required).toEqual(['accountId', 'pageId']);
+  });
+
+  it('accepts legacy readiness workflow aliases at the JSON Schema boundary', () => {
+    const readinessTool = getAdsMcpToolDefinitions({ includeWrites: false }).find(
+      (tool) => tool.name === 'ads_check_launch_readiness'
+    );
+    const workflowSchema = readinessTool?.inputSchema.properties.workflow as
+      | { enum?: readonly string[] }
+      | undefined;
+
+    expect(workflowSchema?.enum).toEqual(expect.arrayContaining(LEGACY_READINESS_WORKFLOW_ALIASES));
   });
 
   it('routes canonical ads_get_performance by level without removing legacy tools', async () => {
@@ -796,7 +934,13 @@ describe('ads MCP broker tools', () => {
           updateAd: async () => ({
             ok: true,
             provider: 'meta' as const,
-            data: { operation: 'update_ad', status: 'dry_run', executed: false, preview: {}, success: false },
+            data: {
+              operation: 'update_ad',
+              status: 'dry_run',
+              executed: false,
+              preview: {},
+              success: false,
+            },
           }),
         } as unknown as AdsBroker;
 
@@ -826,7 +970,9 @@ describe('ads MCP broker tools', () => {
             campaignId: 'cmp_123',
             status,
           });
-          expect(parseToolResponse(response).errors?.[0]?.code).toBe('DESTRUCTIVE_ACTIONS_DISABLED');
+          expect(parseToolResponse(response).errors?.[0]?.code).toBe(
+            'DESTRUCTIVE_ACTIONS_DISABLED'
+          );
         }
       });
     });
@@ -838,7 +984,13 @@ describe('ads MCP broker tools', () => {
           archiveAd: async () => ({
             ok: true,
             provider: 'meta' as const,
-            data: { operation: 'archive_ad', status: 'dry_run', executed: false, preview: { status: 'ARCHIVED' }, success: false },
+            data: {
+              operation: 'archive_ad',
+              status: 'dry_run',
+              executed: false,
+              preview: { status: 'ARCHIVED' },
+              success: false,
+            },
           }),
         } as unknown as AdsBroker;
 
@@ -862,7 +1014,11 @@ describe('ads MCP broker tools', () => {
           destructiveActions: expect.objectContaining({
             enabled: false,
             enableFlag: ENABLE_DESTRUCTIVE,
-            gatedTools: expect.arrayContaining(['ads_archive_ad', 'ads_update_ad', 'ads_update_campaign']),
+            gatedTools: expect.arrayContaining([
+              'ads_archive_ad',
+              'ads_update_ad',
+              'ads_update_campaign',
+            ]),
           }),
         });
       });

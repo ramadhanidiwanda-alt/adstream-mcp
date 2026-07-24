@@ -1,27 +1,16 @@
 import type { MetaClient } from '../metaClient.js';
 import type { MetaAdsMode, StructuredMutationError } from '../types.js';
+import {
+  META_ODAX_OBJECTIVES,
+  type MetaOdaxObjective,
+} from '../providers/meta/objectiveLaunchMatrix.js';
 import { normalizeAccountPath } from '../utils/normalizeAccountId.js';
 import {
   formatMetaWriteError,
   formatStructuredMetaWriteError,
 } from '../utils/formatMetaWriteError.js';
 
-export type MetaCampaignObjective =
-  | 'OUTCOME_SALES'
-  | 'OUTCOME_TRAFFIC'
-  | 'OUTCOME_ENGAGEMENT'
-  | 'OUTCOME_LEADS'
-  | 'OUTCOME_AWARENESS'
-  | 'OUTCOME_APP_PROMOTION'
-  | 'OUTCOME_CONVERSATIONS'
-  | 'OUTCOME_RESHARES'
-  | 'OUTCOME_VALUE'
-  | 'OUTCOME_VIDEO_VIEWS'
-  | 'OUTCOME_POST_ENGAGEMENT'
-  | 'OUTCOME_LANDING_PAGE_VIEWS'
-  | 'OUTCOME_REACH'
-  | 'OUTCOME_MESSAGES'
-  | 'OUTCOME_THRUPLAY';
+export type MetaCampaignObjective = MetaOdaxObjective;
 
 export type CampaignStatus = 'ACTIVE' | 'PAUSED';
 
@@ -84,6 +73,24 @@ export async function createCampaign(
   execOptions: { dryRun?: boolean; confirmed?: boolean; maxRetries?: number } = {}
 ): Promise<CreateCampaignResult> {
   const { dryRun = true, confirmed = false, maxRetries = 3 } = execOptions;
+
+  if (!META_ODAX_OBJECTIVES.includes(options.objective as MetaOdaxObjective)) {
+    const message = `Unsupported Meta objective: ${options.objective}.`;
+    return {
+      operation: 'create_campaign',
+      status: 'failed',
+      executed: false,
+      mode: options.mode ?? 'standard',
+      preview: {},
+      error: message,
+      structuredError: {
+        provider: 'meta',
+        code: 'UNSUPPORTED_OBJECTIVE',
+        message,
+        actionableFix: `Use one of: ${META_ODAX_OBJECTIVES.join(', ')}.`,
+      },
+    };
+  }
 
   const preview = buildCampaignPayload(options);
   if (options.externalReference) {

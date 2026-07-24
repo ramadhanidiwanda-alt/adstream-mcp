@@ -52,7 +52,7 @@ Target platform akhir:
 
 ### 1.3 Definisi Sukses (Outcome, bukan output)
 
-- Satu agent bisa menjawab: *"Audit semua iklan saya di semua platform minggu ini, buat laporan, dan sarankan aksi"* dalam satu percakapan.
+- Satu agent bisa menjawab: _"Audit semua iklan saya di semua platform minggu ini, buat laporan, dan sarankan aksi"_ dalam satu percakapan.
 - Menambah platform baru = implement 1 adapter + 1 credential mapping, tanpa mengubah broker/tool surface.
 - Tidak ada satu pun token/secret bocor ke log, response, atau audit.
 - Write & create operations selalu melewati dry-run → confirm → execute → audit.
@@ -74,18 +74,18 @@ Target platform akhir:
 
 ### 2.2 Gap Utama
 
-| Area | Kondisi | Dampak |
-|---|---|---|
-| Provider IDs | `meta`, `tiktok`, `google` sudah masuk broker/provider registry | Marketplace belum masuk sampai izin API tersedia |
-| Report engine | `ads_generate_report` sudah menghasilkan summary/audit account/campaign | Perlu reuse rule engine lama agar rekomendasi makin kaya |
-| Cross-provider | Cross-provider report sudah mendukung partial failure dan mixed currency warning | Perlu perluasan fixture/path Google |
-| TikTok adapter | account/campaign/adgroup/ad + placement performance implemented; GMV Max exposed via commerce data tool | TikTok regular + GMV read parity sudah masuk Fase 3 |
-| Create ads | Belum ada (hanya campaign-level mutate) | "Membuat iklan" belum didukung |
-| Commerce model | `CommerceRecord` + `commerce_get_performance provider=tiktok_gmv` sudah ada | Marketplace Indonesia masih menunggu izin API |
-| Paket metadata | `package.json` sudah memakai `adstream-mcp` | Perlu dipertahankan konsisten di semua docs dan examples |
-| Roadmap | `ROADMAP.md` tertinggal dari status aktual | Sinkronisasi perlu |
-| Tool surface | Campuran `ads_*`, `meta_*`, `tiktok_*` | Perlu strategi stable vs legacy |
-| RBAC | RBAC minimal awal: provider/account/scope read gating + default deny write | Perlu write/create scope policy lebih granular sebelum create ads |
+| Area                     | Kondisi                                                                                                 | Dampak                                                            |
+| ------------------------ | ------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| Provider IDs             | `meta`, `tiktok`, `google` sudah masuk broker/provider registry                                         | Marketplace belum masuk sampai izin API tersedia                  |
+| Report engine            | `ads_generate_report` sudah menghasilkan summary/audit account/campaign                                 | Perlu reuse rule engine lama agar rekomendasi makin kaya          |
+| Cross-provider           | Cross-provider report sudah mendukung partial failure dan mixed currency warning                        | Perlu perluasan fixture/path Google                               |
+| TikTok adapter           | account/campaign/adgroup/ad + placement performance implemented; GMV Max exposed via commerce data tool | TikTok regular + GMV read parity sudah masuk Fase 3               |
+| Meta v25 create baseline | Enam objective ODAX punya workflow terkanonikasi dengan dry-run, read-back, dan status awal `PAUSED`    | Aktivasi, delivery, dan eligibility akun tetap terpisah           |
+| Commerce model           | `CommerceRecord` + `commerce_get_performance provider=tiktok_gmv` sudah ada                             | Marketplace Indonesia masih menunggu izin API                     |
+| Paket metadata           | `package.json` sudah memakai `adstream-mcp`                                                             | Perlu dipertahankan konsisten di semua docs dan examples          |
+| Roadmap                  | `ROADMAP.md` tertinggal dari status aktual                                                              | Sinkronisasi perlu                                                |
+| Tool surface             | Campuran `ads_*`, `meta_*`, `tiktok_*`                                                                  | Perlu strategi stable vs legacy                                   |
+| RBAC                     | RBAC minimal awal: provider/account/scope read gating + default deny write                              | Perlu write/create scope policy lebih granular sebelum create ads |
 
 ### 2.3 Prinsip yang Dipertahankan
 
@@ -142,15 +142,15 @@ Provider APIs (Meta Graph, TikTok Business, Google Ads, Marketplace APIs)
 
 Setiap adapter mengekspos `capabilities` sehingga broker dan agent tahu apa yang didukung tanpa trial-error.
 
-| Capability | meta | meta_cpas* | tiktok | tiktok_gmv | google | shopee | tokopedia | lazada |
-|---|---|---|---|---|---|---|---|---|
-| list_accounts | ✅ | ✅ | ✅ | ▶ | ✅ | ▶ | ▶ | ▶ |
-| read_performance | ✅ | ✅ | ✅ | ✅ | ✅ | ▶ | ▶ | ▶ |
-| placement_performance | ✅ | ✅ | ✅ | n/a | ▶ | ▶ | ▶ | ▶ |
-| ads_report | ⬜ | ⬜ | ⬜ | n/a | ⬜ | ⬜ | ⬜ | ⬜ |
-| commerce_data | n/a | n/a | ✅ | ✅ | n/a | ▶ | ▶ | ▶ |
-| write_campaign | ✅ | ▶ | ⬜ | ⬜ | ▶ | ▶ | ▶ | ▶ |
-| create_ad | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
+| Capability            | meta | meta_cpas\* | tiktok | tiktok_gmv | google | shopee | tokopedia | lazada |
+| --------------------- | ---- | ----------- | ------ | ---------- | ------ | ------ | --------- | ------ |
+| list_accounts         | ✅   | ✅          | ✅     | ▶          | ✅     | ▶      | ▶         | ▶      |
+| read_performance      | ✅   | ✅          | ✅     | ✅         | ✅     | ▶      | ▶         | ▶      |
+| placement_performance | ✅   | ✅          | ✅     | n/a        | ▶      | ▶      | ▶         | ▶      |
+| ads_report            | ⬜   | ⬜          | ⬜     | n/a        | ⬜     | ⬜     | ⬜        | ⬜     |
+| commerce_data         | n/a  | n/a         | ✅     | ✅         | n/a    | ▶      | ▶         | ▶      |
+| write_campaign        | ✅   | ▶           | ⬜     | ⬜         | ▶      | ▶      | ▶         | ▶      |
+| create_ad             | ⬜   | ⬜          | ⬜     | ⬜         | ⬜     | ⬜     | ⬜        | ⬜     |
 
 `* meta_cpas` = mode di dalam adapter Meta, bukan provider terpisah.
 Legenda: ✅ ada · 🟡 partial · ⬜ belum · ▶ direncanakan · n/a tidak relevan.
@@ -227,6 +227,38 @@ Prinsip urutan (sesuai keputusan §0): **stabilkan fondasi → report engine →
 ### Fase 5 — RBAC Minimal + Write Ekspansi + Create (Target: Oktober–November 2026)
 
 **Goal:** Adset/ad write + create ads (Meta→TikTok), dengan RBAC minimal terpasang lebih dulu.
+
+#### Meta v25 six-objective launch baseline — shipped; release verification pending
+
+Baseline creation now supports the six ODAX objectives below through the existing
+`ads_check_launch_readiness` and `ads_create_*` flow. This is a bounded creation
+surface, not a promise of live delivery: each campaign, ad set, and ad is created
+as `PAUSED`, read back for audit, and needs a separate, explicit activation
+approval in parent-to-child order.
+
+| Marketer workflow | Canonical objective     | Canonical destination / conversion location |
+| ----------------- | ----------------------- | ------------------------------------------- |
+| Awareness         | `OUTCOME_AWARENESS`     | `AWARENESS` (no click destination)          |
+| Website traffic   | `OUTCOME_TRAFFIC`       | `WEBSITE`                                   |
+| Engagement        | `OUTCOME_ENGAGEMENT`    | `POST` or `VIDEO`                           |
+| Lead generation   | `OUTCOME_LEADS`         | `WEBSITE` or `INSTANT_FORM`                 |
+| App promotion     | `OUTCOME_APP_PROMOTION` | `APP`                                       |
+| Website sales     | `OUTCOME_SALES`         | `WEBSITE`                                   |
+
+- Meta API **v25.0 is the default**. The matrix explicitly supports v23, v24,
+  and v25 for these baseline combinations.
+- Collaborative Ads / CPAS catalog sales has a dedicated v25 regression path
+  (`OUTCOME_SALES` + `CATALOG`); it remains dependent on Meta-shared catalog and
+  product-set access and is not a broader CPAS implementation.
+- Focused unit tests verify payload selection and safety behavior. Do not mark
+  this baseline release complete until the full offline suite is green. No live
+  Meta contract test or activation is part of this scope; account eligibility,
+  policy review, and delivery remain Meta decisions.
+
+**Deferred variants:** Messaging, Calls, broader Catalog/CPAS variants, app
+events/value/re-engagement variants, Ad Recall Lift, Quality Leads/CRM, and
+additional Advantage+ variants. They must not be inferred from the baseline
+matrix until their provider payload, eligibility, and regression coverage exist.
 
 - [ ] **RBAC minimal (prasyarat sebelum create):**
   - [x] Credential-aware read gating: provider harus cocok, akun harus masuk `allowedAccountIds`/`accountId`, scope harus memuat `ads.read`/`ads.write`/`ads.admin` jika scopes dikirim.
@@ -353,15 +385,15 @@ Pertahankan & perluas: `ads_list_accounts`, `ads_list_campaigns`, `ads_get_*_per
 
 ## 8. Metrik Keberhasilan
 
-| Kategori | Target Menengah | Target Jangka Panjang |
-|---|---|---|
-| Provider read | Meta+TikTok+Google | +≥1 marketplace |
-| Report | Ads report + cross-provider | + commerce report |
-| Create ads | Meta | +TikTok, lalu lainnya |
-| Safety | 0 secret leak + RBAC minimal | 0 leak + RBAC lengkap |
-| Coverage | ≥ 80% broker/adapter | ≥ 90% |
-| Onboarding provider | ≤ 1 adapter + mapping | Scaffold + docs |
-| Adopsi | Jalan di ≥3 MCP client | Marketplace komunitas skill |
+| Kategori            | Target Menengah              | Target Jangka Panjang       |
+| ------------------- | ---------------------------- | --------------------------- |
+| Provider read       | Meta+TikTok+Google           | +≥1 marketplace             |
+| Report              | Ads report + cross-provider  | + commerce report           |
+| Create ads          | Meta                         | +TikTok, lalu lainnya       |
+| Safety              | 0 secret leak + RBAC minimal | 0 leak + RBAC lengkap       |
+| Coverage            | ≥ 80% broker/adapter         | ≥ 90%                       |
+| Onboarding provider | ≤ 1 adapter + mapping        | Scaffold + docs             |
+| Adopsi              | Jalan di ≥3 MCP client       | Marketplace komunitas skill |
 
 ---
 
@@ -408,4 +440,4 @@ Detail baku akan hidup di `docs/PROVIDER_ONBOARDING.md` (Fase 0).
 
 ---
 
-**Catatan:** Dokumen ini adalah *living document*. Perubahan besar arah harus memperbarui §0 (keputusan), §4 (rencana rilis), lalu disinkronkan ke `ROADMAP.md` dan `docs/PROJECT_STATUS.md`.
+**Catatan:** Dokumen ini adalah _living document_. Perubahan besar arah harus memperbarui §0 (keputusan), §4 (rencana rilis), lalu disinkronkan ke `ROADMAP.md` dan `docs/PROJECT_STATUS.md`.

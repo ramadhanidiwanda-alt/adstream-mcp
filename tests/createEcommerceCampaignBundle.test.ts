@@ -126,6 +126,106 @@ describe('createEcommerceCampaignBundle', () => {
     expect(mockPost.mock.calls[3][0]).toContain('/ads');
   });
 
+  it('creates a typed video creative for an existing Meta video', async () => {
+    const client = createMockClient();
+    const mockPost = client.metaPost as MetaPostMock;
+    mockPost
+      .mockResolvedValueOnce({ id: 'cmp_video' })
+      .mockResolvedValueOnce({ id: 'adset_video' })
+      .mockResolvedValueOnce({ id: 'creative_video' })
+      .mockResolvedValueOnce({ id: 'ad_video' });
+
+    const result = await createEcommerceCampaignBundle(
+      client,
+      { ...payload, imageHash: undefined, videoId: 'video_existing' },
+      { dryRun: false, confirmed: true }
+    );
+
+    expect(result.status).toBe('executed');
+    expect(mockPost.mock.calls[2][1]).toMatchObject({
+      object_story_spec: {
+        page_id: payload.pageId,
+        video_data: {
+          video_id: 'video_existing',
+          message: payload.primaryText,
+          title: payload.headline,
+        },
+      },
+    });
+    expect(mockPost.mock.calls[2][1]).not.toHaveProperty('object_story_spec.link_data');
+  });
+
+  it('does not upload a stale image file when video creative selection wins', async () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'adstream-bundle-stale-image-'));
+    const imageFilePath = path.join(tempDir, 'stale-image.jpg');
+    fs.writeFileSync(imageFilePath, 'stale-image-fixture');
+
+    try {
+      const client = createMockClient();
+      const mockPost = client.metaPost as MetaPostMock;
+      mockPost
+        .mockResolvedValueOnce({ id: 'cmp_video_wins' })
+        .mockResolvedValueOnce({ id: 'adset_video_wins' })
+        .mockResolvedValueOnce({ id: 'creative_video_wins' })
+        .mockResolvedValueOnce({ id: 'ad_video_wins' });
+      client.metaUploadMultipart = vi.fn() as MetaClient['metaUploadMultipart'];
+
+      const result = await createEcommerceCampaignBundle(
+        client,
+        { ...payload, imageHash: undefined, imageFilePath, videoId: 'video_existing' },
+        { dryRun: false, confirmed: true }
+      );
+
+      expect(result.status).toBe('executed');
+      expect(client.metaUploadMultipart).not.toHaveBeenCalled();
+      expect(mockPost.mock.calls[2][1]).toMatchObject({
+        object_story_spec: { video_data: { video_id: 'video_existing' } },
+      });
+    } finally {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it('creates a typed video creative from an uploaded video file', async () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'adstream-bundle-video-'));
+    const videoFilePath = path.join(tempDir, 'creative.mp4');
+    fs.writeFileSync(videoFilePath, 'video-fixture');
+
+    try {
+      const client = createMockClient();
+      const mockPost = client.metaPost as MetaPostMock;
+      mockPost
+        .mockResolvedValueOnce({ id: 'cmp_uploaded_video' })
+        .mockResolvedValueOnce({ id: 'adset_uploaded_video' })
+        .mockResolvedValueOnce({ id: 'creative_uploaded_video' })
+        .mockResolvedValueOnce({ id: 'ad_uploaded_video' });
+      client.metaUploadMultipart = vi
+        .fn()
+        .mockResolvedValueOnce({ id: 'video_uploaded' }) as MetaClient['metaUploadMultipart'];
+
+      const result = await createEcommerceCampaignBundle(
+        client,
+        { ...payload, imageHash: undefined, videoFilePath },
+        { dryRun: false, confirmed: true }
+      );
+
+      expect(result.status).toBe('executed');
+      expect(mockPost.mock.calls[2][1]).toMatchObject({
+        object_story_spec: {
+          page_id: payload.pageId,
+          video_data: {
+            video_id: 'video_uploaded',
+            message: payload.primaryText,
+            title: payload.headline,
+          },
+        },
+      });
+      expect(mockPost.mock.calls[2][1]).not.toHaveProperty('object_story_spec.link_data');
+    } finally {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
   it('retains completed campaign and ad set IDs when creative creation fails', async () => {
     const client = createMockClient();
     const mockPost = client.metaPost as MetaPostMock;

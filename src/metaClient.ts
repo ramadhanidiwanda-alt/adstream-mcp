@@ -18,10 +18,12 @@ interface FetchResult<T> {
 export class MetaClient {
   private baseUrl: string;
   private accessToken: string;
+  readonly apiVersion: string;
   private lastRateLimit: RateLimitInfo | null = null;
 
   constructor(config: MetaConfig) {
-    this.baseUrl = `https://graph.facebook.com/${config.apiVersion}`;
+    this.apiVersion = config.apiVersion;
+    this.baseUrl = `https://graph.facebook.com/${this.apiVersion}`;
     this.accessToken = config.accessToken;
   }
 

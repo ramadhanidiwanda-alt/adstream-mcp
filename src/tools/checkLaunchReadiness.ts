@@ -1,13 +1,55 @@
+import type { MetaCreativeFormat } from '../types.js';
+import {
+  resolveMetaObjectiveLaunchSpec,
+  type MetaConversionLocation,
+  type MetaOdaxObjective,
+} from '../providers/meta/objectiveLaunchMatrix.js';
+import { getLaunchPreset, getWorkflowDeprecationWarning } from './launchPresets.js';
+
 export type MetaLaunchWorkflow =
-  | 'whatsapp_sales'
-  | 'website_sales'
-  | 'lead_generation'
-  | 'cpas_catalog_sales'
-  | 'creative_testing'
-  | 'existing_post';
+  | 'awareness'
+  | 'traffic_website'
+  | 'engagement_post'
+  | 'engagement_video'
+  | 'leads_website'
+  | 'leads_instant_form'
+  | 'app_installs'
+  | 'sales_website'
+  | 'sales_catalog';
+
+export const META_LAUNCH_WORKFLOWS = [
+  'awareness',
+  'traffic_website',
+  'engagement_post',
+  'engagement_video',
+  'leads_website',
+  'leads_instant_form',
+  'app_installs',
+  'sales_website',
+  'sales_catalog',
+] as const satisfies readonly MetaLaunchWorkflow[];
+
+/**
+ * Accepted MCP input values. Output and documentation use META_LAUNCH_WORKFLOWS;
+ * the trailing aliases are normalized before readiness is evaluated.
+ */
+export const META_LAUNCH_WORKFLOW_INPUT_VALUES = [
+  ...META_LAUNCH_WORKFLOWS,
+  'website_sales',
+  'lead_generation',
+  'existing_post',
+  'cpas_catalog_sales',
+  'whatsapp_sales',
+  'creative_testing',
+] as const;
 
 export interface LaunchReadinessOptions {
   workflow?: string;
+  objective?: MetaOdaxObjective;
+  conversionLocation?: MetaConversionLocation;
+  optimizationGoal?: string;
+  creativeFormat?: MetaCreativeFormat;
+  apiVersion?: string;
   productOrOffer?: string;
   pageId?: string;
   pixelId?: string;
@@ -27,6 +69,10 @@ export interface LaunchReadinessOptions {
   catalogId?: string;
   businessId?: string;
   specialAdCategories?: string[];
+  leadFormId?: string;
+  applicationId?: string;
+  objectStoreUrl?: string;
+  appDeepLinkUrl?: string;
   writesEnabled?: boolean;
 }
 
@@ -41,25 +87,63 @@ export interface LaunchReadinessResult {
   ready: boolean;
   workflow: MetaLaunchWorkflow;
   recommendedWorkflow: MetaLaunchWorkflow;
+  recommendedTools: string[];
+  creationOrder: [
+    'ads_create_campaign',
+    'ads_create_adset',
+    'ads_create_adcreative',
+    'ads_create_ad',
+  ];
+  verificationTools: ['ads_list_campaigns', 'ads_read_adset_full', 'ads_read_creative_full'];
+  activationOrder: ['ads_resume_campaign', 'ads_resume_adset', 'ads_resume_ad'];
+  requiresSecondActivationApproval: true;
   writesEnabled: boolean;
   missing: string[];
   nextQuestions: string[];
   checks: LaunchReadinessCheck[];
   warnings: string[];
+  resolvedSpec?: {
+    key: string;
+    objective: MetaOdaxObjective;
+    conversionLocation: MetaConversionLocation;
+    optimizationGoal: string;
+    billingEvent: string;
+    destinationType?: string;
+    defaultCallToAction?: string;
+    supportedCreativeFormats: readonly MetaCreativeFormat[];
+  };
   summary: string;
 }
 
-const WORKFLOWS = new Set<MetaLaunchWorkflow>([
-  'whatsapp_sales',
-  'website_sales',
-  'lead_generation',
-  'cpas_catalog_sales',
-  'creative_testing',
-  'existing_post',
-]);
+const CREATION_ORDER: LaunchReadinessResult['creationOrder'] = [
+  'ads_create_campaign',
+  'ads_create_adset',
+  'ads_create_adcreative',
+  'ads_create_ad',
+];
+
+const VERIFICATION_TOOLS: LaunchReadinessResult['verificationTools'] = [
+  'ads_list_campaigns',
+  'ads_read_adset_full',
+  'ads_read_creative_full',
+];
+
+const ACTIVATION_ORDER: LaunchReadinessResult['activationOrder'] = [
+  'ads_resume_campaign',
+  'ads_resume_adset',
+  'ads_resume_ad',
+];
 
 export function checkLaunchReadiness(options: LaunchReadinessOptions): LaunchReadinessResult {
-  const workflow = normalizeWorkflow(options.workflow);
+  const preset = getLaunchPreset(options.workflow);
+  const resolvedSpec = resolveMetaObjectiveLaunchSpec({
+    objective: options.objective ?? preset.objective,
+    conversionLocation: options.conversionLocation ?? preset.conversionLocation,
+    optimizationGoal: options.optimizationGoal,
+    creativeFormat: options.creativeFormat,
+    apiVersion: options.apiVersion,
+  });
+  const workflow = resolvedSpec.key;
   const missing = new Set<string>();
   const warnings: string[] = [];
   const checks: LaunchReadinessCheck[] = [];
@@ -67,144 +151,43 @@ export function checkLaunchReadiness(options: LaunchReadinessOptions): LaunchRea
   if (options.writesEnabled !== true) {
     warnings.push('Write tools belum aktif. Set ADSTREAM_ENABLE_WRITES=true sebelum execute.');
   }
-
-  requireField(
-    checks,
-    missing,
-    'productOrOffer',
-    'Produk/offer',
-    options.productOrOffer,
-    'Produk atau penawaran apa yang mau diiklankan?'
-  );
-  requireField(
-    checks,
-    missing,
-    'pageId',
-    'Facebook Page',
-    options.pageId,
-    'Page Facebook mana yang mau dipakai untuk iklan ini?'
-  );
-  requireField(
-    checks,
-    missing,
-    'dailyBudget',
-    'Budget harian',
-    options.dailyBudget,
-    'Budget harian berapa?'
-  );
-  requireField(
-    checks,
-    missing,
-    'countries',
-    'Negara target',
-    options.countries?.length ? 'set' : undefined,
-    'Target negara mana?'
-  );
-
-  if (workflow === 'existing_post') {
-    requireField(
-      checks,
-      missing,
-      'existingPostId',
-      'Existing post',
-      options.existingPostId ?? options.creativeId,
-      'Postingan/creative existing mana yang mau dipakai?'
-    );
-  } else {
-    requireField(
-      checks,
-      missing,
-      'destinationUrl',
-      'URL tujuan',
-      options.destinationUrl,
-      'Tujuan iklan mau ke URL mana?'
-    );
-    requireField(
-      checks,
-      missing,
-      'primaryText',
-      'Primary text',
-      options.primaryText,
-      'Teks utama iklannya apa?'
-    );
-    requireField(
-      checks,
-      missing,
-      'headline',
-      'Headline',
-      options.headline,
-      'Headline iklannya apa?'
-    );
-    requireCreativeAsset(checks, missing, options);
-  }
-
-  if (workflow === 'whatsapp_sales') {
-    requireField(
-      checks,
-      missing,
-      'whatsappPhoneNumberId',
-      'Nomor WhatsApp',
-      options.whatsappPhoneNumberId,
-      'Nomor WhatsApp bisnis mana yang dipakai?'
-    );
-  }
-
-  if (workflow === 'website_sales' || workflow === 'cpas_catalog_sales') {
-    requireField(
-      checks,
-      missing,
-      'pixelId',
-      'Meta Pixel',
-      options.pixelId,
-      'Pixel Meta mana yang dipakai untuk optimasi purchase/lead?'
-    );
-  }
-
-  if (workflow === 'cpas_catalog_sales') {
-    requireField(
-      checks,
-      missing,
-      'businessId',
-      'Business ID',
-      options.businessId,
-      'Business Manager mana yang memiliki catalog CPAS?'
-    );
-    requireField(
-      checks,
-      missing,
-      'catalogId',
-      'Catalog',
-      options.catalogId,
-      'Catalog CPAS mana yang mau dipakai?'
-    );
-    requireField(
-      checks,
-      missing,
-      'productSetId',
-      'Product set',
-      options.productSetId,
-      'Product set CPAS mana yang mau diiklankan?'
-    );
-  }
-
-  if (!options.specialAdCategories) {
+  const deprecationWarning = getWorkflowDeprecationWarning(options.workflow);
+  if (deprecationWarning) warnings.push(deprecationWarning);
+  if (resolvedSpec.key === 'app_installs') {
     warnings.push(
-      'Belum ada konfirmasi special ad category. Tanyakan apakah offer terkait kredit, pekerjaan, rumah, isu sosial, pemilu, atau politik.'
+      'SDK/MMP dan setup app-event tidak dapat dibuktikan oleh connector; verifikasi keduanya di Meta Events Manager sebelum execute.'
     );
+  }
+
+  for (const requiredInput of resolvedSpec.requiredInputs) {
+    requireInput(checks, missing, requiredInput, options);
   }
 
   const missingList = [...missing];
-  const nextQuestions = missingList.map(questionForMissing);
-
   return {
     ready: missingList.length === 0 && options.writesEnabled === true,
     workflow,
     recommendedWorkflow: workflow,
+    recommendedTools: [...preset.recommendedTools],
+    creationOrder: CREATION_ORDER,
+    verificationTools: VERIFICATION_TOOLS,
+    activationOrder: ACTIVATION_ORDER,
+    requiresSecondActivationApproval: true,
     writesEnabled: options.writesEnabled === true,
     missing: missingList,
-    nextQuestions,
+    nextQuestions: missingList.map(questionForMissing),
     checks,
     warnings,
+    resolvedSpec: {
+      key: resolvedSpec.key,
+      objective: resolvedSpec.objective,
+      conversionLocation: resolvedSpec.conversionLocation,
+      optimizationGoal: resolvedSpec.optimizationGoal,
+      billingEvent: resolvedSpec.billingEvent,
+      destinationType: resolvedSpec.destinationType,
+      defaultCallToAction: resolvedSpec.defaultCallToAction,
+      supportedCreativeFormats: resolvedSpec.supportedCreativeFormats,
+    },
     summary:
       missingList.length === 0
         ? 'Siap dry-run. Semua informasi wajib sudah tersedia.'
@@ -212,61 +195,80 @@ export function checkLaunchReadiness(options: LaunchReadinessOptions): LaunchRea
   };
 }
 
-function normalizeWorkflow(value: string | undefined): MetaLaunchWorkflow {
-  if (value && WORKFLOWS.has(value as MetaLaunchWorkflow)) return value as MetaLaunchWorkflow;
-  return 'website_sales';
-}
-
-function requireField(
+function requireInput(
   checks: LaunchReadinessCheck[],
   missing: Set<string>,
   key: string,
-  label: string,
-  value: unknown,
-  help: string
+  options: LaunchReadinessOptions
 ): void {
+  const value = inputValue(key, options);
   const ready =
     typeof value === 'string' ? value.trim().length > 0 : value !== undefined && value !== null;
   if (!ready) missing.add(key);
-  checks.push({ key, label, status: ready ? 'ready' : 'missing', help });
+  checks.push({
+    key,
+    label: labelForMissing(key),
+    status: ready ? 'ready' : 'missing',
+    help: questionForMissing(key),
+  });
 }
 
-function requireCreativeAsset(
-  checks: LaunchReadinessCheck[],
-  missing: Set<string>,
-  options: LaunchReadinessOptions
-): void {
-  const hasAsset = Boolean(
-    options.imageHash?.trim() ||
-    options.videoId?.trim() ||
-    options.imageFilePath?.trim() ||
-    options.videoFilePath?.trim()
-  );
-  if (!hasAsset) missing.add('creativeAsset');
-  checks.push({
-    key: 'creativeAsset',
-    label: 'Creative asset',
-    status: hasAsset ? 'ready' : 'missing',
-    help: 'Pakai gambar/video mana? Bisa file lokal, image hash, atau video ID.',
-  });
+function inputValue(key: string, options: LaunchReadinessOptions): unknown {
+  if (key === 'creativeAsset') {
+    return (
+      options.imageHash?.trim() ||
+      options.videoId?.trim() ||
+      options.imageFilePath?.trim() ||
+      options.videoFilePath?.trim()
+    );
+  }
+  if (key === 'countries') return options.countries?.length ? 'set' : undefined;
+  return options[key as keyof LaunchReadinessOptions];
+}
+
+function labelForMissing(key: string): string {
+  const labels: Record<string, string> = {
+    pageId: 'Facebook Page',
+    pixelId: 'Meta Pixel',
+    destinationUrl: 'URL tujuan',
+    dailyBudget: 'Budget harian',
+    countries: 'Negara target',
+    primaryText: 'Primary text',
+    headline: 'Headline',
+    creativeAsset: 'Creative asset',
+    existingPostId: 'Existing post',
+    videoId: 'Video',
+    leadFormId: 'Instant Form',
+    applicationId: 'Application ID',
+    objectStoreUrl: 'Store URL',
+    businessId: 'Business ID',
+    catalogId: 'Catalog',
+    productSetId: 'Product set',
+    specialAdCategories: 'Special ad categories',
+  };
+  return labels[key] ?? key;
 }
 
 function questionForMissing(key: string): string {
   const questions: Record<string, string> = {
-    productOrOffer: 'Produk atau penawaran apa yang mau diiklankan?',
     pageId: 'Page Facebook mana yang mau dipakai untuk iklan ini?',
+    pixelId: 'Pixel Meta mana yang dipakai untuk optimasi?',
+    destinationUrl: 'Tujuan iklan mau ke URL mana?',
     dailyBudget: 'Budget harian berapa?',
     countries: 'Target negara mana?',
-    destinationUrl: 'Tujuan iklan mau ke URL mana?',
     primaryText: 'Teks utama iklannya apa?',
     headline: 'Headline iklannya apa?',
     creativeAsset: 'Pakai gambar/video mana? Bisa kirim file lokal, image hash, atau video ID.',
-    whatsappPhoneNumberId: 'Nomor WhatsApp bisnis mana yang dipakai?',
-    pixelId: 'Pixel Meta mana yang dipakai untuk optimasi?',
-    businessId: 'Business Manager mana yang memiliki catalog CPAS?',
-    catalogId: 'Catalog CPAS mana yang mau dipakai?',
-    productSetId: 'Product set CPAS mana yang mau diiklankan?',
     existingPostId: 'Postingan existing mana yang mau dipakai?',
+    videoId: 'Video Meta mana yang mau dipakai?',
+    leadFormId: 'Instant Form mana yang mau dipakai?',
+    applicationId: 'Application ID mana yang mau dipromosikan?',
+    objectStoreUrl: 'Store URL aplikasi mana yang mau dipakai?',
+    businessId: 'Business Manager mana yang memiliki catalog?',
+    catalogId: 'Catalog mana yang mau dipakai?',
+    productSetId: 'Product set mana yang mau diiklankan?',
+    specialAdCategories:
+      'Apakah offer terkait kredit, pekerjaan, rumah, isu sosial, pemilu, atau politik? Isi [] bila tidak ada.',
   };
   return questions[key] ?? `Mohon isi ${key}.`;
 }

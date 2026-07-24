@@ -3,6 +3,7 @@ import type {
   MetaApplinkTreatment,
   MetaCollaborativeAppSpec,
   MetaCreativeSpec,
+  MetaStandardAppSpec,
 } from '../../types.js';
 import { assertMetaCreativeCompatibility } from './creativeFormatCompatibility.js';
 
@@ -12,6 +13,7 @@ export type BuildMetaCreativeFormatPayloadInput = MetaCreativeSpec & {
   instagramUserId?: string;
   collaborativeProductSetId?: string;
   collaborativeAppSpec?: MetaCollaborativeAppSpec;
+  standardAppSpec?: MetaStandardAppSpec;
   /**
    * Nama-nama fitur degrees_of_freedom_spec yang di-OPT_OUT (disable).
    * Contoh: ['image_auto_crop', 'text_optimizations', 'image_templates'].
@@ -25,6 +27,12 @@ export type BuildMetaCreativeFormatPayloadInput = MetaCreativeSpec & {
 export function buildMetaCreativeFormatPayload(
   input: BuildMetaCreativeFormatPayloadInput
 ): Record<string, unknown> {
+  if (input.standardAppSpec && input.collaborativeAppSpec) {
+    throw new Error('standardAppSpec dan collaborativeAppSpec tidak dapat digunakan bersamaan.');
+  }
+  if (input.standardAppSpec && input.mode === 'collaborative_ads') {
+    throw new Error('standardAppSpec tidak kompatibel dengan mode collaborative_ads.');
+  }
   assertMetaCreativeCompatibility(input);
 
   switch (input.creativeFormat) {
@@ -62,15 +70,44 @@ function optional(value: string | undefined, label: string): string | undefined 
 
 function cta(
   type: string | undefined,
-  destinationUrl: string,
-  collaborativeAppSpec?: MetaCollaborativeAppSpec
+  destinationUrl?: string,
+  collaborativeAppSpec?: MetaCollaborativeAppSpec,
+  leadFormId?: string,
+  standardAppSpec?: MetaStandardAppSpec
 ): Record<string, unknown> {
   const normalizedType = type?.trim() || 'LEARN_MORE';
+  if (leadFormId) {
+    if (destinationUrl) {
+      throw new Error('leadFormId dan destinationUrl tidak dapat digunakan bersamaan.');
+    }
+    return {
+      type: normalizedType,
+      value: { lead_gen_form_id: required(leadFormId, 'leadFormId') },
+    };
+  }
+  if (standardAppSpec && normalizedType === 'WHATSAPP_MESSAGE') {
+    throw new Error('WHATSAPP_MESSAGE tidak kompatibel dengan standardAppSpec.');
+  }
   if (normalizedType === 'WHATSAPP_MESSAGE' && !collaborativeAppSpec) {
     return { type: normalizedType };
   }
 
-  const value: Record<string, unknown> = { link: destinationUrl };
+  if (standardAppSpec) {
+    const appLink = required(
+      standardAppSpec.deepLinkUrl ?? standardAppSpec.objectStoreUrl,
+      'standardAppSpec.deepLinkUrl atau standardAppSpec.objectStoreUrl'
+    );
+    return {
+      type: type?.trim() || 'INSTALL_MOBILE_APP',
+      value: {
+        link: appLink,
+        app_link: appLink,
+        application: required(standardAppSpec.applicationId, 'standardAppSpec.applicationId'),
+      },
+    };
+  }
+
+  const value: Record<string, unknown> = { link: required(destinationUrl, 'destinationUrl') };
   if (collaborativeAppSpec) {
     value.application = required(
       collaborativeAppSpec.applicationId,
@@ -104,12 +141,63 @@ function buildSingleImage(
   input: Extract<BuildMetaCreativeFormatPayloadInput, { creativeFormat: 'single_image' }>
 ): Record<string, unknown> {
   const { creativeSpec } = input;
+  const leadFormId = resolveLeadFormId(creativeSpec);
+  if (creativeSpec.destinationMode === 'NONE') {
+    return withDegreesOfFreedomSpec(
+      {
+        object_story_spec: {
+          page_id: required(input.pageId, 'pageId'),
+          ...instagramIdentity(input),
+          photo_data: {
+            image_hash: required(creativeSpec.imageHash, 'imageHash'),
+            message: required(creativeSpec.primaryText, 'primaryText'),
+          },
+        },
+      },
+      input.optOutEnhancements
+    );
+  }
+
+  if (leadFormId) {
+    const linkData: Record<string, unknown> = {
+      image_hash: required(creativeSpec.imageHash, 'imageHash'),
+      message: required(creativeSpec.primaryText, 'primaryText'),
+      call_to_action: cta(
+        creativeSpec.callToAction,
+        creativeSpec.destinationUrl,
+        input.collaborativeAppSpec,
+        leadFormId
+      ),
+    };
+    const headline = optional(creativeSpec.headline, 'headline');
+    const description = optional(creativeSpec.description, 'description');
+    if (headline) linkData.name = headline;
+    if (description) linkData.description = description;
+
+    return withDegreesOfFreedomSpec(
+      {
+        object_story_spec: {
+          page_id: required(input.pageId, 'pageId'),
+          ...instagramIdentity(input),
+          link_data: linkData,
+        },
+      },
+      input.optOutEnhancements
+    );
+  }
+
   const destinationUrl = required(creativeSpec.destinationUrl, 'destinationUrl');
   const linkData: Record<string, unknown> = {
     image_hash: required(creativeSpec.imageHash, 'imageHash'),
     message: required(creativeSpec.primaryText, 'primaryText'),
     link: destinationUrl,
-    call_to_action: cta(creativeSpec.callToAction, destinationUrl, input.collaborativeAppSpec),
+    call_to_action: cta(
+      creativeSpec.callToAction,
+      destinationUrl,
+      input.collaborativeAppSpec,
+      undefined,
+      input.standardAppSpec
+    ),
   };
   const headline = optional(creativeSpec.headline, 'headline');
   const description = optional(creativeSpec.description, 'description');
@@ -141,14 +229,71 @@ function buildVideo(
   input: Extract<BuildMetaCreativeFormatPayloadInput, { creativeFormat: 'video' }>
 ): Record<string, unknown> {
   const { creativeSpec } = input;
+  const leadFormId = resolveLeadFormId(creativeSpec);
+  const thumbnailImageHash = optional(creativeSpec.thumbnailImageHash, 'thumbnailImageHash');
+  const thumbnailImageUrl = optional(creativeSpec.thumbnailImageUrl, 'thumbnailImageUrl');
+
+  if (creativeSpec.destinationMode === 'NONE') {
+    const videoData = {
+      video_id: required(creativeSpec.videoId, 'videoId'),
+      message: required(creativeSpec.primaryText, 'primaryText'),
+      ...(creativeSpec.headline?.trim() ? { title: creativeSpec.headline.trim() } : {}),
+      ...(thumbnailImageHash ? { image_hash: thumbnailImageHash } : {}),
+      ...(!thumbnailImageHash && thumbnailImageUrl ? { image_url: thumbnailImageUrl } : {}),
+    };
+
+    return withDegreesOfFreedomSpec(
+      {
+        object_story_spec: {
+          page_id: required(input.pageId, 'pageId'),
+          ...instagramIdentity(input),
+          video_data: videoData,
+        },
+      },
+      input.optOutEnhancements
+    );
+  }
+
+  if (leadFormId) {
+    const videoData: Record<string, unknown> = {
+      video_id: required(creativeSpec.videoId, 'videoId'),
+      message: required(creativeSpec.primaryText, 'primaryText'),
+      call_to_action: cta(
+        creativeSpec.callToAction,
+        creativeSpec.destinationUrl,
+        input.collaborativeAppSpec,
+        leadFormId
+      ),
+    };
+    const headline = optional(creativeSpec.headline, 'headline');
+    if (thumbnailImageHash) videoData.image_hash = thumbnailImageHash;
+    else if (thumbnailImageUrl) videoData.image_url = thumbnailImageUrl;
+    if (headline) videoData.title = headline;
+
+    return withDegreesOfFreedomSpec(
+      {
+        object_story_spec: {
+          page_id: required(input.pageId, 'pageId'),
+          ...instagramIdentity(input),
+          video_data: videoData,
+        },
+      },
+      input.optOutEnhancements
+    );
+  }
+
   const destinationUrl = required(creativeSpec.destinationUrl, 'destinationUrl');
   const videoData: Record<string, unknown> = {
     video_id: required(creativeSpec.videoId, 'videoId'),
     message: required(creativeSpec.primaryText, 'primaryText'),
-    call_to_action: cta(creativeSpec.callToAction, destinationUrl, input.collaborativeAppSpec),
+    call_to_action: cta(
+      creativeSpec.callToAction,
+      destinationUrl,
+      input.collaborativeAppSpec,
+      undefined,
+      input.standardAppSpec
+    ),
   };
-  const thumbnailImageHash = optional(creativeSpec.thumbnailImageHash, 'thumbnailImageHash');
-  const thumbnailImageUrl = optional(creativeSpec.thumbnailImageUrl, 'thumbnailImageUrl');
   const headline = optional(creativeSpec.headline, 'headline');
   const pageWelcomeMessage = optional(creativeSpec.pageWelcomeMessage, 'pageWelcomeMessage');
 
@@ -176,6 +321,33 @@ function buildVideo(
     withDirectOmnichannelLinkFields(input, payload, destinationUrl, creativeSpec.applinkTreatment),
     input.optOutEnhancements
   );
+}
+
+function resolveLeadFormId(creativeSpec: {
+  destinationMode?: string;
+  destinationUrl?: string;
+  leadFormId?: string;
+}): string | undefined {
+  const destinationMode = creativeSpec.destinationMode;
+  const leadFormId = creativeSpec.leadFormId?.trim();
+  const destinationUrl = creativeSpec.destinationUrl?.trim();
+
+  if (destinationMode === 'INSTANT_FORM') {
+    if (!leadFormId) throw new Error('leadFormId wajib diisi untuk destinationMode INSTANT_FORM.');
+    if (destinationUrl) {
+      throw new Error('destinationUrl tidak dapat digunakan untuk destinationMode INSTANT_FORM.');
+    }
+    return leadFormId;
+  }
+
+  if (destinationMode === 'EXTERNAL_URL' && !destinationUrl) {
+    throw new Error('destinationUrl wajib diisi untuk destinationMode EXTERNAL_URL.');
+  }
+  if (leadFormId) {
+    throw new Error('leadFormId hanya dapat digunakan untuk destinationMode INSTANT_FORM.');
+  }
+
+  return undefined;
 }
 
 function buildCarousel(

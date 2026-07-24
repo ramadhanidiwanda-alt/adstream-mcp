@@ -2,6 +2,228 @@ import { describe, expect, it } from 'vitest';
 import { buildMetaCreativeFormatPayload } from '../src/providers/meta/buildCreativeFormatPayload.js';
 
 describe('buildMetaCreativeFormatPayload', () => {
+  it('builds an Awareness single image without an external URL or CTA', () => {
+    expect(
+      buildMetaCreativeFormatPayload({
+        mode: 'standard',
+        pageId: 'page-1',
+        creativeFormat: 'single_image',
+        creativeSpec: {
+          destinationMode: 'NONE',
+          imageHash: 'image-hash',
+          primaryText: 'Kenali brand kami',
+        },
+      })
+    ).toEqual({
+      object_story_spec: {
+        page_id: 'page-1',
+        photo_data: {
+          image_hash: 'image-hash',
+          message: 'Kenali brand kami',
+        },
+      },
+    });
+  });
+
+  it('keeps Traffic single images URL-backed with the default LEARN_MORE CTA', () => {
+    expect(() =>
+      buildMetaCreativeFormatPayload({
+        mode: 'standard',
+        pageId: 'page-1',
+        creativeFormat: 'single_image',
+        creativeSpec: {
+          destinationMode: 'EXTERNAL_URL',
+          imageHash: 'image-hash',
+          primaryText: 'Kunjungi situs kami',
+        },
+      })
+    ).toThrow(/destinationUrl wajib diisi/i);
+
+    expect(
+      buildMetaCreativeFormatPayload({
+        mode: 'standard',
+        pageId: 'page-1',
+        creativeFormat: 'single_image',
+        creativeSpec: {
+          destinationMode: 'EXTERNAL_URL',
+          imageHash: 'image-hash',
+          primaryText: 'Kunjungi situs kami',
+          destinationUrl: 'https://example.com',
+        },
+      })
+    ).toMatchObject({
+      object_story_spec: {
+        link_data: {
+          link: 'https://example.com',
+          call_to_action: { type: 'LEARN_MORE', value: { link: 'https://example.com' } },
+        },
+      },
+    });
+  });
+
+  it('builds an Instant Form single image without an external link', () => {
+    expect(
+      buildMetaCreativeFormatPayload({
+        mode: 'standard',
+        pageId: 'page-1',
+        creativeFormat: 'single_image',
+        creativeSpec: {
+          destinationMode: 'INSTANT_FORM',
+          imageHash: 'hash-1',
+          primaryText: 'Book a consultation',
+          headline: 'Talk to our team',
+          callToAction: 'SIGN_UP',
+          leadFormId: 'form-1',
+        },
+      })
+    ).toEqual({
+      object_story_spec: {
+        page_id: 'page-1',
+        link_data: {
+          image_hash: 'hash-1',
+          message: 'Book a consultation',
+          name: 'Talk to our team',
+          call_to_action: {
+            type: 'SIGN_UP',
+            value: { lead_gen_form_id: 'form-1' },
+          },
+        },
+      },
+    });
+  });
+
+  it('rejects leadFormId outside the resolved Instant Form destination mode', () => {
+    expect(() =>
+      buildMetaCreativeFormatPayload({
+        mode: 'standard',
+        pageId: 'page-1',
+        creativeFormat: 'single_image',
+        creativeSpec: {
+          destinationMode: 'EXTERNAL_URL',
+          imageHash: 'hash-1',
+          primaryText: 'Book a consultation',
+          destinationUrl: 'https://example.com',
+          leadFormId: 'form-1',
+        },
+      })
+    ).toThrow(/leadFormId.*INSTANT_FORM/i);
+  });
+
+  it('builds an Engagement existing post without fabricating an external URL', () => {
+    expect(
+      buildMetaCreativeFormatPayload({
+        mode: 'standard',
+        pageId: 'page-1',
+        creativeFormat: 'existing_post',
+        creativeSpec: {
+          objectStoryId: 'page-1_post-1',
+        },
+      })
+    ).toEqual({ object_story_id: 'page-1_post-1' });
+  });
+
+  it('builds an Engagement video without a CTA and retains thumbnail fallback', () => {
+    expect(
+      buildMetaCreativeFormatPayload({
+        mode: 'standard',
+        pageId: 'page-1',
+        creativeFormat: 'video',
+        creativeSpec: {
+          destinationMode: 'NONE',
+          videoId: 'video-1',
+          thumbnailImageUrl: 'https://example.com/thumbnail.jpg',
+          primaryText: 'Tonton videonya',
+        },
+      })
+    ).toEqual({
+      object_story_spec: {
+        page_id: 'page-1',
+        video_data: {
+          video_id: 'video-1',
+          image_url: 'https://example.com/thumbnail.jpg',
+          message: 'Tonton videonya',
+        },
+      },
+    });
+  });
+
+  it('builds a standard App Promotion video CTA without CPAS omnichannel fields', () => {
+    const result = buildMetaCreativeFormatPayload({
+      mode: 'standard',
+      pageId: 'page-1',
+      standardAppSpec: {
+        applicationId: 'app-1',
+        objectStoreUrl: 'https://apps.apple.com/app/id123',
+        deepLinkUrl: 'myapp://home',
+      },
+      creativeFormat: 'video',
+      creativeSpec: {
+        videoId: 'video-1',
+        primaryText: 'Install the app',
+        destinationUrl: 'https://apps.apple.com/app/id123',
+      },
+    });
+
+    expect(result).toMatchObject({
+      object_story_spec: {
+        page_id: 'page-1',
+        video_data: {
+          video_id: 'video-1',
+          call_to_action: {
+            type: 'INSTALL_MOBILE_APP',
+            value: {
+              link: 'myapp://home',
+              app_link: 'myapp://home',
+              application: 'app-1',
+            },
+          },
+        },
+      },
+    });
+    expect(result).not.toHaveProperty('omnichannel_link_spec');
+    expect(result).not.toHaveProperty('applink_treatment');
+  });
+
+  it('rejects WHATSAPP_MESSAGE when a standard app spec is supplied', () => {
+    expect(() =>
+      buildMetaCreativeFormatPayload({
+        mode: 'standard',
+        pageId: 'page-1',
+        standardAppSpec: {
+          applicationId: 'app-1',
+          objectStoreUrl: 'https://apps.apple.com/app/id123',
+        },
+        creativeFormat: 'single_image',
+        creativeSpec: {
+          imageHash: 'image-1',
+          primaryText: 'Install now',
+          destinationUrl: 'https://apps.apple.com/app/id123',
+          callToAction: 'WHATSAPP_MESSAGE',
+        },
+      })
+    ).toThrow(/WHATSAPP_MESSAGE.*standardAppSpec/i);
+  });
+
+  it('rejects collaborative_ads mode when a standard app spec is supplied', () => {
+    expect(() =>
+      buildMetaCreativeFormatPayload({
+        mode: 'collaborative_ads',
+        pageId: 'page-1',
+        collaborativeProductSetId: 'product-set-1',
+        standardAppSpec: {
+          applicationId: 'app-1',
+          objectStoreUrl: 'https://apps.apple.com/app/id123',
+        },
+        creativeFormat: 'video',
+        creativeSpec: {
+          videoId: 'video-1',
+          primaryText: 'Install now',
+          destinationUrl: 'https://apps.apple.com/app/id123',
+        },
+      })
+    ).toThrow(/standardAppSpec.*collaborative_ads/i);
+  });
+
   it('builds a standard single-image link creative', () => {
     expect(
       buildMetaCreativeFormatPayload({
@@ -735,9 +957,48 @@ describe('buildMetaCreativeFormatPayload', () => {
         },
       },
     },
+    {
+      label: 'catalog',
+      expectedDestinationUrl: 'https://example.com/catalog',
+      expectedStory: {
+        template_data: { message: 'Catalog' },
+      },
+      expectsProductSet: true,
+      input: {
+        mode: 'collaborative_ads' as const,
+        pageId: 'page-1',
+        collaborativeProductSetId: 'product-set-1',
+        creativeFormat: 'catalog' as const,
+        creativeSpec: {
+          productSetId: 'product-set-1',
+          primaryText: 'Catalog',
+          destinationUrl: 'https://example.com/catalog',
+        },
+      },
+    },
+    {
+      label: 'collection',
+      expectedDestinationUrl: 'https://fb.com/canvas_doc/canvas-1',
+      expectedStory: {
+        link_data: { image_hash: 'cover-1' },
+      },
+      expectsProductSet: true,
+      input: {
+        mode: 'collaborative_ads' as const,
+        pageId: 'page-1',
+        collaborativeProductSetId: 'product-set-1',
+        creativeFormat: 'collection' as const,
+        creativeSpec: {
+          instantExperienceId: 'canvas-1',
+          coverImageHash: 'cover-1',
+          productSetId: 'product-set-1',
+          primaryText: 'Collection',
+        },
+      },
+    },
   ])(
-    'wraps collaborative $label creative in shared catalog context',
-    ({ input, expectedDestinationUrl, expectedStory }) => {
+    'wraps v25 collaborative $label creative in the shared catalog context',
+    ({ input, expectedDestinationUrl, expectedStory, expectsProductSet }) => {
       const result = buildMetaCreativeFormatPayload(input);
 
       expect(result).toMatchObject({
@@ -746,7 +1007,11 @@ describe('buildMetaCreativeFormatPayload', () => {
         },
         object_story_spec: expectedStory,
       });
-      expect(result).not.toHaveProperty('product_set_id');
+      if (expectsProductSet) {
+        expect(result.product_set_id).toBe('product-set-1');
+      } else {
+        expect(result).not.toHaveProperty('product_set_id');
+      }
       expect(result).not.toHaveProperty('asset_feed_spec');
     }
   );

@@ -35,6 +35,12 @@ import {
   getTikTokLocationInsights,
 } from '../index.js';
 import type { LocationBreakdown } from '../index.js';
+import { META_CREATIVE_FORMATS } from '../types.js';
+import {
+  META_CONVERSION_LOCATIONS,
+  META_ODAX_OBJECTIVES,
+} from '../providers/meta/objectiveLaunchMatrix.js';
+import { META_LAUNCH_WORKFLOW_INPUT_VALUES } from '../tools/checkLaunchReadiness.js';
 
 export interface CreateMetaAdsMcpServerOptions {
   client?: MetaClient;
@@ -131,20 +137,37 @@ const adsCreativeInputSchema = {
   until: z.string().optional().describe('Optional end date in YYYY-MM-DD format.'),
 };
 
+const leadFormsInputSchema = {
+  ...adsBaseInputSchema,
+  accountId: z.string().describe('Provider account id used to resolve Meta credentials.'),
+  pageId: z.string().describe('Facebook Page ID that owns the Instant Forms.'),
+  status: z.array(z.string()).optional().describe('Optional Instant Form statuses to include.'),
+  limit: z.number().optional().describe('Maximum forms to return (default 50).'),
+};
+
 const launchReadinessInputSchema = {
   ...adsBaseInputSchema,
   accountId: z.string().describe('Provider account id. Required for launch readiness checks.'),
   workflow: z
-    .enum([
-      'whatsapp_sales',
-      'website_sales',
-      'lead_generation',
-      'cpas_catalog_sales',
-      'creative_testing',
-      'existing_post',
-    ])
+    .enum(META_LAUNCH_WORKFLOW_INPUT_VALUES)
     .optional()
-    .describe('Plain-language launch preset. Defaults to website_sales when omitted.'),
+    .describe(
+      'Canonical Meta v25 workflow. Legacy aliases are accepted for compatibility and normalize to canonical output. Defaults to sales_website when omitted.'
+    ),
+  objective: z
+    .enum(META_ODAX_OBJECTIVES)
+    .optional()
+    .describe('Optional ODAX objective override for the workflow.'),
+  conversionLocation: z
+    .enum(META_CONVERSION_LOCATIONS)
+    .optional()
+    .describe('Optional conversion location override for the workflow.'),
+  optimizationGoal: z.string().optional().describe('Optional Meta optimization goal.'),
+  creativeFormat: z
+    .enum(META_CREATIVE_FORMATS)
+    .optional()
+    .describe('Optional intended creative format to validate against the resolved workflow.'),
+  apiVersion: z.string().optional().describe('Meta Marketing API version, defaults to v25.0.'),
   productOrOffer: z.string().optional().describe('Product or offer being promoted.'),
   pageId: z.string().optional().describe('Meta Page ID.'),
   pixelId: z.string().optional().describe('Meta Pixel ID for conversion workflows.'),
@@ -163,6 +186,10 @@ const launchReadinessInputSchema = {
   businessId: z.string().optional().describe('Meta Business ID for catalog discovery.'),
   catalogId: z.string().optional().describe('Meta product catalog ID.'),
   productSetId: z.string().optional().describe('Meta product set ID.'),
+  leadFormId: z.string().optional().describe('Published Meta Instant Form ID.'),
+  applicationId: z.string().optional().describe('Meta application ID for app promotion.'),
+  objectStoreUrl: z.string().optional().describe('App Store or Play Store URL for app promotion.'),
+  appDeepLinkUrl: z.string().optional().describe('Optional app deep-link URL.'),
   specialAdCategories: z
     .array(z.string())
     .optional()
@@ -249,25 +276,7 @@ const createCampaignInputSchema = {
     .describe(
       'standard untuk iklan Meta biasa; collaborative_ads untuk katalog retailer yang sudah dibagikan.'
     ),
-  objective: z
-    .enum([
-      'OUTCOME_SALES',
-      'OUTCOME_TRAFFIC',
-      'OUTCOME_ENGAGEMENT',
-      'OUTCOME_LEADS',
-      'OUTCOME_AWARENESS',
-      'OUTCOME_APP_PROMOTION',
-      'OUTCOME_CONVERSATIONS',
-      'OUTCOME_RESHARES',
-      'OUTCOME_VALUE',
-      'OUTCOME_VIDEO_VIEWS',
-      'OUTCOME_POST_ENGAGEMENT',
-      'OUTCOME_LANDING_PAGE_VIEWS',
-      'OUTCOME_REACH',
-      'OUTCOME_MESSAGES',
-      'OUTCOME_THRUPLAY',
-    ])
-    .describe('Campaign objective.'),
+  objective: z.enum(META_ODAX_OBJECTIVES).describe('Meta ODAX campaign objective.'),
   status: z.enum(['ACTIVE', 'PAUSED']).optional().describe('Campaign status. Defaults to PAUSED.'),
   specialAdCategories: z.array(z.string()).optional().describe('Meta special ad categories.'),
   buyType: z.enum(['AUCTION', 'RESERVED']).optional().describe('Buying type. Defaults to AUCTION.'),
@@ -372,7 +381,22 @@ const createAdSetInputSchema = {
       'VALUE',
     ])
     .optional()
-    .describe('Optimization goal. Defaults to REACH.'),
+    .describe('Optimization goal. Required when conversionLocation is omitted.'),
+  conversionLocation: z
+    .enum(META_CONVERSION_LOCATIONS)
+    .optional()
+    .describe('Objective-aware Meta conversion location.'),
+  creativeFormat: z
+    .enum(META_CREATIVE_FORMATS)
+    .optional()
+    .describe('Creative format used to validate the objective launch.'),
+  pageId: z.string().optional().describe('Meta Page ID for the objective launch.'),
+  pixelId: z.string().optional().describe('Meta Pixel ID for website conversions.'),
+  leadFormId: z.string().optional().describe('Meta instant form ID for lead generation.'),
+  applicationId: z.string().optional().describe('Meta application ID for app promotion.'),
+  objectStoreUrl: z.string().optional().describe('App store URL for app promotion.'),
+  productSetId: z.string().optional().describe('Meta product set ID for catalog sales.'),
+  customEventType: z.string().optional().describe('Optional Meta conversion event type.'),
   bidStrategy: z
     .string()
     .optional()
@@ -515,6 +539,14 @@ export const createAdCreativeInputSchema = {
     .describe(
       'standard untuk iklan Meta biasa; collaborative_ads untuk katalog retailer yang sudah dibagikan.'
     ),
+  objective: z
+    .enum(META_ODAX_OBJECTIVES)
+    .optional()
+    .describe('Canonical ODAX objective. Must be paired with conversionLocation.'),
+  conversionLocation: z
+    .enum(META_CONVERSION_LOCATIONS)
+    .optional()
+    .describe('Canonical conversion location. Must be paired with objective.'),
   creativeFormat: z
     .enum([
       'single_image',
@@ -552,6 +584,16 @@ export const createAdCreativeInputSchema = {
     .optional()
     .describe(
       'Identitas aplikasi retailer untuk tujuan omnichannel, termasuk ID aplikasi dan data Android/iOS. Untuk creativeFormat video, single_image, dan existing_post, field omnichannel (applink_treatment, omnichannel_link_spec) otomatis ditambahkan begitu field ini diisi — tidak perlu mode: collaborative_ads atau collaborativeProductSetId untuk ketiga format tersebut.'
+    ),
+  standardAppSpec: z
+    .object({
+      applicationId: z.string(),
+      objectStoreUrl: z.string(),
+      deepLinkUrl: z.string().optional(),
+    })
+    .optional()
+    .describe(
+      'Kontrak aplikasi untuk OUTCOME_APP_PROMOTION + APP. Wajib isi applicationId dan objectStoreUrl; deepLinkUrl opsional dipakai untuk CTA install.'
     ),
   link: z
     .string()
@@ -928,6 +970,8 @@ export function createMetaAdsMcpServer(options: CreateMetaAdsMcpServerOptions = 
       inputSchema = adsCreativeInputSchema;
     } else if (toolDefinition.name === 'ads_check_launch_readiness') {
       inputSchema = launchReadinessInputSchema;
+    } else if (toolDefinition.name === 'ads_list_lead_forms') {
+      inputSchema = leadFormsInputSchema;
     } else if (toolDefinition.name === 'ads_list_catalogs') {
       inputSchema = businessIdInputSchema;
     } else if (toolDefinition.name === 'ads_list_product_sets') {

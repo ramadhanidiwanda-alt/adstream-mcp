@@ -12,6 +12,36 @@ This skill analyzes Meta Ads performance and provides actionable recommendations
 
 Follow `../shared/preamble.md` — MCP detection, config resolution, ad account selection.
 
+## Meta v25 launch — marketer workflow
+
+Use this section when a marketer asks to create a new Meta campaign. They can describe the business outcome in ordinary language; do not ask them to choose Meta field names or API values. Start with `ads_check_launch_readiness`, then ask only for the missing inputs and discover the needed account assets.
+
+| Workflow | Yang diminta dari marketer | Setup yang sistem selesaikan |
+|---|---|---|
+| Awareness | Facebook Page, negara target, budget harian, gambar/video, teks utama, dan kategori iklan khusus bila relevan | Kampanye Awareness untuk menjangkau orang atau menambah impressions; tanpa URL tujuan atau Pixel. |
+| Traffic ke website | Page, URL tujuan, negara, budget, gambar/video, teks utama, headline, dan kategori khusus | Kampanye Traffic ke website dengan optimasi kunjungan halaman atau klik tautan. |
+| Engagement existing post | Page, postingan yang sudah ada, negara, budget, dan kategori khusus | Kampanye Engagement yang memakai post tersebut dan mengoptimalkan interaksi post. |
+| Video engagement | Page, video yang sudah ada, negara, budget, teks utama, dan kategori khusus | Kampanye Engagement yang mengoptimalkan penayangan video berkualitas (ThruPlay). |
+| Leads ke website | Page, Pixel, URL tujuan, negara, budget, gambar/video, teks utama, headline, dan kategori khusus | Kampanye Leads ke website dengan optimasi konversi lead dari Pixel. |
+| Leads dengan Instant Form | Page, Instant Form yang sudah dipublikasikan, negara, budget, gambar/video, teks utama, headline, dan kategori khusus | Kampanye Leads dengan formulir instan milik Page tersebut. |
+| App installs | Page, application ID, store URL, negara, budget, gambar/video, teks utama, headline, dan kategori khusus | Kampanye App Promotion yang mengoptimalkan pemasangan aplikasi. |
+| Sales ke website | Page, Pixel, URL produk/checkout, negara, budget, gambar/video, teks utama, headline, dan kategori khusus | Kampanye Sales ke website dengan optimasi pembelian dari Pixel. |
+| Sales dengan catalog | Business, catalog, product set, Page, negara, budget, gambar/video, teks utama, headline, dan kategori khusus | Kampanye Sales berbasis catalog; akses catalog dan product set harus sudah tersedia di Meta. |
+
+Semua struktur dibuat PAUSED. Saya akan meminta persetujuan terpisah sebelum mengaktifkan campaign, ad set, dan ad.
+
+### Handoff aman untuk setiap workflow
+
+1. Jalankan `ads_check_launch_readiness`; gunakan hasilnya untuk menemukan aset yang diperlukan, seperti Page, Pixel, post, video, form, app, catalog, atau product set.
+2. Jalankan dry-run untuk `ads_create_campaign`, `ads_create_adset`, `ads_create_adcreative`, dan `ads_create_ad` secara berurutan. Jangan menjalankan creation saat masih mengumpulkan brief.
+3. Tampilkan satu ringkasan marketer: tujuan, target negara/audiens, budget, tujuan klik atau form, materi iklan, dan struktur yang akan dibuat PAUSED. Minta satu persetujuan tertulis untuk **membuat** struktur tersebut.
+4. Setelah persetujuan creation, buat campaign → ad set → creative → ad. Campaign, ad set, dan ad tetap PAUSED.
+5. Audit hasilnya melalui `ads_list_campaigns`, `ads_read_adset_full`, dan `ads_read_creative_full`. Laporkan ID yang terbaca. Bila satu langkah gagal, laporkan seluruh ID yang berhasil dibuat sampai titik itu dan berhenti; jangan mengasumsikan langkah berikutnya berhasil.
+6. Read-back hanya mengaudit respons API dan objek yang dapat dibaca. Jangan mengklaim campaign sudah tervalidasi live, sudah delivery, atau akan perform.
+7. Minta persetujuan kedua yang secara eksplisit menyebut campaign, ad set, dan ad yang akan diaktifkan. Setelah itu saja, aktifkan parent ke child: `ads_resume_campaign` → `ads_resume_adset` → `ads_resume_ad`, lalu baca ulang statusnya.
+
+Messaging, Calls, Quality Leads, optimasi app-event/value yang lebih luas, dan varian Advantage+ tambahan adalah roadmap items. Jangan menyebutnya tersedia atau memetakannya diam-diam ke workflow yang ada.
+
 ## Intent Discovery Gate
 
 Before calling data tools or proposing changes, confirm the user's real objective. This skill is for non-technical marketers, so guide them with choices instead of making them write a full brief.

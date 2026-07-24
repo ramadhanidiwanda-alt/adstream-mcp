@@ -4,6 +4,7 @@ import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { createMetaAdsMcpServer } from '../src/mcp/createServer.js';
 import { ADS_MCP_TOOL_DEFINITIONS, getAdsMcpToolDefinitions } from '../src/broker/mcpTools.js';
 import { COMMERCE_MCP_TOOL_DEFINITIONS } from '../src/broker/commerceTools.js';
+import { META_ODAX_OBJECTIVES } from '../src/providers/meta/objectiveLaunchMatrix.js';
 import type { AdsBroker } from '../src/broker/AdsBroker.js';
 
 const legacyToolNames = [
@@ -21,6 +22,13 @@ const legacyToolNames = [
   'tiktok_get_gmv_max_report',
   'tiktok_get_location_insights',
 ];
+
+const LEGACY_READINESS_WORKFLOW_ALIASES = [
+  'website_sales',
+  'lead_generation',
+  'existing_post',
+  'cpas_catalog_sales',
+] as const;
 
 const envKeys = [
   'BROKER_RUNTIME_MODE',
@@ -131,6 +139,48 @@ describe('MCP server builder', () => {
     }
   });
 
+  it.each(LEGACY_READINESS_WORKFLOW_ALIASES)(
+    'accepts %s at the Zod MCP boundary',
+    async (workflow) => {
+      const adsBroker = {
+        ...createBrokerStub(),
+        checkLaunchReadiness: vi.fn(async () => ({
+          ok: true,
+          provider: 'meta',
+          data: {
+            ready: false,
+            workflow: 'sales_website',
+            recommendedWorkflow: 'sales_website',
+            writesEnabled: false,
+            missing: ['pageId'],
+            nextQuestions: ['Page Facebook mana yang mau dipakai untuk iklan ini?'],
+            checks: [],
+            warnings: [],
+            summary: 'Belum siap dibuat. Ada 1 informasi yang masih kurang.',
+          },
+        })),
+      } as unknown as AdsBroker;
+      const { client, server } = await createConnectedClient({
+        config: { adAccountId: 'act_123' },
+        adsBroker,
+      });
+
+      try {
+        const response = await client.callTool({
+          name: 'ads_check_launch_readiness',
+          arguments: { accountId: 'act_123', workflow },
+        });
+
+        expect(response.isError).not.toBe(true);
+        expect(adsBroker.checkLaunchReadiness).toHaveBeenCalledWith(
+          expect.objectContaining({ params: expect.objectContaining({ workflow }) })
+        );
+      } finally {
+        await Promise.all([client.close(), server.close()]);
+      }
+    }
+  );
+
   it('keeps the expected MCP tool count', async () => {
     const response = await listRegisteredTools();
 
@@ -139,6 +189,38 @@ describe('MCP server builder', () => {
         COMMERCE_MCP_TOOL_DEFINITIONS.length +
         legacyToolNames.length
     );
+  });
+
+  it('validates and forwards Page-scoped Instant Form discovery input', async () => {
+    const adsBroker = {
+      ...createBrokerStub(),
+      listLeadForms: vi.fn(async () => ({
+        ok: true,
+        provider: 'meta',
+        data: [{ lead_form_id: 'form-1', name: 'Consultation', status: 'ACTIVE' }],
+      })),
+    } as unknown as AdsBroker;
+    const { client, server } = await createConnectedClient({
+      config: { adAccountId: 'act_123' },
+      adsBroker,
+    });
+
+    try {
+      const response = await client.callTool({
+        name: 'ads_list_lead_forms',
+        arguments: { accountId: 'act_123', pageId: 'page-1', status: ['ACTIVE'], limit: 10 },
+      });
+
+      expect(response.isError).not.toBe(true);
+      expect(adsBroker.listLeadForms).toHaveBeenCalledWith(
+        expect.objectContaining({
+          accountId: 'act_123',
+          params: { pageId: 'page-1', status: ['ACTIVE'], limit: 10 },
+        })
+      );
+    } finally {
+      await Promise.all([client.close(), server.close()]);
+    }
   });
 
   it('keeps full tool order stable for stdio and future transports', async () => {
@@ -319,6 +401,8 @@ describe('MCP server builder', () => {
     >;
 
     expect(campaignProperties).toHaveProperty('mode');
+    const campaignObjectiveEnum = campaignProperties.objective.enum;
+    expect(campaignObjectiveEnum).toEqual([...META_ODAX_OBJECTIVES]);
     expect(campaignProperties.isAdSetBudgetSharingEnabled).toMatchObject({
       type: 'boolean',
     });
@@ -326,6 +410,10 @@ describe('MCP server builder', () => {
       /berbagi.*20%|20%.*anggaran/i
     );
     expect(adsetProperties).toHaveProperty('collaborativeCatalog');
+    expect(adsetProperties).toHaveProperty('conversionLocation');
+    expect(adsetProperties).toHaveProperty('creativeFormat');
+    expect(creativeProperties).toHaveProperty('objective');
+    expect(creativeProperties).toHaveProperty('conversionLocation');
     expect(creativeProperties).toHaveProperty('creativeFormat');
     expect(creativeProperties).toHaveProperty('creativeSpec');
     const canonicalCreateToolNames = [
@@ -416,6 +504,15 @@ describe('MCP server builder', () => {
     expect(creativeProperties.collaborativeAppSpec).toMatchObject({
       type: 'object',
       required: ['applicationId'],
+    });
+    expect(creativeProperties.standardAppSpec).toMatchObject({
+      type: 'object',
+      required: ['applicationId', 'objectStoreUrl'],
+      properties: {
+        applicationId: { type: 'string' },
+        objectStoreUrl: { type: 'string' },
+        deepLinkUrl: { type: 'string' },
+      },
     });
     expect(creativeProperties.message.description).toMatch(/legacy|backward-compatible/i);
     expect(creativeProperties.objectStorySpec.description).toMatch(/advanced|backward-compatible/i);

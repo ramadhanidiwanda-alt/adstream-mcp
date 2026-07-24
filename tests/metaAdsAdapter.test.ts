@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { MetaAdsAdapter } from '../src/providers/meta/MetaAdsAdapter.js';
+import { META_LAUNCH_WORKFLOWS } from '../src/tools/checkLaunchReadiness.js';
 import { MetaApiError } from '../src/utils/metaError.js';
 
 describe('MetaAdsAdapter', () => {
@@ -19,7 +20,7 @@ describe('MetaAdsAdapter', () => {
     expect(typeof adapter.getChangeHistory).toBe('function');
   });
 
-  it('returns human-readable launch readiness questions for non-coding users', async () => {
+  it('forwards objective-aware readiness fields without exposing credentials', async () => {
     const adapter = new MetaAdsAdapter({
       clientFactory: (config) => ({ config }) as never,
     });
@@ -28,11 +29,16 @@ describe('MetaAdsAdapter', () => {
       provider: 'meta',
       accountId: 'act_123',
       params: {
-        workflow: 'whatsapp_sales',
-        productOrOffer: 'Skincare bundle',
-        dailyBudget: 100000,
-        countries: ['ID'],
-        destinationUrl: 'https://wa.me/628123456789',
+        workflow: 'leads_instant_form',
+        objective: 'OUTCOME_LEADS',
+        conversionLocation: 'INSTANT_FORM',
+        optimizationGoal: 'LEAD_GENERATION',
+        creativeFormat: 'single_image',
+        apiVersion: 'v25.0',
+        leadFormId: 'form-1',
+        applicationId: 'app-1',
+        objectStoreUrl: 'https://apps.apple.com/app/example',
+        appDeepLinkUrl: 'example://open',
         writesEnabled: true,
       },
       credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
@@ -41,17 +47,109 @@ describe('MetaAdsAdapter', () => {
     expect(response.ok).toBe(true);
     expect(response.data).toMatchObject({
       ready: false,
-      workflow: 'whatsapp_sales',
-      recommendedWorkflow: 'whatsapp_sales',
-      missing: expect.arrayContaining(['pageId', 'whatsappPhoneNumberId', 'creativeAsset']),
+      workflow: 'leads_instant_form',
+      recommendedWorkflow: 'leads_instant_form',
+      missing: expect.arrayContaining(['pageId', 'dailyBudget', 'creativeAsset']),
+      resolvedSpec: {
+        key: 'leads_instant_form',
+        objective: 'OUTCOME_LEADS',
+        conversionLocation: 'INSTANT_FORM',
+        optimizationGoal: 'LEAD_GENERATION',
+      },
       nextQuestions: expect.arrayContaining([
         'Page Facebook mana yang mau dipakai untuk iklan ini?',
       ]),
+      recommendedTools: expect.arrayContaining([
+        'ads_check_launch_readiness',
+        'ads_create_campaign',
+        'ads_create_adset',
+        'ads_create_adcreative',
+        'ads_create_ad',
+      ]),
+      creationOrder: [
+        'ads_create_campaign',
+        'ads_create_adset',
+        'ads_create_adcreative',
+        'ads_create_ad',
+      ],
+      verificationTools: [
+        'ads_list_campaigns',
+        'ads_read_adset_full',
+        'ads_read_creative_full',
+      ],
+      activationOrder: ['ads_resume_campaign', 'ads_resume_adset', 'ads_resume_ad'],
+      requiresSecondActivationApproval: true,
       summary: expect.stringContaining('Belum siap'),
       writesEnabled: true,
     });
     expect(JSON.stringify(response)).not.toContain('secret-token');
   });
+
+  it.each(META_LAUNCH_WORKFLOWS)(
+    'returns a PAUSED creation, read-back, and separately approved activation handoff for %s',
+    async (workflow) => {
+      const adapter = new MetaAdsAdapter({
+        clientFactory: (config) => ({ config }) as never,
+      });
+
+      const response = await adapter.checkLaunchReadiness({
+        provider: 'meta',
+        accountId: 'act_123',
+        params: {
+          workflow,
+          pageId: 'page-1',
+          pixelId: 'pixel-1',
+          destinationUrl: 'https://example.com',
+          dailyBudget: 100,
+          countries: ['ID'],
+          primaryText: 'Primary text',
+          headline: 'Headline',
+          imageHash: 'image-1',
+          videoId: 'video-1',
+          existingPostId: 'page-1_post-1',
+          leadFormId: 'form-1',
+          applicationId: 'app-1',
+          objectStoreUrl: 'https://apps.apple.com/app/example',
+          businessId: 'business-1',
+          catalogId: 'catalog-1',
+          productSetId: 'set-1',
+          specialAdCategories: [],
+          writesEnabled: true,
+        },
+        credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+      });
+
+      expect(response).toMatchObject({
+        ok: true,
+        data: {
+          workflow,
+          recommendedTools: expect.arrayContaining([
+            'ads_check_launch_readiness',
+            'ads_create_campaign',
+            'ads_create_adset',
+            'ads_create_adcreative',
+            'ads_create_ad',
+          ]),
+          creationOrder: [
+            'ads_create_campaign',
+            'ads_create_adset',
+            'ads_create_adcreative',
+            'ads_create_ad',
+          ],
+          verificationTools: [
+            'ads_list_campaigns',
+            'ads_read_adset_full',
+            'ads_read_creative_full',
+          ],
+          activationOrder: ['ads_resume_campaign', 'ads_resume_adset', 'ads_resume_ad'],
+          requiresSecondActivationApproval: true,
+        },
+      });
+      expect(response.data?.recommendedTools).not.toContain('ads_resume_campaign');
+      expect(response.data?.recommendedTools).not.toContain('ads_resume_adset');
+      expect(response.data?.recommendedTools).not.toContain('ads_resume_ad');
+    }
+  );
 
   it('lists pixels, catalogs, and product sets from Meta discovery endpoints', async () => {
     const captured: Array<{ path: string; params: Record<string, unknown> }> = [];
@@ -1429,8 +1527,9 @@ describe('MetaAdsAdapter', () => {
   it('forwards canonical campaign and ad set fields as typed options', async () => {
     let campaignOptions: Record<string, unknown> | undefined;
     let adSetOptions: Record<string, unknown> | undefined;
+    let adSetClient: { apiVersion?: string } | undefined;
     const adapter = new MetaAdsAdapter({
-      clientFactory: (config) => ({ config }) as never,
+      clientFactory: (config) => ({ config, apiVersion: config.apiVersion }) as never,
       tools: {
         createCampaign: async (_client, options) => {
           campaignOptions = options as unknown as Record<string, unknown>;
@@ -1442,7 +1541,8 @@ describe('MetaAdsAdapter', () => {
             mode: options.mode ?? 'standard',
           };
         },
-        createAdSet: async (_client, options) => {
+        createAdSet: async (client, options) => {
+          adSetClient = client as { apiVersion?: string };
           adSetOptions = options as unknown as Record<string, unknown>;
           return { operation: 'create_adset', status: 'dry_run', executed: false, preview: {} };
         },
@@ -1452,6 +1552,7 @@ describe('MetaAdsAdapter', () => {
     const credentials = {
       provider: 'meta' as const,
       accessToken: 'secret-token',
+      apiVersion: 'v24.0',
       source: 'test',
     };
     const campaignResponse = await adapter.createCampaign({
@@ -1472,6 +1573,15 @@ describe('MetaAdsAdapter', () => {
         campaignId: 'campaign-1',
         name: 'Collaborative ad set',
         mode: 'collaborative_ads',
+        conversionLocation: 'CATALOG',
+        creativeFormat: 'catalog',
+        pageId: 'page-1',
+        pixelId: 'pixel-1',
+        leadFormId: 'lead-form-1',
+        applicationId: 'app-1',
+        objectStoreUrl: 'https://apps.apple.com/app/example',
+        productSetId: 'set-1',
+        customEventType: 'PURCHASE',
         collaborativeCatalog: {
           productSetId: 'set-1',
           pixelId: 'pixel-1',
@@ -1494,6 +1604,15 @@ describe('MetaAdsAdapter', () => {
     expect(campaignResponse.data?.mode).toBe('collaborative_ads');
     expect(adSetOptions).toMatchObject({
       mode: 'collaborative_ads',
+      conversionLocation: 'CATALOG',
+      creativeFormat: 'catalog',
+      pageId: 'page-1',
+      pixelId: 'pixel-1',
+      leadFormId: 'lead-form-1',
+      applicationId: 'app-1',
+      objectStoreUrl: 'https://apps.apple.com/app/example',
+      productSetId: 'set-1',
+      customEventType: 'PURCHASE',
       collaborativeCatalog: {
         productSetId: 'set-1',
         pixelId: 'pixel-1',
@@ -1506,6 +1625,59 @@ describe('MetaAdsAdapter', () => {
         ],
       },
     });
+    expect(adSetClient?.apiVersion).toBe('v24.0');
+  });
+
+  it('defaults canonical Collaborative Ads ad-set routing to Meta v25', async () => {
+    let receivedApiVersion: string | undefined;
+    const createAdSet = vi.fn(async (client) => {
+      receivedApiVersion = (client as { apiVersion?: string }).apiVersion;
+      return { operation: 'create_adset', status: 'dry_run', executed: false, preview: {} };
+    });
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ apiVersion: config.apiVersion }) as never,
+      tools: { createAdSet },
+    });
+
+    const response = await adapter.createAdSet({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {
+        campaignId: 'campaign-1',
+        name: 'Collaborative catalog ad set',
+        mode: 'collaborative_ads',
+        conversionLocation: 'CATALOG',
+        creativeFormat: 'catalog',
+        collaborativeCatalog: { productSetId: 'shared-set' },
+      },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    });
+
+    expect(response.ok).toBe(true);
+    expect(receivedApiVersion).toBe('v25.0');
+  });
+
+  it('rejects a non-ODAX campaign objective before constructing a Meta client', async () => {
+    const createCampaign = vi.fn();
+    const clientFactory = vi.fn(() => ({}) as never);
+    const adapter = new MetaAdsAdapter({
+      clientFactory,
+      tools: { createCampaign },
+    });
+
+    const response = await adapter.createCampaign({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: { name: 'Unsupported objective', objective: 'OUTCOME_MESSAGES' },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    });
+
+    expect(response).toMatchObject({
+      ok: false,
+      errors: [{ provider: 'meta', code: 'VALIDATION_ERROR' }],
+    });
+    expect(createCampaign).not.toHaveBeenCalled();
+    expect(clientFactory).not.toHaveBeenCalled();
   });
 
   const canonicalCreativeCases: Array<{
@@ -1652,6 +1824,52 @@ describe('MetaAdsAdapter', () => {
       expect(receivedOptions).not.toHaveProperty('creativeSpec');
     }
   );
+
+  it('passes the standard app spec through to canonical App Promotion creative building', async () => {
+    let receivedOptions: Record<string, unknown> | undefined;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        createAdCreative: async (_client, options) => {
+          receivedOptions = options as unknown as Record<string, unknown>;
+          return {
+            operation: 'create_adcreative',
+            status: 'dry_run',
+            executed: false,
+            preview: {},
+          };
+        },
+      },
+    });
+
+    const response = await adapter.createAdCreative({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {
+        name: 'App installs',
+        pageId: 'page-1',
+        objective: 'OUTCOME_APP_PROMOTION',
+        conversionLocation: 'APP',
+        creativeFormat: 'video',
+        creativeSpec: { videoId: 'video-1', primaryText: 'Install now' },
+        standardAppSpec: {
+          applicationId: 'app-1',
+          objectStoreUrl: 'https://apps.apple.com/app/id123',
+          deepLinkUrl: 'myapp://home',
+        },
+      },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    });
+
+    expect(response.ok).toBe(true);
+    expect(receivedOptions).toMatchObject({
+      standardAppSpec: {
+        applicationId: 'app-1',
+        objectStoreUrl: 'https://apps.apple.com/app/id123',
+        deepLinkUrl: 'myapp://home',
+      },
+    });
+  });
 
   it('threads a video creativeSpec.applinkTreatment override through parsing into the dry-run omnichannel preview', async () => {
     const adapter = new MetaAdsAdapter({
@@ -2005,6 +2223,47 @@ describe('MetaAdsAdapter', () => {
     });
 
     expect(response.ok).toBe(true);
+  });
+
+  it('forwards canonical creative launch inputs for a URL-free Awareness creative', async () => {
+    let capturedOptions: Record<string, unknown> | undefined;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        createAdCreative: async (_client, options) => {
+          capturedOptions = options;
+          return {
+            operation: 'create_adcreative',
+            status: 'dry_run',
+            executed: false,
+            preview: {},
+          };
+        },
+      },
+    });
+
+    const response = await adapter.createAdCreative({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {
+        name: 'Awareness creative',
+        pageId: 'page-1',
+        objective: 'OUTCOME_AWARENESS',
+        conversionLocation: 'AWARENESS',
+        creativeFormat: 'single_image',
+        creativeSpec: {
+          imageHash: 'image-1',
+          primaryText: 'Kenali brand kami',
+        },
+      },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    });
+
+    expect(response.ok).toBe(true);
+    expect(capturedOptions).toMatchObject({
+      objective: 'OUTCOME_AWARENESS',
+      conversionLocation: 'AWARENESS',
+    });
   });
 
   it('attaches image and video creatives to separate ads in the same ad set', async () => {
@@ -3085,6 +3344,35 @@ describe('MetaAdsAdapter', () => {
       },
     ]);
     expect(JSON.stringify(response)).not.toContain('page-token-secret');
+    expect(JSON.stringify(response)).not.toContain('secret-token');
+  });
+
+  it('lists Page-scoped Instant Forms without exposing credentials', async () => {
+    const listLeadForms = vi.fn(async () => [
+      { lead_form_id: 'form-1', name: 'Consultation', status: 'ACTIVE', locale: 'en_US' },
+    ]);
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: { listLeadForms },
+    });
+
+    const response = await adapter.listLeadForms({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: { pageId: 'page-1', status: ['ACTIVE'], limit: 10 },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    });
+
+    expect(response).toEqual({
+      ok: true,
+      provider: 'meta',
+      data: [{ lead_form_id: 'form-1', name: 'Consultation', status: 'ACTIVE', locale: 'en_US' }],
+    });
+    expect(listLeadForms).toHaveBeenCalledWith(expect.anything(), {
+      pageId: 'page-1',
+      status: ['ACTIVE'],
+      limit: 10,
+    });
     expect(JSON.stringify(response)).not.toContain('secret-token');
   });
 

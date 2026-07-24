@@ -25,7 +25,12 @@ import {
   isAdsProviderId,
 } from './types.js';
 import { redactErrorMessage, redactTokenLikeValues } from './credentials.js';
-import { LOCATION_BREAKDOWNS } from '../types.js';
+import { LOCATION_BREAKDOWNS, META_CREATIVE_FORMATS } from '../types.js';
+import {
+  META_CONVERSION_LOCATIONS,
+  META_ODAX_OBJECTIVES,
+} from '../providers/meta/objectiveLaunchMatrix.js';
+import { META_LAUNCH_WORKFLOW_INPUT_VALUES } from '../tools/checkLaunchReadiness.js';
 
 export const ADS_MCP_TOOL_NAMES = [
   'ads_list_accounts',
@@ -75,6 +80,7 @@ export const ADS_MCP_TOOL_NAMES = [
   'ads_read_creative_full',
   'ads_read_adset_full',
   'ads_list_pages',
+  'ads_list_lead_forms',
   'ads_list_instagram_accounts',
   'ads_list_instagram_media',
   'ads_list_threads_profiles',
@@ -226,7 +232,7 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
   {
     name: 'ads_check_launch_readiness',
     description:
-      'Non-coding launch checklist for Meta Ads. Given a plain-language workflow and known inputs, returns ready/missing status, next questions, warnings, and the recommended setup path before any write tools are used.',
+      'Read-only Meta v25 launch checklist. Resolves one of the six ODAX objectives into a canonical workflow, required inputs, and setup spec; it does not perform writes.',
     inputSchema: createLaunchReadinessInputSchema(),
   },
   {
@@ -489,6 +495,12 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
     description:
       'List Meta Pages accessible by the token for selecting a valid pageId for ad creative object_story_spec.',
     inputSchema: createAdsInputSchema([]),
+  },
+  {
+    name: 'ads_list_lead_forms',
+    description:
+      'List published Meta Instant Forms owned by a selected Facebook Page. Read-only asset discovery for lead-form launches.',
+    inputSchema: createLeadFormsInputSchema(),
   },
   {
     name: 'ads_list_instagram_accounts',
@@ -850,6 +862,8 @@ function callBrokerMethod(
       return broker.readAdSetFull(request);
     case 'ads_list_pages':
       return broker.listPages(request);
+    case 'ads_list_lead_forms':
+      return broker.listLeadForms(request);
     case 'ads_list_instagram_accounts':
       return broker.listInstagramAccounts(request);
     case 'ads_list_instagram_media':
@@ -1466,24 +1480,8 @@ function createCreateCampaignInputSchema() {
       },
       objective: {
         type: 'string',
-        enum: [
-          'OUTCOME_SALES',
-          'OUTCOME_TRAFFIC',
-          'OUTCOME_ENGAGEMENT',
-          'OUTCOME_LEADS',
-          'OUTCOME_AWARENESS',
-          'OUTCOME_APP_PROMOTION',
-          'OUTCOME_CONVERSATIONS',
-          'OUTCOME_RESHARES',
-          'OUTCOME_VALUE',
-          'OUTCOME_VIDEO_VIEWS',
-          'OUTCOME_POST_ENGAGEMENT',
-          'OUTCOME_LANDING_PAGE_VIEWS',
-          'OUTCOME_REACH',
-          'OUTCOME_MESSAGES',
-          'OUTCOME_THRUPLAY',
-        ],
-        description: 'Campaign objective.',
+        enum: [...META_ODAX_OBJECTIVES],
+        description: 'Meta ODAX campaign objective.',
       },
       status: {
         type: 'string',
@@ -1633,8 +1631,25 @@ function createCreateAdSetInputSchema() {
           'THRUPLAY',
           'VALUE',
         ],
-        description: 'Optimization goal. Defaults to REACH.',
+        description: 'Optimization goal. Required when conversionLocation is omitted.',
       },
+      conversionLocation: {
+        type: 'string',
+        enum: [...META_CONVERSION_LOCATIONS],
+        description: 'Objective-aware Meta conversion location.',
+      },
+      creativeFormat: {
+        type: 'string',
+        enum: [...META_CREATIVE_FORMATS],
+        description: 'Creative format used to validate the objective launch.',
+      },
+      pageId: { type: 'string', description: 'Meta Page ID for the objective launch.' },
+      pixelId: { type: 'string', description: 'Meta Pixel ID for website conversions.' },
+      leadFormId: { type: 'string', description: 'Meta instant form ID for lead generation.' },
+      applicationId: { type: 'string', description: 'Meta application ID for app promotion.' },
+      objectStoreUrl: { type: 'string', description: 'App store URL for app promotion.' },
+      productSetId: { type: 'string', description: 'Meta product set ID for catalog sales.' },
+      customEventType: { type: 'string', description: 'Optional Meta conversion event type.' },
       bidStrategy: {
         type: 'string',
         description: 'Bid strategy (e.g. LOWEST_COST_WITHOUT_CAP).',
@@ -1814,6 +1829,16 @@ function createCreateAdCreativeInputSchema() {
         description:
           'standard untuk iklan Meta biasa; collaborative_ads untuk katalog retailer yang sudah dibagikan.',
       },
+      objective: {
+        type: 'string',
+        enum: [...META_ODAX_OBJECTIVES],
+        description: 'Canonical ODAX objective. Must be paired with conversionLocation.',
+      },
+      conversionLocation: {
+        type: 'string',
+        enum: [...META_CONVERSION_LOCATIONS],
+        description: 'Canonical conversion location. Must be paired with objective.',
+      },
       creativeFormat: {
         type: 'string',
         enum: [
@@ -1891,6 +1916,18 @@ function createCreateAdCreativeInputSchema() {
           },
         },
         required: ['applicationId'],
+        additionalProperties: false,
+      },
+      standardAppSpec: {
+        type: 'object',
+        description:
+          'Kontrak aplikasi untuk OUTCOME_APP_PROMOTION + APP. Wajib isi applicationId dan objectStoreUrl; deepLinkUrl opsional dipakai untuk CTA install.',
+        properties: {
+          applicationId: { type: 'string' },
+          objectStoreUrl: { type: 'string' },
+          deepLinkUrl: { type: 'string' },
+        },
+        required: ['applicationId', 'objectStoreUrl'],
         additionalProperties: false,
       },
       link: {
@@ -2587,16 +2624,27 @@ function createLaunchReadinessInputSchema() {
       ...(schema.properties as Record<string, unknown>),
       workflow: {
         type: 'string',
-        enum: [
-          'whatsapp_sales',
-          'website_sales',
-          'lead_generation',
-          'cpas_catalog_sales',
-          'creative_testing',
-          'existing_post',
-        ],
-        description: 'Plain-language launch preset. Defaults to website_sales when omitted.',
+        enum: [...META_LAUNCH_WORKFLOW_INPUT_VALUES],
+        description:
+          'Canonical Meta v25 workflow. Legacy aliases are accepted for compatibility and normalize to canonical output. Defaults to sales_website when omitted.',
       },
+      objective: {
+        type: 'string',
+        enum: [...META_ODAX_OBJECTIVES],
+        description: 'Optional ODAX objective override for the workflow.',
+      },
+      conversionLocation: {
+        type: 'string',
+        enum: [...META_CONVERSION_LOCATIONS],
+        description: 'Optional conversion location override for the workflow.',
+      },
+      optimizationGoal: { type: 'string', description: 'Optional Meta optimization goal.' },
+      creativeFormat: {
+        type: 'string',
+        enum: [...META_CREATIVE_FORMATS],
+        description: 'Optional intended creative format to validate against the resolved workflow.',
+      },
+      apiVersion: { type: 'string', description: 'Meta Marketing API version, defaults to v25.0.' },
       productOrOffer: { type: 'string', description: 'Product or offer being promoted.' },
       pageId: { type: 'string', description: 'Meta Page ID.' },
       pixelId: { type: 'string', description: 'Meta Pixel ID for conversion workflows.' },
@@ -2615,6 +2663,13 @@ function createLaunchReadinessInputSchema() {
       businessId: { type: 'string', description: 'Meta Business ID for catalog discovery.' },
       catalogId: { type: 'string', description: 'Meta product catalog ID.' },
       productSetId: { type: 'string', description: 'Meta product set ID.' },
+      leadFormId: { type: 'string', description: 'Published Meta Instant Form ID.' },
+      applicationId: { type: 'string', description: 'Meta application ID for app promotion.' },
+      objectStoreUrl: {
+        type: 'string',
+        description: 'App Store or Play Store URL for app promotion.',
+      },
+      appDeepLinkUrl: { type: 'string', description: 'Optional app deep-link URL.' },
       specialAdCategories: {
         type: 'array',
         items: { type: 'string' },
@@ -2635,6 +2690,24 @@ function createBusinessIdInputSchema() {
       limit: { type: 'number', description: 'Maximum rows to return.' },
     },
     required: ['businessId'],
+  };
+}
+
+function createLeadFormsInputSchema() {
+  const schema = createAdsInputSchema([]);
+  return {
+    type: 'object',
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      pageId: { type: 'string', description: 'Facebook Page ID that owns the Instant Forms.' },
+      status: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'Optional Instant Form statuses to include, such as ACTIVE.',
+      },
+      limit: { type: 'number', description: 'Maximum forms to return (default 50).' },
+    },
+    required: ['accountId', 'pageId'],
   };
 }
 

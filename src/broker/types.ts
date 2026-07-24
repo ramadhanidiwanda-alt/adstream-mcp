@@ -998,6 +998,14 @@ export interface MetaPageResult {
   can_advertise?: boolean;
 }
 
+export interface MetaLeadFormResult {
+  lead_form_id: string;
+  name: string;
+  status?: string;
+  locale?: string;
+  created_time?: string;
+}
+
 export interface MetaPixelResult {
   id: string;
   name?: string;
@@ -1140,6 +1148,7 @@ export interface AdsProviderAdapter {
   listCatalogs?(request: AdsBrokerRequest): Promise<AdsBrokerResponse<MetaCatalogResult[]>>;
   listProductSets?(request: AdsBrokerRequest): Promise<AdsBrokerResponse<MetaProductSetResult[]>>;
   listPages?(request: AdsBrokerRequest): Promise<AdsBrokerResponse<MetaPageResult[]>>;
+  listLeadForms?(request: AdsBrokerRequest): Promise<AdsBrokerResponse<MetaLeadFormResult[]>>;
   listInstagramAccounts?(
     request: AdsBrokerRequest
   ): Promise<AdsBrokerResponse<InstagramAccountResult[]>>;

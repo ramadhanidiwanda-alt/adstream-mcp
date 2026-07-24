@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import type { MetaClient } from '../src/metaClient.js';
 import { createCampaign } from '../src/tools/createCampaign.js';
+import { META_ODAX_OBJECTIVES } from '../src/providers/meta/objectiveLaunchMatrix.js';
 
 type MetaPostMock = ReturnType<typeof vi.fn>;
 
@@ -24,6 +25,34 @@ describe('createCampaign', () => {
   });
 
   describe('dry-run mode (default)', () => {
+    it('rejects non-ODAX campaign objectives at runtime', async () => {
+      const result = await createCampaign(
+        mockClient,
+        { ...validOptions, objective: 'OUTCOME_MESSAGES' as never },
+        { dryRun: true }
+      );
+
+      expect(result).toMatchObject({
+        status: 'failed',
+        executed: false,
+        structuredError: { code: 'UNSUPPORTED_OBJECTIVE' },
+      });
+      expect(mockMetaPost).not.toHaveBeenCalled();
+    });
+
+    it.each(META_ODAX_OBJECTIVES)('previews the ODAX objective %s', async (objective) => {
+      const result = await createCampaign(mockClient, {
+        ...validOptions,
+        objective,
+      });
+
+      expect(result).toMatchObject({
+        status: 'dry_run',
+        executed: false,
+        preview: { objective },
+      });
+    });
+
     it('returns dry_run status without calling API', async () => {
       const result = await createCampaign(mockClient, validOptions);
 
@@ -232,34 +261,4 @@ describe('createCampaign', () => {
     });
   });
 
-  describe('all objectives', () => {
-    const allObjectives = [
-      'OUTCOME_SALES',
-      'OUTCOME_TRAFFIC',
-      'OUTCOME_ENGAGEMENT',
-      'OUTCOME_LEADS',
-      'OUTCOME_AWARENESS',
-      'OUTCOME_APP_PROMOTION',
-      'OUTCOME_CONVERSATIONS',
-      'OUTCOME_RESHARES',
-      'OUTCOME_VALUE',
-      'OUTCOME_VIDEO_VIEWS',
-      'OUTCOME_POST_ENGAGEMENT',
-      'OUTCOME_LANDING_PAGE_VIEWS',
-      'OUTCOME_REACH',
-      'OUTCOME_MESSAGES',
-      'OUTCOME_THRUPLAY',
-    ] as const;
-
-    for (const objective of allObjectives) {
-      it(`supports objective: ${objective}`, async () => {
-        const result = await createCampaign(mockClient, {
-          ...validOptions,
-          objective: objective as typeof validOptions.objective,
-        });
-
-        expect(result.preview.objective).toBe(objective);
-      });
-    }
-  });
 });

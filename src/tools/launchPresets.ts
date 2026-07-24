@@ -1,236 +1,190 @@
+import type { MetaCreativeFormat } from '../types.js';
+import {
+  resolveMetaObjectiveLaunchSpec,
+  type MetaConversionLocation,
+  type MetaOdaxObjective,
+} from '../providers/meta/objectiveLaunchMatrix.js';
 import type { MetaLaunchWorkflow } from './checkLaunchReadiness.js';
 
 export interface LaunchPreset {
   workflow: MetaLaunchWorkflow;
   label: string;
   mode: 'standard' | 'collaborative_ads';
-  objective: string;
+  objective: MetaOdaxObjective;
+  conversionLocation: MetaConversionLocation;
   destinationType?: string;
   optimizationGoal: string;
   billingEvent: string;
-  defaultCallToAction: string;
-  creativeFormats: string[];
-  requiredInputs: string[];
-  recommendedTools: string[];
-  safetyNotes: string[];
+  defaultCallToAction?: string;
+  creativeFormats: readonly MetaCreativeFormat[];
+  requiredInputs: readonly string[];
+  recommendedTools: readonly string[];
+  safetyNotes: readonly string[];
 }
 
-const PRESETS: Record<MetaLaunchWorkflow, LaunchPreset> = {
-  whatsapp_sales: {
-    workflow: 'whatsapp_sales',
-    label: 'Jualan ke WhatsApp',
+interface LaunchPresetDefinition {
+  label: string;
+  mode: 'standard' | 'collaborative_ads';
+  objective: MetaOdaxObjective;
+  conversionLocation: MetaConversionLocation;
+  recommendedTools: readonly string[];
+  safetyNotes: readonly string[];
+}
+
+const CREATE_TOOLS = [
+  'ads_check_launch_readiness',
+  'ads_create_campaign',
+  'ads_create_adset',
+  'ads_create_adcreative',
+  'ads_create_ad',
+] as const;
+
+const PRESETS: Record<MetaLaunchWorkflow, LaunchPresetDefinition> = {
+  awareness: {
+    label: 'Bangun Awareness',
     mode: 'standard',
-    objective: 'OUTCOME_SALES',
-    destinationType: 'WHATSAPP',
-    optimizationGoal: 'OFFSITE_CONVERSIONS',
-    billingEvent: 'IMPRESSIONS',
-    defaultCallToAction: 'WHATSAPP_MESSAGE',
-    creativeFormats: ['single_image', 'video', 'placement_image'],
-    requiredInputs: [
-      'productOrOffer',
-      'pageId',
-      'whatsappPhoneNumberId',
-      'dailyBudget',
-      'countries',
-      'creativeAsset',
-      'primaryText',
-      'headline',
-      'specialAdCategories',
-    ],
-    recommendedTools: [
-      'ads_check_launch_readiness',
-      'ads_list_pages',
-      'ads_list_whatsapp_accounts',
-      'ads_list_whatsapp_phone_numbers',
-      'ads_upload_image',
-      'ads_create_campaign',
-      'ads_create_adset',
-      'ads_create_adcreative',
-      'ads_create_ad',
-    ],
-    safetyNotes: [
-      'Create entities PAUSED first, then ask for a second approval before activation.',
-    ],
+    objective: 'OUTCOME_AWARENESS',
+    conversionLocation: 'AWARENESS',
+    recommendedTools: CREATE_TOOLS,
+    safetyNotes: ['Use dry-run preview before execute; created entities remain PAUSED.'],
   },
-  website_sales: {
-    workflow: 'website_sales',
-    label: 'Jualan ke Website',
+  traffic_website: {
+    label: 'Traffic ke Website',
     mode: 'standard',
-    objective: 'OUTCOME_SALES',
-    destinationType: 'WEBSITE',
-    optimizationGoal: 'OFFSITE_CONVERSIONS',
-    billingEvent: 'IMPRESSIONS',
-    defaultCallToAction: 'SHOP_NOW',
-    creativeFormats: ['single_image', 'video', 'carousel', 'flexible'],
-    requiredInputs: [
-      'productOrOffer',
-      'pageId',
-      'pixelId',
-      'destinationUrl',
-      'dailyBudget',
-      'countries',
-      'creativeAsset',
-      'primaryText',
-      'headline',
-      'specialAdCategories',
-    ],
-    recommendedTools: [
-      'ads_check_launch_readiness',
-      'ads_list_pages',
-      'ads_list_pixels',
-      'ads_upload_image',
-      'ads_create_ecommerce_campaign_bundle',
-    ],
-    safetyNotes: ['Use dry-run preview before execute; default bundle entities remain PAUSED.'],
+    objective: 'OUTCOME_TRAFFIC',
+    conversionLocation: 'WEBSITE',
+    recommendedTools: [...CREATE_TOOLS, 'ads_list_pages'],
+    safetyNotes: ['Verify the landing page URL before the dry-run.'],
   },
-  lead_generation: {
-    workflow: 'lead_generation',
-    label: 'Cari Leads',
-    mode: 'standard',
-    objective: 'OUTCOME_LEADS',
-    destinationType: 'WEBSITE',
-    optimizationGoal: 'LEAD_GENERATION',
-    billingEvent: 'IMPRESSIONS',
-    defaultCallToAction: 'SIGN_UP',
-    creativeFormats: ['single_image', 'video', 'carousel'],
-    requiredInputs: [
-      'productOrOffer',
-      'pageId',
-      'destinationUrl',
-      'dailyBudget',
-      'countries',
-      'creativeAsset',
-      'primaryText',
-      'headline',
-      'specialAdCategories',
-    ],
-    recommendedTools: [
-      'ads_check_launch_readiness',
-      'ads_list_pages',
-      'ads_create_campaign',
-      'ads_create_adset',
-      'ads_create_adcreative',
-      'ads_create_ad',
-    ],
-    safetyNotes: ['Confirm whether special ad categories apply before launching lead ads.'],
-  },
-  cpas_catalog_sales: {
-    workflow: 'cpas_catalog_sales',
-    label: 'CPAS / Catalog Sales',
-    mode: 'collaborative_ads',
-    objective: 'OUTCOME_SALES',
-    destinationType: 'WEBSITE',
-    optimizationGoal: 'OFFSITE_CONVERSIONS',
-    billingEvent: 'IMPRESSIONS',
-    defaultCallToAction: 'SHOP_NOW',
-    creativeFormats: ['single_image', 'video', 'carousel', 'catalog', 'collection'],
-    requiredInputs: [
-      'productOrOffer',
-      'businessId',
-      'catalogId',
-      'productSetId',
-      'pixelId',
-      'pageId',
-      'dailyBudget',
-      'countries',
-      'creativeAsset',
-      'primaryText',
-      'headline',
-      'specialAdCategories',
-    ],
-    recommendedTools: [
-      'ads_check_launch_readiness',
-      'ads_list_catalogs',
-      'ads_list_product_sets',
-      'ads_list_pixels',
-      'ads_create_campaign',
-      'ads_create_adset',
-      'ads_create_adcreative',
-      'ads_create_ad',
-    ],
-    safetyNotes: [
-      'Catalog/product set sharing must already be configured in Meta; this connector only uses accessible IDs.',
-    ],
-  },
-  creative_testing: {
-    workflow: 'creative_testing',
-    label: 'Test Banyak Creative',
-    mode: 'standard',
-    objective: 'OUTCOME_SALES',
-    destinationType: 'WEBSITE',
-    optimizationGoal: 'OFFSITE_CONVERSIONS',
-    billingEvent: 'IMPRESSIONS',
-    defaultCallToAction: 'LEARN_MORE',
-    creativeFormats: ['flexible', 'placement_image'],
-    requiredInputs: [
-      'productOrOffer',
-      'pageId',
-      'destinationUrl',
-      'dailyBudget',
-      'countries',
-      'creativeAsset',
-      'primaryText',
-      'headline',
-      'specialAdCategories',
-    ],
-    recommendedTools: [
-      'ads_check_launch_readiness',
-      'ads_list_adimages',
-      'ads_list_advideos',
-      'ads_create_adset',
-      'ads_create_adcreative',
-      'ads_create_ad',
-    ],
-    safetyNotes: [
-      'Default jangan set isDynamicCreative untuk iklan normal. Hanya set isDynamicCreative=true saat attaching flexible asset_feed_spec creative dengan multiple bodies/titles yang sudah direview. Verified live: Meta rejects ad creation with "Dynamic Creative Ad cannot be created under a non-Dynamic Creative Ad Set" (subcode 1885998) when this is unset, even though creative creation itself succeeds.',
-    ],
-  },
-  existing_post: {
-    workflow: 'existing_post',
-    label: 'Boost Existing Post',
+  engagement_post: {
+    label: 'Engagement Existing Post',
     mode: 'standard',
     objective: 'OUTCOME_ENGAGEMENT',
-    destinationType: 'WEBSITE',
-    optimizationGoal: 'POST_ENGAGEMENT',
-    billingEvent: 'IMPRESSIONS',
-    defaultCallToAction: 'LEARN_MORE',
-    creativeFormats: ['existing_post'],
-    requiredInputs: [
-      'productOrOffer',
-      'pageId',
-      'existingPostId',
-      'dailyBudget',
-      'countries',
-      'specialAdCategories',
-    ],
+    conversionLocation: 'POST',
+    recommendedTools: [...CREATE_TOOLS, 'ads_list_pages'],
+    safetyNotes: ['Use an existing object_story_id; do not invent post IDs.'],
+  },
+  engagement_video: {
+    label: 'Video Engagement',
+    mode: 'standard',
+    objective: 'OUTCOME_ENGAGEMENT',
+    conversionLocation: 'VIDEO',
+    recommendedTools: [...CREATE_TOOLS, 'ads_list_advideos'],
+    safetyNotes: ['Use a reviewed Meta video ID before creating the creative.'],
+  },
+  leads_website: {
+    label: 'Leads ke Website',
+    mode: 'standard',
+    objective: 'OUTCOME_LEADS',
+    conversionLocation: 'WEBSITE',
+    recommendedTools: [...CREATE_TOOLS, 'ads_list_pages', 'ads_list_pixels'],
+    safetyNotes: ['Confirm whether special ad categories apply before launching lead ads.'],
+  },
+  leads_instant_form: {
+    label: 'Leads dengan Instant Form',
+    mode: 'standard',
+    objective: 'OUTCOME_LEADS',
+    conversionLocation: 'INSTANT_FORM',
+    recommendedTools: [...CREATE_TOOLS, 'ads_list_pages', 'ads_list_lead_forms'],
+    safetyNotes: ['Use a published Meta lead form owned by the selected Page.'],
+  },
+  app_installs: {
+    label: 'App Installs',
+    mode: 'standard',
+    objective: 'OUTCOME_APP_PROMOTION',
+    conversionLocation: 'APP',
+    recommendedTools: [...CREATE_TOOLS, 'ads_list_pages'],
+    safetyNotes: ['Verify the app ID and store URL before the dry-run.'],
+  },
+  sales_website: {
+    label: 'Sales ke Website',
+    mode: 'standard',
+    objective: 'OUTCOME_SALES',
+    conversionLocation: 'WEBSITE',
+    recommendedTools: [...CREATE_TOOLS, 'ads_list_pages', 'ads_list_pixels'],
+    safetyNotes: ['Use dry-run preview before execute; created entities remain PAUSED.'],
+  },
+  sales_catalog: {
+    label: 'Sales dengan Catalog',
+    mode: 'collaborative_ads',
+    objective: 'OUTCOME_SALES',
+    conversionLocation: 'CATALOG',
     recommendedTools: [
-      'ads_check_launch_readiness',
+      ...CREATE_TOOLS,
+      'ads_list_catalogs',
+      'ads_list_product_sets',
       'ads_list_pages',
-      'ads_create_campaign',
-      'ads_create_adset',
-      'ads_create_adcreative',
-      'ads_create_ad',
     ],
-    safetyNotes: ['Use objectStoryId from an existing post; do not invent post IDs.'],
+    safetyNotes: [
+      'Catalog and product-set sharing must already be configured in Meta; this connector only uses accessible IDs.',
+    ],
   },
 };
 
+export const LEGACY_WORKFLOW_ALIASES = {
+  website_sales: 'sales_website',
+  lead_generation: 'leads_website',
+  existing_post: 'engagement_post',
+  cpas_catalog_sales: 'sales_catalog',
+} as const;
+
+const DEPRECATED_WORKFLOW_ALIASES = {
+  whatsapp_sales: 'sales_website',
+  creative_testing: 'sales_website',
+} as const;
+
 export function getLaunchPreset(workflow: string | undefined): LaunchPreset {
   const normalized = normalizeWorkflow(workflow);
-  return PRESETS[normalized];
+  const preset = PRESETS[normalized];
+  const resolvedSpec = resolveMetaObjectiveLaunchSpec({
+    objective: preset.objective,
+    conversionLocation: preset.conversionLocation,
+  });
+
+  return {
+    workflow: normalized,
+    label: preset.label,
+    mode: preset.mode,
+    objective: resolvedSpec.objective,
+    conversionLocation: resolvedSpec.conversionLocation,
+    destinationType: resolvedSpec.destinationType,
+    optimizationGoal: resolvedSpec.optimizationGoal,
+    billingEvent: resolvedSpec.billingEvent,
+    defaultCallToAction: resolvedSpec.defaultCallToAction,
+    creativeFormats: resolvedSpec.supportedCreativeFormats,
+    requiredInputs: resolvedSpec.requiredInputs,
+    recommendedTools: preset.recommendedTools,
+    safetyNotes: preset.safetyNotes,
+  };
 }
 
 export function inferLaunchWorkflow(intent: string): MetaLaunchWorkflow {
   const text = intent.toLowerCase();
-  if (/(cpas|catalog|katalog|product set|produk set)/i.test(text)) return 'cpas_catalog_sales';
-  if (/(whatsapp|wa|ctwa)/i.test(text)) return 'whatsapp_sales';
-  if (/(boost|postingan|existing post|post existing)/i.test(text)) return 'existing_post';
-  if (/(lead|leads|form|daftar)/i.test(text)) return 'lead_generation';
-  if (/(test|testing|banyak creative|variasi|dynamic)/i.test(text)) return 'creative_testing';
-  return 'website_sales';
+  if (/(awareness|brand baru|jangkauan|reach)/i.test(text)) return 'awareness';
+  if (/(traffic|kunjungan|visit)/i.test(text)) return 'traffic_website';
+  if (/(boost|postingan|existing post|post existing)/i.test(text)) return 'engagement_post';
+  if (/(video|thruplay|tonton)/i.test(text)) return 'engagement_video';
+  if (/(instant form|lead form|form leads)/i.test(text)) return 'leads_instant_form';
+  if (/(lead|leads|daftar)/i.test(text)) return 'leads_website';
+  if (/(app install|install aplikasi|instal aplikasi)/i.test(text)) return 'app_installs';
+  if (/(cpas|catalog|katalog|product set|produk set)/i.test(text)) return 'sales_catalog';
+  return 'sales_website';
 }
 
-function normalizeWorkflow(workflow: string | undefined): MetaLaunchWorkflow {
+export function normalizeWorkflow(workflow: string | undefined): MetaLaunchWorkflow {
   if (workflow && workflow in PRESETS) return workflow as MetaLaunchWorkflow;
-  return 'website_sales';
+  if (workflow && workflow in LEGACY_WORKFLOW_ALIASES) {
+    return LEGACY_WORKFLOW_ALIASES[workflow as keyof typeof LEGACY_WORKFLOW_ALIASES];
+  }
+  if (workflow && workflow in DEPRECATED_WORKFLOW_ALIASES) {
+    return DEPRECATED_WORKFLOW_ALIASES[workflow as keyof typeof DEPRECATED_WORKFLOW_ALIASES];
+  }
+  return 'sales_website';
+}
+
+export function getWorkflowDeprecationWarning(workflow: string | undefined): string | undefined {
+  if (workflow && workflow in DEPRECATED_WORKFLOW_ALIASES) {
+    return `${workflow} is deprecated and is not a canonical Meta v25 baseline workflow; use ${normalizeWorkflow(workflow)} instead.`;
+  }
+  return undefined;
 }

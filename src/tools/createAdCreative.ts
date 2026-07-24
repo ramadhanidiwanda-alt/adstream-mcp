@@ -1,14 +1,22 @@
 import type { MetaClient } from '../metaClient.js';
-import type {
-  MetaAdsMode,
-  MetaCollaborativeAppSpec,
-  MetaCreativeFormat,
-  MetaCreativeSpec,
-  MetaCreativeVerification,
-  MetaCreativeVerificationSummary,
-  StructuredMutationError,
+import {
+  META_CREATIVE_FORMATS,
+  type MetaAdsMode,
+  type MetaCollaborativeAppSpec,
+  type MetaCreativeFormat,
+  type MetaCreativeSpec,
+  type MetaCreativeVerification,
+  type MetaCreativeVerificationSummary,
+  type MetaStandardAppSpec,
+  type StructuredMutationError,
 } from '../types.js';
 import { buildMetaCreativeFormatPayload } from '../providers/meta/buildCreativeFormatPayload.js';
+import { listLeadForms } from './listLeadForms.js';
+import {
+  resolveMetaObjectiveLaunchSpec,
+  type MetaConversionLocation,
+  type MetaOdaxObjective,
+} from '../providers/meta/objectiveLaunchMatrix.js';
 import { getMetaCreativeErrorGuidance } from '../providers/meta/metaCreativeErrorGuidance.js';
 import { normalizeAccountPath } from '../utils/normalizeAccountId.js';
 import {
@@ -25,9 +33,14 @@ export interface CreateAdCreativeOptions {
   name: string;
   pageId?: string;
   mode?: MetaAdsMode;
+  /** Canonical Meta ODAX objective used to resolve creative destination behavior. */
+  objective?: MetaOdaxObjective;
+  /** Canonical conversion location paired with objective for launch resolution. */
+  conversionLocation?: MetaConversionLocation;
   creative?: MetaCreativeSpec;
   collaborativeProductSetId?: string;
   collaborativeAppSpec?: MetaCollaborativeAppSpec;
+  standardAppSpec?: MetaStandardAppSpec;
   linkData?: {
     link: string;
     message: string;
@@ -103,10 +116,15 @@ export async function createAdCreative(
   execOptions: { dryRun?: boolean; confirmed?: boolean; maxRetries?: number } = {}
 ): Promise<CreateAdCreativeResult> {
   const { dryRun = true, confirmed = false, maxRetries = 3 } = execOptions;
-  const enrichedOptions = await withAutoVideoThumbnail(client, options);
 
   let preview: Record<string, unknown>;
   try {
+    const resolvedOptions = await withResolvedObjectiveDestinationMode(
+      client,
+      options,
+      client.apiVersion ?? 'v25.0'
+    );
+    const enrichedOptions = await withAutoVideoThumbnail(client, resolvedOptions);
     preview = buildCreativePayload(enrichedOptions);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -306,18 +324,6 @@ function summarizeCreativeVerification(
   };
 }
 
-const META_CREATIVE_FORMATS: readonly MetaCreativeFormat[] = [
-  'single_image',
-  'video',
-  'carousel',
-  'catalog',
-  'collection',
-  'flexible',
-  'placement_image',
-  'placement_customized_ctwa',
-  'existing_post',
-];
-
 function matchesCreativeFormat(
   fields: Record<string, unknown>,
   intendedFormat: MetaCreativeFormat
@@ -490,6 +496,7 @@ function buildCreativePayload(options: CreateAdCreativeOptions): Record<string, 
         instagramUserId: options.instagramUserId,
         collaborativeProductSetId: options.collaborativeProductSetId,
         collaborativeAppSpec: options.collaborativeAppSpec,
+        standardAppSpec: options.standardAppSpec,
         optOutEnhancements: options.optOutEnhancements,
       })
     );
@@ -562,6 +569,104 @@ function buildCreativePayload(options: CreateAdCreativeOptions): Record<string, 
   if (options.urlTags) payload.url_tags = options.urlTags;
 
   return payload;
+}
+
+async function withResolvedObjectiveDestinationMode(
+  client: MetaClient,
+  options: CreateAdCreativeOptions,
+  apiVersion: string
+): Promise<CreateAdCreativeOptions> {
+  if (options.standardAppSpec && options.collaborativeAppSpec) {
+    throw new Error('standardAppSpec dan collaborativeAppSpec tidak dapat digunakan bersamaan.');
+  }
+
+  if (options.standardAppSpec) {
+    if (options.mode === 'collaborative_ads') {
+      throw new Error('standardAppSpec tidak kompatibel dengan mode collaborative_ads.');
+    }
+    if (options.objective !== 'OUTCOME_APP_PROMOTION' || options.conversionLocation !== 'APP') {
+      throw new Error(
+        'standardAppSpec hanya dapat digunakan dengan objective OUTCOME_APP_PROMOTION dan conversionLocation APP.'
+      );
+    }
+  }
+
+  if (options.objective === undefined && options.conversionLocation === undefined) return options;
+
+  if (options.objective === undefined || options.conversionLocation === undefined) {
+    throw new Error('objective dan conversionLocation harus diisi bersama untuk creative launch.');
+  }
+
+  if (!options.creative) {
+    throw new Error('objective dan conversionLocation memerlukan creativeFormat dan creativeSpec.');
+  }
+
+  const launchSpec = resolveMetaObjectiveLaunchSpec({
+    objective: options.objective,
+    conversionLocation: options.conversionLocation,
+    creativeFormat: options.creative.creativeFormat,
+    apiVersion,
+  });
+
+  const leadFormId = getLeadFormId(options.creative);
+  const destinationUrl = options.creative.creativeSpec.destinationUrl;
+
+  if (launchSpec.destinationMode === 'APP') {
+    const standardAppSpec = options.standardAppSpec;
+    const applicationId = standardAppSpec?.applicationId?.trim();
+    const objectStoreUrl = standardAppSpec?.objectStoreUrl?.trim();
+    if (!applicationId)
+      throw new Error('standardAppSpec.applicationId wajib diisi untuk App Promotion.');
+    if (!objectStoreUrl)
+      throw new Error('standardAppSpec.objectStoreUrl wajib diisi untuk App Promotion.');
+    const callToAction =
+      'callToAction' in options.creative.creativeSpec
+        ? options.creative.creativeSpec.callToAction?.trim()
+        : undefined;
+    if (callToAction === 'WHATSAPP_MESSAGE') {
+      throw new Error('WHATSAPP_MESSAGE tidak kompatibel dengan App Promotion.');
+    }
+  }
+
+  if (launchSpec.destinationMode === 'EXTERNAL_URL') {
+    if (!destinationUrl?.trim()) throw new Error('destinationUrl wajib diisi untuk Website Leads.');
+    if (leadFormId?.trim()) {
+      throw new Error('leadFormId hanya dapat digunakan untuk destinationMode INSTANT_FORM.');
+    }
+  }
+
+  if (launchSpec.destinationMode === 'INSTANT_FORM') {
+    if (!leadFormId?.trim()) throw new Error('leadFormId wajib diisi untuk Instant Form Leads.');
+    if (!options.pageId?.trim()) throw new Error('pageId wajib diisi untuk Instant Form Leads.');
+    if (destinationUrl?.trim()) {
+      throw new Error('destinationUrl tidak dapat digunakan untuk destinationMode INSTANT_FORM.');
+    }
+
+    const forms = await listLeadForms(client, { pageId: options.pageId.trim() });
+    if (!forms.some((form) => form.lead_form_id === leadFormId.trim())) {
+      throw new Error(
+        'leadFormId tidak ditemukan pada Page terpilih. Gunakan ads_list_lead_forms untuk memilih Instant Form milik Page tersebut.'
+      );
+    }
+  }
+
+  return {
+    ...options,
+    creative: {
+      ...options.creative,
+      creativeSpec: {
+        ...options.creative.creativeSpec,
+        destinationMode: launchSpec.destinationMode,
+        ...(launchSpec.destinationMode === 'APP'
+          ? { destinationUrl: options.standardAppSpec?.objectStoreUrl }
+          : {}),
+      },
+    } as MetaCreativeSpec,
+  };
+}
+
+function getLeadFormId(creative: MetaCreativeSpec): string | undefined {
+  return 'leadFormId' in creative.creativeSpec ? creative.creativeSpec.leadFormId : undefined;
 }
 
 /**

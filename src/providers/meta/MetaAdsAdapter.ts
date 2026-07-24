@@ -34,9 +34,16 @@ import type {
   MetaCollaborativeCatalogContext,
   MetaConfig,
   MetaCreativeFormat,
+  MetaStandardAppSpec,
   MetaCreativeSpec,
   PlacementPerformanceReport,
 } from '../../types.js';
+import {
+  META_CONVERSION_LOCATIONS,
+  META_ODAX_OBJECTIVES,
+  type MetaConversionLocation,
+  type MetaOdaxObjective,
+} from './objectiveLaunchMatrix.js';
 import type { MutationResult } from '../../types.js';
 import type { LocationBreakdown } from '../../types.js';
 import { pauseCampaign as pauseCampaignTool } from '../../tools/pauseCampaign.js';
@@ -86,6 +93,7 @@ import { listAdImages } from '../../tools/listAdImages.js';
 import { listAdVideos } from '../../tools/listAdVideos.js';
 import { getAdPreview } from '../../tools/getAdPreview.js';
 import { listPages as listPagesTool } from '../../tools/listPages.js';
+import { listLeadForms as listLeadFormsTool } from '../../tools/listLeadForms.js';
 import { listInstagramAccounts as listInstagramAccountsTool } from '../../tools/listInstagramAccounts.js';
 import { listInstagramMedia as listInstagramMediaTool } from '../../tools/listInstagramMedia.js';
 import { listThreadsProfiles as listThreadsProfilesTool } from '../../tools/listThreadsProfiles.js';
@@ -117,6 +125,7 @@ import type {
   AdVideoResult,
   AdPreviewResult,
   MetaPageResult,
+  MetaLeadFormResult,
   MetaPixelResult,
   MetaCatalogResult,
   MetaProductSetResult,
@@ -347,6 +356,10 @@ export interface MetaAdsAdapterTools {
     client: MetaClient,
     options?: { limit?: number }
   ): Promise<import('../../tools/listPages.js').MetaPageResult[]>;
+  listLeadForms(
+    client: MetaClient,
+    options: { pageId: string; status?: string[]; limit?: number }
+  ): Promise<import('../../tools/listLeadForms.js').MetaLeadFormResult[]>;
   listPixels(
     client: MetaClient,
     options: { adAccountId: string; limit?: number }
@@ -442,6 +455,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       listCatalogs: listCatalogsTool,
       listProductSets: listProductSetsTool,
       listPages: listPagesTool,
+      listLeadForms: listLeadFormsTool,
       listInstagramAccounts: listInstagramAccountsTool,
       listInstagramMedia: listInstagramMediaTool,
       listThreadsProfiles: listThreadsProfilesTool,
@@ -1058,7 +1072,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
     return this.clientFactory({
       accessToken: credential.accessToken ?? '',
       adAccountId: credential.accountId ?? '',
-      apiVersion: credential.apiVersion ?? 'v23.0',
+      apiVersion: credential.apiVersion ?? 'v25.0',
     });
   }
 
@@ -1236,6 +1250,12 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       };
     }
 
+    if (!META_ODAX_OBJECTIVES.includes(objective as MetaOdaxObjective)) {
+      return validationResponse(
+        new Error(`objective must be one of: ${META_ODAX_OBJECTIVES.join(', ')}.`)
+      );
+    }
+
     let mode: MetaAdsMode | undefined;
     try {
       mode = parseMetaAdsMode(request.params.mode);
@@ -1367,6 +1387,34 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
               ? (request.params
                   .optimizationGoal as import('../../tools/createAdSet.js').OptimizationGoal)
               : undefined,
+          conversionLocation:
+            typeof request.params.conversionLocation === 'string'
+              ? (request.params.conversionLocation as MetaConversionLocation)
+              : undefined,
+          creativeFormat:
+            request.params.creativeFormat === undefined
+              ? undefined
+              : parseMetaCreativeFormat(request.params.creativeFormat),
+          pageId: typeof request.params.pageId === 'string' ? request.params.pageId : undefined,
+          pixelId: typeof request.params.pixelId === 'string' ? request.params.pixelId : undefined,
+          leadFormId:
+            typeof request.params.leadFormId === 'string' ? request.params.leadFormId : undefined,
+          applicationId:
+            typeof request.params.applicationId === 'string'
+              ? request.params.applicationId
+              : undefined,
+          objectStoreUrl:
+            typeof request.params.objectStoreUrl === 'string'
+              ? request.params.objectStoreUrl
+              : undefined,
+          productSetId:
+            typeof request.params.productSetId === 'string'
+              ? request.params.productSetId
+              : undefined,
+          customEventType:
+            typeof request.params.customEventType === 'string'
+              ? request.params.customEventType
+              : undefined,
           bidStrategy:
             typeof request.params.bidStrategy === 'string' ? request.params.bidStrategy : undefined,
           bidAmount:
@@ -1468,15 +1516,21 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
     let creative: MetaCreativeSpec | undefined;
     let collaborativeProductSetId: string | undefined;
     let collaborativeAppSpec: MetaCollaborativeAppSpec | undefined;
+    let standardAppSpec: MetaStandardAppSpec | undefined;
     let destinationType: CreativeDestinationType | undefined;
+    let objective: MetaOdaxObjective | undefined;
+    let conversionLocation: MetaConversionLocation | undefined;
     try {
       mode = parseMetaAdsMode(request.params.mode);
       destinationType = parseCreativeDestinationType(request.params.destinationType);
+      objective = parseMetaOdaxObjective(request.params.objective);
+      conversionLocation = parseMetaConversionLocation(request.params.conversionLocation);
       collaborativeProductSetId = optionalString(
         request.params.collaborativeProductSetId,
         'collaborativeProductSetId'
       );
       collaborativeAppSpec = parseCollaborativeAppSpec(request.params.collaborativeAppSpec);
+      standardAppSpec = parseStandardAppSpec(request.params.standardAppSpec);
       if (hasCreativeFormat && hasCreativeSpec) {
         const creativeFormat = parseMetaCreativeFormat(request.params.creativeFormat);
         creative = parseMetaCreativeSpec(
@@ -1499,6 +1553,12 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
           )
         );
       }
+    }
+
+    if ((objective === undefined) !== (conversionLocation === undefined)) {
+      return validationResponse(
+        new Error('objective dan conversionLocation harus diisi bersama untuk creative launch.')
+      );
     }
 
     // For custom/Flexible asset-feed payloads, page_id may already be nested
@@ -1587,9 +1647,12 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
           name,
           pageId: effectivePageId,
           mode,
+          objective,
+          conversionLocation,
           creative,
           collaborativeProductSetId,
           collaborativeAppSpec,
+          standardAppSpec,
           linkData,
           objectStorySpec: creative ? undefined : objectStorySpec,
           assetFeedSpec: creative ? undefined : assetFeedSpec,
@@ -2821,6 +2884,15 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
     try {
       const result = checkLaunchReadinessTool({
         workflow: optionalPlainString(request.params.workflow),
+        objective: optionalPlainString(request.params.objective) as MetaOdaxObjective | undefined,
+        conversionLocation: optionalPlainString(request.params.conversionLocation) as
+          | MetaConversionLocation
+          | undefined,
+        optimizationGoal: optionalPlainString(request.params.optimizationGoal),
+        creativeFormat: optionalPlainString(request.params.creativeFormat) as
+          | MetaCreativeFormat
+          | undefined,
+        apiVersion: optionalPlainString(request.params.apiVersion),
         productOrOffer: optionalPlainString(request.params.productOrOffer),
         pageId: optionalPlainString(request.params.pageId),
         pixelId: optionalPlainString(request.params.pixelId),
@@ -2842,6 +2914,10 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
         productSetId: optionalPlainString(request.params.productSetId),
         catalogId: optionalPlainString(request.params.catalogId),
         businessId: optionalPlainString(request.params.businessId),
+        leadFormId: optionalPlainString(request.params.leadFormId),
+        applicationId: optionalPlainString(request.params.applicationId),
+        objectStoreUrl: optionalPlainString(request.params.objectStoreUrl),
+        appDeepLinkUrl: optionalPlainString(request.params.appDeepLinkUrl),
         specialAdCategories: Array.isArray(request.params.specialAdCategories)
           ? request.params.specialAdCategories.filter(
               (item): item is string => typeof item === 'string'
@@ -3086,6 +3162,41 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
     }
   }
 
+  async listLeadForms(request: AdsBrokerRequest): Promise<AdsBrokerResponse<MetaLeadFormResult[]>> {
+    const context = this.getCredentialContext(request);
+    if (!context.ok) return context.response;
+
+    const pageId = optionalPlainString(request.params.pageId);
+    if (!pageId) {
+      return {
+        ok: false,
+        provider: 'meta',
+        errors: [
+          {
+            provider: 'meta',
+            code: 'MISSING_PAGE_ID',
+            message: 'pageId is required to list Instant Forms',
+          },
+        ],
+      };
+    }
+
+    try {
+      const status = Array.isArray(request.params.status)
+        ? request.params.status.filter((value): value is string => typeof value === 'string')
+        : undefined;
+      const limit = typeof request.params.limit === 'number' ? request.params.limit : undefined;
+      const forms = await this.tools.listLeadForms(this.createClient(context.credential), {
+        pageId,
+        status,
+        limit,
+      });
+      return { ok: true, provider: 'meta', data: forms };
+    } catch (error) {
+      return this.errorResponse(error);
+    }
+  }
+
   private getEcommerceCampaignBundlePayload(
     request: AdsBrokerRequest,
     credential: CredentialContext
@@ -3306,10 +3417,13 @@ export const CREATE_AD_CREATIVE_PARAMS = new Set([
   'name',
   'pageId',
   'mode',
+  'objective',
+  'conversionLocation',
   'creativeFormat',
   'creativeSpec',
   'collaborativeProductSetId',
   'collaborativeAppSpec',
+  'standardAppSpec',
   'link',
   'message',
   'headline',
@@ -3450,6 +3564,27 @@ function parseMetaAdsMode(value: unknown): MetaAdsMode | undefined {
   }
 }
 
+function parseMetaOdaxObjective(value: unknown): MetaOdaxObjective | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value !== 'string' || !META_ODAX_OBJECTIVES.includes(value as MetaOdaxObjective)) {
+    throw new Error(`objective harus salah satu dari: ${META_ODAX_OBJECTIVES.join(', ')}.`);
+  }
+  return value as MetaOdaxObjective;
+}
+
+function parseMetaConversionLocation(value: unknown): MetaConversionLocation | undefined {
+  if (value === undefined) return undefined;
+  if (
+    typeof value !== 'string' ||
+    !META_CONVERSION_LOCATIONS.includes(value as MetaConversionLocation)
+  ) {
+    throw new Error(
+      `conversionLocation harus salah satu dari: ${META_CONVERSION_LOCATIONS.join(', ')}.`
+    );
+  }
+  return value as MetaConversionLocation;
+}
+
 function parseMetaCreativeFormat(value: unknown): MetaCreativeFormat {
   switch (value) {
     case 'single_image':
@@ -3522,6 +3657,16 @@ function parseCollaborativeAppSpec(value: unknown): MetaCollaborativeAppSpec | u
   };
 }
 
+function parseStandardAppSpec(value: unknown): MetaStandardAppSpec | undefined {
+  if (value === undefined) return undefined;
+  const app = requireRecord(value, 'standardAppSpec');
+  return {
+    applicationId: requireString(app.applicationId, 'standardAppSpec.applicationId'),
+    objectStoreUrl: requireString(app.objectStoreUrl, 'standardAppSpec.objectStoreUrl'),
+    deepLinkUrl: optionalString(app.deepLinkUrl, 'standardAppSpec.deepLinkUrl'),
+  };
+}
+
 function parseMetaCreativeSpec(
   format: MetaCreativeFormat,
   spec: Record<string, unknown>
@@ -3533,7 +3678,8 @@ function parseMetaCreativeSpec(
         creativeSpec: {
           imageHash: requireString(spec.imageHash, 'creativeSpec.imageHash'),
           primaryText: requireString(spec.primaryText, 'creativeSpec.primaryText'),
-          destinationUrl: requireString(spec.destinationUrl, 'creativeSpec.destinationUrl'),
+          destinationUrl: optionalString(spec.destinationUrl, 'creativeSpec.destinationUrl'),
+          leadFormId: optionalString(spec.leadFormId, 'creativeSpec.leadFormId'),
           headline: optionalString(spec.headline, 'creativeSpec.headline'),
           description: optionalString(spec.description, 'creativeSpec.description'),
           callToAction: optionalString(spec.callToAction, 'creativeSpec.callToAction'),
@@ -3561,7 +3707,8 @@ function parseMetaCreativeSpec(
             'creativeSpec.thumbnailImageUrl'
           ),
           primaryText: requireString(spec.primaryText, 'creativeSpec.primaryText'),
-          destinationUrl: requireString(spec.destinationUrl, 'creativeSpec.destinationUrl'),
+          destinationUrl: optionalString(spec.destinationUrl, 'creativeSpec.destinationUrl'),
+          leadFormId: optionalString(spec.leadFormId, 'creativeSpec.leadFormId'),
           headline: optionalString(spec.headline, 'creativeSpec.headline'),
           description: optionalString(spec.description, 'creativeSpec.description'),
           callToAction: optionalString(spec.callToAction, 'creativeSpec.callToAction'),
@@ -3799,7 +3946,7 @@ function isMetaComplianceAuditPermissionError(error: unknown): boolean {
 }
 
 function supportsMediaSourcingSpec(apiVersion: string | undefined): boolean {
-  const match = /^v(\d+)(?:\.|$)/i.exec(apiVersion ?? 'v23.0');
+  const match = /^v(\d+)(?:\.|$)/i.exec(apiVersion ?? 'v25.0');
   return match !== null && Number(match[1]) >= 23;
 }
 

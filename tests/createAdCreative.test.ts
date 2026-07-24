@@ -189,6 +189,388 @@ describe('createAdCreative', () => {
     expect(mockMetaGetObject).not.toHaveBeenCalled();
   });
 
+  it('builds an Instant Form Leads dry-run with the form CTA', async () => {
+    mockMetaGet.mockResolvedValueOnce({
+      data: [{ id: 'form-1', name: 'Consultation', status: 'ACTIVE', locale: 'en_US' }],
+    });
+
+    const result = await createAdCreative(mockClient, {
+      adAccountId: 'act_1',
+      name: 'Consultation Leads',
+      pageId: 'page-1',
+      objective: 'OUTCOME_LEADS',
+      conversionLocation: 'INSTANT_FORM',
+      creative: {
+        creativeFormat: 'single_image',
+        creativeSpec: {
+          imageHash: 'image-1',
+          primaryText: 'Book a consultation',
+          headline: 'Talk to our team',
+          callToAction: 'SIGN_UP',
+          leadFormId: 'form-1',
+        },
+      },
+    });
+
+    expect(result.preview).toMatchObject({
+      object_story_spec: {
+        page_id: 'page-1',
+        link_data: {
+          call_to_action: { type: 'SIGN_UP', value: { lead_gen_form_id: 'form-1' } },
+        },
+      },
+    });
+    expect(mockMetaGet).toHaveBeenCalledWith('/page-1/leadgen_forms', {
+      fields: 'id,name,status,locale,created_time',
+      limit: 50,
+    });
+  });
+
+  it('builds an App Promotion dry-run with the standard app-install CTA', async () => {
+    const result = await createAdCreative(mockClient, {
+      adAccountId: 'act_1',
+      name: 'Install our app',
+      pageId: 'page-1',
+      objective: 'OUTCOME_APP_PROMOTION',
+      conversionLocation: 'APP',
+      standardAppSpec: {
+        applicationId: 'app-1',
+        objectStoreUrl: 'https://apps.apple.com/app/id123',
+        deepLinkUrl: 'myapp://home',
+      },
+      creative: {
+        creativeFormat: 'video',
+        creativeSpec: { videoId: 'video-1', primaryText: 'Install now' },
+      },
+    });
+
+    expect(result).toMatchObject({
+      status: 'dry_run',
+      preview: {
+        object_story_spec: {
+          video_data: {
+            call_to_action: {
+              type: 'INSTALL_MOBILE_APP',
+              value: {
+                link: 'myapp://home',
+                app_link: 'myapp://home',
+                application: 'app-1',
+              },
+            },
+          },
+        },
+      },
+    });
+    expect(result.preview).not.toHaveProperty('omnichannel_link_spec');
+  });
+
+  it('rejects an App Promotion dry-run without a standard app spec', async () => {
+    const result = await createAdCreative(mockClient, {
+      adAccountId: 'act_1',
+      name: 'Incomplete app install',
+      pageId: 'page-1',
+      objective: 'OUTCOME_APP_PROMOTION',
+      conversionLocation: 'APP',
+      creative: {
+        creativeFormat: 'single_image',
+        creativeSpec: { imageHash: 'image-1', primaryText: 'Install now' },
+      },
+    });
+
+    expect(result).toMatchObject({
+      status: 'failed',
+      error: expect.stringMatching(/standardAppSpec\.applicationId/i),
+    });
+  });
+
+  it('rejects a standard app spec outside the canonical App Promotion destination before posting', async () => {
+    const result = await createAdCreative(
+      mockClient,
+      {
+        adAccountId: 'act_1',
+        name: 'Out-of-scope app spec',
+        pageId: 'page-1',
+        standardAppSpec: {
+          applicationId: 'app-1',
+          objectStoreUrl: 'https://apps.apple.com/app/id123',
+        },
+        creative: {
+          creativeFormat: 'single_image',
+          creativeSpec: {
+            imageHash: 'image-1',
+            primaryText: 'Visit now',
+            destinationUrl: 'https://example.com',
+          },
+        },
+      },
+      { dryRun: false, confirmed: true }
+    );
+
+    expect(result).toMatchObject({
+      status: 'failed',
+      error: expect.stringMatching(/standardAppSpec.*OUTCOME_APP_PROMOTION.*APP/i),
+    });
+    expect(mockMetaPost).not.toHaveBeenCalled();
+  });
+
+  it('rejects combining standard and collaborative app specs before payload construction', async () => {
+    const result = await createAdCreative(mockClient, {
+      adAccountId: 'act_1',
+      name: 'Ambiguous app spec',
+      pageId: 'page-1',
+      objective: 'OUTCOME_APP_PROMOTION',
+      conversionLocation: 'APP',
+      standardAppSpec: {
+        applicationId: 'app-1',
+        objectStoreUrl: 'https://apps.apple.com/app/id123',
+      },
+      collaborativeAppSpec: { applicationId: 'collaborative-app-1' },
+      creative: {
+        creativeFormat: 'video',
+        creativeSpec: { videoId: 'video-1', primaryText: 'Install now' },
+      },
+    });
+
+    expect(result).toMatchObject({
+      status: 'failed',
+      error: expect.stringMatching(/standardAppSpec.*collaborativeAppSpec/i),
+    });
+    expect(mockMetaPost).not.toHaveBeenCalled();
+  });
+
+  it('rejects collaborative_ads mode for canonical App Promotion before payload construction', async () => {
+    const result = await createAdCreative(mockClient, {
+      adAccountId: 'act_1',
+      name: 'Invalid app mode',
+      pageId: 'page-1',
+      mode: 'collaborative_ads',
+      collaborativeProductSetId: 'product-set-1',
+      objective: 'OUTCOME_APP_PROMOTION',
+      conversionLocation: 'APP',
+      standardAppSpec: {
+        applicationId: 'app-1',
+        objectStoreUrl: 'https://apps.apple.com/app/id123',
+      },
+      creative: {
+        creativeFormat: 'video',
+        creativeSpec: { videoId: 'video-1', primaryText: 'Install now' },
+      },
+    });
+
+    expect(result).toMatchObject({
+      status: 'failed',
+      error: expect.stringMatching(/standardAppSpec.*collaborative_ads/i),
+    });
+    expect(mockMetaPost).not.toHaveBeenCalled();
+  });
+
+  it('rejects WHATSAPP_MESSAGE for canonical App Promotion before payload construction', async () => {
+    const result = await createAdCreative(mockClient, {
+      adAccountId: 'act_1',
+      name: 'Invalid app CTA',
+      pageId: 'page-1',
+      objective: 'OUTCOME_APP_PROMOTION',
+      conversionLocation: 'APP',
+      standardAppSpec: {
+        applicationId: 'app-1',
+        objectStoreUrl: 'https://apps.apple.com/app/id123',
+      },
+      creative: {
+        creativeFormat: 'video',
+        creativeSpec: {
+          videoId: 'video-1',
+          primaryText: 'Install now',
+          callToAction: 'WHATSAPP_MESSAGE',
+        },
+      },
+    });
+
+    expect(result).toMatchObject({
+      status: 'failed',
+      error: expect.stringMatching(/WHATSAPP_MESSAGE.*App Promotion/i),
+    });
+    expect(mockMetaPost).not.toHaveBeenCalled();
+  });
+
+  it('rejects an objective-aware Instant Form Lead without a form ID', async () => {
+    const result = await createAdCreative(mockClient, {
+      adAccountId: 'act_1',
+      name: 'Incomplete Leads',
+      pageId: 'page-1',
+      objective: 'OUTCOME_LEADS',
+      conversionLocation: 'INSTANT_FORM',
+      creative: {
+        creativeFormat: 'single_image',
+        creativeSpec: {
+          imageHash: 'image-1',
+          primaryText: 'Book a consultation',
+        },
+      },
+    });
+
+    expect(result).toMatchObject({
+      status: 'failed',
+      error: expect.stringMatching(/leadFormId wajib diisi/i),
+    });
+  });
+
+  it('requires a Website Leads destination URL even when a lead form ID is supplied', async () => {
+    const result = await createAdCreative(mockClient, {
+      adAccountId: 'act_1',
+      name: 'Website Leads missing URL',
+      pageId: 'page-1',
+      objective: 'OUTCOME_LEADS',
+      conversionLocation: 'WEBSITE',
+      creative: {
+        creativeFormat: 'single_image',
+        creativeSpec: {
+          imageHash: 'image-1',
+          primaryText: 'Book a consultation',
+          leadFormId: 'form-1',
+        },
+      },
+    });
+
+    expect(result).toMatchObject({
+      status: 'failed',
+      error: expect.stringMatching(/destinationUrl wajib diisi/i),
+    });
+  });
+
+  it('rejects a Website Leads form ID instead of overriding the resolved URL destination', async () => {
+    const result = await createAdCreative(mockClient, {
+      adAccountId: 'act_1',
+      name: 'Website Leads with form',
+      pageId: 'page-1',
+      objective: 'OUTCOME_LEADS',
+      conversionLocation: 'WEBSITE',
+      creative: {
+        creativeFormat: 'single_image',
+        creativeSpec: {
+          imageHash: 'image-1',
+          primaryText: 'Book a consultation',
+          destinationUrl: 'https://example.com/consultation',
+          leadFormId: 'form-1',
+        },
+      },
+    });
+
+    expect(result).toMatchObject({
+      status: 'failed',
+      error: expect.stringMatching(/leadFormId.*INSTANT_FORM/i),
+    });
+  });
+
+  it('rejects an Instant Form that is not owned by the selected Page before posting', async () => {
+    mockMetaGet.mockResolvedValueOnce({
+      data: [{ id: 'other-form', name: 'Other Page form', status: 'ACTIVE', locale: 'en_US' }],
+    });
+
+    const result = await createAdCreative(
+      mockClient,
+      {
+        adAccountId: 'act_1',
+        name: 'Mismatched Instant Form',
+        pageId: 'page-1',
+        objective: 'OUTCOME_LEADS',
+        conversionLocation: 'INSTANT_FORM',
+        creative: {
+          creativeFormat: 'single_image',
+          creativeSpec: {
+            imageHash: 'image-1',
+            primaryText: 'Book a consultation',
+            leadFormId: 'form-1',
+          },
+        },
+      },
+      { dryRun: false, confirmed: true }
+    );
+
+    expect(result).toMatchObject({
+      status: 'failed',
+      error: expect.stringMatching(/ads_list_lead_forms/i),
+    });
+    expect(mockMetaPost).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    {
+      label: 'Awareness image',
+      objective: 'OUTCOME_AWARENESS',
+      conversionLocation: 'AWARENESS',
+      creative: {
+        creativeFormat: 'single_image' as const,
+        creativeSpec: {
+          destinationMode: 'EXTERNAL_URL' as const,
+          imageHash: 'image-1',
+          primaryText: 'Kenali brand kami',
+          destinationUrl: 'https://example.com/should-not-be-used',
+        },
+      },
+      expectedStory: {
+        photo_data: { image_hash: 'image-1', message: 'Kenali brand kami' },
+      },
+    },
+    {
+      label: 'Engagement video',
+      objective: 'OUTCOME_ENGAGEMENT',
+      conversionLocation: 'VIDEO',
+      creative: {
+        creativeFormat: 'video' as const,
+        creativeSpec: {
+          destinationMode: 'EXTERNAL_URL' as const,
+          videoId: 'video-1',
+          primaryText: 'Tonton videonya',
+          destinationUrl: 'https://example.com/should-not-be-used',
+        },
+      },
+      expectedStory: {
+        video_data: { video_id: 'video-1', message: 'Tonton videonya' },
+      },
+    },
+  ])(
+    'uses the resolved no-destination mode for $label despite a conflicting creative spec',
+    async ({ objective, conversionLocation, creative, expectedStory }) => {
+      const result = await createAdCreative(mockClient, {
+        adAccountId: 'act_1',
+        name: `${objective} creative`,
+        pageId: 'page-1',
+        objective,
+        conversionLocation,
+        creative,
+      });
+
+      expect(result).toMatchObject({
+        status: 'dry_run',
+        preview: { object_story_spec: expectedStory },
+      });
+      expect(result.preview).not.toHaveProperty('object_story_spec.link_data');
+      expect(result.preview).not.toHaveProperty('object_story_spec.video_data.call_to_action');
+    }
+  );
+
+  it('requires a Traffic destination URL despite a conflicting no-destination creative spec', async () => {
+    const result = await createAdCreative(mockClient, {
+      adAccountId: 'act_1',
+      name: 'Traffic requires a URL',
+      pageId: 'page-1',
+      objective: 'OUTCOME_TRAFFIC',
+      conversionLocation: 'WEBSITE',
+      creative: {
+        creativeFormat: 'single_image',
+        creativeSpec: {
+          destinationMode: 'NONE',
+          imageHash: 'image-1',
+          primaryText: 'Kunjungi situs kami',
+        },
+      },
+    });
+
+    expect(result).toMatchObject({ status: 'failed' });
+    expect(result.error).toMatch(/destinationUrl wajib diisi/i);
+    expect(mockMetaPost).not.toHaveBeenCalled();
+  });
+
   it('allows existing_post to omit pageId', async () => {
     const result = await createAdCreative(mockClient, {
       adAccountId: 'act_1',

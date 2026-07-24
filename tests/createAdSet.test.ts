@@ -2,11 +2,13 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { MetaClient } from '../src/metaClient.js';
 import { createAdSet } from '../src/tools/createAdSet.js';
 import { MetaApiError } from '../src/utils/metaError.js';
+import { resolveMetaObjectiveLaunchSpec } from '../src/providers/meta/objectiveLaunchMatrix.js';
 
 function createMockClient(overrides: Record<string, unknown> = {}): MetaClient {
   return {
     metaGetObject: vi.fn().mockResolvedValue({
       id: '120000000000000001',
+      objective: 'OUTCOME_TRAFFIC',
       bid_strategy: 'LOWEST_COST_WITH_BID_CAP',
       daily_budget: 100000,
       lifetime_budget: undefined,
@@ -21,10 +23,168 @@ const defaultOptions = {
   adAccountId: 'act_123456789',
   campaignId: '120000000000000001',
   name: 'Test Ad Set',
+  optimizationGoal: 'REACH' as const,
 };
 
 describe('createAdSet — bid strategy + pre-flight validation', () => {
+  describe('objective launch matrix', () => {
+    it('resolves the v25 Collaborative Ads catalog launch through sales_catalog', () => {
+      expect(
+        resolveMetaObjectiveLaunchSpec({
+          objective: 'OUTCOME_SALES',
+          conversionLocation: 'CATALOG',
+          creativeFormat: 'catalog',
+          apiVersion: 'v25.0',
+        })
+      ).toMatchObject({
+        key: 'sales_catalog',
+        promotedObjectKind: 'collaborative_catalog',
+        destinationType: 'WEBSITE',
+      });
+    });
+
+    it.each([
+      {
+        objective: 'OUTCOME_AWARENESS',
+        conversionLocation: 'AWARENESS' as const,
+        creativeFormat: 'single_image' as const,
+        optimizationGoal: undefined,
+        expected: { optimization_goal: 'REACH', billing_event: 'IMPRESSIONS' },
+      },
+      {
+        objective: 'OUTCOME_AWARENESS',
+        conversionLocation: 'AWARENESS' as const,
+        creativeFormat: 'single_image' as const,
+        optimizationGoal: 'IMPRESSIONS' as const,
+        expected: { optimization_goal: 'IMPRESSIONS', billing_event: 'IMPRESSIONS' },
+      },
+      {
+        objective: 'OUTCOME_TRAFFIC',
+        conversionLocation: 'WEBSITE' as const,
+        creativeFormat: 'single_image' as const,
+        optimizationGoal: undefined,
+        expected: {
+          optimization_goal: 'LANDING_PAGE_VIEWS',
+          billing_event: 'IMPRESSIONS',
+          destination_type: 'WEBSITE',
+        },
+      },
+      {
+        objective: 'OUTCOME_ENGAGEMENT',
+        conversionLocation: 'POST' as const,
+        creativeFormat: 'existing_post' as const,
+        optimizationGoal: undefined,
+        expected: {
+          optimization_goal: 'POST_ENGAGEMENT',
+          billing_event: 'IMPRESSIONS',
+          destination_type: 'ON_POST',
+        },
+      },
+      {
+        objective: 'OUTCOME_ENGAGEMENT',
+        conversionLocation: 'VIDEO' as const,
+        creativeFormat: 'video' as const,
+        optimizationGoal: undefined,
+        expected: {
+          optimization_goal: 'THRUPLAY',
+          billing_event: 'IMPRESSIONS',
+          destination_type: 'ON_VIDEO',
+        },
+      },
+    ])('uses the canonical $objective/$conversionLocation payload', async (testCase) => {
+      const client = createMockClient({
+        objective: testCase.objective,
+        bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+        daily_budget: undefined,
+      });
+
+      const result = await createAdSet(client, {
+        ...defaultOptions,
+        conversionLocation: testCase.conversionLocation,
+        creativeFormat: testCase.creativeFormat,
+        optimizationGoal: testCase.optimizationGoal,
+      });
+
+      expect(result.preview).toMatchObject(testCase.expected);
+      expect(client.metaPost).not.toHaveBeenCalled();
+    });
+
+    it('defaults website traffic to landing page views through the matrix', async () => {
+      const client = createMockClient({
+        objective: 'OUTCOME_TRAFFIC',
+        bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+        daily_budget: undefined,
+      });
+      const result = await createAdSet(client, {
+        ...defaultOptions,
+        optimizationGoal: undefined,
+        conversionLocation: 'WEBSITE',
+        targeting: { geoLocations: { countries: ['ID'] } },
+      });
+
+      expect(result.preview).toMatchObject({
+        billing_event: 'IMPRESSIONS',
+        optimization_goal: 'LANDING_PAGE_VIEWS',
+        destination_type: 'WEBSITE',
+      });
+    });
+
+    it('rejects a sales ad set optimized for reach', async () => {
+      const client = createMockClient({
+        objective: 'OUTCOME_SALES',
+        bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+        daily_budget: undefined,
+      });
+      const result = await createAdSet(client, {
+        ...defaultOptions,
+        conversionLocation: 'WEBSITE',
+        optimizationGoal: 'REACH',
+      });
+
+      expect(result.structuredError?.code).toBe('INVALID_OBJECTIVE_GOAL_COMBINATION');
+      expect(client.metaPost).not.toHaveBeenCalled();
+    });
+
+    it('rejects a canonical Collaborative Ads launch outside the catalog conversion location', async () => {
+      const client = createMockClient({
+        objective: 'OUTCOME_SALES',
+        bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+        daily_budget: undefined,
+      });
+
+      const result = await createAdSet(client, {
+        ...defaultOptions,
+        optimizationGoal: undefined,
+        mode: 'collaborative_ads',
+        conversionLocation: 'WEBSITE',
+        creativeFormat: 'single_image',
+        collaborativeCatalog: { productSetId: 'shared-set' },
+      });
+
+      expect(result).toMatchObject({
+        status: 'failed',
+        structuredError: { code: 'INVALID_OBJECTIVE_DESTINATION_COMBINATION' },
+      });
+      expect(client.metaGetObject).not.toHaveBeenCalled();
+      expect(client.metaPost).not.toHaveBeenCalled();
+    });
+  });
+
   describe('client-side validation (no API call)', () => {
+    it('requires an explicit optimization goal when conversionLocation is omitted', async () => {
+      const client = createMockClient({
+        bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+        daily_budget: undefined,
+      });
+      const result = await createAdSet(client, {
+        ...defaultOptions,
+        optimizationGoal: undefined,
+      });
+
+      expect(result.structuredError?.code).toBe('MISSING_OBJECTIVE_DEPENDENCY');
+      expect(client.metaPost).not.toHaveBeenCalled();
+    });
+
     it('should reject invalid bidStrategy "LOWEST_COST"', async () => {
       const client = createMockClient();
       const result = await createAdSet(
@@ -542,6 +702,68 @@ describe('createAdSet — bid strategy + pre-flight validation', () => {
         { dryRun: true }
       );
 
+      expect(result.preview.promoted_object).toEqual({
+        product_set_id: 'shopee-set',
+        smart_pse_enabled: false,
+        omnichannel_object: {
+          app: [
+            {
+              application_id: 'shopee-app',
+              custom_event_type: 'PURCHASE',
+              object_store_urls: [
+                'http://play.google.com/store/apps/details?id=com.shopee.id',
+                'http://itunes.apple.com/app/id959841443',
+              ],
+            },
+          ],
+          pixel: [{ pixel_id: 'cpas-pixel', custom_event_type: 'PURCHASE' }],
+        },
+      });
+    });
+
+    it('preserves the Collaborative Ads promoted object when catalog matrix defaults apply', async () => {
+      const client = createMockClient({
+        objective: 'OUTCOME_SALES',
+        bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+        daily_budget: undefined,
+      });
+      vi.mocked(client.metaGetObject).mockImplementation(async (path) => {
+        if (path === '/shopee-set') return { id: 'shopee-set' };
+        return {
+          id: '120000000000000001',
+          objective: 'OUTCOME_SALES',
+          bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+        };
+      });
+
+      const result = await createAdSet(
+        client,
+        {
+          ...defaultOptions,
+          optimizationGoal: undefined,
+          mode: 'collaborative_ads',
+          conversionLocation: 'CATALOG',
+          creativeFormat: 'catalog',
+          productSetId: 'shopee-set',
+          collaborativeCatalog: {
+            productSetId: 'shopee-set',
+            pixelId: 'cpas-pixel',
+            customEventType: 'PURCHASE',
+            applicationId: 'shopee-app',
+            objectStoreUrls: [
+              'http://play.google.com/store/apps/details?id=com.shopee.id',
+              'http://itunes.apple.com/app/id959841443',
+            ],
+          },
+        },
+        { dryRun: true }
+      );
+
+      expect(result.preview).toMatchObject({
+        billing_event: 'IMPRESSIONS',
+        optimization_goal: 'OFFSITE_CONVERSIONS',
+        destination_type: 'WEBSITE',
+      });
       expect(result.preview.promoted_object).toEqual({
         product_set_id: 'shopee-set',
         smart_pse_enabled: false,
