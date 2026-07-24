@@ -123,6 +123,22 @@ Campaign-level write operations may be available in broker mode on newer servers
 5. Execute only the exact confirmed operation.
 6. Never log or expose access tokens, provider tokens, connection keys, or authorization headers.
 
-Unsupported write operations outside the guarded ecommerce launch bundle — arbitrary ad set/ad writes, targeting changes, creative upload variations, and non-sales campaign creation — should be handled as analysis or recommendation tasks. Explain the limitation and offer to prepare a safe implementation plan or Meta Ads Manager instructions.
+### Meta v25 launch workflow — creation first, activation later
+
+For a supported Meta v25 launch, use `ads_check_launch_readiness` before any write. It resolves one of the canonical workflows and identifies the missing marketer inputs. Discover only the assets the result needs: for example, Page, Pixel, existing post, video, Instant Form, app, catalog, or product set.
+
+Follow this handoff exactly:
+
+1. Run `ads_check_launch_readiness`; ask the marketer only for its missing inputs and discover the required assets.
+2. Dry-run all four creation tools in this order: `ads_create_campaign`, `ads_create_adset`, `ads_create_adcreative`, then `ads_create_ad`.
+3. Show one plain-language marketer summary: objective, audience/country, budget, destination or form, creative, and the fact that the campaign, ad set, and ad will remain PAUSED.
+4. Ask for one explicit confirmation to create the structure. Do not treat approval to create as approval to spend.
+5. After confirmation, execute creation in the same order. Keep every campaign, ad set, and ad PAUSED.
+6. Read the result back: use `ads_list_campaigns`, `ads_read_adset_full`, and `ads_read_creative_full`; report the returned IDs and any mismatch or missing object. If any step fails, report every ID created so far and stop rather than trying to infer or repair the remainder.
+7. Explain that read-back is an API audit of the created objects, not live-delivery or performance validation.
+8. Ask for a **separate** activation confirmation naming the campaign, ad set, and ad IDs.
+9. Only after that second approval, resume in parent-to-child order: `ads_resume_campaign`, `ads_resume_adset`, then `ads_resume_ad`. Read back the statuses and report them.
+
+Never recommend a resume tool as part of creation confirmation or before read-back has completed.
 
 Config is loaded. Hand control back to the invoking skill.

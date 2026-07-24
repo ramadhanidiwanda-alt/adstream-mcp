@@ -87,6 +87,16 @@ export interface LaunchReadinessResult {
   ready: boolean;
   workflow: MetaLaunchWorkflow;
   recommendedWorkflow: MetaLaunchWorkflow;
+  recommendedTools: string[];
+  creationOrder: [
+    'ads_create_campaign',
+    'ads_create_adset',
+    'ads_create_adcreative',
+    'ads_create_ad',
+  ];
+  verificationTools: ['ads_list_campaigns', 'ads_read_adset_full', 'ads_read_creative_full'];
+  activationOrder: ['ads_resume_campaign', 'ads_resume_adset', 'ads_resume_ad'];
+  requiresSecondActivationApproval: true;
   writesEnabled: boolean;
   missing: string[];
   nextQuestions: string[];
@@ -104,6 +114,25 @@ export interface LaunchReadinessResult {
   };
   summary: string;
 }
+
+const CREATION_ORDER: LaunchReadinessResult['creationOrder'] = [
+  'ads_create_campaign',
+  'ads_create_adset',
+  'ads_create_adcreative',
+  'ads_create_ad',
+];
+
+const VERIFICATION_TOOLS: LaunchReadinessResult['verificationTools'] = [
+  'ads_list_campaigns',
+  'ads_read_adset_full',
+  'ads_read_creative_full',
+];
+
+const ACTIVATION_ORDER: LaunchReadinessResult['activationOrder'] = [
+  'ads_resume_campaign',
+  'ads_resume_adset',
+  'ads_resume_ad',
+];
 
 export function checkLaunchReadiness(options: LaunchReadinessOptions): LaunchReadinessResult {
   const preset = getLaunchPreset(options.workflow);
@@ -139,6 +168,11 @@ export function checkLaunchReadiness(options: LaunchReadinessOptions): LaunchRea
     ready: missingList.length === 0 && options.writesEnabled === true,
     workflow,
     recommendedWorkflow: workflow,
+    recommendedTools: [...preset.recommendedTools],
+    creationOrder: CREATION_ORDER,
+    verificationTools: VERIFICATION_TOOLS,
+    activationOrder: ACTIVATION_ORDER,
+    requiresSecondActivationApproval: true,
     writesEnabled: options.writesEnabled === true,
     missing: missingList,
     nextQuestions: missingList.map(questionForMissing),

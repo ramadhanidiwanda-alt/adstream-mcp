@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { MetaAdsAdapter } from '../src/providers/meta/MetaAdsAdapter.js';
+import { META_LAUNCH_WORKFLOWS } from '../src/tools/checkLaunchReadiness.js';
 import { MetaApiError } from '../src/utils/metaError.js';
 
 describe('MetaAdsAdapter', () => {
@@ -58,11 +59,97 @@ describe('MetaAdsAdapter', () => {
       nextQuestions: expect.arrayContaining([
         'Page Facebook mana yang mau dipakai untuk iklan ini?',
       ]),
+      recommendedTools: expect.arrayContaining([
+        'ads_check_launch_readiness',
+        'ads_create_campaign',
+        'ads_create_adset',
+        'ads_create_adcreative',
+        'ads_create_ad',
+      ]),
+      creationOrder: [
+        'ads_create_campaign',
+        'ads_create_adset',
+        'ads_create_adcreative',
+        'ads_create_ad',
+      ],
+      verificationTools: [
+        'ads_list_campaigns',
+        'ads_read_adset_full',
+        'ads_read_creative_full',
+      ],
+      activationOrder: ['ads_resume_campaign', 'ads_resume_adset', 'ads_resume_ad'],
+      requiresSecondActivationApproval: true,
       summary: expect.stringContaining('Belum siap'),
       writesEnabled: true,
     });
     expect(JSON.stringify(response)).not.toContain('secret-token');
   });
+
+  it.each(META_LAUNCH_WORKFLOWS)(
+    'returns a PAUSED creation, read-back, and separately approved activation handoff for %s',
+    async (workflow) => {
+      const adapter = new MetaAdsAdapter({
+        clientFactory: (config) => ({ config }) as never,
+      });
+
+      const response = await adapter.checkLaunchReadiness({
+        provider: 'meta',
+        accountId: 'act_123',
+        params: {
+          workflow,
+          pageId: 'page-1',
+          pixelId: 'pixel-1',
+          destinationUrl: 'https://example.com',
+          dailyBudget: 100,
+          countries: ['ID'],
+          primaryText: 'Primary text',
+          headline: 'Headline',
+          imageHash: 'image-1',
+          videoId: 'video-1',
+          existingPostId: 'page-1_post-1',
+          leadFormId: 'form-1',
+          applicationId: 'app-1',
+          objectStoreUrl: 'https://apps.apple.com/app/example',
+          businessId: 'business-1',
+          catalogId: 'catalog-1',
+          productSetId: 'set-1',
+          specialAdCategories: [],
+          writesEnabled: true,
+        },
+        credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+      });
+
+      expect(response).toMatchObject({
+        ok: true,
+        data: {
+          workflow,
+          recommendedTools: expect.arrayContaining([
+            'ads_check_launch_readiness',
+            'ads_create_campaign',
+            'ads_create_adset',
+            'ads_create_adcreative',
+            'ads_create_ad',
+          ]),
+          creationOrder: [
+            'ads_create_campaign',
+            'ads_create_adset',
+            'ads_create_adcreative',
+            'ads_create_ad',
+          ],
+          verificationTools: [
+            'ads_list_campaigns',
+            'ads_read_adset_full',
+            'ads_read_creative_full',
+          ],
+          activationOrder: ['ads_resume_campaign', 'ads_resume_adset', 'ads_resume_ad'],
+          requiresSecondActivationApproval: true,
+        },
+      });
+      expect(response.data?.recommendedTools).not.toContain('ads_resume_campaign');
+      expect(response.data?.recommendedTools).not.toContain('ads_resume_adset');
+      expect(response.data?.recommendedTools).not.toContain('ads_resume_ad');
+    }
+  );
 
   it('lists pixels, catalogs, and product sets from Meta discovery endpoints', async () => {
     const captured: Array<{ path: string; params: Record<string, unknown> }> = [];

@@ -384,6 +384,7 @@ describe('ads MCP broker tools', () => {
   it('dispatches launch readiness checks and CPAS discovery tools to the broker', async () => {
     const calls: string[] = [];
     let readinessRequest: AdsBrokerRequest | undefined;
+    let readinessResponse: AdsBrokerResponse | undefined;
     const broker = {
       ...createBrokerStub(),
       checkLaunchReadiness: async (request: AdsBrokerRequest) => {
@@ -400,6 +401,26 @@ describe('ads MCP broker tools', () => {
             nextQuestions: ['Page Facebook mana yang mau dipakai?'],
             checks: [],
             warnings: [],
+            recommendedTools: [
+              'ads_check_launch_readiness',
+              'ads_create_campaign',
+              'ads_create_adset',
+              'ads_create_adcreative',
+              'ads_create_ad',
+            ],
+            creationOrder: [
+              'ads_create_campaign',
+              'ads_create_adset',
+              'ads_create_adcreative',
+              'ads_create_ad',
+            ],
+            verificationTools: [
+              'ads_list_campaigns',
+              'ads_read_adset_full',
+              'ads_read_creative_full',
+            ],
+            activationOrder: ['ads_resume_campaign', 'ads_resume_adset', 'ads_resume_ad'],
+            requiresSecondActivationApproval: true,
             summary: 'Belum siap dibuat. Ada 1 informasi yang masih kurang.',
             writesEnabled: request.params.writesEnabled === true,
           },
@@ -442,6 +463,7 @@ describe('ads MCP broker tools', () => {
     ] as const) {
       const parsed = parseToolResponse(await handleAdsMcpToolCall(broker, name, args));
       expect(parsed.ok).toBe(true);
+      if (name === 'ads_check_launch_readiness') readinessResponse = parsed;
     }
 
     expect(calls).toEqual([
@@ -461,6 +483,17 @@ describe('ads MCP broker tools', () => {
       applicationId: 'app-1',
       objectStoreUrl: 'https://apps.apple.com/app/example',
       appDeepLinkUrl: 'example://open',
+    });
+    expect(readinessResponse?.data).toMatchObject({
+      creationOrder: [
+        'ads_create_campaign',
+        'ads_create_adset',
+        'ads_create_adcreative',
+        'ads_create_ad',
+      ],
+      verificationTools: ['ads_list_campaigns', 'ads_read_adset_full', 'ads_read_creative_full'],
+      activationOrder: ['ads_resume_campaign', 'ads_resume_adset', 'ads_resume_ad'],
+      requiresSecondActivationApproval: true,
     });
   });
 
