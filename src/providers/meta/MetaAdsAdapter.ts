@@ -1501,7 +1501,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       }
     }
 
-    // For custom/Dynamic Creative payloads, page_id may already be nested
+    // For custom/Flexible asset-feed payloads, page_id may already be nested
     // inside objectStorySpec — don't demand it a second time at top level.
     const objectStorySpecPageId =
       isRecord(request.params.objectStorySpec) &&
@@ -1543,7 +1543,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
               provider: 'meta',
               code: 'INVALID_DYNAMIC_CREATIVE_PAYLOAD',
               message:
-                'assetFeedSpec requires objectStorySpec with the Meta Page identity for a Dynamic Creative.',
+                'assetFeedSpec requires objectStorySpec with the Meta Page identity for a legacy Flexible asset-feed payload. For new ads, prefer creativeFormat="flexible" + creativeSpec.',
             },
           ],
         };
@@ -1558,7 +1558,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
               provider: 'meta',
               code: 'MISSING_CREATIVE_CONTENT',
               message:
-                'Provide link and message for a simple creative, or objectStorySpec for a custom or Dynamic Creative payload.',
+                'Provide link and message for a simple creative, creativeFormat+creativeSpec for new creatives, or objectStorySpec for a custom legacy asset-feed payload.',
             },
           ],
         };
@@ -3366,9 +3366,7 @@ function assertKnownParams(
   const unknown = Object.keys(params).filter((key) => !allowed.has(key));
   if (unknown.length === 0) return;
 
-  const detail = unknown
-    .map((key) => (hints[key] ? `${key} → ${hints[key]}` : key))
-    .join('; ');
+  const detail = unknown.map((key) => (hints[key] ? `${key} → ${hints[key]}` : key)).join('; ');
   throw new Error(
     `Field berikut tidak dikenali dan TIDAK dikirim ke Meta: ${detail}. params bukan passthrough mentah ke Graph API — pakai field bertipe yang sesuai, atau hapus field ini.`
   );

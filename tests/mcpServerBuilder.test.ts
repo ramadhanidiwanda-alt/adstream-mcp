@@ -246,16 +246,22 @@ describe('MCP server builder', () => {
     }
   });
 
-  it('documents objectStorySpec for Dynamic Creative payloads', async () => {
+  it('documents flexible asset-feed inputs without encouraging legacy Dynamic Creative defaults', async () => {
     process.env.ADSTREAM_ENABLE_WRITES = 'true';
     const response = await listRegisteredTools();
+    const adSetTool = response.tools.find((tool) => tool.name === 'ads_create_adset');
     const creativeTool = response.tools.find((tool) => tool.name === 'ads_create_adcreative');
 
+    expect(adSetTool?.inputSchema.properties.isDynamicCreative.description).toMatch(/legacy/i);
+    expect(adSetTool?.inputSchema.properties.isDynamicCreative.description).toMatch(
+      /jangan diisi/i
+    );
     expect(creativeTool?.inputSchema.properties).toHaveProperty('objectStorySpec');
     expect(creativeTool?.inputSchema.properties).toHaveProperty('assetFeedSpec');
     expect(creativeTool?.inputSchema.properties).toHaveProperty('urlTags');
     expect(creativeTool?.inputSchema.required).not.toContain('message');
-    expect(creativeTool?.description).toContain('Dynamic Creative');
+    expect(creativeTool?.description).toContain('Flexible');
+    expect(creativeTool?.inputSchema.properties.assetFeedSpec.description).toContain('Flexible');
   });
 
   it('accepts urlTags at the MCP schema boundary for Meta URL parameters', async () => {

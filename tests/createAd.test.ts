@@ -111,6 +111,53 @@ describe('createAd', () => {
     expect(mockMetaPost).not.toHaveBeenCalled();
   });
 
+  it('blocks flexible multi-variant asset feeds on non-dynamic ad sets before mutation', async () => {
+    mockMetaGetObject.mockImplementation(async (path: string) =>
+      path === '/as456'
+        ? { destination_type: 'WEBSITE', is_dynamic_creative: false }
+        : {
+            asset_feed_spec: {
+              bodies: [{ text: 'Primary text A' }, { text: 'Primary text B' }],
+              titles: [{ text: 'Headline A' }, { text: 'Headline B' }],
+              images: [{ hash: 'image_hash_1' }],
+              link_urls: [{ website_url: 'https://example.com/product' }],
+              call_to_action_types: ['LEARN_MORE'],
+            },
+          }
+    );
+
+    const r = await createAd(mockClient, baseOpts, { dryRun: false, confirmed: true });
+
+    expect(r).toMatchObject({
+      status: 'failed',
+      executed: false,
+      error: expect.stringMatching(/flexible.*multi-varian|multi-varian.*flexible/i),
+    });
+    expect(mockMetaPost).not.toHaveBeenCalled();
+  });
+
+  it('surfaces flexible multi-variant incompatibility during dry-run', async () => {
+    mockMetaGetObject.mockImplementation(async (path: string) =>
+      path === '/as456'
+        ? { destination_type: 'WEBSITE', is_dynamic_creative: false }
+        : {
+            asset_feed_spec: {
+              bodies: [{ text: 'Primary text A' }, { text: 'Primary text B' }],
+              titles: [{ text: 'Headline A' }, { text: 'Headline B' }],
+              images: [{ hash: 'image_hash_1' }],
+              link_urls: [{ website_url: 'https://example.com/product' }],
+              call_to_action_types: ['LEARN_MORE'],
+            },
+          }
+    );
+
+    const r = await createAd(mockClient, baseOpts);
+
+    expect(r.status).toBe('failed');
+    expect(r.error).toMatch(/flexible.*multi-varian|multi-varian.*flexible/i);
+    expect(mockMetaPost).not.toHaveBeenCalled();
+  });
+
   it('allows placement compatibility bypass with an explicit warning', async () => {
     mockMetaGetObject.mockImplementation(async (path: string) =>
       path === '/as456'

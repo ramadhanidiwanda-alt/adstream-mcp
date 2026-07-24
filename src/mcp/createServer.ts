@@ -439,7 +439,12 @@ const createAdSetInputSchema = {
     .describe(
       'Frequency cap specs. Example: [{ event: "IMPRESSIONS", interval_days: 7, max_frequency: 3 }]'
     ),
-  isDynamicCreative: z.boolean().optional().describe('Enable Dynamic Creative for this ad set.'),
+  isDynamicCreative: z
+    .boolean()
+    .optional()
+    .describe(
+      'Legacy Meta API compatibility flag. Jangan diisi untuk iklan normal; hanya set true saat attaching flexible asset_feed_spec multi-varian yang sudah direview dan Meta menolak adset non-Dynamic Creative.'
+    ),
   dsaBeneficiary: z
     .string()
     .optional()
@@ -491,7 +496,7 @@ const objectStorySpecInputSchema = z
   })
   .passthrough()
   .describe(
-    'Input advanced/backward-compatible Meta object_story_spec. Dynamic Creative legacy dapat memakai asset_feed_spec di sini; sebaiknya gunakan assetFeedSpec tingkat atas.'
+    'Input advanced/backward-compatible Meta object_story_spec. Flexible asset-feed legacy dapat memakai asset_feed_spec di sini; untuk iklan baru prefer creativeFormat="flexible" + creativeSpec, atau assetFeedSpec tingkat atas bila harus memakai legacy.'
   );
 
 export const createAdCreativeInputSchema = {
@@ -608,7 +613,9 @@ export const createAdCreativeInputSchema = {
   objectStorySpec: objectStorySpecInputSchema.optional(),
   assetFeedSpec: dynamicCreativeAssetFeedSpecSchema
     .optional()
-    .describe('Input advanced/backward-compatible Meta asset_feed_spec untuk Dynamic Creative.'),
+    .describe(
+      'Input advanced/backward-compatible Meta asset_feed_spec untuk Flexible creative. Untuk iklan baru, prefer creativeFormat="flexible" + creativeSpec; legacy objectStorySpec+assetFeedSpec tetap diterima saat perlu.'
+    ),
   optOutEnhancements: z
     .array(z.string())
     .optional()
