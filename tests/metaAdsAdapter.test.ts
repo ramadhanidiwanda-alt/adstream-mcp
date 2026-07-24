@@ -19,7 +19,7 @@ describe('MetaAdsAdapter', () => {
     expect(typeof adapter.getChangeHistory).toBe('function');
   });
 
-  it('returns human-readable launch readiness questions for non-coding users', async () => {
+  it('forwards objective-aware readiness fields without exposing credentials', async () => {
     const adapter = new MetaAdsAdapter({
       clientFactory: (config) => ({ config }) as never,
     });
@@ -28,11 +28,16 @@ describe('MetaAdsAdapter', () => {
       provider: 'meta',
       accountId: 'act_123',
       params: {
-        workflow: 'whatsapp_sales',
-        productOrOffer: 'Skincare bundle',
-        dailyBudget: 100000,
-        countries: ['ID'],
-        destinationUrl: 'https://wa.me/628123456789',
+        workflow: 'leads_instant_form',
+        objective: 'OUTCOME_LEADS',
+        conversionLocation: 'INSTANT_FORM',
+        optimizationGoal: 'LEAD_GENERATION',
+        creativeFormat: 'single_image',
+        apiVersion: 'v25.0',
+        leadFormId: 'form-1',
+        applicationId: 'app-1',
+        objectStoreUrl: 'https://apps.apple.com/app/example',
+        appDeepLinkUrl: 'example://open',
         writesEnabled: true,
       },
       credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
@@ -41,9 +46,15 @@ describe('MetaAdsAdapter', () => {
     expect(response.ok).toBe(true);
     expect(response.data).toMatchObject({
       ready: false,
-      workflow: 'whatsapp_sales',
-      recommendedWorkflow: 'whatsapp_sales',
-      missing: expect.arrayContaining(['pageId', 'whatsappPhoneNumberId', 'creativeAsset']),
+      workflow: 'leads_instant_form',
+      recommendedWorkflow: 'leads_instant_form',
+      missing: expect.arrayContaining(['pageId', 'dailyBudget', 'creativeAsset']),
+      resolvedSpec: {
+        key: 'leads_instant_form',
+        objective: 'OUTCOME_LEADS',
+        conversionLocation: 'INSTANT_FORM',
+        optimizationGoal: 'LEAD_GENERATION',
+      },
       nextQuestions: expect.arrayContaining([
         'Page Facebook mana yang mau dipakai untuk iklan ini?',
       ]),

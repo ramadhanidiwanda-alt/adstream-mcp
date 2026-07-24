@@ -357,17 +357,19 @@ describe('ads MCP broker tools', () => {
 
   it('dispatches launch readiness checks and CPAS discovery tools to the broker', async () => {
     const calls: string[] = [];
+    let readinessRequest: AdsBrokerRequest | undefined;
     const broker = {
       ...createBrokerStub(),
       checkLaunchReadiness: async (request: AdsBrokerRequest) => {
         calls.push('checkLaunchReadiness');
+        readinessRequest = request;
         return {
           ok: true,
           provider: 'meta',
           data: {
             ready: false,
-            workflow: 'whatsapp_sales',
-            recommendedWorkflow: 'whatsapp_sales',
+            workflow: 'leads_instant_form',
+            recommendedWorkflow: 'leads_instant_form',
             missing: ['pageId'],
             nextQuestions: ['Page Facebook mana yang mau dipakai?'],
             checks: [],
@@ -392,7 +394,22 @@ describe('ads MCP broker tools', () => {
     } as unknown as AdsBroker;
 
     for (const [name, args] of [
-      ['ads_check_launch_readiness', { accountId: 'act_123', workflow: 'whatsapp_sales' }],
+      [
+        'ads_check_launch_readiness',
+        {
+          accountId: 'act_123',
+          workflow: 'leads_instant_form',
+          objective: 'OUTCOME_LEADS',
+          conversionLocation: 'INSTANT_FORM',
+          optimizationGoal: 'LEAD_GENERATION',
+          creativeFormat: 'single_image',
+          apiVersion: 'v25.0',
+          leadFormId: 'form-1',
+          applicationId: 'app-1',
+          objectStoreUrl: 'https://apps.apple.com/app/example',
+          appDeepLinkUrl: 'example://open',
+        },
+      ],
       ['ads_list_pixels', { accountId: 'act_123' }],
       ['ads_list_catalogs', { accountId: 'act_123', businessId: 'business-1' }],
       ['ads_list_product_sets', { accountId: 'act_123', catalogId: 'catalog-1' }],
@@ -407,6 +424,18 @@ describe('ads MCP broker tools', () => {
       'listCatalogs',
       'listProductSets',
     ]);
+    expect(readinessRequest?.params).toMatchObject({
+      workflow: 'leads_instant_form',
+      objective: 'OUTCOME_LEADS',
+      conversionLocation: 'INSTANT_FORM',
+      optimizationGoal: 'LEAD_GENERATION',
+      creativeFormat: 'single_image',
+      apiVersion: 'v25.0',
+      leadFormId: 'form-1',
+      applicationId: 'app-1',
+      objectStoreUrl: 'https://apps.apple.com/app/example',
+      appDeepLinkUrl: 'example://open',
+    });
   });
 
   it('routes canonical ads_get_performance by level without removing legacy tools', async () => {
@@ -796,7 +825,13 @@ describe('ads MCP broker tools', () => {
           updateAd: async () => ({
             ok: true,
             provider: 'meta' as const,
-            data: { operation: 'update_ad', status: 'dry_run', executed: false, preview: {}, success: false },
+            data: {
+              operation: 'update_ad',
+              status: 'dry_run',
+              executed: false,
+              preview: {},
+              success: false,
+            },
           }),
         } as unknown as AdsBroker;
 
@@ -826,7 +861,9 @@ describe('ads MCP broker tools', () => {
             campaignId: 'cmp_123',
             status,
           });
-          expect(parseToolResponse(response).errors?.[0]?.code).toBe('DESTRUCTIVE_ACTIONS_DISABLED');
+          expect(parseToolResponse(response).errors?.[0]?.code).toBe(
+            'DESTRUCTIVE_ACTIONS_DISABLED'
+          );
         }
       });
     });
@@ -838,7 +875,13 @@ describe('ads MCP broker tools', () => {
           archiveAd: async () => ({
             ok: true,
             provider: 'meta' as const,
-            data: { operation: 'archive_ad', status: 'dry_run', executed: false, preview: { status: 'ARCHIVED' }, success: false },
+            data: {
+              operation: 'archive_ad',
+              status: 'dry_run',
+              executed: false,
+              preview: { status: 'ARCHIVED' },
+              success: false,
+            },
           }),
         } as unknown as AdsBroker;
 
@@ -862,7 +905,11 @@ describe('ads MCP broker tools', () => {
           destructiveActions: expect.objectContaining({
             enabled: false,
             enableFlag: ENABLE_DESTRUCTIVE,
-            gatedTools: expect.arrayContaining(['ads_archive_ad', 'ads_update_ad', 'ads_update_campaign']),
+            gatedTools: expect.arrayContaining([
+              'ads_archive_ad',
+              'ads_update_ad',
+              'ads_update_campaign',
+            ]),
           }),
         });
       });

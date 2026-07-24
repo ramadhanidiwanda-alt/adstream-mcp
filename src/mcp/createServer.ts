@@ -40,6 +40,7 @@ import {
   META_CONVERSION_LOCATIONS,
   META_ODAX_OBJECTIVES,
 } from '../providers/meta/objectiveLaunchMatrix.js';
+import { META_LAUNCH_WORKFLOWS } from '../tools/checkLaunchReadiness.js';
 
 export interface CreateMetaAdsMcpServerOptions {
   client?: MetaClient;
@@ -140,16 +141,23 @@ const launchReadinessInputSchema = {
   ...adsBaseInputSchema,
   accountId: z.string().describe('Provider account id. Required for launch readiness checks.'),
   workflow: z
-    .enum([
-      'whatsapp_sales',
-      'website_sales',
-      'lead_generation',
-      'cpas_catalog_sales',
-      'creative_testing',
-      'existing_post',
-    ])
+    .enum(META_LAUNCH_WORKFLOWS)
     .optional()
-    .describe('Plain-language launch preset. Defaults to website_sales when omitted.'),
+    .describe('Canonical Meta v25 workflow. Defaults to sales_website when omitted.'),
+  objective: z
+    .enum(META_ODAX_OBJECTIVES)
+    .optional()
+    .describe('Optional ODAX objective override for the workflow.'),
+  conversionLocation: z
+    .enum(META_CONVERSION_LOCATIONS)
+    .optional()
+    .describe('Optional conversion location override for the workflow.'),
+  optimizationGoal: z.string().optional().describe('Optional Meta optimization goal.'),
+  creativeFormat: z
+    .enum(META_CREATIVE_FORMATS)
+    .optional()
+    .describe('Optional intended creative format to validate against the resolved workflow.'),
+  apiVersion: z.string().optional().describe('Meta Marketing API version, defaults to v25.0.'),
   productOrOffer: z.string().optional().describe('Product or offer being promoted.'),
   pageId: z.string().optional().describe('Meta Page ID.'),
   pixelId: z.string().optional().describe('Meta Pixel ID for conversion workflows.'),
@@ -168,6 +176,10 @@ const launchReadinessInputSchema = {
   businessId: z.string().optional().describe('Meta Business ID for catalog discovery.'),
   catalogId: z.string().optional().describe('Meta product catalog ID.'),
   productSetId: z.string().optional().describe('Meta product set ID.'),
+  leadFormId: z.string().optional().describe('Published Meta Instant Form ID.'),
+  applicationId: z.string().optional().describe('Meta application ID for app promotion.'),
+  objectStoreUrl: z.string().optional().describe('App Store or Play Store URL for app promotion.'),
+  appDeepLinkUrl: z.string().optional().describe('Optional app deep-link URL.'),
   specialAdCategories: z
     .array(z.string())
     .optional()

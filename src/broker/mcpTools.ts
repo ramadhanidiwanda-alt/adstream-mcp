@@ -30,6 +30,7 @@ import {
   META_CONVERSION_LOCATIONS,
   META_ODAX_OBJECTIVES,
 } from '../providers/meta/objectiveLaunchMatrix.js';
+import { META_LAUNCH_WORKFLOWS } from '../tools/checkLaunchReadiness.js';
 
 export const ADS_MCP_TOOL_NAMES = [
   'ads_list_accounts',
@@ -230,7 +231,7 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
   {
     name: 'ads_check_launch_readiness',
     description:
-      'Non-coding launch checklist for Meta Ads. Given a plain-language workflow and known inputs, returns ready/missing status, next questions, warnings, and the recommended setup path before any write tools are used.',
+      'Read-only Meta v25 launch checklist. Resolves one of the six ODAX objectives into a canonical workflow, required inputs, and setup spec; it does not perform writes.',
     inputSchema: createLaunchReadinessInputSchema(),
   },
   {
@@ -2592,16 +2593,26 @@ function createLaunchReadinessInputSchema() {
       ...(schema.properties as Record<string, unknown>),
       workflow: {
         type: 'string',
-        enum: [
-          'whatsapp_sales',
-          'website_sales',
-          'lead_generation',
-          'cpas_catalog_sales',
-          'creative_testing',
-          'existing_post',
-        ],
-        description: 'Plain-language launch preset. Defaults to website_sales when omitted.',
+        enum: [...META_LAUNCH_WORKFLOWS],
+        description: 'Canonical Meta v25 workflow. Defaults to sales_website when omitted.',
       },
+      objective: {
+        type: 'string',
+        enum: [...META_ODAX_OBJECTIVES],
+        description: 'Optional ODAX objective override for the workflow.',
+      },
+      conversionLocation: {
+        type: 'string',
+        enum: [...META_CONVERSION_LOCATIONS],
+        description: 'Optional conversion location override for the workflow.',
+      },
+      optimizationGoal: { type: 'string', description: 'Optional Meta optimization goal.' },
+      creativeFormat: {
+        type: 'string',
+        enum: [...META_CREATIVE_FORMATS],
+        description: 'Optional intended creative format to validate against the resolved workflow.',
+      },
+      apiVersion: { type: 'string', description: 'Meta Marketing API version, defaults to v25.0.' },
       productOrOffer: { type: 'string', description: 'Product or offer being promoted.' },
       pageId: { type: 'string', description: 'Meta Page ID.' },
       pixelId: { type: 'string', description: 'Meta Pixel ID for conversion workflows.' },
@@ -2620,6 +2631,13 @@ function createLaunchReadinessInputSchema() {
       businessId: { type: 'string', description: 'Meta Business ID for catalog discovery.' },
       catalogId: { type: 'string', description: 'Meta product catalog ID.' },
       productSetId: { type: 'string', description: 'Meta product set ID.' },
+      leadFormId: { type: 'string', description: 'Published Meta Instant Form ID.' },
+      applicationId: { type: 'string', description: 'Meta application ID for app promotion.' },
+      objectStoreUrl: {
+        type: 'string',
+        description: 'App Store or Play Store URL for app promotion.',
+      },
+      appDeepLinkUrl: { type: 'string', description: 'Optional app deep-link URL.' },
       specialAdCategories: {
         type: 'array',
         items: { type: 'string' },

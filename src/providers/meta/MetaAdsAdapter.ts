@@ -1399,7 +1399,9 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
               ? request.params.objectStoreUrl
               : undefined,
           productSetId:
-            typeof request.params.productSetId === 'string' ? request.params.productSetId : undefined,
+            typeof request.params.productSetId === 'string'
+              ? request.params.productSetId
+              : undefined,
           customEventType:
             typeof request.params.customEventType === 'string'
               ? request.params.customEventType
@@ -2858,6 +2860,15 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
     try {
       const result = checkLaunchReadinessTool({
         workflow: optionalPlainString(request.params.workflow),
+        objective: optionalPlainString(request.params.objective) as MetaOdaxObjective | undefined,
+        conversionLocation: optionalPlainString(request.params.conversionLocation) as
+          | MetaConversionLocation
+          | undefined,
+        optimizationGoal: optionalPlainString(request.params.optimizationGoal),
+        creativeFormat: optionalPlainString(request.params.creativeFormat) as
+          | MetaCreativeFormat
+          | undefined,
+        apiVersion: optionalPlainString(request.params.apiVersion),
         productOrOffer: optionalPlainString(request.params.productOrOffer),
         pageId: optionalPlainString(request.params.pageId),
         pixelId: optionalPlainString(request.params.pixelId),
@@ -2879,6 +2890,10 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
         productSetId: optionalPlainString(request.params.productSetId),
         catalogId: optionalPlainString(request.params.catalogId),
         businessId: optionalPlainString(request.params.businessId),
+        leadFormId: optionalPlainString(request.params.leadFormId),
+        applicationId: optionalPlainString(request.params.applicationId),
+        objectStoreUrl: optionalPlainString(request.params.objectStoreUrl),
+        appDeepLinkUrl: optionalPlainString(request.params.appDeepLinkUrl),
         specialAdCategories: Array.isArray(request.params.specialAdCategories)
           ? request.params.specialAdCategories.filter(
               (item): item is string => typeof item === 'string'
