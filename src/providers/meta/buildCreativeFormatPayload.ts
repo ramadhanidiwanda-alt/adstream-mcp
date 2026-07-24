@@ -104,6 +104,22 @@ function buildSingleImage(
   input: Extract<BuildMetaCreativeFormatPayloadInput, { creativeFormat: 'single_image' }>
 ): Record<string, unknown> {
   const { creativeSpec } = input;
+  if (creativeSpec.destinationMode === 'NONE') {
+    return withDegreesOfFreedomSpec(
+      {
+        object_story_spec: {
+          page_id: required(input.pageId, 'pageId'),
+          ...instagramIdentity(input),
+          photo_data: {
+            image_hash: required(creativeSpec.imageHash, 'imageHash'),
+            message: required(creativeSpec.primaryText, 'primaryText'),
+          },
+        },
+      },
+      input.optOutEnhancements
+    );
+  }
+
   const destinationUrl = required(creativeSpec.destinationUrl, 'destinationUrl');
   const linkData: Record<string, unknown> = {
     image_hash: required(creativeSpec.imageHash, 'imageHash'),
@@ -141,14 +157,36 @@ function buildVideo(
   input: Extract<BuildMetaCreativeFormatPayloadInput, { creativeFormat: 'video' }>
 ): Record<string, unknown> {
   const { creativeSpec } = input;
+  const thumbnailImageHash = optional(creativeSpec.thumbnailImageHash, 'thumbnailImageHash');
+  const thumbnailImageUrl = optional(creativeSpec.thumbnailImageUrl, 'thumbnailImageUrl');
+
+  if (creativeSpec.destinationMode === 'NONE') {
+    const videoData = {
+      video_id: required(creativeSpec.videoId, 'videoId'),
+      message: required(creativeSpec.primaryText, 'primaryText'),
+      ...(creativeSpec.headline?.trim() ? { title: creativeSpec.headline.trim() } : {}),
+      ...(thumbnailImageHash ? { image_hash: thumbnailImageHash } : {}),
+      ...(!thumbnailImageHash && thumbnailImageUrl ? { image_url: thumbnailImageUrl } : {}),
+    };
+
+    return withDegreesOfFreedomSpec(
+      {
+        object_story_spec: {
+          page_id: required(input.pageId, 'pageId'),
+          ...instagramIdentity(input),
+          video_data: videoData,
+        },
+      },
+      input.optOutEnhancements
+    );
+  }
+
   const destinationUrl = required(creativeSpec.destinationUrl, 'destinationUrl');
   const videoData: Record<string, unknown> = {
     video_id: required(creativeSpec.videoId, 'videoId'),
     message: required(creativeSpec.primaryText, 'primaryText'),
     call_to_action: cta(creativeSpec.callToAction, destinationUrl, input.collaborativeAppSpec),
   };
-  const thumbnailImageHash = optional(creativeSpec.thumbnailImageHash, 'thumbnailImageHash');
-  const thumbnailImageUrl = optional(creativeSpec.thumbnailImageUrl, 'thumbnailImageUrl');
   const headline = optional(creativeSpec.headline, 'headline');
   const pageWelcomeMessage = optional(creativeSpec.pageWelcomeMessage, 'pageWelcomeMessage');
 

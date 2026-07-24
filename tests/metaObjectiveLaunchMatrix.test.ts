@@ -35,6 +35,71 @@ describe('Meta objective launch matrix', () => {
     });
   });
 
+  it.each([
+    {
+      objective: 'OUTCOME_AWARENESS' as const,
+      conversionLocation: 'AWARENESS' as const,
+      optimizationGoal: undefined,
+      expected: {
+        optimizationGoal: 'REACH',
+        billingEvent: 'IMPRESSIONS',
+        destinationMode: 'NONE',
+      },
+    },
+    {
+      objective: 'OUTCOME_AWARENESS' as const,
+      conversionLocation: 'AWARENESS' as const,
+      optimizationGoal: 'IMPRESSIONS',
+      expected: {
+        optimizationGoal: 'IMPRESSIONS',
+        billingEvent: 'IMPRESSIONS',
+        destinationMode: 'NONE',
+      },
+    },
+    {
+      objective: 'OUTCOME_TRAFFIC' as const,
+      conversionLocation: 'WEBSITE' as const,
+      optimizationGoal: undefined,
+      expected: {
+        optimizationGoal: 'LANDING_PAGE_VIEWS',
+        billingEvent: 'IMPRESSIONS',
+        destinationType: 'WEBSITE',
+        destinationMode: 'EXTERNAL_URL',
+      },
+    },
+    {
+      objective: 'OUTCOME_ENGAGEMENT' as const,
+      conversionLocation: 'POST' as const,
+      optimizationGoal: undefined,
+      expected: {
+        optimizationGoal: 'POST_ENGAGEMENT',
+        billingEvent: 'IMPRESSIONS',
+        destinationType: 'ON_POST',
+        destinationMode: 'NONE',
+      },
+    },
+    {
+      objective: 'OUTCOME_ENGAGEMENT' as const,
+      conversionLocation: 'VIDEO' as const,
+      optimizationGoal: undefined,
+      expected: {
+        optimizationGoal: 'THRUPLAY',
+        billingEvent: 'IMPRESSIONS',
+        destinationType: 'ON_VIDEO',
+        destinationMode: 'NONE',
+      },
+    },
+  ])('resolves $objective at $conversionLocation to its canonical payload', (testCase) => {
+    expect(
+      resolveMetaObjectiveLaunchSpec({
+        objective: testCase.objective,
+        conversionLocation: testCase.conversionLocation,
+        optimizationGoal: testCase.optimizationGoal,
+        apiVersion: 'v25.0',
+      })
+    ).toMatchObject(testCase.expected);
+  });
+
   it('rejects a sales/reach combination before any provider call', () => {
     expect(() =>
       resolveMetaObjectiveLaunchSpec({

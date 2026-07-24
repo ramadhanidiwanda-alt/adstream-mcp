@@ -27,6 +27,72 @@ const defaultOptions = {
 
 describe('createAdSet — bid strategy + pre-flight validation', () => {
   describe('objective launch matrix', () => {
+    it.each([
+      {
+        objective: 'OUTCOME_AWARENESS',
+        conversionLocation: 'AWARENESS' as const,
+        creativeFormat: 'single_image' as const,
+        optimizationGoal: undefined,
+        expected: { optimization_goal: 'REACH', billing_event: 'IMPRESSIONS' },
+      },
+      {
+        objective: 'OUTCOME_AWARENESS',
+        conversionLocation: 'AWARENESS' as const,
+        creativeFormat: 'single_image' as const,
+        optimizationGoal: 'IMPRESSIONS' as const,
+        expected: { optimization_goal: 'IMPRESSIONS', billing_event: 'IMPRESSIONS' },
+      },
+      {
+        objective: 'OUTCOME_TRAFFIC',
+        conversionLocation: 'WEBSITE' as const,
+        creativeFormat: 'single_image' as const,
+        optimizationGoal: undefined,
+        expected: {
+          optimization_goal: 'LANDING_PAGE_VIEWS',
+          billing_event: 'IMPRESSIONS',
+          destination_type: 'WEBSITE',
+        },
+      },
+      {
+        objective: 'OUTCOME_ENGAGEMENT',
+        conversionLocation: 'POST' as const,
+        creativeFormat: 'existing_post' as const,
+        optimizationGoal: undefined,
+        expected: {
+          optimization_goal: 'POST_ENGAGEMENT',
+          billing_event: 'IMPRESSIONS',
+          destination_type: 'ON_POST',
+        },
+      },
+      {
+        objective: 'OUTCOME_ENGAGEMENT',
+        conversionLocation: 'VIDEO' as const,
+        creativeFormat: 'video' as const,
+        optimizationGoal: undefined,
+        expected: {
+          optimization_goal: 'THRUPLAY',
+          billing_event: 'IMPRESSIONS',
+          destination_type: 'ON_VIDEO',
+        },
+      },
+    ])('uses the canonical $objective/$conversionLocation payload', async (testCase) => {
+      const client = createMockClient({
+        objective: testCase.objective,
+        bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+        daily_budget: undefined,
+      });
+
+      const result = await createAdSet(client, {
+        ...defaultOptions,
+        conversionLocation: testCase.conversionLocation,
+        creativeFormat: testCase.creativeFormat,
+        optimizationGoal: testCase.optimizationGoal,
+      });
+
+      expect(result.preview).toMatchObject(testCase.expected);
+      expect(client.metaPost).not.toHaveBeenCalled();
+    });
+
     it('defaults website traffic to landing page views through the matrix', async () => {
       const client = createMockClient({
         objective: 'OUTCOME_TRAFFIC',

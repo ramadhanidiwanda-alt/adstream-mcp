@@ -20,12 +20,15 @@ export const META_CREATIVE_FORMATS = [
 
 export type MetaCreativeFormat = (typeof META_CREATIVE_FORMATS)[number];
 
+export type MetaCreativeDestinationMode = 'EXTERNAL_URL' | 'NONE' | 'INSTANT_FORM' | 'APP';
+
 export interface MetaCreativeCopy {
   primaryText: string;
   headline?: string;
   description?: string;
   callToAction?: string;
   destinationUrl?: string;
+  destinationMode?: MetaCreativeDestinationMode;
 }
 
 export interface MetaAssetMessageExtension {

@@ -1,4 +1,4 @@
-import type { MetaCreativeFormat } from '../../types.js';
+import type { MetaCreativeDestinationMode, MetaCreativeFormat } from '../../types.js';
 
 export const META_ODAX_OBJECTIVES = [
   'OUTCOME_AWARENESS',
@@ -56,6 +56,7 @@ export interface MetaObjectiveLaunchSpec {
   allowedOptimizationGoals: readonly string[];
   billingEvent: string;
   destinationType?: string;
+  destinationMode: MetaCreativeDestinationMode;
   promotedObjectKind: MetaPromotedObjectKind;
   requiredInputs: readonly string[];
   supportedCreativeFormats: readonly MetaCreativeFormat[];
@@ -93,8 +94,10 @@ export class MetaObjectiveLaunchValidationError extends Error {
   }
 }
 
-interface MetaObjectiveLaunchMatrixRow
-  extends Omit<MetaObjectiveLaunchSpec, 'optimizationGoal' | 'allowedOptimizationGoals'> {
+interface MetaObjectiveLaunchMatrixRow extends Omit<
+  MetaObjectiveLaunchSpec,
+  'optimizationGoal' | 'allowedOptimizationGoals'
+> {
   defaultGoal: string;
   allowedGoals: readonly string[];
 }
@@ -108,6 +111,7 @@ const MATRIX: Record<MetaObjectiveLaunchSpec['key'], MetaObjectiveLaunchMatrixRo
     allowedGoals: ['REACH', 'IMPRESSIONS'],
     billingEvent: 'IMPRESSIONS',
     destinationType: undefined,
+    destinationMode: 'NONE',
     promotedObjectKind: 'none',
     requiredInputs: [
       'pageId',
@@ -129,6 +133,7 @@ const MATRIX: Record<MetaObjectiveLaunchSpec['key'], MetaObjectiveLaunchMatrixRo
     allowedGoals: ['LANDING_PAGE_VIEWS', 'LINK_CLICKS'],
     billingEvent: 'IMPRESSIONS',
     destinationType: 'WEBSITE',
+    destinationMode: 'EXTERNAL_URL',
     promotedObjectKind: 'none',
     requiredInputs: [
       'pageId',
@@ -153,6 +158,7 @@ const MATRIX: Record<MetaObjectiveLaunchSpec['key'], MetaObjectiveLaunchMatrixRo
     allowedGoals: ['POST_ENGAGEMENT'],
     billingEvent: 'IMPRESSIONS',
     destinationType: 'ON_POST',
+    destinationMode: 'NONE',
     promotedObjectKind: 'none',
     requiredInputs: ['pageId', 'existingPostId', 'dailyBudget', 'countries', 'specialAdCategories'],
     supportedCreativeFormats: ['existing_post'],
@@ -167,6 +173,7 @@ const MATRIX: Record<MetaObjectiveLaunchSpec['key'], MetaObjectiveLaunchMatrixRo
     allowedGoals: ['THRUPLAY'],
     billingEvent: 'IMPRESSIONS',
     destinationType: 'ON_VIDEO',
+    destinationMode: 'NONE',
     promotedObjectKind: 'none',
     requiredInputs: [
       'pageId',
@@ -188,6 +195,7 @@ const MATRIX: Record<MetaObjectiveLaunchSpec['key'], MetaObjectiveLaunchMatrixRo
     allowedGoals: ['OFFSITE_CONVERSIONS'],
     billingEvent: 'IMPRESSIONS',
     destinationType: 'WEBSITE',
+    destinationMode: 'EXTERNAL_URL',
     promotedObjectKind: 'pixel_lead',
     requiredInputs: [
       'pageId',
@@ -213,6 +221,7 @@ const MATRIX: Record<MetaObjectiveLaunchSpec['key'], MetaObjectiveLaunchMatrixRo
     allowedGoals: ['LEAD_GENERATION'],
     billingEvent: 'IMPRESSIONS',
     destinationType: 'ON_AD',
+    destinationMode: 'INSTANT_FORM',
     promotedObjectKind: 'page',
     requiredInputs: [
       'pageId',
@@ -237,6 +246,7 @@ const MATRIX: Record<MetaObjectiveLaunchSpec['key'], MetaObjectiveLaunchMatrixRo
     allowedGoals: ['APP_INSTALLS'],
     billingEvent: 'IMPRESSIONS',
     destinationType: 'APP',
+    destinationMode: 'APP',
     promotedObjectKind: 'application',
     requiredInputs: [
       'pageId',
@@ -262,6 +272,7 @@ const MATRIX: Record<MetaObjectiveLaunchSpec['key'], MetaObjectiveLaunchMatrixRo
     allowedGoals: ['OFFSITE_CONVERSIONS', 'VALUE'],
     billingEvent: 'IMPRESSIONS',
     destinationType: 'WEBSITE',
+    destinationMode: 'EXTERNAL_URL',
     promotedObjectKind: 'pixel_purchase',
     requiredInputs: [
       'pageId',
@@ -287,6 +298,7 @@ const MATRIX: Record<MetaObjectiveLaunchSpec['key'], MetaObjectiveLaunchMatrixRo
     allowedGoals: ['OFFSITE_CONVERSIONS', 'VALUE'],
     billingEvent: 'IMPRESSIONS',
     destinationType: 'WEBSITE',
+    destinationMode: 'EXTERNAL_URL',
     promotedObjectKind: 'collaborative_catalog',
     requiredInputs: [
       'businessId',

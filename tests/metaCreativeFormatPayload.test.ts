@@ -2,6 +2,103 @@ import { describe, expect, it } from 'vitest';
 import { buildMetaCreativeFormatPayload } from '../src/providers/meta/buildCreativeFormatPayload.js';
 
 describe('buildMetaCreativeFormatPayload', () => {
+  it('builds an Awareness single image without an external URL or CTA', () => {
+    expect(
+      buildMetaCreativeFormatPayload({
+        mode: 'standard',
+        pageId: 'page-1',
+        creativeFormat: 'single_image',
+        creativeSpec: {
+          destinationMode: 'NONE',
+          imageHash: 'image-hash',
+          primaryText: 'Kenali brand kami',
+        },
+      })
+    ).toEqual({
+      object_story_spec: {
+        page_id: 'page-1',
+        photo_data: {
+          image_hash: 'image-hash',
+          message: 'Kenali brand kami',
+        },
+      },
+    });
+  });
+
+  it('keeps Traffic single images URL-backed with the default LEARN_MORE CTA', () => {
+    expect(() =>
+      buildMetaCreativeFormatPayload({
+        mode: 'standard',
+        pageId: 'page-1',
+        creativeFormat: 'single_image',
+        creativeSpec: {
+          destinationMode: 'EXTERNAL_URL',
+          imageHash: 'image-hash',
+          primaryText: 'Kunjungi situs kami',
+        },
+      })
+    ).toThrow(/destinationUrl wajib diisi/i);
+
+    expect(
+      buildMetaCreativeFormatPayload({
+        mode: 'standard',
+        pageId: 'page-1',
+        creativeFormat: 'single_image',
+        creativeSpec: {
+          destinationMode: 'EXTERNAL_URL',
+          imageHash: 'image-hash',
+          primaryText: 'Kunjungi situs kami',
+          destinationUrl: 'https://example.com',
+        },
+      })
+    ).toMatchObject({
+      object_story_spec: {
+        link_data: {
+          link: 'https://example.com',
+          call_to_action: { type: 'LEARN_MORE', value: { link: 'https://example.com' } },
+        },
+      },
+    });
+  });
+
+  it('builds an Engagement existing post without fabricating an external URL', () => {
+    expect(
+      buildMetaCreativeFormatPayload({
+        mode: 'standard',
+        pageId: 'page-1',
+        creativeFormat: 'existing_post',
+        creativeSpec: {
+          objectStoryId: 'page-1_post-1',
+        },
+      })
+    ).toEqual({ object_story_id: 'page-1_post-1' });
+  });
+
+  it('builds an Engagement video without a CTA and retains thumbnail fallback', () => {
+    expect(
+      buildMetaCreativeFormatPayload({
+        mode: 'standard',
+        pageId: 'page-1',
+        creativeFormat: 'video',
+        creativeSpec: {
+          destinationMode: 'NONE',
+          videoId: 'video-1',
+          thumbnailImageUrl: 'https://example.com/thumbnail.jpg',
+          primaryText: 'Tonton videonya',
+        },
+      })
+    ).toEqual({
+      object_story_spec: {
+        page_id: 'page-1',
+        video_data: {
+          video_id: 'video-1',
+          image_url: 'https://example.com/thumbnail.jpg',
+          message: 'Tonton videonya',
+        },
+      },
+    });
+  });
+
   it('builds a standard single-image link creative', () => {
     expect(
       buildMetaCreativeFormatPayload({
