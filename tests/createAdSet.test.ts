@@ -615,6 +615,68 @@ describe('createAdSet — bid strategy + pre-flight validation', () => {
       });
     });
 
+    it('preserves the Collaborative Ads promoted object when catalog matrix defaults apply', async () => {
+      const client = createMockClient({
+        objective: 'OUTCOME_SALES',
+        bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+        daily_budget: undefined,
+      });
+      vi.mocked(client.metaGetObject).mockImplementation(async (path) => {
+        if (path === '/shopee-set') return { id: 'shopee-set' };
+        return {
+          id: '120000000000000001',
+          objective: 'OUTCOME_SALES',
+          bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+        };
+      });
+
+      const result = await createAdSet(
+        client,
+        {
+          ...defaultOptions,
+          optimizationGoal: undefined,
+          mode: 'collaborative_ads',
+          conversionLocation: 'CATALOG',
+          creativeFormat: 'catalog',
+          productSetId: 'shopee-set',
+          collaborativeCatalog: {
+            productSetId: 'shopee-set',
+            pixelId: 'cpas-pixel',
+            customEventType: 'PURCHASE',
+            applicationId: 'shopee-app',
+            objectStoreUrls: [
+              'http://play.google.com/store/apps/details?id=com.shopee.id',
+              'http://itunes.apple.com/app/id959841443',
+            ],
+          },
+        },
+        { dryRun: true }
+      );
+
+      expect(result.preview).toMatchObject({
+        billing_event: 'IMPRESSIONS',
+        optimization_goal: 'OFFSITE_CONVERSIONS',
+        destination_type: 'WEBSITE',
+      });
+      expect(result.preview.promoted_object).toEqual({
+        product_set_id: 'shopee-set',
+        smart_pse_enabled: false,
+        omnichannel_object: {
+          app: [
+            {
+              application_id: 'shopee-app',
+              custom_event_type: 'PURCHASE',
+              object_store_urls: [
+                'http://play.google.com/store/apps/details?id=com.shopee.id',
+                'http://itunes.apple.com/app/id959841443',
+              ],
+            },
+          ],
+          pixel: [{ pixel_id: 'cpas-pixel', custom_event_type: 'PURCHASE' }],
+        },
+      });
+    });
+
     it('continues when Meta permits use but blocks direct retailer product-set reads', async () => {
       const client = createMockClient({
         bid_strategy: 'LOWEST_COST_WITHOUT_CAP',

@@ -430,7 +430,7 @@ export async function createAdSet(
             productSetId: options.productSetId,
             customEventType: options.customEventType,
           });
-          if (promotedObject !== undefined) {
+          if (promotedObject !== undefined && preview.promoted_object === undefined) {
             preview.promoted_object = promotedObject;
           }
         }
