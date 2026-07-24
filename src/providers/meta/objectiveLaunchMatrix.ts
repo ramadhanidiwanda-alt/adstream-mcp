@@ -11,6 +11,15 @@ export const META_ODAX_OBJECTIVES = [
 
 export type MetaOdaxObjective = (typeof META_ODAX_OBJECTIVES)[number];
 
+/** Canonical Website Sales values consumed by legacy bundle compatibility paths. */
+export const META_SALES_WEBSITE_OPTIMIZATION_GOALS = ['OFFSITE_CONVERSIONS', 'VALUE'] as const;
+export const META_SALES_WEBSITE_CREATIVE_FORMATS = [
+  'single_image',
+  'video',
+  'carousel',
+  'flexible',
+] as const satisfies readonly MetaCreativeFormat[];
+
 export const META_CONVERSION_LOCATIONS = [
   'AWARENESS',
   'WEBSITE',
@@ -269,7 +278,7 @@ const MATRIX: Record<MetaObjectiveLaunchSpec['key'], MetaObjectiveLaunchMatrixRo
     objective: 'OUTCOME_SALES',
     conversionLocation: 'WEBSITE',
     defaultGoal: 'OFFSITE_CONVERSIONS',
-    allowedGoals: ['OFFSITE_CONVERSIONS', 'VALUE'],
+    allowedGoals: META_SALES_WEBSITE_OPTIMIZATION_GOALS,
     billingEvent: 'IMPRESSIONS',
     destinationType: 'WEBSITE',
     destinationMode: 'EXTERNAL_URL',
@@ -285,7 +294,7 @@ const MATRIX: Record<MetaObjectiveLaunchSpec['key'], MetaObjectiveLaunchMatrixRo
       'headline',
       'specialAdCategories',
     ],
-    supportedCreativeFormats: ['single_image', 'video', 'carousel', 'flexible'],
+    supportedCreativeFormats: META_SALES_WEBSITE_CREATIVE_FORMATS,
     defaultCallToAction: 'SHOP_NOW',
     minApiMajor: 23,
     maxApiMajor: 25,
