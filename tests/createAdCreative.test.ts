@@ -205,6 +205,59 @@ describe('createAdCreative', () => {
     });
   });
 
+  it('builds a Click-to-WhatsApp preview from destinationType, welcome message, and welcome flow', async () => {
+    const result = await createAdCreative(mockClient, {
+      ...baseOpts,
+      destinationType: 'WHATSAPP',
+      pageWelcomeMessage: '{"type":"VISUAL_EDITOR"}',
+      whatsappWelcomeMessageSequenceId: 'flow-1',
+    });
+
+    expect(result.status).toBe('dry_run');
+    const storySpec = result.preview.object_story_spec as Record<string, unknown>;
+    const linkData = storySpec.link_data as Record<string, unknown>;
+
+    // WHATSAPP_MESSAGE must carry no value: wa.me needs a display phone number,
+    // which the creative never has, so Meta resolves the destination itself.
+    expect(linkData.call_to_action).toEqual({ type: 'WHATSAPP_MESSAGE' });
+    expect(linkData.page_welcome_message).toBe('{"type":"VISUAL_EDITOR"}');
+    expect(result.preview.asset_feed_spec).toEqual({
+      additional_data: { partner_app_welcome_message_flow_id: 'flow-1' },
+    });
+  });
+
+  // Mirrors the payload verified live against Meta v25.0 on 2026-07-24: everything
+  // sits at the top level. Nesting the destination in object_story_spec makes Meta
+  // reject the create with (#100) subcode 1487929 "Ambiguous Promoted Object".
+  it('previews source_instagram_media_id, call_to_action, and url_tags at the top level', async () => {
+    const result = await createAdCreative(mockClient, {
+      adAccountId: 'act_426223085194693',
+      name: 'EP IG Reel 01',
+      pageId: '330290916841848',
+      urlTags: 'gcn={{campaign.name}}&utm_source=ig',
+      creative: {
+        creativeFormat: 'existing_post',
+        creativeSpec: {
+          sourceInstagramMediaId: '18571075747064659',
+          destinationUrl: 'https://hurricane.gass.my.id/cta?p=1',
+          callToAction: 'LEARN_MORE',
+        },
+      },
+    });
+
+    expect(mockMetaPost).not.toHaveBeenCalled();
+    expect(result.status).toBe('dry_run');
+    expect(result.preview).toEqual({
+      name: 'EP IG Reel 01',
+      source_instagram_media_id: '18571075747064659',
+      call_to_action: {
+        type: 'LEARN_MORE',
+        value: { link: 'https://hurricane.gass.my.id/cta?p=1' },
+      },
+      url_tags: 'gcn={{campaign.name}}&utm_source=ig',
+    });
+  });
+
   it('returns a structured validation error when a canonical creative requires pageId', async () => {
     const result = await createAdCreative(mockClient, {
       adAccountId: 'act_1',

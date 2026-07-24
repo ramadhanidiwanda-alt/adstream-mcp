@@ -47,6 +47,7 @@ import { createEcommerceCampaignBundle as createEcommerceCampaignBundleTool } fr
 import { createCampaign as createCampaignTool } from '../../tools/createCampaign.js';
 import { createAdSet as createAdSetTool } from '../../tools/createAdSet.js';
 import { createAdCreative as createAdCreativeTool } from '../../tools/createAdCreative.js';
+import type { CreativeDestinationType } from '../../tools/createAdCreative.js';
 import { createAd as createAdTool } from '../../tools/createAd.js';
 import { cloneUiAd as cloneUiAdTool } from '../../tools/cloneUiAd.js';
 import { archiveAd as archiveAdTool } from '../../tools/archiveAd.js';
@@ -1449,6 +1450,12 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       };
     }
 
+    try {
+      assertKnownParams(request.params, CREATE_AD_CREATIVE_PARAMS, CREATE_AD_CREATIVE_PARAM_HINTS);
+    } catch (error) {
+      return validationResponse(error);
+    }
+
     const hasCreativeFormat = request.params.creativeFormat !== undefined;
     const hasCreativeSpec = request.params.creativeSpec !== undefined;
     if (hasCreativeFormat !== hasCreativeSpec) {
@@ -1461,8 +1468,10 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
     let creative: MetaCreativeSpec | undefined;
     let collaborativeProductSetId: string | undefined;
     let collaborativeAppSpec: MetaCollaborativeAppSpec | undefined;
+    let destinationType: CreativeDestinationType | undefined;
     try {
       mode = parseMetaAdsMode(request.params.mode);
+      destinationType = parseCreativeDestinationType(request.params.destinationType);
       collaborativeProductSetId = optionalString(
         request.params.collaborativeProductSetId,
         'collaborativeProductSetId'
@@ -1594,6 +1603,15 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
           threadsProfileId:
             typeof request.params.threadsProfileId === 'string'
               ? request.params.threadsProfileId
+              : undefined,
+          destinationType,
+          pageWelcomeMessage:
+            typeof request.params.pageWelcomeMessage === 'string'
+              ? request.params.pageWelcomeMessage
+              : undefined,
+          whatsappWelcomeMessageSequenceId:
+            typeof request.params.whatsappWelcomeMessageSequenceId === 'string'
+              ? request.params.whatsappWelcomeMessageSequenceId
               : undefined,
           dedupeByName: request.params.dedupeByName === true,
           externalReference:
@@ -2111,8 +2129,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
           adsetBudgets: Array.isArray(request.params.adsetBudgets)
             ? (request.params.adsetBudgets as Array<Record<string, unknown>>).map((entry) => ({
                 adsetId: String(entry.adsetId),
-                dailyBudget:
-                  typeof entry.dailyBudget === 'number' ? entry.dailyBudget : undefined,
+                dailyBudget: typeof entry.dailyBudget === 'number' ? entry.dailyBudget : undefined,
                 lifetimeBudget:
                   typeof entry.lifetimeBudget === 'number' ? entry.lifetimeBudget : undefined,
               }))
@@ -2952,12 +2969,9 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
     try {
       const client = this.createClient(context.credential);
       const limit = typeof request.params.limit === 'number' ? request.params.limit : undefined;
-      const cursor =
-        typeof request.params.cursor === 'string' ? request.params.cursor : undefined;
+      const cursor = typeof request.params.cursor === 'string' ? request.params.cursor : undefined;
       const permalinkUrls = Array.isArray(request.params.permalinkUrls)
-        ? request.params.permalinkUrls.filter(
-            (url): url is string => typeof url === 'string'
-          )
+        ? request.params.permalinkUrls.filter((url): url is string => typeof url === 'string')
         : undefined;
       const media = await this.tools.listInstagramMedia(client, {
         igUserId,
@@ -3279,7 +3293,86 @@ const LEGACY_CREATIVE_FIELDS = [
   'imageHash',
   'videoId',
   'callToActionType',
+  // buildCreativePayload only consults these inside its linkData branch, so with
+  // creativeFormat + creativeSpec they would apply to nothing.
+  'destinationType',
+  'pageWelcomeMessage',
 ] as const;
+
+// Every param ads_create_adcreative accepts, across both tool surfaces (the Zod
+// schema in mcp/createServer.ts and the JSON Schema in broker/mcpTools.ts).
+// Anything else is rejected rather than dropped — see assertKnownParams.
+export const CREATE_AD_CREATIVE_PARAMS = new Set([
+  'name',
+  'pageId',
+  'mode',
+  'creativeFormat',
+  'creativeSpec',
+  'collaborativeProductSetId',
+  'collaborativeAppSpec',
+  'link',
+  'message',
+  'headline',
+  'description',
+  'imageHash',
+  'videoId',
+  'callToActionType',
+  'urlTags',
+  'instagramUserId',
+  'threadsProfileId',
+  'destinationType',
+  'pageWelcomeMessage',
+  'whatsappWelcomeMessageSequenceId',
+  'objectStorySpec',
+  'assetFeedSpec',
+  'dedupeByName',
+  'externalReference',
+  'optOutEnhancements',
+  'dryRun',
+  'confirmed',
+]);
+
+// Field names callers reach for that this tool does not accept — raw Graph API
+// spellings, plus fields that belong on a different entity. Mapping them back to
+// the right place turns a dead end into a fix.
+const CREATE_AD_CREATIVE_PARAM_HINTS: Record<string, string> = {
+  whatsappPhoneNumberId:
+    'destinasi WhatsApp diatur di ad set (ads_create_adset destinationType/promotedObject), bukan di creative — creative hanya membawa CTA WHATSAPP_MESSAGE',
+  source_instagram_media_id: 'creativeSpec.sourceInstagramMediaId (creativeFormat: existing_post)',
+  object_story_id: 'creativeSpec.objectStoryId (creativeFormat: existing_post)',
+  object_story_spec: 'objectStorySpec',
+  asset_feed_spec: 'assetFeedSpec',
+  url_tags: 'urlTags',
+  page_id: 'pageId',
+  image_hash: 'imageHash',
+  video_id: 'videoId',
+  call_to_action_type: 'callToActionType',
+  instagram_user_id: 'instagramUserId',
+  threads_profile_id: 'threadsProfileId',
+  degrees_of_freedom_spec: 'optOutEnhancements',
+};
+
+/**
+ * params is not a raw Graph API passthrough — the adapter reads a fixed set of
+ * typed fields and would otherwise ignore the rest without a word, so a caller
+ * sees a clean dry-run preview that is missing exactly the field they cared
+ * about. Reject unknown keys instead, naming the typed field where one exists.
+ */
+function assertKnownParams(
+  params: Record<string, unknown>,
+  allowed: Set<string>,
+  hints: Record<string, string>
+): void {
+  const unknown = Object.keys(params).filter((key) => !allowed.has(key));
+  if (unknown.length === 0) return;
+
+  const detail = unknown
+    .map((key) => (hints[key] ? `${key} → ${hints[key]}` : key))
+    .join('; ');
+  throw new Error(
+    `Field berikut tidak dikenali dan TIDAK dikirim ke Meta: ${detail}. params bukan passthrough mentah ke Graph API — pakai field bertipe yang sesuai, atau hapus field ini.`
+  );
+}
 
 function parseIdParam(value: unknown): string | string[] | undefined {
   if (typeof value === 'string') return value;
@@ -3317,6 +3410,32 @@ function partialPageWarningMeta(
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+const CREATIVE_DESTINATION_TYPES: readonly CreativeDestinationType[] = [
+  'WEB',
+  'WHATSAPP',
+  'MESSENGER',
+  'INSTAGRAM_DIRECT',
+  'APP',
+];
+
+/**
+ * Note this enum is NOT the ad set's destination_type (WEBSITE, APP, ...) — that
+ * one is Meta's own field, while this one only steers the creative's CTA type.
+ * Reject unknown values rather than forwarding a silently inert string.
+ */
+function parseCreativeDestinationType(value: unknown): CreativeDestinationType | undefined {
+  if (value === undefined) return undefined;
+  if (
+    typeof value !== 'string' ||
+    !CREATIVE_DESTINATION_TYPES.includes(value as CreativeDestinationType)
+  ) {
+    throw new Error(
+      `destinationType harus salah satu dari ${CREATIVE_DESTINATION_TYPES.join(', ')}. Field ini beda dari destinationType milik ads_create_adset (WEBSITE/APP/...).`
+    );
+  }
+  return value as CreativeDestinationType;
 }
 
 function parseMetaAdsMode(value: unknown): MetaAdsMode | undefined {
@@ -3581,11 +3700,19 @@ function parseMetaCreativeSpec(
         },
       };
     case 'existing_post':
+      // Both source fields are optional here on purpose: buildExistingPost owns the
+      // "exactly one of objectStoryId / sourceInstagramMediaId" rule so direct tool
+      // callers and broker callers get the identical error.
       return {
         creativeFormat: 'existing_post',
         creativeSpec: {
-          objectStoryId: requireString(spec.objectStoryId, 'creativeSpec.objectStoryId'),
+          objectStoryId: optionalString(spec.objectStoryId, 'creativeSpec.objectStoryId'),
+          sourceInstagramMediaId: optionalString(
+            spec.sourceInstagramMediaId,
+            'creativeSpec.sourceInstagramMediaId'
+          ),
           destinationUrl: optionalString(spec.destinationUrl, 'creativeSpec.destinationUrl'),
+          callToAction: optionalString(spec.callToAction, 'creativeSpec.callToAction'),
           applinkTreatment: optionalApplinkTreatment(
             spec.applinkTreatment,
             'creativeSpec.applinkTreatment'

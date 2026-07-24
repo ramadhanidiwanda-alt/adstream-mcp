@@ -494,7 +494,7 @@ const objectStorySpecInputSchema = z
     'Input advanced/backward-compatible Meta object_story_spec. Dynamic Creative legacy dapat memakai asset_feed_spec di sini; sebaiknya gunakan assetFeedSpec tingkat atas.'
   );
 
-const createAdCreativeInputSchema = {
+export const createAdCreativeInputSchema = {
   ...adsBaseInputSchema,
   accountId: z.string().describe('Provider account id. Required for creative creation.'),
   name: z.string().describe('Creative name.'),
@@ -530,7 +530,7 @@ const createAdCreativeInputSchema = {
     .record(z.unknown())
     .optional()
     .describe(
-      'Detail materi sesuai creativeFormat. Field per format: single_image memakai imageHash, primaryText, destinationUrl, headline, description, callToAction, pageWelcomeMessage (opsional, untuk Click-to-WhatsApp/Messenger), dan applinkTreatment (opsional, enum: deeplink_with_appstore_fallback, deeplink_with_web_fallback, web_only, deeplink_disabled — hanya berlaku saat collaborativeAppSpec diisi, default automatic; pada mode: collaborative_ads field ini diabaikan untuk video/single_image); video memakai videoId, thumbnailImageHash (opsional — kalau kosong, otomatis diisi dari thumbnail bawaan video via GET /{videoId}?fields=picture; hanya berbahaya diabaikan kalau video belum selesai diproses Meta dan tidak punya thumbnail sama sekali), primaryText, destinationUrl, headline, description, callToAction, pageWelcomeMessage (opsional, untuk Click-to-WhatsApp/Messenger), dan applinkTreatment (opsional, sama seperti single_image); carousel memakai primaryText, destinationUrl, cards (imageHash atau videoId, headline, description, destinationUrl); catalog memakai productSetId, primaryText, destinationUrl, templateUrl, fallbackImageHash; collection memakai instantExperienceId, coverImageHash atau coverVideoId, productSetId, primaryText, destinationUrl; flexible memakai primaryText, primaryTexts, imageHashes dan/atau videoIds, headlines, descriptions, destinationUrl; placement_image memakai asset_feed_spec; placement_customized_ctwa memakai link_data utama, platform_customizations, portrait_customizations, dan pageWelcomeMessage di link_data; existing_post memakai objectStoryId (post id Facebook Page, format {page_id}_{post_id}) ATAU sourceInstagramMediaId (media id IG yang tidak di-cross-post ke Page — dapatkan dari ads_list_instagram_media, cocokkan permalink-nya ke URL instagram.com/reel atau /p yang dimiliki user; wajib isi tepat satu dari dua field ini), plus destinationUrl dan applinkTreatment (opsional; destinationUrl wajib diisi kalau collaborativeAppSpec diisi, dipakai untuk omnichannel_link_spec.web.url — CATATAN: field ini tidak bisa memperbaiki object_store_urls yang hilang dari call_to_action post lama yang sudah dipublikasikan; untuk ad set CPAS omnichannel disarankan pakai creativeFormat video langsung).'
+      'Detail materi sesuai creativeFormat. Field per format: single_image memakai imageHash, primaryText, destinationUrl, headline, description, callToAction, pageWelcomeMessage (opsional, untuk Click-to-WhatsApp/Messenger), dan applinkTreatment (opsional, enum: deeplink_with_appstore_fallback, deeplink_with_web_fallback, web_only, deeplink_disabled — hanya berlaku saat collaborativeAppSpec diisi, default automatic; pada mode: collaborative_ads field ini diabaikan untuk video/single_image); video memakai videoId, thumbnailImageHash (opsional — kalau kosong, otomatis diisi dari thumbnail bawaan video via GET /{videoId}?fields=picture; hanya berbahaya diabaikan kalau video belum selesai diproses Meta dan tidak punya thumbnail sama sekali), primaryText, destinationUrl, headline, description, callToAction, pageWelcomeMessage (opsional, untuk Click-to-WhatsApp/Messenger), dan applinkTreatment (opsional, sama seperti single_image); carousel memakai primaryText, destinationUrl, cards (imageHash atau videoId, headline, description, destinationUrl); catalog memakai productSetId, primaryText, destinationUrl, templateUrl, fallbackImageHash; collection memakai instantExperienceId, coverImageHash atau coverVideoId, productSetId, primaryText, destinationUrl; flexible memakai primaryText, primaryTexts, imageHashes dan/atau videoIds, headlines, descriptions, destinationUrl; placement_image memakai asset_feed_spec; placement_customized_ctwa memakai link_data utama, platform_customizations, portrait_customizations, dan pageWelcomeMessage di link_data; existing_post memakai objectStoryId (post id Facebook Page, format {page_id}_{post_id}) ATAU sourceInstagramMediaId (media id IG yang tidak di-cross-post ke Page — dapatkan dari ads_list_instagram_media, cocokkan permalink-nya ke URL instagram.com/reel atau /p yang dimiliki user; wajib isi tepat satu dari dua field ini), plus destinationUrl, callToAction, dan applinkTreatment (opsional). Untuk mengarahkan post yang di-boost ke landing page eksternal dengan tombol CTA: isi destinationUrl + callToAction (mis. LEARN_MORE). Keduanya dikirim sebagai call_to_action di LEVEL ATAS creative (call_to_action.value.link), BUKAN di dalam object_story_spec — object_story_spec bareng source_instagram_media_id ditolak Meta dengan (#100) subcode 1487929 Ambiguous Promoted Object (terverifikasi live di v25.0). Tujuan post Instagram bisa diganti bebas; post Facebook Page yang sudah punya link sendiri mungkin tetap memakai link lamanya — nilainya diteruskan dan Meta yang memutuskan. Pakai urlTags untuk tracking UTM; itu tersimpan bersama call_to_action. destinationUrl juga wajib diisi kalau collaborativeAppSpec diisi, dipakai untuk omnichannel_link_spec.web.url (CATATAN: itu pun tidak bisa memperbaiki object_store_urls yang hilang dari call_to_action post lama yang sudah dipublikasikan; untuk ad set CPAS omnichannel disarankan pakai creativeFormat video langsung). destinationUrl tanpa callToAction maupun collaborativeAppSpec akan DITOLAK, bukan diabaikan diam-diam.'
     ),
   collaborativeProductSetId: z
     .string()
@@ -590,19 +590,31 @@ const createAdCreativeInputSchema = {
   destinationType: z
     .enum(['WEB', 'WHATSAPP', 'MESSENGER', 'INSTAGRAM_DIRECT', 'APP'])
     .optional()
-    .describe('Destination type for the ad. Use WHATSAPP for Click-to-WhatsApp ads.'),
-  whatsappPhoneNumberId: z
-    .string()
-    .optional()
-    .describe('WhatsApp Phone Number ID (from ads_list_whatsapp_phone_numbers).'),
+    .describe(
+      'Destination type for the ad. Use WHATSAPP for Click-to-WhatsApp ads. Hanya untuk jalur legacy (link + message); pada creativeFormat + creativeSpec pakai creativeSpec.callToAction = WHATSAPP_MESSAGE. Nilai ini berbeda dari destinationType milik ads_create_adset (WEBSITE/APP/...).'
+    ),
   pageWelcomeMessage: z
     .string()
     .optional()
-    .describe('Welcome message sent when user clicks the WhatsApp CTA.'),
+    .describe(
+      'Welcome message sent when user clicks the WhatsApp CTA. Hanya untuk jalur legacy (link + message); pada creativeFormat + creativeSpec pakai creativeSpec.pageWelcomeMessage.'
+    ),
+  whatsappWelcomeMessageSequenceId: z
+    .string()
+    .optional()
+    .describe(
+      'Welcome message flow/sequence ID, dikirim sebagai asset_feed_spec.additional_data.partner_app_welcome_message_flow_id. Berlaku untuk semua jalur creative.'
+    ),
   objectStorySpec: objectStorySpecInputSchema.optional(),
   assetFeedSpec: dynamicCreativeAssetFeedSpecSchema
     .optional()
     .describe('Input advanced/backward-compatible Meta asset_feed_spec untuk Dynamic Creative.'),
+  optOutEnhancements: z
+    .array(z.string())
+    .optional()
+    .describe(
+      'Nama fitur Advantage+ Creative enhancement yang di-disable (OPT_OUT). Contoh: ["image_auto_crop", "text_optimizations", "image_templates"]. Berlaku untuk SEMUA format creative. Jika tidak diisi, Meta mengontrol enhancement secara default.'
+    ),
   dedupeByName: z
     .boolean()
     .optional()
@@ -1148,8 +1160,7 @@ export function createMetaAdsMcpServer(options: CreateMetaAdsMcpServerOptions = 
   server.registerTool(
     'meta_get_insights_by_breakdown',
     {
-      description:
-        'Fetch Meta Ads insights by supported location breakdowns (country, region)',
+      description: 'Fetch Meta Ads insights by supported location breakdowns (country, region)',
       inputSchema: legacyLocationBreakdownInputSchema,
     },
     async (args: ToolArguments) =>

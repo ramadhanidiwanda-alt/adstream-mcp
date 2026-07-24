@@ -479,6 +479,91 @@ describe('buildMetaCreativeFormatPayload', () => {
     ).toEqual({ source_instagram_media_id: '17895695668004550' });
   });
 
+  // The destination rides on a TOP-LEVEL call_to_action. Nesting it in
+  // object_story_spec makes Meta reject the create with (#100) subcode 1487929
+  // "Ambiguous Promoted Object" — verified live against v25.0.
+  it('sends an existing IG post to an external link via a top-level call_to_action', () => {
+    expect(
+      buildMetaCreativeFormatPayload({
+        mode: 'standard',
+        pageId: '330290916841848',
+        creativeFormat: 'existing_post',
+        creativeSpec: {
+          sourceInstagramMediaId: '18571075747064659',
+          destinationUrl: 'https://hurricane.gass.my.id/cta?x=1',
+          callToAction: 'LEARN_MORE',
+        },
+      })
+    ).toEqual({
+      source_instagram_media_id: '18571075747064659',
+      call_to_action: {
+        type: 'LEARN_MORE',
+        value: { link: 'https://hurricane.gass.my.id/cta?x=1' },
+      },
+    });
+  });
+
+  it('never nests the existing_post destination inside object_story_spec', () => {
+    const payload = buildMetaCreativeFormatPayload({
+      mode: 'standard',
+      pageId: '330290916841848',
+      creativeFormat: 'existing_post',
+      creativeSpec: {
+        sourceInstagramMediaId: '18571075747064659',
+        destinationUrl: 'https://hurricane.gass.my.id/cta?x=1',
+        callToAction: 'LEARN_MORE',
+      },
+    });
+
+    expect(payload.object_story_spec).toBeUndefined();
+  });
+
+  it('also accepts a destination on an existing Facebook Page post', () => {
+    expect(
+      buildMetaCreativeFormatPayload({
+        mode: 'standard',
+        pageId: 'page-1',
+        creativeFormat: 'existing_post',
+        creativeSpec: {
+          objectStoryId: 'page-1_post-1',
+          destinationUrl: 'https://example.com/cta',
+          callToAction: 'SHOP_NOW',
+        },
+      })
+    ).toEqual({
+      object_story_id: 'page-1_post-1',
+      call_to_action: { type: 'SHOP_NOW', value: { link: 'https://example.com/cta' } },
+    });
+  });
+
+  it('requires destinationUrl for an existing_post creative that sets callToAction', () => {
+    expect(() =>
+      buildMetaCreativeFormatPayload({
+        mode: 'standard',
+        pageId: 'page-1',
+        creativeFormat: 'existing_post',
+        creativeSpec: {
+          sourceInstagramMediaId: '18571075747064659',
+          callToAction: 'LEARN_MORE',
+        },
+      })
+    ).toThrow(/destinationUrl.*wajib diisi/i);
+  });
+
+  it('rejects a silently unused destinationUrl on an existing_post creative', () => {
+    expect(() =>
+      buildMetaCreativeFormatPayload({
+        mode: 'standard',
+        pageId: 'page-1',
+        creativeFormat: 'existing_post',
+        creativeSpec: {
+          sourceInstagramMediaId: '18571075747064659',
+          destinationUrl: 'https://example.com/cta',
+        },
+      })
+    ).toThrow(/destinationUrl.*butuh callToAction/is);
+  });
+
   it('rejects an existing_post creative missing both objectStoryId and sourceInstagramMediaId', () => {
     expect(() =>
       buildMetaCreativeFormatPayload({

@@ -96,3 +96,7 @@ GITHUB_PUBLISHED.md
 
 # Test artifacts
 artifacts/
+
+# Local-only verification files (butuh kredensial Meta asli / tidak untuk repo)
+scripts/testLiveExistingPostCreative.ts
+tests/createAdCreativeParamParity.test.ts
