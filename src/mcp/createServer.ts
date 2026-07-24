@@ -494,7 +494,7 @@ const objectStorySpecInputSchema = z
     'Input advanced/backward-compatible Meta object_story_spec. Dynamic Creative legacy dapat memakai asset_feed_spec di sini; sebaiknya gunakan assetFeedSpec tingkat atas.'
   );
 
-const createAdCreativeInputSchema = {
+export const createAdCreativeInputSchema = {
   ...adsBaseInputSchema,
   accountId: z.string().describe('Provider account id. Required for creative creation.'),
   name: z.string().describe('Creative name.'),
@@ -590,19 +590,31 @@ const createAdCreativeInputSchema = {
   destinationType: z
     .enum(['WEB', 'WHATSAPP', 'MESSENGER', 'INSTAGRAM_DIRECT', 'APP'])
     .optional()
-    .describe('Destination type for the ad. Use WHATSAPP for Click-to-WhatsApp ads.'),
-  whatsappPhoneNumberId: z
-    .string()
-    .optional()
-    .describe('WhatsApp Phone Number ID (from ads_list_whatsapp_phone_numbers).'),
+    .describe(
+      'Destination type for the ad. Use WHATSAPP for Click-to-WhatsApp ads. Hanya untuk jalur legacy (link + message); pada creativeFormat + creativeSpec pakai creativeSpec.callToAction = WHATSAPP_MESSAGE. Nilai ini berbeda dari destinationType milik ads_create_adset (WEBSITE/APP/...).'
+    ),
   pageWelcomeMessage: z
     .string()
     .optional()
-    .describe('Welcome message sent when user clicks the WhatsApp CTA.'),
+    .describe(
+      'Welcome message sent when user clicks the WhatsApp CTA. Hanya untuk jalur legacy (link + message); pada creativeFormat + creativeSpec pakai creativeSpec.pageWelcomeMessage.'
+    ),
+  whatsappWelcomeMessageSequenceId: z
+    .string()
+    .optional()
+    .describe(
+      'Welcome message flow/sequence ID, dikirim sebagai asset_feed_spec.additional_data.partner_app_welcome_message_flow_id. Berlaku untuk semua jalur creative.'
+    ),
   objectStorySpec: objectStorySpecInputSchema.optional(),
   assetFeedSpec: dynamicCreativeAssetFeedSpecSchema
     .optional()
     .describe('Input advanced/backward-compatible Meta asset_feed_spec untuk Dynamic Creative.'),
+  optOutEnhancements: z
+    .array(z.string())
+    .optional()
+    .describe(
+      'Nama fitur Advantage+ Creative enhancement yang di-disable (OPT_OUT). Contoh: ["image_auto_crop", "text_optimizations", "image_templates"]. Berlaku untuk SEMUA format creative. Jika tidak diisi, Meta mengontrol enhancement secara default.'
+    ),
   dedupeByName: z
     .boolean()
     .optional()

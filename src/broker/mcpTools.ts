@@ -2029,6 +2029,22 @@ function createCreateAdCreativeInputSchema() {
         required: ['ad_formats', 'bodies', 'titles', 'images', 'link_urls', 'call_to_action_types'],
         additionalProperties: true,
       },
+      destinationType: {
+        type: 'string',
+        enum: ['WEB', 'WHATSAPP', 'MESSENGER', 'INSTAGRAM_DIRECT', 'APP'],
+        description:
+          'Tujuan iklan. Pakai WHATSAPP untuk Click-to-WhatsApp. Hanya untuk jalur legacy (link + message); pada creativeFormat + creativeSpec pakai creativeSpec.callToAction = WHATSAPP_MESSAGE. Nilai ini berbeda dari destinationType milik ads_create_adset (WEBSITE/APP/...).',
+      },
+      pageWelcomeMessage: {
+        type: 'string',
+        description:
+          'Pesan sambutan saat user menekan tombol CTA WhatsApp. Hanya untuk jalur legacy (link + message); pada creativeFormat + creativeSpec pakai creativeSpec.pageWelcomeMessage.',
+      },
+      whatsappWelcomeMessageSequenceId: {
+        type: 'string',
+        description:
+          'ID welcome message flow/sequence, dikirim sebagai asset_feed_spec.additional_data.partner_app_welcome_message_flow_id. Berlaku untuk semua jalur creative.',
+      },
       dedupeByName: {
         type: 'boolean',
         description: 'Check for an existing creative with the same name before creating.',

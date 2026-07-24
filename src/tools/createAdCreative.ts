@@ -50,8 +50,10 @@ export interface CreateAdCreativeOptions {
   dedupeByName?: boolean;
   externalReference?: string;
   // --- CTWA (Click-to-WhatsApp) Support ---
+  // Deliberately no whatsappPhoneNumberId here: a creative has no field for one.
+  // wa.me needs the display phone number, not the Graph phone_number_id, and the
+  // WhatsApp destination is configured on the ad set instead. See buildCreativePayload.
   destinationType?: CreativeDestinationType;
-  whatsappPhoneNumberId?: string;
   pageWelcomeMessage?: string;
   whatsappWelcomeMessageSequenceId?: string;
   /**

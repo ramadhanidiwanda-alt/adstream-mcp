@@ -1775,6 +1775,193 @@ describe('MetaAdsAdapter', () => {
     expect(message).toMatch(/sourceInstagramMediaId/);
   });
 
+  it('forwards the legacy CTWA params into the createAdCreative options', async () => {
+    let receivedOptions: Record<string, unknown> | undefined;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        createAdCreative: async (_client, options) => {
+          receivedOptions = options as unknown as Record<string, unknown>;
+          return {
+            operation: 'create_adcreative',
+            status: 'dry_run',
+            executed: false,
+            preview: {},
+          };
+        },
+      },
+    });
+
+    const response = await adapter.createAdCreative({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {
+        name: 'CTWA legacy creative',
+        pageId: 'page-1',
+        link: 'https://wa.me/6281234567890',
+        message: 'Chat admin sekarang',
+        destinationType: 'WHATSAPP',
+        pageWelcomeMessage: '{"type":"VISUAL_EDITOR"}',
+        whatsappWelcomeMessageSequenceId: 'flow-1',
+      },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    });
+
+    expect(response.ok).toBe(true);
+    expect(receivedOptions).toMatchObject({
+      destinationType: 'WHATSAPP',
+      pageWelcomeMessage: '{"type":"VISUAL_EDITOR"}',
+      whatsappWelcomeMessageSequenceId: 'flow-1',
+    });
+  });
+
+  it('reaches the Meta CTWA payload from MCP params end to end', async () => {
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+    });
+
+    const response = await adapter.createAdCreative({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {
+        name: 'CTWA end to end',
+        pageId: 'page-1',
+        link: 'https://wa.me/6281234567890',
+        message: 'Chat admin sekarang',
+        destinationType: 'WHATSAPP',
+        pageWelcomeMessage: '{"type":"VISUAL_EDITOR"}',
+        whatsappWelcomeMessageSequenceId: 'flow-1',
+      },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    });
+
+    expect(response.ok).toBe(true);
+    const preview = response.ok ? (response.data?.preview as Record<string, unknown>) : undefined;
+    const storySpec = preview?.object_story_spec as Record<string, unknown>;
+    const linkData = storySpec.link_data as Record<string, unknown>;
+
+    expect(linkData.call_to_action).toEqual({ type: 'WHATSAPP_MESSAGE' });
+    expect(linkData.page_welcome_message).toBe('{"type":"VISUAL_EDITOR"}');
+    expect(preview?.asset_feed_spec).toEqual({
+      additional_data: { partner_app_welcome_message_flow_id: 'flow-1' },
+    });
+  });
+
+  it('rejects an unsupported destinationType instead of forwarding it to Meta', async () => {
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+    });
+
+    const response = await adapter.createAdCreative({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {
+        name: 'Bad destination type',
+        pageId: 'page-1',
+        link: 'https://example.com',
+        message: 'Buy now',
+        destinationType: 'WEBSITE',
+      },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    });
+
+    expect(response.ok).toBe(false);
+    const message = response.ok ? '' : (response.errors?.[0]?.message ?? '');
+    expect(message).toContain('destinationType');
+    expect(message).toContain('WEB');
+  });
+
+  it('rejects whatsappPhoneNumberId on a creative and points at the ad set', async () => {
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+    });
+
+    const response = await adapter.createAdCreative({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {
+        name: 'Phone number on creative',
+        pageId: 'page-1',
+        link: 'https://wa.me/6281234567890',
+        message: 'Chat admin sekarang',
+        whatsappPhoneNumberId: 'wa-1',
+      },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    });
+
+    expect(response.ok).toBe(false);
+    const message = response.ok ? '' : (response.errors?.[0]?.message ?? '');
+    expect(message).toContain('whatsappPhoneNumberId');
+    expect(message).toMatch(/ad set/i);
+  });
+
+  it('rejects top-level CTWA params when creativeFormat and creativeSpec are used', async () => {
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+    });
+
+    const response = await adapter.createAdCreative({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {
+        name: 'Mixed CTWA creative',
+        pageId: 'page-1',
+        creativeFormat: 'single_image',
+        creativeSpec: {
+          imageHash: 'hash-1',
+          primaryText: 'Chat admin sekarang',
+          destinationUrl: 'https://wa.me/6281234567890',
+        },
+        destinationType: 'WHATSAPP',
+        pageWelcomeMessage: '{"type":"VISUAL_EDITOR"}',
+      },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    });
+
+    expect(response.ok).toBe(false);
+    const message = response.ok ? '' : (response.errors?.[0]?.message ?? '');
+    expect(message).toContain('destinationType');
+    expect(message).toContain('pageWelcomeMessage');
+  });
+
+  it('keeps whatsappWelcomeMessageSequenceId usable alongside creativeFormat', async () => {
+    let receivedOptions: Record<string, unknown> | undefined;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        createAdCreative: async (_client, options) => {
+          receivedOptions = options as unknown as Record<string, unknown>;
+          return {
+            operation: 'create_adcreative',
+            status: 'dry_run',
+            executed: false,
+            preview: {},
+          };
+        },
+      },
+    });
+
+    const response = await adapter.createAdCreative({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {
+        name: 'Canonical creative with welcome flow',
+        pageId: 'page-1',
+        creativeFormat: 'single_image',
+        creativeSpec: {
+          imageHash: 'hash-1',
+          primaryText: 'Chat admin sekarang',
+          destinationUrl: 'https://wa.me/6281234567890',
+        },
+        whatsappWelcomeMessageSequenceId: 'flow-1',
+      },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    });
+
+    expect(response.ok).toBe(true);
+    expect(receivedOptions).toMatchObject({ whatsappWelcomeMessageSequenceId: 'flow-1' });
+  });
+
   it('accepts every param declared on the ads_create_adcreative input schema', async () => {
     const adapter = new MetaAdsAdapter({
       clientFactory: (config) => ({ config }) as never,
@@ -1806,8 +1993,8 @@ describe('MetaAdsAdapter', () => {
         instagramUserId: 'ig-1',
         threadsProfileId: 'threads-1',
         destinationType: 'WEB',
-        whatsappPhoneNumberId: 'wa-1',
         pageWelcomeMessage: 'Hi!',
+        whatsappWelcomeMessageSequenceId: 'flow-1',
         dedupeByName: false,
         externalReference: 'ref-1',
         optOutEnhancements: ['image_auto_crop'],
