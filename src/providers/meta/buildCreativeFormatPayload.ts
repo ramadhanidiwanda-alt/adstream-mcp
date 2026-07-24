@@ -30,6 +30,9 @@ export function buildMetaCreativeFormatPayload(
   if (input.standardAppSpec && input.collaborativeAppSpec) {
     throw new Error('standardAppSpec dan collaborativeAppSpec tidak dapat digunakan bersamaan.');
   }
+  if (input.standardAppSpec && input.mode === 'collaborative_ads') {
+    throw new Error('standardAppSpec tidak kompatibel dengan mode collaborative_ads.');
+  }
   assertMetaCreativeCompatibility(input);
 
   switch (input.creativeFormat) {

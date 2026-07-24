@@ -204,6 +204,26 @@ describe('buildMetaCreativeFormatPayload', () => {
     ).toThrow(/WHATSAPP_MESSAGE.*standardAppSpec/i);
   });
 
+  it('rejects collaborative_ads mode when a standard app spec is supplied', () => {
+    expect(() =>
+      buildMetaCreativeFormatPayload({
+        mode: 'collaborative_ads',
+        pageId: 'page-1',
+        collaborativeProductSetId: 'product-set-1',
+        standardAppSpec: {
+          applicationId: 'app-1',
+          objectStoreUrl: 'https://apps.apple.com/app/id123',
+        },
+        creativeFormat: 'video',
+        creativeSpec: {
+          videoId: 'video-1',
+          primaryText: 'Install now',
+          destinationUrl: 'https://apps.apple.com/app/id123',
+        },
+      })
+    ).toThrow(/standardAppSpec.*collaborative_ads/i);
+  });
+
   it('builds a standard single-image link creative', () => {
     expect(
       buildMetaCreativeFormatPayload({

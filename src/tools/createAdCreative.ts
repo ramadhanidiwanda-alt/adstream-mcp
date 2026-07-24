@@ -581,6 +581,9 @@ async function withResolvedObjectiveDestinationMode(
   }
 
   if (options.standardAppSpec) {
+    if (options.mode === 'collaborative_ads') {
+      throw new Error('standardAppSpec tidak kompatibel dengan mode collaborative_ads.');
+    }
     if (options.objective !== 'OUTCOME_APP_PROMOTION' || options.conversionLocation !== 'APP') {
       throw new Error(
         'standardAppSpec hanya dapat digunakan dengan objective OUTCOME_APP_PROMOTION dan conversionLocation APP.'

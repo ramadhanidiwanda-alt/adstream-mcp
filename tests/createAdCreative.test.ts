@@ -338,6 +338,32 @@ describe('createAdCreative', () => {
     expect(mockMetaPost).not.toHaveBeenCalled();
   });
 
+  it('rejects collaborative_ads mode for canonical App Promotion before payload construction', async () => {
+    const result = await createAdCreative(mockClient, {
+      adAccountId: 'act_1',
+      name: 'Invalid app mode',
+      pageId: 'page-1',
+      mode: 'collaborative_ads',
+      collaborativeProductSetId: 'product-set-1',
+      objective: 'OUTCOME_APP_PROMOTION',
+      conversionLocation: 'APP',
+      standardAppSpec: {
+        applicationId: 'app-1',
+        objectStoreUrl: 'https://apps.apple.com/app/id123',
+      },
+      creative: {
+        creativeFormat: 'video',
+        creativeSpec: { videoId: 'video-1', primaryText: 'Install now' },
+      },
+    });
+
+    expect(result).toMatchObject({
+      status: 'failed',
+      error: expect.stringMatching(/standardAppSpec.*collaborative_ads/i),
+    });
+    expect(mockMetaPost).not.toHaveBeenCalled();
+  });
+
   it('rejects WHATSAPP_MESSAGE for canonical App Promotion before payload construction', async () => {
     const result = await createAdCreative(mockClient, {
       adAccountId: 'act_1',
