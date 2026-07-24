@@ -35,6 +35,15 @@ describe('evaluateOmnichannelCompatibility', () => {
     expect(result.missing).toEqual([]);
   });
 
+  it('keeps catalog-only Collaborative Ads separate from omnichannel app requirements', () => {
+    const result = evaluateOmnichannelCompatibility(
+      { promoted_object: { product_set_id: 'shared-retailer-set' } },
+      {}
+    );
+
+    expect(result).toEqual({ omnichannelAdSet: false, missing: [] });
+  });
+
   it('reports compatible for an omnichannel ad set with a fully-formed creative', () => {
     const result = evaluateOmnichannelCompatibility(omnichannelAdSet, compliantCreative);
     expect(result.omnichannelAdSet).toBe(true);

@@ -265,6 +265,24 @@ export async function createAdSet(
     };
   }
 
+  if (
+    options.mode === 'collaborative_ads' &&
+    options.conversionLocation !== undefined &&
+    options.conversionLocation !== 'CATALOG'
+  ) {
+    const message = 'Collaborative Ads canonical launches require conversionLocation CATALOG.';
+    return {
+      ...baseResult,
+      status: 'failed',
+      error: message,
+      structuredError: {
+        ...validationError('INVALID_OBJECTIVE_DESTINATION_COMBINATION', message),
+        actionableFix:
+          'Use conversionLocation CATALOG for Collaborative Ads, then review the dry-run preview before executing.',
+      },
+    };
+  }
+
   if (!dryRun && !confirmed) {
     return {
       ...baseResult,

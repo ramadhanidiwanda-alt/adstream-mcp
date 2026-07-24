@@ -1541,6 +1541,35 @@ describe('MetaAdsAdapter', () => {
     expect(adSetClient?.apiVersion).toBe('v24.0');
   });
 
+  it('defaults canonical Collaborative Ads ad-set routing to Meta v25', async () => {
+    let receivedApiVersion: string | undefined;
+    const createAdSet = vi.fn(async (client) => {
+      receivedApiVersion = (client as { apiVersion?: string }).apiVersion;
+      return { operation: 'create_adset', status: 'dry_run', executed: false, preview: {} };
+    });
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ apiVersion: config.apiVersion }) as never,
+      tools: { createAdSet },
+    });
+
+    const response = await adapter.createAdSet({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {
+        campaignId: 'campaign-1',
+        name: 'Collaborative catalog ad set',
+        mode: 'collaborative_ads',
+        conversionLocation: 'CATALOG',
+        creativeFormat: 'catalog',
+        collaborativeCatalog: { productSetId: 'shared-set' },
+      },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    });
+
+    expect(response.ok).toBe(true);
+    expect(receivedApiVersion).toBe('v25.0');
+  });
+
   it('rejects a non-ODAX campaign objective before constructing a Meta client', async () => {
     const createCampaign = vi.fn();
     const clientFactory = vi.fn(() => ({}) as never);

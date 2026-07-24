@@ -957,9 +957,48 @@ describe('buildMetaCreativeFormatPayload', () => {
         },
       },
     },
+    {
+      label: 'catalog',
+      expectedDestinationUrl: 'https://example.com/catalog',
+      expectedStory: {
+        template_data: { message: 'Catalog' },
+      },
+      expectsProductSet: true,
+      input: {
+        mode: 'collaborative_ads' as const,
+        pageId: 'page-1',
+        collaborativeProductSetId: 'product-set-1',
+        creativeFormat: 'catalog' as const,
+        creativeSpec: {
+          productSetId: 'product-set-1',
+          primaryText: 'Catalog',
+          destinationUrl: 'https://example.com/catalog',
+        },
+      },
+    },
+    {
+      label: 'collection',
+      expectedDestinationUrl: 'https://fb.com/canvas_doc/canvas-1',
+      expectedStory: {
+        link_data: { image_hash: 'cover-1' },
+      },
+      expectsProductSet: true,
+      input: {
+        mode: 'collaborative_ads' as const,
+        pageId: 'page-1',
+        collaborativeProductSetId: 'product-set-1',
+        creativeFormat: 'collection' as const,
+        creativeSpec: {
+          instantExperienceId: 'canvas-1',
+          coverImageHash: 'cover-1',
+          productSetId: 'product-set-1',
+          primaryText: 'Collection',
+        },
+      },
+    },
   ])(
-    'wraps collaborative $label creative in shared catalog context',
-    ({ input, expectedDestinationUrl, expectedStory }) => {
+    'wraps v25 collaborative $label creative in the shared catalog context',
+    ({ input, expectedDestinationUrl, expectedStory, expectsProductSet }) => {
       const result = buildMetaCreativeFormatPayload(input);
 
       expect(result).toMatchObject({
@@ -968,7 +1007,11 @@ describe('buildMetaCreativeFormatPayload', () => {
         },
         object_story_spec: expectedStory,
       });
-      expect(result).not.toHaveProperty('product_set_id');
+      if (expectsProductSet) {
+        expect(result.product_set_id).toBe('product-set-1');
+      } else {
+        expect(result).not.toHaveProperty('product_set_id');
+      }
       expect(result).not.toHaveProperty('asset_feed_spec');
     }
   );

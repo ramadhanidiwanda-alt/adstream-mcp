@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { MetaClient } from '../src/metaClient.js';
 import { createAdSet } from '../src/tools/createAdSet.js';
 import { MetaApiError } from '../src/utils/metaError.js';
+import { resolveMetaObjectiveLaunchSpec } from '../src/providers/meta/objectiveLaunchMatrix.js';
 
 function createMockClient(overrides: Record<string, unknown> = {}): MetaClient {
   return {
@@ -27,6 +28,21 @@ const defaultOptions = {
 
 describe('createAdSet — bid strategy + pre-flight validation', () => {
   describe('objective launch matrix', () => {
+    it('resolves the v25 Collaborative Ads catalog launch through sales_catalog', () => {
+      expect(
+        resolveMetaObjectiveLaunchSpec({
+          objective: 'OUTCOME_SALES',
+          conversionLocation: 'CATALOG',
+          creativeFormat: 'catalog',
+          apiVersion: 'v25.0',
+        })
+      ).toMatchObject({
+        key: 'sales_catalog',
+        promotedObjectKind: 'collaborative_catalog',
+        destinationType: 'WEBSITE',
+      });
+    });
+
     it.each([
       {
         objective: 'OUTCOME_AWARENESS',
@@ -126,6 +142,30 @@ describe('createAdSet — bid strategy + pre-flight validation', () => {
       });
 
       expect(result.structuredError?.code).toBe('INVALID_OBJECTIVE_GOAL_COMBINATION');
+      expect(client.metaPost).not.toHaveBeenCalled();
+    });
+
+    it('rejects a canonical Collaborative Ads launch outside the catalog conversion location', async () => {
+      const client = createMockClient({
+        objective: 'OUTCOME_SALES',
+        bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+        daily_budget: undefined,
+      });
+
+      const result = await createAdSet(client, {
+        ...defaultOptions,
+        optimizationGoal: undefined,
+        mode: 'collaborative_ads',
+        conversionLocation: 'WEBSITE',
+        creativeFormat: 'single_image',
+        collaborativeCatalog: { productSetId: 'shared-set' },
+      });
+
+      expect(result).toMatchObject({
+        status: 'failed',
+        structuredError: { code: 'INVALID_OBJECTIVE_DESTINATION_COMBINATION' },
+      });
+      expect(client.metaGetObject).not.toHaveBeenCalled();
       expect(client.metaPost).not.toHaveBeenCalled();
     });
   });
