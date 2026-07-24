@@ -270,23 +270,48 @@ describe('getAdDestinations filtering', () => {
 });
 
 describe('getAdCreativeMapping filtering', () => {
-  it('merges raw Meta filtering with campaign/ad set filters', async () => {
+  it('scopes to the ad set endpoint and merges raw Meta filtering when only adSetId is given', async () => {
     const metaGet = createGetSpy();
     const client = { metaGet } as unknown as MetaClient;
 
     await getAdCreativeMapping(client, {
       adAccountId: 'act_123',
-      campaignId: 'cmp_1',
       adSetId: 'as_1',
       explicitFilters: [{ field: 'effective_status', operator: 'IN', value: ['ACTIVE', 'PAUSED'] }],
     });
 
+    expect(metaGet.mock.calls[0][0]).toBe('/as_1/ads');
     const params = metaGet.mock.calls[0][1];
     expect(JSON.parse(params.filtering)).toEqual([
-      { field: 'campaign.id', operator: 'IN', value: ['cmp_1'] },
-      { field: 'adset.id', operator: 'IN', value: ['as_1'] },
       { field: 'effective_status', operator: 'IN', value: ['ACTIVE', 'PAUSED'] },
     ]);
+  });
+
+  it('falls back to the account endpoint and post-filters when both campaignId and adSetId are given', async () => {
+    const metaGet = vi.fn().mockResolvedValue({
+      data: [
+        { id: 'ad_in', name: 'In Scope', creative: { id: 'creative_in' }, campaign_id: 'cmp_1', adset_id: 'as_1' },
+        {
+          id: 'ad_out',
+          name: 'Out Of Scope',
+          creative: { id: 'creative_out' },
+          campaign_id: 'cmp_other',
+          adset_id: 'as_1',
+        },
+      ],
+    });
+    const client = { metaGet } as unknown as MetaClient;
+
+    const result = await getAdCreativeMapping(client, {
+      adAccountId: 'act_123',
+      campaignId: 'cmp_1',
+      adSetId: 'as_1',
+    });
+
+    expect(metaGet.mock.calls[0][0]).toBe('/act_123/ads');
+    expect(result).toHaveLength(1);
+    expect(result[0].ad_id).toBe('ad_in');
+    expect(result[0].creative_id).toBe('creative_in');
   });
 });
 
