@@ -1449,6 +1449,12 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       };
     }
 
+    try {
+      assertKnownParams(request.params, CREATE_AD_CREATIVE_PARAMS, CREATE_AD_CREATIVE_PARAM_HINTS);
+    } catch (error) {
+      return validationResponse(error);
+    }
+
     const hasCreativeFormat = request.params.creativeFormat !== undefined;
     const hasCreativeSpec = request.params.creativeSpec !== undefined;
     if (hasCreativeFormat !== hasCreativeSpec) {
@@ -2111,8 +2117,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
           adsetBudgets: Array.isArray(request.params.adsetBudgets)
             ? (request.params.adsetBudgets as Array<Record<string, unknown>>).map((entry) => ({
                 adsetId: String(entry.adsetId),
-                dailyBudget:
-                  typeof entry.dailyBudget === 'number' ? entry.dailyBudget : undefined,
+                dailyBudget: typeof entry.dailyBudget === 'number' ? entry.dailyBudget : undefined,
                 lifetimeBudget:
                   typeof entry.lifetimeBudget === 'number' ? entry.lifetimeBudget : undefined,
               }))
@@ -2952,12 +2957,9 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
     try {
       const client = this.createClient(context.credential);
       const limit = typeof request.params.limit === 'number' ? request.params.limit : undefined;
-      const cursor =
-        typeof request.params.cursor === 'string' ? request.params.cursor : undefined;
+      const cursor = typeof request.params.cursor === 'string' ? request.params.cursor : undefined;
       const permalinkUrls = Array.isArray(request.params.permalinkUrls)
-        ? request.params.permalinkUrls.filter(
-            (url): url is string => typeof url === 'string'
-          )
+        ? request.params.permalinkUrls.filter((url): url is string => typeof url === 'string')
         : undefined;
       const media = await this.tools.listInstagramMedia(client, {
         igUserId,
@@ -3281,6 +3283,76 @@ const LEGACY_CREATIVE_FIELDS = [
   'callToActionType',
 ] as const;
 
+// Every param ads_create_adcreative accepts, across both tool surfaces (the Zod
+// schema in mcp/createServer.ts and the JSON Schema in broker/mcpTools.ts).
+// Anything else is rejected rather than dropped — see assertKnownParams.
+const CREATE_AD_CREATIVE_PARAMS = new Set([
+  'name',
+  'pageId',
+  'mode',
+  'creativeFormat',
+  'creativeSpec',
+  'collaborativeProductSetId',
+  'collaborativeAppSpec',
+  'link',
+  'message',
+  'headline',
+  'description',
+  'imageHash',
+  'videoId',
+  'callToActionType',
+  'urlTags',
+  'instagramUserId',
+  'threadsProfileId',
+  'destinationType',
+  'whatsappPhoneNumberId',
+  'pageWelcomeMessage',
+  'objectStorySpec',
+  'assetFeedSpec',
+  'dedupeByName',
+  'externalReference',
+  'optOutEnhancements',
+  'dryRun',
+  'confirmed',
+]);
+
+// Raw Graph API field names callers reach for when they assume params is a
+// passthrough. Mapping them back to the typed param turns a dead end into a fix.
+const CREATE_AD_CREATIVE_PARAM_HINTS: Record<string, string> = {
+  source_instagram_media_id: 'creativeSpec.sourceInstagramMediaId (creativeFormat: existing_post)',
+  object_story_id: 'creativeSpec.objectStoryId (creativeFormat: existing_post)',
+  object_story_spec: 'objectStorySpec',
+  asset_feed_spec: 'assetFeedSpec',
+  url_tags: 'urlTags',
+  page_id: 'pageId',
+  image_hash: 'imageHash',
+  video_id: 'videoId',
+  call_to_action_type: 'callToActionType',
+  instagram_user_id: 'instagramUserId',
+  threads_profile_id: 'threadsProfileId',
+  degrees_of_freedom_spec: 'optOutEnhancements',
+};
+
+/**
+ * params is not a raw Graph API passthrough — the adapter reads a fixed set of
+ * typed fields and would otherwise ignore the rest without a word, so a caller
+ * sees a clean dry-run preview that is missing exactly the field they cared
+ * about. Reject unknown keys instead, naming the typed field where one exists.
+ */
+function assertKnownParams(
+  params: Record<string, unknown>,
+  allowed: Set<string>,
+  hints: Record<string, string>
+): void {
+  const unknown = Object.keys(params).filter((key) => !allowed.has(key));
+  if (unknown.length === 0) return;
+
+  const detail = unknown.map((key) => (hints[key] ? `${key} → ${hints[key]}` : key)).join('; ');
+  throw new Error(
+    `Field berikut tidak dikenali dan TIDAK dikirim ke Meta: ${detail}. params bukan passthrough mentah ke Graph API — pakai field bertipe yang sesuai, atau hapus field ini.`
+  );
+}
+
 function parseIdParam(value: unknown): string | string[] | undefined {
   if (typeof value === 'string') return value;
   if (Array.isArray(value) && value.every((item) => typeof item === 'string')) return value;
@@ -3581,11 +3653,19 @@ function parseMetaCreativeSpec(
         },
       };
     case 'existing_post':
+      // Both source fields are optional here on purpose: buildExistingPost owns the
+      // "exactly one of objectStoryId / sourceInstagramMediaId" rule so direct tool
+      // callers and broker callers get the identical error.
       return {
         creativeFormat: 'existing_post',
         creativeSpec: {
-          objectStoryId: requireString(spec.objectStoryId, 'creativeSpec.objectStoryId'),
+          objectStoryId: optionalString(spec.objectStoryId, 'creativeSpec.objectStoryId'),
+          sourceInstagramMediaId: optionalString(
+            spec.sourceInstagramMediaId,
+            'creativeSpec.sourceInstagramMediaId'
+          ),
           destinationUrl: optionalString(spec.destinationUrl, 'creativeSpec.destinationUrl'),
+          callToAction: optionalString(spec.callToAction, 'creativeSpec.callToAction'),
           applinkTreatment: optionalApplinkTreatment(
             spec.applinkTreatment,
             'creativeSpec.applinkTreatment'

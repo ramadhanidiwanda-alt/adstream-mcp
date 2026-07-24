@@ -1717,6 +1717,109 @@ describe('MetaAdsAdapter', () => {
     });
   });
 
+  it('threads existing_post creativeSpec.sourceInstagramMediaId through parsing into the dry-run preview', async () => {
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+    });
+
+    const response = await adapter.createAdCreative({
+      provider: 'meta',
+      accountId: 'act_426223085194693',
+      params: {
+        name: 'EP IG Reel 01',
+        pageId: '330290916841848',
+        urlTags: 'gcn={{campaign.name}}',
+        creativeFormat: 'existing_post',
+        creativeSpec: {
+          sourceInstagramMediaId: '18571075747064659',
+          destinationUrl: 'https://hurricane.gass.my.id/cta?p=1',
+          callToAction: 'LEARN_MORE',
+        },
+      },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    });
+
+    expect(response.ok).toBe(true);
+    const preview = response.ok ? (response.data?.preview as Record<string, unknown>) : undefined;
+    expect(preview?.source_instagram_media_id).toBe('18571075747064659');
+    expect(preview?.call_to_action).toEqual({
+      type: 'LEARN_MORE',
+      value: { link: 'https://hurricane.gass.my.id/cta?p=1' },
+    });
+    expect(preview?.url_tags).toBe('gcn={{campaign.name}}');
+    // object_story_spec here makes Meta reject the create — see buildExistingPost.
+    expect(preview?.object_story_spec).toBeUndefined();
+  });
+
+  it('rejects unrecognized createAdCreative params instead of dropping them silently', async () => {
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+    });
+
+    const response = await adapter.createAdCreative({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {
+        name: 'Raw passthrough attempt',
+        pageId: 'page-1',
+        creativeFormat: 'existing_post',
+        creativeSpec: { objectStoryId: 'page-1_post-1' },
+        source_instagram_media_id: '18571075747064659',
+      },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    });
+
+    expect(response.ok).toBe(false);
+    const message = response.ok ? '' : (response.errors?.[0]?.message ?? '');
+    expect(message).toContain('source_instagram_media_id');
+    expect(message).toMatch(/sourceInstagramMediaId/);
+  });
+
+  it('accepts every param declared on the ads_create_adcreative input schema', async () => {
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        createAdCreative: async () => ({
+          operation: 'create_adcreative',
+          status: 'dry_run',
+          executed: false,
+          preview: {},
+        }),
+      },
+    });
+
+    const response = await adapter.createAdCreative({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {
+        name: 'Every declared param',
+        pageId: 'page-1',
+        mode: 'standard',
+        link: 'https://example.com',
+        message: 'Buy now',
+        headline: 'Headline',
+        description: 'Description',
+        imageHash: 'hash-1',
+        videoId: 'video-1',
+        callToActionType: 'SHOP_NOW',
+        urlTags: 'utm_source=meta',
+        instagramUserId: 'ig-1',
+        threadsProfileId: 'threads-1',
+        destinationType: 'WEB',
+        whatsappPhoneNumberId: 'wa-1',
+        pageWelcomeMessage: 'Hi!',
+        dedupeByName: false,
+        externalReference: 'ref-1',
+        optOutEnhancements: ['image_auto_crop'],
+        dryRun: true,
+        confirmed: false,
+      },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    });
+
+    expect(response.ok).toBe(true);
+  });
+
   it('attaches image and video creatives to separate ads in the same ad set', async () => {
     const adCreateCalls: Array<{ adsetId: string; creativeId: string }> = [];
     const adapter = new MetaAdsAdapter({

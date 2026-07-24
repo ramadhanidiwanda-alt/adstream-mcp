@@ -132,12 +132,7 @@ function buildSingleImage(
   );
 
   return withDegreesOfFreedomSpec(
-    withDirectOmnichannelLinkFields(
-      input,
-      payload,
-      destinationUrl,
-      creativeSpec.applinkTreatment
-    ),
+    withDirectOmnichannelLinkFields(input, payload, destinationUrl, creativeSpec.applinkTreatment),
     input.optOutEnhancements
   );
 }
@@ -178,12 +173,7 @@ function buildVideo(
   );
 
   return withDegreesOfFreedomSpec(
-    withDirectOmnichannelLinkFields(
-      input,
-      payload,
-      destinationUrl,
-      creativeSpec.applinkTreatment
-    ),
+    withDirectOmnichannelLinkFields(input, payload, destinationUrl, creativeSpec.applinkTreatment),
     input.optOutEnhancements
   );
 }
@@ -260,6 +250,26 @@ function buildExistingPost(
   const payload: Record<string, unknown> = objectStoryId
     ? { object_story_id: objectStoryId }
     : { source_instagram_media_id: sourceInstagramMediaId };
+
+  const callToAction = optional(creativeSpec.callToAction, 'callToAction');
+
+  if (callToAction) {
+    // TOP-LEVEL call_to_action, never object_story_spec. Verified live against
+    // v25.0: object_story_spec alongside source_instagram_media_id is rejected as
+    // (#100) "Ambiguous Promoted Object" [subcode 1487929], while a top-level
+    // call_to_action carrying value.link is accepted and stored — that is the shape
+    // Ads Manager itself writes for a boosted Instagram post.
+    payload.call_to_action = cta(
+      callToAction,
+      required(creativeSpec.destinationUrl, 'destinationUrl untuk existing_post ber-callToAction'),
+      input.collaborativeAppSpec
+    );
+  } else if (creativeSpec.destinationUrl !== undefined && !input.collaborativeAppSpec) {
+    // Nothing would carry the URL, so say so instead of dropping it.
+    throw new Error(
+      'destinationUrl pada existing_post butuh callToAction (agar terkirim sebagai call_to_action.value.link) atau collaborativeAppSpec (untuk omnichannel_link_spec). Tanpa salah satunya, destinationUrl tidak dipakai sama sekali.'
+    );
+  }
 
   if (!input.collaborativeAppSpec) return payload;
 
@@ -503,34 +513,39 @@ function buildFlexible(
   const assetFeedSpec = creativeSpec.assetFeedSpec;
 
   // Priority: creativeSpec fields > assetFeedSpec fields > defaults
-  const imageHashes = nonBlankValues(creativeSpec.imageHashes).length > 0
-    ? nonBlankValues(creativeSpec.imageHashes)
-    : (assetFeedSpec?.images ?? []).map((img) => img.hash).filter(Boolean);
-  const videoIds = nonBlankValues(creativeSpec.videoIds).length > 0
-    ? nonBlankValues(creativeSpec.videoIds)
-    : (assetFeedSpec?.videos ?? []).map((vid) => vid.video_id).filter(Boolean);
-  const primaryTexts = nonBlankValues(creativeSpec.primaryTexts).length > 0
-    ? nonBlankValues(creativeSpec.primaryTexts)
-    : (assetFeedSpec?.bodies ?? []).map((b) => b.text).filter(Boolean);
-  const headlines = nonBlankValues(creativeSpec.headlines).length > 0
-    ? nonBlankValues(creativeSpec.headlines)
-    : (assetFeedSpec?.titles ?? []).map((t) => t.text).filter(Boolean);
-  const descriptions = nonBlankValues(creativeSpec.descriptions).length > 0
-    ? nonBlankValues(creativeSpec.descriptions)
-    : [];
+  const imageHashes =
+    nonBlankValues(creativeSpec.imageHashes).length > 0
+      ? nonBlankValues(creativeSpec.imageHashes)
+      : (assetFeedSpec?.images ?? []).map((img) => img.hash).filter(Boolean);
+  const videoIds =
+    nonBlankValues(creativeSpec.videoIds).length > 0
+      ? nonBlankValues(creativeSpec.videoIds)
+      : (assetFeedSpec?.videos ?? []).map((vid) => vid.video_id).filter(Boolean);
+  const primaryTexts =
+    nonBlankValues(creativeSpec.primaryTexts).length > 0
+      ? nonBlankValues(creativeSpec.primaryTexts)
+      : (assetFeedSpec?.bodies ?? []).map((b) => b.text).filter(Boolean);
+  const headlines =
+    nonBlankValues(creativeSpec.headlines).length > 0
+      ? nonBlankValues(creativeSpec.headlines)
+      : (assetFeedSpec?.titles ?? []).map((t) => t.text).filter(Boolean);
+  const descriptions =
+    nonBlankValues(creativeSpec.descriptions).length > 0
+      ? nonBlankValues(creativeSpec.descriptions)
+      : [];
 
   // Destination URL: creativeSpec > first assetFeedSpec.link_urls > required
-  const destinationUrl = creativeSpec.destinationUrl?.trim()
-    || assetFeedSpec?.link_urls?.[0]?.website_url?.trim()
-    || '';
+  const destinationUrl =
+    creativeSpec.destinationUrl?.trim() || assetFeedSpec?.link_urls?.[0]?.website_url?.trim() || '';
   if (!destinationUrl) {
     throw new Error('Flexible creative memerlukan destinationUrl atau assetFeedSpec.link_urls.');
   }
 
   // CTA: creativeSpec > first assetFeedSpec.call_to_action_types > default
-  const callToAction = creativeSpec.callToAction?.trim()
-    || assetFeedSpec?.call_to_action_types?.[0]?.trim()
-    || 'LEARN_MORE';
+  const callToAction =
+    creativeSpec.callToAction?.trim() ||
+    assetFeedSpec?.call_to_action_types?.[0]?.trim() ||
+    'LEARN_MORE';
 
   if (imageHashes.length === 0 && videoIds.length === 0) {
     throw new Error('Flexible creative wajib memiliki minimal satu media.');
@@ -694,9 +709,7 @@ function buildPlacementCustomizedCtwa(
   };
 }
 
-function buildCreativeFeatureOptOutSpec(
-  features?: string[]
-): Record<string, unknown> {
+function buildCreativeFeatureOptOutSpec(features?: string[]): Record<string, unknown> {
   const featureList = features?.length
     ? features
     : [

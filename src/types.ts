@@ -128,12 +128,28 @@ export interface MetaExistingPostCreativeSpec {
    */
   sourceInstagramMediaId?: string;
   /**
-   * Required together with collaborativeAppSpec to build omnichannel_link_spec.web.url
-   * for CPAS/omnichannel ad sets. Cannot retroactively fix object_store_urls missing
-   * from the referenced post's own call_to_action — that was fixed when the post was
-   * first published. Prefer creativeFormat 'video' directly for CPAS omnichannel ads.
+   * External landing page the boosted post should click through to. Sent as
+   * call_to_action.value.link, so it requires callToAction. Also required — for a
+   * different purpose — when collaborativeAppSpec is set, where it builds
+   * omnichannel_link_spec.web.url for CPAS/omnichannel ad sets. Rejected when neither
+   * is present, since nothing would carry it.
+   *
+   * On the collaborativeAppSpec path this cannot retroactively fix object_store_urls
+   * missing from the referenced post's own call_to_action — that was fixed when the
+   * post was first published. Prefer creativeFormat 'video' directly for CPAS
+   * omnichannel ads.
    */
   destinationUrl?: string;
+  /**
+   * CTA button type (e.g. LEARN_MORE, SHOP_NOW) for the boosted post. Emitted as a
+   * TOP-LEVEL call_to_action on the creative — the shape Ads Manager writes — never
+   * inside object_story_spec, which Meta rejects here as an ambiguous promoted object.
+   *
+   * Works for Instagram posts, where the destination can be changed freely. A Facebook
+   * Page post that already carries its own link may keep it regardless; the value is
+   * passed through and Meta decides.
+   */
+  callToAction?: string;
   applinkTreatment?: MetaApplinkTreatment;
 }
 
