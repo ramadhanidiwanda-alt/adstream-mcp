@@ -985,6 +985,52 @@ describe('MetaAdsAdapter', () => {
     expect(response.meta).toMatchObject({ nextCursor: 'next_active_ad' });
   });
 
+  it('scopes the compliance audit to a single ad set via the nested /ads endpoint', async () => {
+    let capturedPath: string | undefined;
+    let capturedParams: Record<string, unknown> | undefined;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: () =>
+        ({
+          metaGet: async (path: string, params: Record<string, unknown>) => {
+            capturedPath = path;
+            capturedParams = params;
+            return {
+              data: [
+                {
+                  id: 'ad_1',
+                  name: 'Scoped Ad',
+                  status: 'ACTIVE',
+                  effective_status: 'ACTIVE',
+                  campaign_id: 'cmp_1',
+                  adset: { id: 'as_1', name: 'Scoped Ad Set', targeting: {} },
+                  creative: { id: 'creative_1', name: 'Scoped Creative' },
+                },
+              ],
+              paging: {},
+            };
+          },
+        }) as never,
+    });
+
+    const response = await adapter.getCreativePerformance({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: { complianceAudit: true, adSetId: 'as_1' },
+      credentials: {
+        provider: 'meta',
+        accessToken: 'secret-token',
+        accountId: 'act_123',
+        apiVersion: 'v23.0',
+        source: 'test',
+      },
+    });
+
+    expect(capturedPath).toBe('/as_1/ads');
+    expect(capturedParams).toMatchObject({ filtering: expect.stringContaining('ACTIVE') });
+    expect(response.ok).toBe(true);
+    expect(response.data?.[0]?.identity.ad_id).toBe('ad_1');
+  });
+
   it('wraps compliance audit permission failures with actionable guidance', async () => {
     const adapter = new MetaAdsAdapter({
       clientFactory: () =>
