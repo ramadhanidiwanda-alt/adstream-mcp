@@ -283,6 +283,89 @@ describe('createAdCreative', () => {
     });
   });
 
+  it('rejects a standard app spec outside the canonical App Promotion destination before posting', async () => {
+    const result = await createAdCreative(
+      mockClient,
+      {
+        adAccountId: 'act_1',
+        name: 'Out-of-scope app spec',
+        pageId: 'page-1',
+        standardAppSpec: {
+          applicationId: 'app-1',
+          objectStoreUrl: 'https://apps.apple.com/app/id123',
+        },
+        creative: {
+          creativeFormat: 'single_image',
+          creativeSpec: {
+            imageHash: 'image-1',
+            primaryText: 'Visit now',
+            destinationUrl: 'https://example.com',
+          },
+        },
+      },
+      { dryRun: false, confirmed: true }
+    );
+
+    expect(result).toMatchObject({
+      status: 'failed',
+      error: expect.stringMatching(/standardAppSpec.*OUTCOME_APP_PROMOTION.*APP/i),
+    });
+    expect(mockMetaPost).not.toHaveBeenCalled();
+  });
+
+  it('rejects combining standard and collaborative app specs before payload construction', async () => {
+    const result = await createAdCreative(mockClient, {
+      adAccountId: 'act_1',
+      name: 'Ambiguous app spec',
+      pageId: 'page-1',
+      objective: 'OUTCOME_APP_PROMOTION',
+      conversionLocation: 'APP',
+      standardAppSpec: {
+        applicationId: 'app-1',
+        objectStoreUrl: 'https://apps.apple.com/app/id123',
+      },
+      collaborativeAppSpec: { applicationId: 'collaborative-app-1' },
+      creative: {
+        creativeFormat: 'video',
+        creativeSpec: { videoId: 'video-1', primaryText: 'Install now' },
+      },
+    });
+
+    expect(result).toMatchObject({
+      status: 'failed',
+      error: expect.stringMatching(/standardAppSpec.*collaborativeAppSpec/i),
+    });
+    expect(mockMetaPost).not.toHaveBeenCalled();
+  });
+
+  it('rejects WHATSAPP_MESSAGE for canonical App Promotion before payload construction', async () => {
+    const result = await createAdCreative(mockClient, {
+      adAccountId: 'act_1',
+      name: 'Invalid app CTA',
+      pageId: 'page-1',
+      objective: 'OUTCOME_APP_PROMOTION',
+      conversionLocation: 'APP',
+      standardAppSpec: {
+        applicationId: 'app-1',
+        objectStoreUrl: 'https://apps.apple.com/app/id123',
+      },
+      creative: {
+        creativeFormat: 'video',
+        creativeSpec: {
+          videoId: 'video-1',
+          primaryText: 'Install now',
+          callToAction: 'WHATSAPP_MESSAGE',
+        },
+      },
+    });
+
+    expect(result).toMatchObject({
+      status: 'failed',
+      error: expect.stringMatching(/WHATSAPP_MESSAGE.*App Promotion/i),
+    });
+    expect(mockMetaPost).not.toHaveBeenCalled();
+  });
+
   it('rejects an objective-aware Instant Form Lead without a form ID', async () => {
     const result = await createAdCreative(mockClient, {
       adAccountId: 'act_1',

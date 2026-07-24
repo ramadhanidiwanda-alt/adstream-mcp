@@ -576,6 +576,18 @@ async function withResolvedObjectiveDestinationMode(
   options: CreateAdCreativeOptions,
   apiVersion: string
 ): Promise<CreateAdCreativeOptions> {
+  if (options.standardAppSpec && options.collaborativeAppSpec) {
+    throw new Error('standardAppSpec dan collaborativeAppSpec tidak dapat digunakan bersamaan.');
+  }
+
+  if (options.standardAppSpec) {
+    if (options.objective !== 'OUTCOME_APP_PROMOTION' || options.conversionLocation !== 'APP') {
+      throw new Error(
+        'standardAppSpec hanya dapat digunakan dengan objective OUTCOME_APP_PROMOTION dan conversionLocation APP.'
+      );
+    }
+  }
+
   if (options.objective === undefined && options.conversionLocation === undefined) return options;
 
   if (options.objective === undefined || options.conversionLocation === undefined) {
@@ -604,6 +616,13 @@ async function withResolvedObjectiveDestinationMode(
       throw new Error('standardAppSpec.applicationId wajib diisi untuk App Promotion.');
     if (!objectStoreUrl)
       throw new Error('standardAppSpec.objectStoreUrl wajib diisi untuk App Promotion.');
+    const callToAction =
+      'callToAction' in options.creative.creativeSpec
+        ? options.creative.creativeSpec.callToAction?.trim()
+        : undefined;
+    if (callToAction === 'WHATSAPP_MESSAGE') {
+      throw new Error('WHATSAPP_MESSAGE tidak kompatibel dengan App Promotion.');
+    }
   }
 
   if (launchSpec.destinationMode === 'EXTERNAL_URL') {

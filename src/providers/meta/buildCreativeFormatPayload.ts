@@ -27,6 +27,9 @@ export type BuildMetaCreativeFormatPayloadInput = MetaCreativeSpec & {
 export function buildMetaCreativeFormatPayload(
   input: BuildMetaCreativeFormatPayloadInput
 ): Record<string, unknown> {
+  if (input.standardAppSpec && input.collaborativeAppSpec) {
+    throw new Error('standardAppSpec dan collaborativeAppSpec tidak dapat digunakan bersamaan.');
+  }
   assertMetaCreativeCompatibility(input);
 
   switch (input.creativeFormat) {
@@ -78,6 +81,9 @@ function cta(
       type: normalizedType,
       value: { lead_gen_form_id: required(leadFormId, 'leadFormId') },
     };
+  }
+  if (standardAppSpec && normalizedType === 'WHATSAPP_MESSAGE') {
+    throw new Error('WHATSAPP_MESSAGE tidak kompatibel dengan standardAppSpec.');
   }
   if (normalizedType === 'WHATSAPP_MESSAGE' && !collaborativeAppSpec) {
     return { type: normalizedType };

@@ -184,6 +184,26 @@ describe('buildMetaCreativeFormatPayload', () => {
     expect(result).not.toHaveProperty('applink_treatment');
   });
 
+  it('rejects WHATSAPP_MESSAGE when a standard app spec is supplied', () => {
+    expect(() =>
+      buildMetaCreativeFormatPayload({
+        mode: 'standard',
+        pageId: 'page-1',
+        standardAppSpec: {
+          applicationId: 'app-1',
+          objectStoreUrl: 'https://apps.apple.com/app/id123',
+        },
+        creativeFormat: 'single_image',
+        creativeSpec: {
+          imageHash: 'image-1',
+          primaryText: 'Install now',
+          destinationUrl: 'https://apps.apple.com/app/id123',
+          callToAction: 'WHATSAPP_MESSAGE',
+        },
+      })
+    ).toThrow(/WHATSAPP_MESSAGE.*standardAppSpec/i);
+  });
+
   it('builds a standard single-image link creative', () => {
     expect(
       buildMetaCreativeFormatPayload({
