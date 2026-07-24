@@ -6,6 +6,7 @@ import {
   parseMetaApiMajor,
   resolveMetaObjectiveLaunchSpec,
 } from '../src/providers/meta/objectiveLaunchMatrix.js';
+import { getLaunchPreset } from '../src/tools/launchPresets.js';
 
 describe('Meta objective launch matrix', () => {
   it('exposes exactly the six ODAX create objectives', () => {
@@ -143,6 +144,10 @@ describe('Meta objective launch matrix', () => {
       application_id: 'app-1',
       object_store_url: 'https://apps.apple.com/app/id123',
     });
+  });
+
+  it('recommends lead-form discovery when preparing Instant Form Leads', () => {
+    expect(getLaunchPreset('leads_instant_form').recommendedTools).toContain('ads_list_lead_forms');
   });
 
   it('parses supported versions and rejects unreviewed versions', () => {

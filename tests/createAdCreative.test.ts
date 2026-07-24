@@ -189,6 +189,57 @@ describe('createAdCreative', () => {
     expect(mockMetaGetObject).not.toHaveBeenCalled();
   });
 
+  it('builds an Instant Form Leads dry-run with the form CTA', async () => {
+    const result = await createAdCreative(mockClient, {
+      adAccountId: 'act_1',
+      name: 'Consultation Leads',
+      pageId: 'page-1',
+      objective: 'OUTCOME_LEADS',
+      conversionLocation: 'INSTANT_FORM',
+      creative: {
+        creativeFormat: 'single_image',
+        creativeSpec: {
+          imageHash: 'image-1',
+          primaryText: 'Book a consultation',
+          headline: 'Talk to our team',
+          callToAction: 'SIGN_UP',
+          leadFormId: 'form-1',
+        },
+      },
+    });
+
+    expect(result.preview).toMatchObject({
+      object_story_spec: {
+        page_id: 'page-1',
+        link_data: {
+          call_to_action: { type: 'SIGN_UP', value: { lead_gen_form_id: 'form-1' } },
+        },
+      },
+    });
+  });
+
+  it('rejects an objective-aware Instant Form Lead without a form ID', async () => {
+    const result = await createAdCreative(mockClient, {
+      adAccountId: 'act_1',
+      name: 'Incomplete Leads',
+      pageId: 'page-1',
+      objective: 'OUTCOME_LEADS',
+      conversionLocation: 'INSTANT_FORM',
+      creative: {
+        creativeFormat: 'single_image',
+        creativeSpec: {
+          imageHash: 'image-1',
+          primaryText: 'Book a consultation',
+        },
+      },
+    });
+
+    expect(result).toMatchObject({
+      status: 'failed',
+      error: expect.stringMatching(/leadFormId wajib diisi/i),
+    });
+  });
+
   it.each([
     {
       label: 'Awareness image',

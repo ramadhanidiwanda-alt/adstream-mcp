@@ -80,6 +80,7 @@ export const ADS_MCP_TOOL_NAMES = [
   'ads_read_creative_full',
   'ads_read_adset_full',
   'ads_list_pages',
+  'ads_list_lead_forms',
   'ads_list_instagram_accounts',
   'ads_list_instagram_media',
   'ads_list_threads_profiles',
@@ -496,6 +497,12 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
     inputSchema: createAdsInputSchema([]),
   },
   {
+    name: 'ads_list_lead_forms',
+    description:
+      'List published Meta Instant Forms owned by a selected Facebook Page. Read-only asset discovery for lead-form launches.',
+    inputSchema: createLeadFormsInputSchema(),
+  },
+  {
     name: 'ads_list_instagram_accounts',
     description: "List Instagram Business Accounts connected to the user's Facebook Pages.",
     inputSchema: createAdsInputSchema([]),
@@ -855,6 +862,8 @@ function callBrokerMethod(
       return broker.readAdSetFull(request);
     case 'ads_list_pages':
       return broker.listPages(request);
+    case 'ads_list_lead_forms':
+      return broker.listLeadForms(request);
     case 'ads_list_instagram_accounts':
       return broker.listInstagramAccounts(request);
     case 'ads_list_instagram_media':
@@ -2669,6 +2678,24 @@ function createBusinessIdInputSchema() {
       limit: { type: 'number', description: 'Maximum rows to return.' },
     },
     required: ['businessId'],
+  };
+}
+
+function createLeadFormsInputSchema() {
+  const schema = createAdsInputSchema([]);
+  return {
+    type: 'object',
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      pageId: { type: 'string', description: 'Facebook Page ID that owns the Instant Forms.' },
+      status: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'Optional Instant Form statuses to include, such as ACTIVE.',
+      },
+      limit: { type: 'number', description: 'Maximum forms to return (default 50).' },
+    },
+    required: ['accountId', 'pageId'],
   };
 }
 

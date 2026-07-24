@@ -137,6 +137,14 @@ const adsCreativeInputSchema = {
   until: z.string().optional().describe('Optional end date in YYYY-MM-DD format.'),
 };
 
+const leadFormsInputSchema = {
+  ...adsBaseInputSchema,
+  accountId: z.string().describe('Provider account id used to resolve Meta credentials.'),
+  pageId: z.string().describe('Facebook Page ID that owns the Instant Forms.'),
+  status: z.array(z.string()).optional().describe('Optional Instant Form statuses to include.'),
+  limit: z.number().optional().describe('Maximum forms to return (default 50).'),
+};
+
 const launchReadinessInputSchema = {
   ...adsBaseInputSchema,
   accountId: z.string().describe('Provider account id. Required for launch readiness checks.'),
@@ -952,6 +960,8 @@ export function createMetaAdsMcpServer(options: CreateMetaAdsMcpServerOptions = 
       inputSchema = adsCreativeInputSchema;
     } else if (toolDefinition.name === 'ads_check_launch_readiness') {
       inputSchema = launchReadinessInputSchema;
+    } else if (toolDefinition.name === 'ads_list_lead_forms') {
+      inputSchema = leadFormsInputSchema;
     } else if (toolDefinition.name === 'ads_list_catalogs') {
       inputSchema = businessIdInputSchema;
     } else if (toolDefinition.name === 'ads_list_product_sets') {

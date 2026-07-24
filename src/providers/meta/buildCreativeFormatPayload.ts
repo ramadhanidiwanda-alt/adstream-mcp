@@ -62,15 +62,25 @@ function optional(value: string | undefined, label: string): string | undefined 
 
 function cta(
   type: string | undefined,
-  destinationUrl: string,
-  collaborativeAppSpec?: MetaCollaborativeAppSpec
+  destinationUrl?: string,
+  collaborativeAppSpec?: MetaCollaborativeAppSpec,
+  leadFormId?: string
 ): Record<string, unknown> {
   const normalizedType = type?.trim() || 'LEARN_MORE';
+  if (leadFormId) {
+    if (destinationUrl) {
+      throw new Error('leadFormId dan destinationUrl tidak dapat digunakan bersamaan.');
+    }
+    return {
+      type: normalizedType,
+      value: { lead_gen_form_id: required(leadFormId, 'leadFormId') },
+    };
+  }
   if (normalizedType === 'WHATSAPP_MESSAGE' && !collaborativeAppSpec) {
     return { type: normalizedType };
   }
 
-  const value: Record<string, unknown> = { link: destinationUrl };
+  const value: Record<string, unknown> = { link: required(destinationUrl, 'destinationUrl') };
   if (collaborativeAppSpec) {
     value.application = required(
       collaborativeAppSpec.applicationId,
@@ -114,6 +124,34 @@ function buildSingleImage(
             image_hash: required(creativeSpec.imageHash, 'imageHash'),
             message: required(creativeSpec.primaryText, 'primaryText'),
           },
+        },
+      },
+      input.optOutEnhancements
+    );
+  }
+
+  if (creativeSpec.leadFormId) {
+    const linkData: Record<string, unknown> = {
+      image_hash: required(creativeSpec.imageHash, 'imageHash'),
+      message: required(creativeSpec.primaryText, 'primaryText'),
+      call_to_action: cta(
+        creativeSpec.callToAction,
+        creativeSpec.destinationUrl,
+        input.collaborativeAppSpec,
+        creativeSpec.leadFormId
+      ),
+    };
+    const headline = optional(creativeSpec.headline, 'headline');
+    const description = optional(creativeSpec.description, 'description');
+    if (headline) linkData.name = headline;
+    if (description) linkData.description = description;
+
+    return withDegreesOfFreedomSpec(
+      {
+        object_story_spec: {
+          page_id: required(input.pageId, 'pageId'),
+          ...instagramIdentity(input),
+          link_data: linkData,
         },
       },
       input.optOutEnhancements
@@ -168,6 +206,34 @@ function buildVideo(
       ...(thumbnailImageHash ? { image_hash: thumbnailImageHash } : {}),
       ...(!thumbnailImageHash && thumbnailImageUrl ? { image_url: thumbnailImageUrl } : {}),
     };
+
+    return withDegreesOfFreedomSpec(
+      {
+        object_story_spec: {
+          page_id: required(input.pageId, 'pageId'),
+          ...instagramIdentity(input),
+          video_data: videoData,
+        },
+      },
+      input.optOutEnhancements
+    );
+  }
+
+  if (creativeSpec.leadFormId) {
+    const videoData: Record<string, unknown> = {
+      video_id: required(creativeSpec.videoId, 'videoId'),
+      message: required(creativeSpec.primaryText, 'primaryText'),
+      call_to_action: cta(
+        creativeSpec.callToAction,
+        creativeSpec.destinationUrl,
+        input.collaborativeAppSpec,
+        creativeSpec.leadFormId
+      ),
+    };
+    const headline = optional(creativeSpec.headline, 'headline');
+    if (thumbnailImageHash) videoData.image_hash = thumbnailImageHash;
+    else if (thumbnailImageUrl) videoData.image_url = thumbnailImageUrl;
+    if (headline) videoData.title = headline;
 
     return withDegreesOfFreedomSpec(
       {

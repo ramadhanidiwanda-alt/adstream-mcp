@@ -127,6 +127,8 @@ export { listProductSets } from './tools/listProductSets.js';
 export type { ListProductSetsOptions } from './tools/listProductSets.js';
 export { listPages } from './tools/listPages.js';
 export type { MetaPageResult } from './tools/listPages.js';
+export { listLeadForms } from './tools/listLeadForms.js';
+export type { MetaLeadFormResult } from './tools/listLeadForms.js';
 export { listInstagramAccounts } from './tools/listInstagramAccounts.js';
 export type { InstagramAccountResult } from './tools/listInstagramAccounts.js';
 export { listInstagramMedia } from './tools/listInstagramMedia.js';

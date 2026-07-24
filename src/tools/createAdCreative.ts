@@ -585,6 +585,14 @@ function withResolvedObjectiveDestinationMode(
     apiVersion,
   });
 
+  if (
+    launchSpec.destinationMode === 'INSTANT_FORM' &&
+    (!('leadFormId' in options.creative.creativeSpec) ||
+      !options.creative.creativeSpec.leadFormId?.trim())
+  ) {
+    throw new Error('leadFormId wajib diisi untuk Instant Form Leads.');
+  }
+
   return {
     ...options,
     creative: {

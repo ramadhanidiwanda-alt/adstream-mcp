@@ -85,7 +85,7 @@ const PRESETS: Record<MetaLaunchWorkflow, LaunchPresetDefinition> = {
     mode: 'standard',
     objective: 'OUTCOME_LEADS',
     conversionLocation: 'INSTANT_FORM',
-    recommendedTools: [...CREATE_TOOLS, 'ads_list_pages'],
+    recommendedTools: [...CREATE_TOOLS, 'ads_list_pages', 'ads_list_lead_forms'],
     safetyNotes: ['Use a published Meta lead form owned by the selected Page.'],
   },
   app_installs: {

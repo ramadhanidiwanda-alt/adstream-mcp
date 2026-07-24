@@ -3185,6 +3185,35 @@ describe('MetaAdsAdapter', () => {
     expect(JSON.stringify(response)).not.toContain('secret-token');
   });
 
+  it('lists Page-scoped Instant Forms without exposing credentials', async () => {
+    const listLeadForms = vi.fn(async () => [
+      { lead_form_id: 'form-1', name: 'Consultation', status: 'ACTIVE', locale: 'en_US' },
+    ]);
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: { listLeadForms },
+    });
+
+    const response = await adapter.listLeadForms({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: { pageId: 'page-1', status: ['ACTIVE'], limit: 10 },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    });
+
+    expect(response).toEqual({
+      ok: true,
+      provider: 'meta',
+      data: [{ lead_form_id: 'form-1', name: 'Consultation', status: 'ACTIVE', locale: 'en_US' }],
+    });
+    expect(listLeadForms).toHaveBeenCalledWith(expect.anything(), {
+      pageId: 'page-1',
+      status: ['ACTIVE'],
+      limit: 10,
+    });
+    expect(JSON.stringify(response)).not.toContain('secret-token');
+  });
+
   it('reads a single Meta ad set with full fields via readAdSetFull', async () => {
     const adapter = new MetaAdsAdapter({
       clientFactory: () =>

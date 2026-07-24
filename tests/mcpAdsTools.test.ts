@@ -354,6 +354,7 @@ describe('ads MCP broker tools', () => {
       'ads_read_creative_full',
       'ads_read_adset_full',
       'ads_list_pages',
+      'ads_list_lead_forms',
       'ads_list_instagram_accounts',
       'ads_list_instagram_media',
       'ads_list_threads_profiles',
@@ -461,6 +462,45 @@ describe('ads MCP broker tools', () => {
       objectStoreUrl: 'https://apps.apple.com/app/example',
       appDeepLinkUrl: 'example://open',
     });
+  });
+
+  it('dispatches read-only Instant Form discovery to the broker', async () => {
+    let request: AdsBrokerRequest | undefined;
+    const broker = {
+      ...createBrokerStub(),
+      listLeadForms: async (received: AdsBrokerRequest) => {
+        request = received;
+        return {
+          ok: true,
+          provider: 'meta' as const,
+          data: [{ lead_form_id: 'form-1', name: 'Consultation', status: 'ACTIVE' }],
+        };
+      },
+    } as unknown as AdsBroker;
+
+    const response = parseToolResponse(
+      await handleAdsMcpToolCall(broker, 'ads_list_lead_forms', {
+        accountId: 'act_123',
+        pageId: 'page-1',
+        status: ['ACTIVE'],
+        limit: 10,
+      })
+    );
+
+    expect(response).toMatchObject({
+      ok: true,
+      data: [{ lead_form_id: 'form-1', name: 'Consultation', status: 'ACTIVE' }],
+    });
+    expect(request).toMatchObject({
+      accountId: 'act_123',
+      params: { pageId: 'page-1', status: ['ACTIVE'], limit: 10 },
+    });
+  });
+
+  it('requires an account and Page for Instant Form discovery', () => {
+    const tool = ADS_MCP_TOOL_DEFINITIONS.find((item) => item.name === 'ads_list_lead_forms');
+
+    expect(tool?.inputSchema.required).toEqual(['accountId', 'pageId']);
   });
 
   it('accepts legacy readiness workflow aliases at the JSON Schema boundary', () => {

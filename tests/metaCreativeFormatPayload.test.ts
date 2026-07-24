@@ -61,6 +61,52 @@ describe('buildMetaCreativeFormatPayload', () => {
     });
   });
 
+  it('builds an Instant Form single image without an external link', () => {
+    expect(
+      buildMetaCreativeFormatPayload({
+        mode: 'standard',
+        pageId: 'page-1',
+        creativeFormat: 'single_image',
+        creativeSpec: {
+          imageHash: 'hash-1',
+          primaryText: 'Book a consultation',
+          headline: 'Talk to our team',
+          callToAction: 'SIGN_UP',
+          leadFormId: 'form-1',
+        },
+      })
+    ).toEqual({
+      object_story_spec: {
+        page_id: 'page-1',
+        link_data: {
+          image_hash: 'hash-1',
+          message: 'Book a consultation',
+          name: 'Talk to our team',
+          call_to_action: {
+            type: 'SIGN_UP',
+            value: { lead_gen_form_id: 'form-1' },
+          },
+        },
+      },
+    });
+  });
+
+  it('rejects mixing an Instant Form with an external link', () => {
+    expect(() =>
+      buildMetaCreativeFormatPayload({
+        mode: 'standard',
+        pageId: 'page-1',
+        creativeFormat: 'single_image',
+        creativeSpec: {
+          imageHash: 'hash-1',
+          primaryText: 'Book a consultation',
+          destinationUrl: 'https://example.com',
+          leadFormId: 'form-1',
+        },
+      })
+    ).toThrow(/leadFormId.*destinationUrl|destinationUrl.*leadFormId/i);
+  });
+
   it('builds an Engagement existing post without fabricating an external URL', () => {
     expect(
       buildMetaCreativeFormatPayload({

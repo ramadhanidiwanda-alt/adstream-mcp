@@ -92,6 +92,7 @@ import { listAdImages } from '../../tools/listAdImages.js';
 import { listAdVideos } from '../../tools/listAdVideos.js';
 import { getAdPreview } from '../../tools/getAdPreview.js';
 import { listPages as listPagesTool } from '../../tools/listPages.js';
+import { listLeadForms as listLeadFormsTool } from '../../tools/listLeadForms.js';
 import { listInstagramAccounts as listInstagramAccountsTool } from '../../tools/listInstagramAccounts.js';
 import { listInstagramMedia as listInstagramMediaTool } from '../../tools/listInstagramMedia.js';
 import { listThreadsProfiles as listThreadsProfilesTool } from '../../tools/listThreadsProfiles.js';
@@ -123,6 +124,7 @@ import type {
   AdVideoResult,
   AdPreviewResult,
   MetaPageResult,
+  MetaLeadFormResult,
   MetaPixelResult,
   MetaCatalogResult,
   MetaProductSetResult,
@@ -353,6 +355,10 @@ export interface MetaAdsAdapterTools {
     client: MetaClient,
     options?: { limit?: number }
   ): Promise<import('../../tools/listPages.js').MetaPageResult[]>;
+  listLeadForms(
+    client: MetaClient,
+    options: { pageId: string; status?: string[]; limit?: number }
+  ): Promise<import('../../tools/listLeadForms.js').MetaLeadFormResult[]>;
   listPixels(
     client: MetaClient,
     options: { adAccountId: string; limit?: number }
@@ -448,6 +454,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       listCatalogs: listCatalogsTool,
       listProductSets: listProductSetsTool,
       listPages: listPagesTool,
+      listLeadForms: listLeadFormsTool,
       listInstagramAccounts: listInstagramAccountsTool,
       listInstagramMedia: listInstagramMediaTool,
       listThreadsProfiles: listThreadsProfilesTool,
@@ -3151,6 +3158,41 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
     }
   }
 
+  async listLeadForms(request: AdsBrokerRequest): Promise<AdsBrokerResponse<MetaLeadFormResult[]>> {
+    const context = this.getCredentialContext(request);
+    if (!context.ok) return context.response;
+
+    const pageId = optionalPlainString(request.params.pageId);
+    if (!pageId) {
+      return {
+        ok: false,
+        provider: 'meta',
+        errors: [
+          {
+            provider: 'meta',
+            code: 'MISSING_PAGE_ID',
+            message: 'pageId is required to list Instant Forms',
+          },
+        ],
+      };
+    }
+
+    try {
+      const status = Array.isArray(request.params.status)
+        ? request.params.status.filter((value): value is string => typeof value === 'string')
+        : undefined;
+      const limit = typeof request.params.limit === 'number' ? request.params.limit : undefined;
+      const forms = await this.tools.listLeadForms(this.createClient(context.credential), {
+        pageId,
+        status,
+        limit,
+      });
+      return { ok: true, provider: 'meta', data: forms };
+    } catch (error) {
+      return this.errorResponse(error);
+    }
+  }
+
   private getEcommerceCampaignBundlePayload(
     request: AdsBrokerRequest,
     credential: CredentialContext
@@ -3622,6 +3664,7 @@ function parseMetaCreativeSpec(
           imageHash: requireString(spec.imageHash, 'creativeSpec.imageHash'),
           primaryText: requireString(spec.primaryText, 'creativeSpec.primaryText'),
           destinationUrl: optionalString(spec.destinationUrl, 'creativeSpec.destinationUrl'),
+          leadFormId: optionalString(spec.leadFormId, 'creativeSpec.leadFormId'),
           headline: optionalString(spec.headline, 'creativeSpec.headline'),
           description: optionalString(spec.description, 'creativeSpec.description'),
           callToAction: optionalString(spec.callToAction, 'creativeSpec.callToAction'),
@@ -3650,6 +3693,7 @@ function parseMetaCreativeSpec(
           ),
           primaryText: requireString(spec.primaryText, 'creativeSpec.primaryText'),
           destinationUrl: optionalString(spec.destinationUrl, 'creativeSpec.destinationUrl'),
+          leadFormId: optionalString(spec.leadFormId, 'creativeSpec.leadFormId'),
           headline: optionalString(spec.headline, 'creativeSpec.headline'),
           description: optionalString(spec.description, 'creativeSpec.description'),
           callToAction: optionalString(spec.callToAction, 'creativeSpec.callToAction'),

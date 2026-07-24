@@ -191,6 +191,38 @@ describe('MCP server builder', () => {
     );
   });
 
+  it('validates and forwards Page-scoped Instant Form discovery input', async () => {
+    const adsBroker = {
+      ...createBrokerStub(),
+      listLeadForms: vi.fn(async () => ({
+        ok: true,
+        provider: 'meta',
+        data: [{ lead_form_id: 'form-1', name: 'Consultation', status: 'ACTIVE' }],
+      })),
+    } as unknown as AdsBroker;
+    const { client, server } = await createConnectedClient({
+      config: { adAccountId: 'act_123' },
+      adsBroker,
+    });
+
+    try {
+      const response = await client.callTool({
+        name: 'ads_list_lead_forms',
+        arguments: { accountId: 'act_123', pageId: 'page-1', status: ['ACTIVE'], limit: 10 },
+      });
+
+      expect(response.isError).not.toBe(true);
+      expect(adsBroker.listLeadForms).toHaveBeenCalledWith(
+        expect.objectContaining({
+          accountId: 'act_123',
+          params: { pageId: 'page-1', status: ['ACTIVE'], limit: 10 },
+        })
+      );
+    } finally {
+      await Promise.all([client.close(), server.close()]);
+    }
+  });
+
   it('keeps full tool order stable for stdio and future transports', async () => {
     const response = await listRegisteredTools();
     const names = response.tools.map((tool) => tool.name);

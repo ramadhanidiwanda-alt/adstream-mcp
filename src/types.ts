@@ -37,12 +37,14 @@ export interface MetaAssetMessageExtension {
 
 export interface MetaSingleImageCreativeSpec extends MetaCreativeCopy {
   imageHash: string;
+  leadFormId?: string;
   pageWelcomeMessage?: string;
   applinkTreatment?: MetaApplinkTreatment;
 }
 
 export interface MetaVideoCreativeSpec extends MetaCreativeCopy {
   videoId: string;
+  leadFormId?: string;
   thumbnailImageHash?: string;
   /**
    * Alternative to thumbnailImageHash — Meta's video_data accepts a direct
