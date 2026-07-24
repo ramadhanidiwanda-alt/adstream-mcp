@@ -4,6 +4,8 @@ import {
   buildMetaIdFilteringRules,
   parseCanonicalMetaFilters,
   parseExplicitMetaFilters,
+  resolveAdsEdgeScope,
+  filterAdsByEntityScope,
 } from '../src/utils/metaFiltering.js';
 import { getCampaignInsights } from '../src/tools/getCampaignInsights.js';
 import { getAdsetInsights } from '../src/tools/getAdsetInsights.js';
@@ -249,5 +251,86 @@ describe('getAdCreativeMapping filtering', () => {
       { field: 'adset.id', operator: 'IN', value: ['as_1'] },
       { field: 'effective_status', operator: 'IN', value: ['ACTIVE', 'PAUSED'] },
     ]);
+  });
+});
+
+describe('resolveAdsEdgeScope', () => {
+  it('scopes to the nested ad set endpoint when only a single adSetId is given', () => {
+    expect(resolveAdsEdgeScope('123', undefined, 'as_1')).toEqual({
+      path: '/as_1/ads',
+      needsPostFilter: false,
+    });
+  });
+
+  it('scopes to the nested campaign endpoint when only a single campaignId is given', () => {
+    expect(resolveAdsEdgeScope('123', 'cmp_1', undefined)).toEqual({
+      path: '/cmp_1/ads',
+      needsPostFilter: false,
+    });
+  });
+
+  it('falls back to the account endpoint with no post-filter when neither is given', () => {
+    expect(resolveAdsEdgeScope('123', undefined, undefined)).toEqual({
+      path: '/act_123/ads',
+      needsPostFilter: false,
+    });
+  });
+
+  it('falls back to the account endpoint and requires a post-filter when both are given', () => {
+    expect(resolveAdsEdgeScope('123', 'cmp_1', 'as_1')).toEqual({
+      path: '/act_123/ads',
+      needsPostFilter: true,
+    });
+  });
+
+  it('falls back to the account endpoint and requires a post-filter when adSetId is an array', () => {
+    expect(resolveAdsEdgeScope('123', undefined, ['as_1', 'as_2'])).toEqual({
+      path: '/act_123/ads',
+      needsPostFilter: true,
+    });
+  });
+
+  it('prefers a single-element array the same as a bare string', () => {
+    expect(resolveAdsEdgeScope('123', undefined, ['as_1'])).toEqual({
+      path: '/as_1/ads',
+      needsPostFilter: false,
+    });
+  });
+});
+
+describe('filterAdsByEntityScope', () => {
+  const ads = [
+    { id: 'a1', campaign_id: 'cmp_1', adset_id: 'as_1' },
+    { id: 'a2', campaign_id: 'cmp_1', adset_id: 'as_2' },
+    { id: 'a3', campaign_id: 'cmp_2', adset_id: 'as_1' },
+  ];
+  const getCampaignId = (ad: (typeof ads)[number]) => ad.campaign_id;
+  const getAdSetId = (ad: (typeof ads)[number]) => ad.adset_id;
+
+  it('returns all ads unchanged when neither filter is given', () => {
+    expect(filterAdsByEntityScope(ads, undefined, undefined, getCampaignId, getAdSetId)).toEqual(
+      ads
+    );
+  });
+
+  it('keeps only ads matching the given adSetId', () => {
+    const result = filterAdsByEntityScope(ads, undefined, 'as_1', getCampaignId, getAdSetId);
+    expect(result.map((ad) => ad.id)).toEqual(['a1', 'a3']);
+  });
+
+  it('keeps only ads matching both campaignId and adSetId', () => {
+    const result = filterAdsByEntityScope(ads, 'cmp_1', 'as_1', getCampaignId, getAdSetId);
+    expect(result.map((ad) => ad.id)).toEqual(['a1']);
+  });
+
+  it('matches against any id in an array filter', () => {
+    const result = filterAdsByEntityScope(
+      ads,
+      undefined,
+      ['as_1', 'as_2'],
+      getCampaignId,
+      getAdSetId
+    );
+    expect(result.map((ad) => ad.id)).toEqual(['a1', 'a2', 'a3']);
   });
 });
