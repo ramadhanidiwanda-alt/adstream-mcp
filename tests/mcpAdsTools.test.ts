@@ -9,6 +9,10 @@ import {
   toAdsBrokerRequest,
 } from '../src/broker/mcpTools.js';
 import type { AdsBroker } from '../src/broker/AdsBroker.js';
+import {
+  META_CONVERSION_LOCATIONS,
+  META_ODAX_OBJECTIVES,
+} from '../src/providers/meta/objectiveLaunchMatrix.js';
 import type {
   AdsBrokerRequest,
   AdsBrokerResponse,
@@ -265,6 +269,20 @@ describe('ads MCP broker tools', () => {
 
     expect(properties.urlTags).toMatchObject({
       type: 'string',
+    });
+  });
+
+  it('exposes canonical objective and conversionLocation for objective-aware creatives', () => {
+    const tool = ADS_MCP_TOOL_DEFINITIONS.find(({ name }) => name === 'ads_create_adcreative');
+    const properties = tool?.inputSchema.properties as Record<string, unknown>;
+
+    expect(properties.objective).toMatchObject({
+      type: 'string',
+      enum: [...META_ODAX_OBJECTIVES],
+    });
+    expect(properties.conversionLocation).toMatchObject({
+      type: 'string',
+      enum: [...META_CONVERSION_LOCATIONS],
     });
   });
 

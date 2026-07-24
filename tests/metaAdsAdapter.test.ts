@@ -2063,6 +2063,47 @@ describe('MetaAdsAdapter', () => {
     expect(response.ok).toBe(true);
   });
 
+  it('forwards canonical creative launch inputs for a URL-free Awareness creative', async () => {
+    let capturedOptions: Record<string, unknown> | undefined;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        createAdCreative: async (_client, options) => {
+          capturedOptions = options;
+          return {
+            operation: 'create_adcreative',
+            status: 'dry_run',
+            executed: false,
+            preview: {},
+          };
+        },
+      },
+    });
+
+    const response = await adapter.createAdCreative({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {
+        name: 'Awareness creative',
+        pageId: 'page-1',
+        objective: 'OUTCOME_AWARENESS',
+        conversionLocation: 'AWARENESS',
+        creativeFormat: 'single_image',
+        creativeSpec: {
+          imageHash: 'image-1',
+          primaryText: 'Kenali brand kami',
+        },
+      },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    });
+
+    expect(response.ok).toBe(true);
+    expect(capturedOptions).toMatchObject({
+      objective: 'OUTCOME_AWARENESS',
+      conversionLocation: 'AWARENESS',
+    });
+  });
+
   it('attaches image and video creatives to separate ads in the same ad set', async () => {
     const adCreateCalls: Array<{ adsetId: string; creativeId: string }> = [];
     const adapter = new MetaAdsAdapter({

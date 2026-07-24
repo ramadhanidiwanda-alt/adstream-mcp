@@ -10,6 +10,11 @@ import {
   type StructuredMutationError,
 } from '../types.js';
 import { buildMetaCreativeFormatPayload } from '../providers/meta/buildCreativeFormatPayload.js';
+import {
+  resolveMetaObjectiveLaunchSpec,
+  type MetaConversionLocation,
+  type MetaOdaxObjective,
+} from '../providers/meta/objectiveLaunchMatrix.js';
 import { getMetaCreativeErrorGuidance } from '../providers/meta/metaCreativeErrorGuidance.js';
 import { normalizeAccountPath } from '../utils/normalizeAccountId.js';
 import {
@@ -26,6 +31,10 @@ export interface CreateAdCreativeOptions {
   name: string;
   pageId?: string;
   mode?: MetaAdsMode;
+  /** Canonical Meta ODAX objective used to resolve creative destination behavior. */
+  objective?: MetaOdaxObjective;
+  /** Canonical conversion location paired with objective for launch resolution. */
+  conversionLocation?: MetaConversionLocation;
   creative?: MetaCreativeSpec;
   collaborativeProductSetId?: string;
   collaborativeAppSpec?: MetaCollaborativeAppSpec;
@@ -104,11 +113,13 @@ export async function createAdCreative(
   execOptions: { dryRun?: boolean; confirmed?: boolean; maxRetries?: number } = {}
 ): Promise<CreateAdCreativeResult> {
   const { dryRun = true, confirmed = false, maxRetries = 3 } = execOptions;
-  const enrichedOptions = await withAutoVideoThumbnail(client, options);
 
   let preview: Record<string, unknown>;
   try {
-    preview = buildCreativePayload(enrichedOptions);
+    const enrichedOptions = await withAutoVideoThumbnail(client, options);
+    preview = buildCreativePayload(
+      withResolvedObjectiveDestinationMode(enrichedOptions, client.apiVersion ?? 'v25.0')
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     const structuredError = validationError(message);
@@ -551,6 +562,39 @@ function buildCreativePayload(options: CreateAdCreativeOptions): Record<string, 
   if (options.urlTags) payload.url_tags = options.urlTags;
 
   return payload;
+}
+
+function withResolvedObjectiveDestinationMode(
+  options: CreateAdCreativeOptions,
+  apiVersion: string
+): CreateAdCreativeOptions {
+  if (options.objective === undefined && options.conversionLocation === undefined) return options;
+
+  if (options.objective === undefined || options.conversionLocation === undefined) {
+    throw new Error('objective dan conversionLocation harus diisi bersama untuk creative launch.');
+  }
+
+  if (!options.creative) {
+    throw new Error('objective dan conversionLocation memerlukan creativeFormat dan creativeSpec.');
+  }
+
+  const launchSpec = resolveMetaObjectiveLaunchSpec({
+    objective: options.objective,
+    conversionLocation: options.conversionLocation,
+    creativeFormat: options.creative.creativeFormat,
+    apiVersion,
+  });
+
+  return {
+    ...options,
+    creative: {
+      ...options.creative,
+      creativeSpec: {
+        ...options.creative.creativeSpec,
+        destinationMode: launchSpec.destinationMode,
+      },
+    } as MetaCreativeSpec,
+  };
 }
 
 /**

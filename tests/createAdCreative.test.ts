@@ -189,6 +189,84 @@ describe('createAdCreative', () => {
     expect(mockMetaGetObject).not.toHaveBeenCalled();
   });
 
+  it.each([
+    {
+      label: 'Awareness image',
+      objective: 'OUTCOME_AWARENESS',
+      conversionLocation: 'AWARENESS',
+      creative: {
+        creativeFormat: 'single_image' as const,
+        creativeSpec: {
+          destinationMode: 'EXTERNAL_URL' as const,
+          imageHash: 'image-1',
+          primaryText: 'Kenali brand kami',
+          destinationUrl: 'https://example.com/should-not-be-used',
+        },
+      },
+      expectedStory: {
+        photo_data: { image_hash: 'image-1', message: 'Kenali brand kami' },
+      },
+    },
+    {
+      label: 'Engagement video',
+      objective: 'OUTCOME_ENGAGEMENT',
+      conversionLocation: 'VIDEO',
+      creative: {
+        creativeFormat: 'video' as const,
+        creativeSpec: {
+          destinationMode: 'EXTERNAL_URL' as const,
+          videoId: 'video-1',
+          primaryText: 'Tonton videonya',
+          destinationUrl: 'https://example.com/should-not-be-used',
+        },
+      },
+      expectedStory: {
+        video_data: { video_id: 'video-1', message: 'Tonton videonya' },
+      },
+    },
+  ])(
+    'uses the resolved no-destination mode for $label despite a conflicting creative spec',
+    async ({ objective, conversionLocation, creative, expectedStory }) => {
+      const result = await createAdCreative(mockClient, {
+        adAccountId: 'act_1',
+        name: `${objective} creative`,
+        pageId: 'page-1',
+        objective,
+        conversionLocation,
+        creative,
+      });
+
+      expect(result).toMatchObject({
+        status: 'dry_run',
+        preview: { object_story_spec: expectedStory },
+      });
+      expect(result.preview).not.toHaveProperty('object_story_spec.link_data');
+      expect(result.preview).not.toHaveProperty('object_story_spec.video_data.call_to_action');
+    }
+  );
+
+  it('requires a Traffic destination URL despite a conflicting no-destination creative spec', async () => {
+    const result = await createAdCreative(mockClient, {
+      adAccountId: 'act_1',
+      name: 'Traffic requires a URL',
+      pageId: 'page-1',
+      objective: 'OUTCOME_TRAFFIC',
+      conversionLocation: 'WEBSITE',
+      creative: {
+        creativeFormat: 'single_image',
+        creativeSpec: {
+          destinationMode: 'NONE',
+          imageHash: 'image-1',
+          primaryText: 'Kunjungi situs kami',
+        },
+      },
+    });
+
+    expect(result).toMatchObject({ status: 'failed' });
+    expect(result.error).toMatch(/destinationUrl wajib diisi/i);
+    expect(mockMetaPost).not.toHaveBeenCalled();
+  });
+
   it('allows existing_post to omit pageId', async () => {
     const result = await createAdCreative(mockClient, {
       adAccountId: 'act_1',

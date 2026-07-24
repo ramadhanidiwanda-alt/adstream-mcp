@@ -380,6 +380,8 @@ describe('MCP server builder', () => {
     expect(adsetProperties).toHaveProperty('collaborativeCatalog');
     expect(adsetProperties).toHaveProperty('conversionLocation');
     expect(adsetProperties).toHaveProperty('creativeFormat');
+    expect(creativeProperties).toHaveProperty('objective');
+    expect(creativeProperties).toHaveProperty('conversionLocation');
     expect(creativeProperties).toHaveProperty('creativeFormat');
     expect(creativeProperties).toHaveProperty('creativeSpec');
     const canonicalCreateToolNames = [

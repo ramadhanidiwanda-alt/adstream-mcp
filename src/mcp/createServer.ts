@@ -531,6 +531,14 @@ export const createAdCreativeInputSchema = {
     .describe(
       'standard untuk iklan Meta biasa; collaborative_ads untuk katalog retailer yang sudah dibagikan.'
     ),
+  objective: z
+    .enum(META_ODAX_OBJECTIVES)
+    .optional()
+    .describe('Canonical ODAX objective. Must be paired with conversionLocation.'),
+  conversionLocation: z
+    .enum(META_CONVERSION_LOCATIONS)
+    .optional()
+    .describe('Canonical conversion location. Must be paired with objective.'),
   creativeFormat: z
     .enum([
       'single_image',

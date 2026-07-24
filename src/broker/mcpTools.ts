@@ -1820,6 +1820,16 @@ function createCreateAdCreativeInputSchema() {
         description:
           'standard untuk iklan Meta biasa; collaborative_ads untuk katalog retailer yang sudah dibagikan.',
       },
+      objective: {
+        type: 'string',
+        enum: [...META_ODAX_OBJECTIVES],
+        description: 'Canonical ODAX objective. Must be paired with conversionLocation.',
+      },
+      conversionLocation: {
+        type: 'string',
+        enum: [...META_CONVERSION_LOCATIONS],
+        description: 'Canonical conversion location. Must be paired with objective.',
+      },
       creativeFormat: {
         type: 'string',
         enum: [

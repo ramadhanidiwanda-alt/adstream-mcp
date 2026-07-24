@@ -38,6 +38,7 @@ import type {
   PlacementPerformanceReport,
 } from '../../types.js';
 import {
+  META_CONVERSION_LOCATIONS,
   META_ODAX_OBJECTIVES,
   type MetaConversionLocation,
   type MetaOdaxObjective,
@@ -1508,9 +1509,13 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
     let collaborativeProductSetId: string | undefined;
     let collaborativeAppSpec: MetaCollaborativeAppSpec | undefined;
     let destinationType: CreativeDestinationType | undefined;
+    let objective: MetaOdaxObjective | undefined;
+    let conversionLocation: MetaConversionLocation | undefined;
     try {
       mode = parseMetaAdsMode(request.params.mode);
       destinationType = parseCreativeDestinationType(request.params.destinationType);
+      objective = parseMetaOdaxObjective(request.params.objective);
+      conversionLocation = parseMetaConversionLocation(request.params.conversionLocation);
       collaborativeProductSetId = optionalString(
         request.params.collaborativeProductSetId,
         'collaborativeProductSetId'
@@ -1538,6 +1543,12 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
           )
         );
       }
+    }
+
+    if ((objective === undefined) !== (conversionLocation === undefined)) {
+      return validationResponse(
+        new Error('objective dan conversionLocation harus diisi bersama untuk creative launch.')
+      );
     }
 
     // For custom/Flexible asset-feed payloads, page_id may already be nested
@@ -1626,6 +1637,8 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
           name,
           pageId: effectivePageId,
           mode,
+          objective,
+          conversionLocation,
           creative,
           collaborativeProductSetId,
           collaborativeAppSpec,
@@ -3358,6 +3371,8 @@ export const CREATE_AD_CREATIVE_PARAMS = new Set([
   'name',
   'pageId',
   'mode',
+  'objective',
+  'conversionLocation',
   'creativeFormat',
   'creativeSpec',
   'collaborativeProductSetId',
@@ -3502,6 +3517,27 @@ function parseMetaAdsMode(value: unknown): MetaAdsMode | undefined {
   }
 }
 
+function parseMetaOdaxObjective(value: unknown): MetaOdaxObjective | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value !== 'string' || !META_ODAX_OBJECTIVES.includes(value as MetaOdaxObjective)) {
+    throw new Error(`objective harus salah satu dari: ${META_ODAX_OBJECTIVES.join(', ')}.`);
+  }
+  return value as MetaOdaxObjective;
+}
+
+function parseMetaConversionLocation(value: unknown): MetaConversionLocation | undefined {
+  if (value === undefined) return undefined;
+  if (
+    typeof value !== 'string' ||
+    !META_CONVERSION_LOCATIONS.includes(value as MetaConversionLocation)
+  ) {
+    throw new Error(
+      `conversionLocation harus salah satu dari: ${META_CONVERSION_LOCATIONS.join(', ')}.`
+    );
+  }
+  return value as MetaConversionLocation;
+}
+
 function parseMetaCreativeFormat(value: unknown): MetaCreativeFormat {
   switch (value) {
     case 'single_image':
@@ -3585,7 +3621,7 @@ function parseMetaCreativeSpec(
         creativeSpec: {
           imageHash: requireString(spec.imageHash, 'creativeSpec.imageHash'),
           primaryText: requireString(spec.primaryText, 'creativeSpec.primaryText'),
-          destinationUrl: requireString(spec.destinationUrl, 'creativeSpec.destinationUrl'),
+          destinationUrl: optionalString(spec.destinationUrl, 'creativeSpec.destinationUrl'),
           headline: optionalString(spec.headline, 'creativeSpec.headline'),
           description: optionalString(spec.description, 'creativeSpec.description'),
           callToAction: optionalString(spec.callToAction, 'creativeSpec.callToAction'),
@@ -3613,7 +3649,7 @@ function parseMetaCreativeSpec(
             'creativeSpec.thumbnailImageUrl'
           ),
           primaryText: requireString(spec.primaryText, 'creativeSpec.primaryText'),
-          destinationUrl: requireString(spec.destinationUrl, 'creativeSpec.destinationUrl'),
+          destinationUrl: optionalString(spec.destinationUrl, 'creativeSpec.destinationUrl'),
           headline: optionalString(spec.headline, 'creativeSpec.headline'),
           description: optionalString(spec.description, 'creativeSpec.description'),
           callToAction: optionalString(spec.callToAction, 'creativeSpec.callToAction'),
