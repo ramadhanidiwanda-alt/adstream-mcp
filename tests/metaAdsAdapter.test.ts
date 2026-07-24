@@ -1429,8 +1429,9 @@ describe('MetaAdsAdapter', () => {
   it('forwards canonical campaign and ad set fields as typed options', async () => {
     let campaignOptions: Record<string, unknown> | undefined;
     let adSetOptions: Record<string, unknown> | undefined;
+    let adSetClient: { apiVersion?: string } | undefined;
     const adapter = new MetaAdsAdapter({
-      clientFactory: (config) => ({ config }) as never,
+      clientFactory: (config) => ({ config, apiVersion: config.apiVersion }) as never,
       tools: {
         createCampaign: async (_client, options) => {
           campaignOptions = options as unknown as Record<string, unknown>;
@@ -1442,7 +1443,8 @@ describe('MetaAdsAdapter', () => {
             mode: options.mode ?? 'standard',
           };
         },
-        createAdSet: async (_client, options) => {
+        createAdSet: async (client, options) => {
+          adSetClient = client as { apiVersion?: string };
           adSetOptions = options as unknown as Record<string, unknown>;
           return { operation: 'create_adset', status: 'dry_run', executed: false, preview: {} };
         },
@@ -1452,6 +1454,7 @@ describe('MetaAdsAdapter', () => {
     const credentials = {
       provider: 'meta' as const,
       accessToken: 'secret-token',
+      apiVersion: 'v24.0',
       source: 'test',
     };
     const campaignResponse = await adapter.createCampaign({
@@ -1472,6 +1475,15 @@ describe('MetaAdsAdapter', () => {
         campaignId: 'campaign-1',
         name: 'Collaborative ad set',
         mode: 'collaborative_ads',
+        conversionLocation: 'CATALOG',
+        creativeFormat: 'catalog',
+        pageId: 'page-1',
+        pixelId: 'pixel-1',
+        leadFormId: 'lead-form-1',
+        applicationId: 'app-1',
+        objectStoreUrl: 'https://apps.apple.com/app/example',
+        productSetId: 'set-1',
+        customEventType: 'PURCHASE',
         collaborativeCatalog: {
           productSetId: 'set-1',
           pixelId: 'pixel-1',
@@ -1494,6 +1506,15 @@ describe('MetaAdsAdapter', () => {
     expect(campaignResponse.data?.mode).toBe('collaborative_ads');
     expect(adSetOptions).toMatchObject({
       mode: 'collaborative_ads',
+      conversionLocation: 'CATALOG',
+      creativeFormat: 'catalog',
+      pageId: 'page-1',
+      pixelId: 'pixel-1',
+      leadFormId: 'lead-form-1',
+      applicationId: 'app-1',
+      objectStoreUrl: 'https://apps.apple.com/app/example',
+      productSetId: 'set-1',
+      customEventType: 'PURCHASE',
       collaborativeCatalog: {
         productSetId: 'set-1',
         pixelId: 'pixel-1',
@@ -1506,6 +1527,30 @@ describe('MetaAdsAdapter', () => {
         ],
       },
     });
+    expect(adSetClient?.apiVersion).toBe('v24.0');
+  });
+
+  it('rejects a non-ODAX campaign objective before constructing a Meta client', async () => {
+    const createCampaign = vi.fn();
+    const clientFactory = vi.fn(() => ({}) as never);
+    const adapter = new MetaAdsAdapter({
+      clientFactory,
+      tools: { createCampaign },
+    });
+
+    const response = await adapter.createCampaign({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: { name: 'Unsupported objective', objective: 'OUTCOME_MESSAGES' },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    });
+
+    expect(response).toMatchObject({
+      ok: false,
+      errors: [{ provider: 'meta', code: 'VALIDATION_ERROR' }],
+    });
+    expect(createCampaign).not.toHaveBeenCalled();
+    expect(clientFactory).not.toHaveBeenCalled();
   });
 
   const canonicalCreativeCases: Array<{

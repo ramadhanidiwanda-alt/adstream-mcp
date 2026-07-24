@@ -25,7 +25,11 @@ import {
   isAdsProviderId,
 } from './types.js';
 import { redactErrorMessage, redactTokenLikeValues } from './credentials.js';
-import { LOCATION_BREAKDOWNS } from '../types.js';
+import { LOCATION_BREAKDOWNS, META_CREATIVE_FORMATS } from '../types.js';
+import {
+  META_CONVERSION_LOCATIONS,
+  META_ODAX_OBJECTIVES,
+} from '../providers/meta/objectiveLaunchMatrix.js';
 
 export const ADS_MCP_TOOL_NAMES = [
   'ads_list_accounts',
@@ -1466,24 +1470,8 @@ function createCreateCampaignInputSchema() {
       },
       objective: {
         type: 'string',
-        enum: [
-          'OUTCOME_SALES',
-          'OUTCOME_TRAFFIC',
-          'OUTCOME_ENGAGEMENT',
-          'OUTCOME_LEADS',
-          'OUTCOME_AWARENESS',
-          'OUTCOME_APP_PROMOTION',
-          'OUTCOME_CONVERSATIONS',
-          'OUTCOME_RESHARES',
-          'OUTCOME_VALUE',
-          'OUTCOME_VIDEO_VIEWS',
-          'OUTCOME_POST_ENGAGEMENT',
-          'OUTCOME_LANDING_PAGE_VIEWS',
-          'OUTCOME_REACH',
-          'OUTCOME_MESSAGES',
-          'OUTCOME_THRUPLAY',
-        ],
-        description: 'Campaign objective.',
+        enum: [...META_ODAX_OBJECTIVES],
+        description: 'Meta ODAX campaign objective.',
       },
       status: {
         type: 'string',
@@ -1633,8 +1621,25 @@ function createCreateAdSetInputSchema() {
           'THRUPLAY',
           'VALUE',
         ],
-        description: 'Optimization goal. Defaults to REACH.',
+        description: 'Optimization goal. Required when conversionLocation is omitted.',
       },
+      conversionLocation: {
+        type: 'string',
+        enum: [...META_CONVERSION_LOCATIONS],
+        description: 'Objective-aware Meta conversion location.',
+      },
+      creativeFormat: {
+        type: 'string',
+        enum: [...META_CREATIVE_FORMATS],
+        description: 'Creative format used to validate the objective launch.',
+      },
+      pageId: { type: 'string', description: 'Meta Page ID for the objective launch.' },
+      pixelId: { type: 'string', description: 'Meta Pixel ID for website conversions.' },
+      leadFormId: { type: 'string', description: 'Meta instant form ID for lead generation.' },
+      applicationId: { type: 'string', description: 'Meta application ID for app promotion.' },
+      objectStoreUrl: { type: 'string', description: 'App store URL for app promotion.' },
+      productSetId: { type: 'string', description: 'Meta product set ID for catalog sales.' },
+      customEventType: { type: 'string', description: 'Optional Meta conversion event type.' },
       bidStrategy: {
         type: 'string',
         description: 'Bid strategy (e.g. LOWEST_COST_WITHOUT_CAP).',

@@ -37,6 +37,11 @@ import type {
   MetaCreativeSpec,
   PlacementPerformanceReport,
 } from '../../types.js';
+import {
+  META_ODAX_OBJECTIVES,
+  type MetaConversionLocation,
+  type MetaOdaxObjective,
+} from './objectiveLaunchMatrix.js';
 import type { MutationResult } from '../../types.js';
 import type { LocationBreakdown } from '../../types.js';
 import { pauseCampaign as pauseCampaignTool } from '../../tools/pauseCampaign.js';
@@ -1236,6 +1241,12 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       };
     }
 
+    if (!META_ODAX_OBJECTIVES.includes(objective as MetaOdaxObjective)) {
+      return validationResponse(
+        new Error(`objective must be one of: ${META_ODAX_OBJECTIVES.join(', ')}.`)
+      );
+    }
+
     let mode: MetaAdsMode | undefined;
     try {
       mode = parseMetaAdsMode(request.params.mode);
@@ -1366,6 +1377,32 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
             typeof request.params.optimizationGoal === 'string'
               ? (request.params
                   .optimizationGoal as import('../../tools/createAdSet.js').OptimizationGoal)
+              : undefined,
+          conversionLocation:
+            typeof request.params.conversionLocation === 'string'
+              ? (request.params.conversionLocation as MetaConversionLocation)
+              : undefined,
+          creativeFormat:
+            request.params.creativeFormat === undefined
+              ? undefined
+              : parseMetaCreativeFormat(request.params.creativeFormat),
+          pageId: typeof request.params.pageId === 'string' ? request.params.pageId : undefined,
+          pixelId: typeof request.params.pixelId === 'string' ? request.params.pixelId : undefined,
+          leadFormId:
+            typeof request.params.leadFormId === 'string' ? request.params.leadFormId : undefined,
+          applicationId:
+            typeof request.params.applicationId === 'string'
+              ? request.params.applicationId
+              : undefined,
+          objectStoreUrl:
+            typeof request.params.objectStoreUrl === 'string'
+              ? request.params.objectStoreUrl
+              : undefined,
+          productSetId:
+            typeof request.params.productSetId === 'string' ? request.params.productSetId : undefined,
+          customEventType:
+            typeof request.params.customEventType === 'string'
+              ? request.params.customEventType
               : undefined,
           bidStrategy:
             typeof request.params.bidStrategy === 'string' ? request.params.bidStrategy : undefined,

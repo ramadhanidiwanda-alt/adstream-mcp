@@ -4,6 +4,7 @@ import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { createMetaAdsMcpServer } from '../src/mcp/createServer.js';
 import { ADS_MCP_TOOL_DEFINITIONS, getAdsMcpToolDefinitions } from '../src/broker/mcpTools.js';
 import { COMMERCE_MCP_TOOL_DEFINITIONS } from '../src/broker/commerceTools.js';
+import { META_ODAX_OBJECTIVES } from '../src/providers/meta/objectiveLaunchMatrix.js';
 import type { AdsBroker } from '../src/broker/AdsBroker.js';
 
 const legacyToolNames = [
@@ -319,6 +320,8 @@ describe('MCP server builder', () => {
     >;
 
     expect(campaignProperties).toHaveProperty('mode');
+    const campaignObjectiveEnum = campaignProperties.objective.enum;
+    expect(campaignObjectiveEnum).toEqual([...META_ODAX_OBJECTIVES]);
     expect(campaignProperties.isAdSetBudgetSharingEnabled).toMatchObject({
       type: 'boolean',
     });
@@ -326,6 +329,8 @@ describe('MCP server builder', () => {
       /berbagi.*20%|20%.*anggaran/i
     );
     expect(adsetProperties).toHaveProperty('collaborativeCatalog');
+    expect(adsetProperties).toHaveProperty('conversionLocation');
+    expect(adsetProperties).toHaveProperty('creativeFormat');
     expect(creativeProperties).toHaveProperty('creativeFormat');
     expect(creativeProperties).toHaveProperty('creativeSpec');
     const canonicalCreateToolNames = [

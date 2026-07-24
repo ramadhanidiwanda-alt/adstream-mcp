@@ -7,6 +7,7 @@ function createMockClient(overrides: Record<string, unknown> = {}): MetaClient {
   return {
     metaGetObject: vi.fn().mockResolvedValue({
       id: '120000000000000001',
+      objective: 'OUTCOME_TRAFFIC',
       bid_strategy: 'LOWEST_COST_WITH_BID_CAP',
       daily_budget: 100000,
       lifetime_budget: undefined,
@@ -21,10 +22,63 @@ const defaultOptions = {
   adAccountId: 'act_123456789',
   campaignId: '120000000000000001',
   name: 'Test Ad Set',
+  optimizationGoal: 'REACH' as const,
 };
 
 describe('createAdSet — bid strategy + pre-flight validation', () => {
+  describe('objective launch matrix', () => {
+    it('defaults website traffic to landing page views through the matrix', async () => {
+      const client = createMockClient({
+        objective: 'OUTCOME_TRAFFIC',
+        bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+        daily_budget: undefined,
+      });
+      const result = await createAdSet(client, {
+        ...defaultOptions,
+        optimizationGoal: undefined,
+        conversionLocation: 'WEBSITE',
+        targeting: { geoLocations: { countries: ['ID'] } },
+      });
+
+      expect(result.preview).toMatchObject({
+        billing_event: 'IMPRESSIONS',
+        optimization_goal: 'LANDING_PAGE_VIEWS',
+        destination_type: 'WEBSITE',
+      });
+    });
+
+    it('rejects a sales ad set optimized for reach', async () => {
+      const client = createMockClient({
+        objective: 'OUTCOME_SALES',
+        bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+        daily_budget: undefined,
+      });
+      const result = await createAdSet(client, {
+        ...defaultOptions,
+        conversionLocation: 'WEBSITE',
+        optimizationGoal: 'REACH',
+      });
+
+      expect(result.structuredError?.code).toBe('INVALID_OBJECTIVE_GOAL_COMBINATION');
+      expect(client.metaPost).not.toHaveBeenCalled();
+    });
+  });
+
   describe('client-side validation (no API call)', () => {
+    it('requires an explicit optimization goal when conversionLocation is omitted', async () => {
+      const client = createMockClient({
+        bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+        daily_budget: undefined,
+      });
+      const result = await createAdSet(client, {
+        ...defaultOptions,
+        optimizationGoal: undefined,
+      });
+
+      expect(result.structuredError?.code).toBe('MISSING_OBJECTIVE_DEPENDENCY');
+      expect(client.metaPost).not.toHaveBeenCalled();
+    });
+
     it('should reject invalid bidStrategy "LOWEST_COST"', async () => {
       const client = createMockClient();
       const result = await createAdSet(

@@ -1,12 +1,13 @@
 import type { MetaClient } from '../metaClient.js';
-import type {
-  MetaAdsMode,
-  MetaCollaborativeAppSpec,
-  MetaCreativeFormat,
-  MetaCreativeSpec,
-  MetaCreativeVerification,
-  MetaCreativeVerificationSummary,
-  StructuredMutationError,
+import {
+  META_CREATIVE_FORMATS,
+  type MetaAdsMode,
+  type MetaCollaborativeAppSpec,
+  type MetaCreativeFormat,
+  type MetaCreativeSpec,
+  type MetaCreativeVerification,
+  type MetaCreativeVerificationSummary,
+  type StructuredMutationError,
 } from '../types.js';
 import { buildMetaCreativeFormatPayload } from '../providers/meta/buildCreativeFormatPayload.js';
 import { getMetaCreativeErrorGuidance } from '../providers/meta/metaCreativeErrorGuidance.js';
@@ -305,18 +306,6 @@ function summarizeCreativeVerification(
     hasCanvasReference: containsCanvasUrl(linkData) || containsCanvasUrl(videoData),
   };
 }
-
-const META_CREATIVE_FORMATS: readonly MetaCreativeFormat[] = [
-  'single_image',
-  'video',
-  'carousel',
-  'catalog',
-  'collection',
-  'flexible',
-  'placement_image',
-  'placement_customized_ctwa',
-  'existing_post',
-];
 
 function matchesCreativeFormat(
   fields: Record<string, unknown>,

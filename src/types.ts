@@ -6,16 +6,19 @@ export interface MetaConfig {
 
 export type MetaAdsMode = 'standard' | 'collaborative_ads';
 
-export type MetaCreativeFormat =
-  | 'single_image'
-  | 'video'
-  | 'carousel'
-  | 'catalog'
-  | 'collection'
-  | 'flexible'
-  | 'placement_image'
-  | 'placement_customized_ctwa'
-  | 'existing_post';
+export const META_CREATIVE_FORMATS = [
+  'single_image',
+  'video',
+  'carousel',
+  'catalog',
+  'collection',
+  'flexible',
+  'placement_image',
+  'placement_customized_ctwa',
+  'existing_post',
+] as const;
+
+export type MetaCreativeFormat = (typeof META_CREATIVE_FORMATS)[number];
 
 export interface MetaCreativeCopy {
   primaryText: string;

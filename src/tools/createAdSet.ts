@@ -2,8 +2,16 @@ import type { MetaClient } from '../metaClient.js';
 import type {
   MetaAdsMode,
   MetaCollaborativeCatalogContext,
+  MetaCreativeFormat,
   StructuredMutationError,
 } from '../types.js';
+import {
+  buildMetaPromotedObject,
+  MetaObjectiveLaunchValidationError,
+  resolveMetaObjectiveLaunchSpec,
+  type MetaConversionLocation,
+  type MetaOdaxObjective,
+} from '../providers/meta/objectiveLaunchMatrix.js';
 import { normalizeAccountPath } from '../utils/normalizeAccountId.js';
 import { MetaApiError } from '../utils/metaError.js';
 import {
@@ -99,6 +107,15 @@ export interface CreateAdSetOptions {
   lifetimeBudget?: number;
   billingEvent?: BillingEvent;
   optimizationGoal?: OptimizationGoal;
+  conversionLocation?: MetaConversionLocation;
+  creativeFormat?: MetaCreativeFormat;
+  pageId?: string;
+  pixelId?: string;
+  leadFormId?: string;
+  applicationId?: string;
+  objectStoreUrl?: string;
+  productSetId?: string;
+  customEventType?: string;
   bidStrategy?: string;
   /** Bid amount in account currency cents. Required when campaign uses COST_CAP or LOWEST_COST_WITH_BID_CAP. */
   bidAmount?: number;
@@ -150,6 +167,7 @@ interface MetaIdResponse extends Record<string, unknown> {
 
 interface CampaignInfo {
   id: string;
+  objective?: string;
   bid_strategy?: string;
   daily_budget?: number;
   lifetime_budget?: number;
@@ -372,9 +390,77 @@ export async function createAdSet(
   try {
     const campaign = await client.metaGetObject<CampaignInfo>(
       `/${options.campaignId}`,
-      { fields: 'id,bid_strategy,daily_budget,lifetime_budget' },
+      { fields: 'id,objective,bid_strategy,daily_budget,lifetime_budget' },
       maxRetries
     );
+
+    if (options.conversionLocation !== undefined) {
+      if (campaign.objective === undefined) {
+        return {
+          ...baseResult,
+          status: 'failed',
+          error: 'Parent campaign objective is required to resolve this objective launch.',
+          structuredError: validationError(
+            'MISSING_OBJECTIVE_DEPENDENCY',
+            'Parent campaign objective is required to resolve this objective launch.'
+          ),
+        };
+      }
+
+      try {
+        const launchSpec = resolveMetaObjectiveLaunchSpec({
+          objective: campaign.objective as MetaOdaxObjective,
+          conversionLocation: options.conversionLocation,
+          optimizationGoal: options.optimizationGoal,
+          creativeFormat: options.creativeFormat,
+          apiVersion: client.apiVersion ?? 'v25.0',
+        });
+        preview.billing_event = launchSpec.billingEvent;
+        preview.optimization_goal = launchSpec.optimizationGoal;
+        if (launchSpec.destinationType !== undefined) {
+          preview.destination_type = launchSpec.destinationType;
+        }
+        if (options.promotedObject === undefined) {
+          const promotedObject = buildMetaPromotedObject(launchSpec, {
+            pageId: options.pageId,
+            pixelId: options.pixelId,
+            leadFormId: options.leadFormId,
+            applicationId: options.applicationId,
+            objectStoreUrl: options.objectStoreUrl,
+            productSetId: options.productSetId,
+            customEventType: options.customEventType,
+          });
+          if (promotedObject !== undefined) {
+            preview.promoted_object = promotedObject;
+          }
+        }
+      } catch (error) {
+        if (error instanceof MetaObjectiveLaunchValidationError) {
+          return {
+            ...baseResult,
+            status: 'failed',
+            error: error.message,
+            structuredError: {
+              provider: 'meta',
+              code: error.code,
+              message: error.message,
+              actionableFix: error.actionableFix,
+            },
+          };
+        }
+        throw error;
+      }
+    } else if (options.optimizationGoal === undefined) {
+      return {
+        ...baseResult,
+        status: 'failed',
+        error: 'optimizationGoal is required when conversionLocation is not provided.',
+        structuredError: validationError(
+          'MISSING_OBJECTIVE_DEPENDENCY',
+          'optimizationGoal is required when conversionLocation is not provided.'
+        ),
+      };
+    }
 
     // Check 1: CBO budget conflict
     // Meta doesn't allow budgets at both campaign and ad set level
@@ -539,8 +625,11 @@ function buildAdSetPayload(options: CreateAdSetOptions): Record<string, unknown>
     campaign_id: options.campaignId,
     status: options.status ?? 'PAUSED',
     billing_event: options.billingEvent ?? 'IMPRESSIONS',
-    optimization_goal: options.optimizationGoal ?? 'REACH',
   };
+
+  if (options.optimizationGoal) {
+    payload.optimization_goal = options.optimizationGoal;
+  }
 
   // Only send bid_strategy if user explicitly specified it
   // Otherwise let Meta inherit from the campaign

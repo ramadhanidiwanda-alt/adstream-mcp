@@ -35,6 +35,11 @@ import {
   getTikTokLocationInsights,
 } from '../index.js';
 import type { LocationBreakdown } from '../index.js';
+import { META_CREATIVE_FORMATS } from '../types.js';
+import {
+  META_CONVERSION_LOCATIONS,
+  META_ODAX_OBJECTIVES,
+} from '../providers/meta/objectiveLaunchMatrix.js';
 
 export interface CreateMetaAdsMcpServerOptions {
   client?: MetaClient;
@@ -249,25 +254,7 @@ const createCampaignInputSchema = {
     .describe(
       'standard untuk iklan Meta biasa; collaborative_ads untuk katalog retailer yang sudah dibagikan.'
     ),
-  objective: z
-    .enum([
-      'OUTCOME_SALES',
-      'OUTCOME_TRAFFIC',
-      'OUTCOME_ENGAGEMENT',
-      'OUTCOME_LEADS',
-      'OUTCOME_AWARENESS',
-      'OUTCOME_APP_PROMOTION',
-      'OUTCOME_CONVERSATIONS',
-      'OUTCOME_RESHARES',
-      'OUTCOME_VALUE',
-      'OUTCOME_VIDEO_VIEWS',
-      'OUTCOME_POST_ENGAGEMENT',
-      'OUTCOME_LANDING_PAGE_VIEWS',
-      'OUTCOME_REACH',
-      'OUTCOME_MESSAGES',
-      'OUTCOME_THRUPLAY',
-    ])
-    .describe('Campaign objective.'),
+  objective: z.enum(META_ODAX_OBJECTIVES).describe('Meta ODAX campaign objective.'),
   status: z.enum(['ACTIVE', 'PAUSED']).optional().describe('Campaign status. Defaults to PAUSED.'),
   specialAdCategories: z.array(z.string()).optional().describe('Meta special ad categories.'),
   buyType: z.enum(['AUCTION', 'RESERVED']).optional().describe('Buying type. Defaults to AUCTION.'),
@@ -372,7 +359,22 @@ const createAdSetInputSchema = {
       'VALUE',
     ])
     .optional()
-    .describe('Optimization goal. Defaults to REACH.'),
+    .describe('Optimization goal. Required when conversionLocation is omitted.'),
+  conversionLocation: z
+    .enum(META_CONVERSION_LOCATIONS)
+    .optional()
+    .describe('Objective-aware Meta conversion location.'),
+  creativeFormat: z
+    .enum(META_CREATIVE_FORMATS)
+    .optional()
+    .describe('Creative format used to validate the objective launch.'),
+  pageId: z.string().optional().describe('Meta Page ID for the objective launch.'),
+  pixelId: z.string().optional().describe('Meta Pixel ID for website conversions.'),
+  leadFormId: z.string().optional().describe('Meta instant form ID for lead generation.'),
+  applicationId: z.string().optional().describe('Meta application ID for app promotion.'),
+  objectStoreUrl: z.string().optional().describe('App store URL for app promotion.'),
+  productSetId: z.string().optional().describe('Meta product set ID for catalog sales.'),
+  customEventType: z.string().optional().describe('Optional Meta conversion event type.'),
   bidStrategy: z
     .string()
     .optional()
