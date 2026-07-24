@@ -23,6 +23,13 @@ const legacyToolNames = [
   'tiktok_get_location_insights',
 ];
 
+const LEGACY_READINESS_WORKFLOW_ALIASES = [
+  'website_sales',
+  'lead_generation',
+  'existing_post',
+  'cpas_catalog_sales',
+] as const;
+
 const envKeys = [
   'BROKER_RUNTIME_MODE',
   'CUAN_INSIGHT_API_BASE_URL',
@@ -131,6 +138,48 @@ describe('MCP server builder', () => {
       expect(actualTool?.inputSchema.required ?? []).toEqual(expectedTool.inputSchema.required);
     }
   });
+
+  it.each(LEGACY_READINESS_WORKFLOW_ALIASES)(
+    'accepts %s at the Zod MCP boundary',
+    async (workflow) => {
+      const adsBroker = {
+        ...createBrokerStub(),
+        checkLaunchReadiness: vi.fn(async () => ({
+          ok: true,
+          provider: 'meta',
+          data: {
+            ready: false,
+            workflow: 'sales_website',
+            recommendedWorkflow: 'sales_website',
+            writesEnabled: false,
+            missing: ['pageId'],
+            nextQuestions: ['Page Facebook mana yang mau dipakai untuk iklan ini?'],
+            checks: [],
+            warnings: [],
+            summary: 'Belum siap dibuat. Ada 1 informasi yang masih kurang.',
+          },
+        })),
+      } as unknown as AdsBroker;
+      const { client, server } = await createConnectedClient({
+        config: { adAccountId: 'act_123' },
+        adsBroker,
+      });
+
+      try {
+        const response = await client.callTool({
+          name: 'ads_check_launch_readiness',
+          arguments: { accountId: 'act_123', workflow },
+        });
+
+        expect(response.isError).not.toBe(true);
+        expect(adsBroker.checkLaunchReadiness).toHaveBeenCalledWith(
+          expect.objectContaining({ params: expect.objectContaining({ workflow }) })
+        );
+      } finally {
+        await Promise.all([client.close(), server.close()]);
+      }
+    }
+  );
 
   it('keeps the expected MCP tool count', async () => {
     const response = await listRegisteredTools();

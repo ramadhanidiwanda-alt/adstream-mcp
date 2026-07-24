@@ -40,7 +40,7 @@ import {
   META_CONVERSION_LOCATIONS,
   META_ODAX_OBJECTIVES,
 } from '../providers/meta/objectiveLaunchMatrix.js';
-import { META_LAUNCH_WORKFLOWS } from '../tools/checkLaunchReadiness.js';
+import { META_LAUNCH_WORKFLOW_INPUT_VALUES } from '../tools/checkLaunchReadiness.js';
 
 export interface CreateMetaAdsMcpServerOptions {
   client?: MetaClient;
@@ -141,9 +141,11 @@ const launchReadinessInputSchema = {
   ...adsBaseInputSchema,
   accountId: z.string().describe('Provider account id. Required for launch readiness checks.'),
   workflow: z
-    .enum(META_LAUNCH_WORKFLOWS)
+    .enum(META_LAUNCH_WORKFLOW_INPUT_VALUES)
     .optional()
-    .describe('Canonical Meta v25 workflow. Defaults to sales_website when omitted.'),
+    .describe(
+      'Canonical Meta v25 workflow. Legacy aliases are accepted for compatibility and normalize to canonical output. Defaults to sales_website when omitted.'
+    ),
   objective: z
     .enum(META_ODAX_OBJECTIVES)
     .optional()

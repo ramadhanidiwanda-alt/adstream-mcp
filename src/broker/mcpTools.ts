@@ -30,7 +30,7 @@ import {
   META_CONVERSION_LOCATIONS,
   META_ODAX_OBJECTIVES,
 } from '../providers/meta/objectiveLaunchMatrix.js';
-import { META_LAUNCH_WORKFLOWS } from '../tools/checkLaunchReadiness.js';
+import { META_LAUNCH_WORKFLOW_INPUT_VALUES } from '../tools/checkLaunchReadiness.js';
 
 export const ADS_MCP_TOOL_NAMES = [
   'ads_list_accounts',
@@ -2593,8 +2593,9 @@ function createLaunchReadinessInputSchema() {
       ...(schema.properties as Record<string, unknown>),
       workflow: {
         type: 'string',
-        enum: [...META_LAUNCH_WORKFLOWS],
-        description: 'Canonical Meta v25 workflow. Defaults to sales_website when omitted.',
+        enum: [...META_LAUNCH_WORKFLOW_INPUT_VALUES],
+        description:
+          'Canonical Meta v25 workflow. Legacy aliases are accepted for compatibility and normalize to canonical output. Defaults to sales_website when omitted.',
       },
       objective: {
         type: 'string',

@@ -29,6 +29,20 @@ export const META_LAUNCH_WORKFLOWS = [
   'sales_catalog',
 ] as const satisfies readonly MetaLaunchWorkflow[];
 
+/**
+ * Accepted MCP input values. Output and documentation use META_LAUNCH_WORKFLOWS;
+ * the trailing aliases are normalized before readiness is evaluated.
+ */
+export const META_LAUNCH_WORKFLOW_INPUT_VALUES = [
+  ...META_LAUNCH_WORKFLOWS,
+  'website_sales',
+  'lead_generation',
+  'existing_post',
+  'cpas_catalog_sales',
+  'whatsapp_sales',
+  'creative_testing',
+] as const;
+
 export interface LaunchReadinessOptions {
   workflow?: string;
   objective?: MetaOdaxObjective;

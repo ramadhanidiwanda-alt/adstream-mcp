@@ -28,6 +28,13 @@ const legacyToolNames = [
   'meta_analyze_with_rules',
 ];
 
+const LEGACY_READINESS_WORKFLOW_ALIASES = [
+  'website_sales',
+  'lead_generation',
+  'existing_post',
+  'cpas_catalog_sales',
+] as const;
+
 function createRecord(raw?: unknown): AdsMetricRecord {
   return {
     provider: 'meta',
@@ -436,6 +443,17 @@ describe('ads MCP broker tools', () => {
       objectStoreUrl: 'https://apps.apple.com/app/example',
       appDeepLinkUrl: 'example://open',
     });
+  });
+
+  it('accepts legacy readiness workflow aliases at the JSON Schema boundary', () => {
+    const readinessTool = getAdsMcpToolDefinitions({ includeWrites: false }).find(
+      (tool) => tool.name === 'ads_check_launch_readiness'
+    );
+    const workflowSchema = readinessTool?.inputSchema.properties.workflow as
+      | { enum?: readonly string[] }
+      | undefined;
+
+    expect(workflowSchema?.enum).toEqual(expect.arrayContaining(LEGACY_READINESS_WORKFLOW_ALIASES));
   });
 
   it('routes canonical ads_get_performance by level without removing legacy tools', async () => {
