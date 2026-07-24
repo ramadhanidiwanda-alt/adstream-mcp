@@ -110,3 +110,77 @@ export function mergeMetaFilteringRules(
   const merged = ruleSets.flatMap((rules) => rules ?? []);
   return merged.length > 0 ? merged : undefined;
 }
+
+export interface MetaAdsEdgeScope {
+  /** Graph API path to call for the ads edge — scoped to a single campaign/ad set node when possible. */
+  path: string;
+  /**
+   * True when campaignId and/or adSetId were requested but couldn't be fully
+   * expressed by `path` alone (multiple ids, or both campaignId and adSetId
+   * given together). Callers MUST run the result through
+   * `filterAdsByEntityScope` in this case.
+   */
+  needsPostFilter: boolean;
+}
+
+/**
+ * Meta's `/act_{id}/ads` edge does not support scoping results to a campaign
+ * or ad set via the `filtering` query param — the `campaign.id`/`adset.id`
+ * dot-notation syntax is documented by Meta only for the `/insights` edge.
+ * The reliable way to scope ads on a direct listing edge is to call the
+ * campaign's or ad set's own nested `/ads` edge instead (`/{id}/ads`).
+ *
+ * Picks that nested path when exactly one campaign or ad set id was
+ * requested (the common case). Falls back to the account-level `/act_{id}/ads`
+ * edge — with `needsPostFilter: true` — when multiple ids or both a
+ * campaignId and an adSetId were given together, since a single path can't
+ * express that; callers must apply `filterAdsByEntityScope` afterward.
+ */
+export function resolveAdsEdgeScope(
+  accountId: string,
+  campaignId: string | string[] | undefined,
+  adSetId: string | string[] | undefined
+): MetaAdsEdgeScope {
+  const campaignIds = toIdList(campaignId);
+  const adSetIds = toIdList(adSetId);
+
+  if (adSetIds.length === 1 && campaignIds.length === 0) {
+    return { path: `/${adSetIds[0]}/ads`, needsPostFilter: false };
+  }
+  if (campaignIds.length === 1 && adSetIds.length === 0) {
+    return { path: `/${campaignIds[0]}/ads`, needsPostFilter: false };
+  }
+  return {
+    path: `/act_${accountId}/ads`,
+    needsPostFilter: campaignIds.length > 0 || adSetIds.length > 0,
+  };
+}
+
+/**
+ * Client-side safety net for `resolveAdsEdgeScope`'s multi-id fallback case.
+ * No-ops (returns `ads` unchanged) when neither campaignId nor adSetId was
+ * requested, so it's safe to call unconditionally.
+ */
+export function filterAdsByEntityScope<T>(
+  ads: T[],
+  campaignId: string | string[] | undefined,
+  adSetId: string | string[] | undefined,
+  getCampaignId: (ad: T) => string | undefined,
+  getAdSetId: (ad: T) => string | undefined
+): T[] {
+  const campaignIds = new Set(toIdList(campaignId));
+  const adSetIds = new Set(toIdList(adSetId));
+  if (campaignIds.size === 0 && adSetIds.size === 0) return ads;
+
+  return ads.filter((ad) => {
+    if (campaignIds.size > 0) {
+      const id = getCampaignId(ad);
+      if (!id || !campaignIds.has(id)) return false;
+    }
+    if (adSetIds.size > 0) {
+      const id = getAdSetId(ad);
+      if (!id || !adSetIds.has(id)) return false;
+    }
+    return true;
+  });
+}

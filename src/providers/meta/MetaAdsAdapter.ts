@@ -146,6 +146,8 @@ import { normalizeAccountId } from '../../utils/normalizeAccountId.js';
 import {
   parseCanonicalMetaFilters,
   parseExplicitMetaFilters,
+  resolveAdsEdgeScope,
+  filterAdsByEntityScope,
   type MetaFilteringRule,
 } from '../../utils/metaFiltering.js';
 
@@ -195,6 +197,7 @@ interface MetaActiveAdCreativeRecord {
   name?: string;
   status?: string;
   effective_status?: string;
+  campaign_id?: string;
   adset?: {
     id?: string;
     name?: string;
@@ -535,6 +538,60 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
     return this.getPerformance(request, 'ad');
   }
 
+  /**
+   * Fetch ads with expanded `adset{...}` and `creative{...}` fields, scoped
+   * to a single campaign/ad set via `resolveAdsEdgeScope` when possible
+   * (Meta does not support scoping `/act_{id}/ads` itself — see that
+   * function's doc comment) and post-filtered as a safety net for the
+   * multi-id fallback case. Shared by getCreativePerformance's
+   * complianceAudit branch and its campaign/adset-scoped creatives branch.
+   */
+  private async fetchActiveAdsWithCreatives(
+    client: MetaClient,
+    accountId: string,
+    campaignId: string | string[] | undefined,
+    adSetId: string | string[] | undefined,
+    creativeFieldsFragment: string,
+    effectiveStatusFilter: string[] | undefined,
+    limit: number,
+    cursor: string | undefined
+  ): Promise<{ ads: MetaActiveAdCreativeRecord[]; nextCursor: string | null }> {
+    const { path, needsPostFilter } = resolveAdsEdgeScope(
+      normalizeAccountId(accountId),
+      campaignId,
+      adSetId
+    );
+    const params: Record<string, string | number> = {
+      fields: `id,name,status,effective_status,campaign_id,adset{id,name,targeting},creative{${creativeFieldsFragment}}`,
+      limit,
+    };
+    if (effectiveStatusFilter) {
+      params.filtering = JSON.stringify([
+        { field: 'effective_status', operator: 'IN', value: effectiveStatusFilter },
+      ]);
+    }
+    if (cursor) {
+      params.after = cursor;
+    }
+
+    const response = await client.metaGet<{
+      data: MetaActiveAdCreativeRecord[];
+      paging?: { cursors?: { after?: string } };
+    }>(path, params);
+
+    const ads = needsPostFilter
+      ? filterAdsByEntityScope(
+          response.data ?? [],
+          campaignId,
+          adSetId,
+          (ad) => ad.campaign_id,
+          (ad) => ad.adset?.id
+        )
+      : (response.data ?? []);
+
+    return { ads, nextCursor: response.paging?.cursors?.after ?? null };
+  }
+
   async getCreativePerformance(
     request: AdsBrokerRequest
   ): Promise<AdsBrokerResponse<AdsMetricRecord[]>> {
@@ -570,6 +627,8 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
           asset_feed_spec: true,
         },
       };
+      const campaignId = parseIdParam(request.params.campaignId);
+      const adSetId = parseIdParam(request.params.adSetId ?? request.params.adsetId);
 
       if (request.params.complianceAudit === true && !creativeId) {
         const effectiveStatuses = Array.isArray(request.params.effectiveStatus)
@@ -577,26 +636,21 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
               (status): status is string => typeof status === 'string'
             )
           : ['ACTIVE'];
-        const response = await client.metaGet<{
-          data: MetaActiveAdCreativeRecord[];
-          paging?: { cursors?: { after?: string } };
-        }>(`/act_${normalizeAccountId(accountId)}/ads`, {
-          fields: `id,name,status,effective_status,adset{id,name,targeting},creative{${fields}}`,
-          filtering: JSON.stringify([
-            {
-              field: 'effective_status',
-              operator: 'IN',
-              value: effectiveStatuses,
-            },
-          ]),
-          limit: typeof request.params.limit === 'number' ? request.params.limit : 100,
-          after: typeof request.params.cursor === 'string' ? request.params.cursor : undefined,
-        });
+        const { ads, nextCursor } = await this.fetchActiveAdsWithCreatives(
+          client,
+          accountId,
+          campaignId,
+          adSetId,
+          fields,
+          effectiveStatuses,
+          typeof request.params.limit === 'number' ? request.params.limit : 100,
+          typeof request.params.cursor === 'string' ? request.params.cursor : undefined
+        );
 
         return {
           ok: true,
           provider: 'meta',
-          data: (response.data ?? [])
+          data: ads
             .filter(
               (ad): ad is MetaActiveAdCreativeRecord & { creative: MetaCreativeRecord } =>
                 ad.creative !== undefined
@@ -608,7 +662,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
                 activePlacements: deriveMetaActivePlacements(ad.adset?.targeting),
               })
             ),
-          meta: { nextCursor: response.paging?.cursors?.after ?? null },
+          meta: { nextCursor },
         };
       }
 
@@ -622,6 +676,37 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
           provider: 'meta',
           data: [this.normalizeCreative(accountId, creative, request, auditContext)],
           meta: { nextCursor: null },
+        };
+      }
+
+      if (campaignId !== undefined || adSetId !== undefined) {
+        const { ads, nextCursor } = await this.fetchActiveAdsWithCreatives(
+          client,
+          accountId,
+          campaignId,
+          adSetId,
+          fields,
+          undefined,
+          typeof request.params.limit === 'number' ? request.params.limit : 100,
+          typeof request.params.cursor === 'string' ? request.params.cursor : undefined
+        );
+
+        return {
+          ok: true,
+          provider: 'meta',
+          data: ads
+            .filter(
+              (ad): ad is MetaActiveAdCreativeRecord & { creative: MetaCreativeRecord } =>
+                ad.creative !== undefined
+            )
+            .map((ad) =>
+              this.normalizeCreative(accountId, ad.creative, request, {
+                ...auditContext,
+                ad,
+                activePlacements: deriveMetaActivePlacements(ad.adset?.targeting),
+              })
+            ),
+          meta: { nextCursor },
         };
       }
 

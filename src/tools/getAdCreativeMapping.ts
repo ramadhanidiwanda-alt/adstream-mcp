@@ -3,6 +3,8 @@ import { normalizeAccountId } from '../utils/normalizeAccountId.js';
 import {
   buildMetaIdFilteringRules,
   mergeMetaFilteringRules,
+  resolveAdsEdgeScope,
+  filterAdsByEntityScope,
   type MetaFilteringRule,
 } from '../utils/metaFiltering.js';
 
@@ -33,13 +35,19 @@ export type AdCreativeMappingPage = AdCreativeMapping[] & {
 interface MetaAdWithCreative {
   id?: string;
   name?: string;
+  campaign_id?: string;
+  adset_id?: string;
   creative?: { id?: string };
 }
 
 /**
  * Fetch ad → creative_id mapping from Meta Ads API.
- * Uses `/act_{id}/ads?fields=id,name,creative{id}` — a metadata endpoint,
- * NOT the insights endpoint, so it doesn't need `creative_id` at level=ad.
+ * Uses `/act_{id}/ads` — or the nested `/{campaign_id}/ads` / `/{adset_id}/ads`
+ * edge when scoped to a single campaign or ad set, since Meta does not
+ * support scoping the account-level `/ads` edge via `filtering` (see
+ * `resolveAdsEdgeScope`) — with `fields=id,name,creative{id}`. This is a
+ * metadata endpoint, NOT the insights endpoint, so it doesn't need
+ * `creative_id` at level=ad.
  */
 export async function getAdCreativeMapping(
   client: MetaClient,
@@ -48,18 +56,15 @@ export async function getAdCreativeMapping(
   const { adIds, campaignId, adSetId, explicitFilters, limit = 100, cursor } = options;
   const adAccountId = normalizeAccountId(options.adAccountId);
 
-  const fields = 'id,name,creative{id}';
+  const fields = 'id,name,campaign_id,adset_id,creative{id}';
+  const { path, needsPostFilter } = resolveAdsEdgeScope(adAccountId, campaignId, adSetId);
   const params: Record<string, string | number> = {
     fields,
     limit,
   };
 
   const filtering = mergeMetaFilteringRules(
-    buildMetaIdFilteringRules([
-      { field: 'campaign.id', value: campaignId },
-      { field: 'adset.id', value: adSetId },
-      { field: 'id', value: adIds },
-    ]),
+    buildMetaIdFilteringRules([{ field: 'id', value: adIds }]),
     explicitFilters
   );
   if (filtering) {
@@ -73,9 +78,18 @@ export async function getAdCreativeMapping(
   const response = await client.metaGet<{
     data: MetaAdWithCreative[];
     paging?: { cursors?: { after?: string } };
-  }>(`/act_${adAccountId}/ads`, params);
+  }>(path, params);
 
-  const ads = response.data || [];
+  const rawAds = response.data || [];
+  const ads = needsPostFilter
+    ? filterAdsByEntityScope(
+        rawAds,
+        campaignId,
+        adSetId,
+        (ad) => ad.campaign_id,
+        (ad) => ad.adset_id
+      )
+    : rawAds;
 
   const result: AdCreativeMapping[] = ads.map((ad) => ({
     ad_id: ad.id ?? '',

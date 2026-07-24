@@ -4,6 +4,8 @@ import {
   buildMetaIdFilteringRules,
   parseCanonicalMetaFilters,
   parseExplicitMetaFilters,
+  resolveAdsEdgeScope,
+  filterAdsByEntityScope,
 } from '../src/utils/metaFiltering.js';
 import { getCampaignInsights } from '../src/tools/getCampaignInsights.js';
 import { getAdsetInsights } from '../src/tools/getAdsetInsights.js';
@@ -149,6 +151,7 @@ describe('getAdDestinations filtering', () => {
 
     const result = await getAdDestinations(client, { adAccountId: 'act_123' });
 
+    expect(metaGet.mock.calls[0][0]).toBe('/act_123/ads');
     expect(metaGet.mock.calls[0][1].fields).toContain('issues_info');
     expect(metaGet.mock.calls[0][1].fields).toContain('ad_review_feedback');
     expect(result[0]).toMatchObject({
@@ -159,7 +162,20 @@ describe('getAdDestinations filtering', () => {
     });
   });
 
-  it('merges effective_status with campaignId/adSetId filters', async () => {
+  it('only sends effective_status when no campaignId/adSetId is given', async () => {
+    const metaGet = createGetSpy();
+    const client = { metaGet } as unknown as MetaClient;
+
+    await getAdDestinations(client, { adAccountId: 'act_123' });
+
+    expect(metaGet.mock.calls[0][0]).toBe('/act_123/ads');
+    const params = metaGet.mock.calls[0][1];
+    expect(JSON.parse(params.filtering)).toEqual([
+      { field: 'effective_status', operator: 'IN', value: ['ACTIVE'] },
+    ]);
+  });
+
+  it('sends effective_status only — never connected-object filtering — when both campaignId and adSetId are given, since /ads does not support that', async () => {
     const metaGet = createGetSpy();
     const client = { metaGet } as unknown as MetaClient;
 
@@ -169,27 +185,14 @@ describe('getAdDestinations filtering', () => {
       adSetId: 'as_1',
     });
 
-    const params = metaGet.mock.calls[0][1];
-    expect(JSON.parse(params.filtering)).toEqual([
-      { field: 'effective_status', operator: 'IN', value: ['ACTIVE'] },
-      { field: 'campaign.id', operator: 'IN', value: ['cmp_1'] },
-      { field: 'adset.id', operator: 'IN', value: ['as_1'] },
-    ]);
-  });
-
-  it('only sends effective_status when no campaignId/adSetId is given', async () => {
-    const metaGet = createGetSpy();
-    const client = { metaGet } as unknown as MetaClient;
-
-    await getAdDestinations(client, { adAccountId: 'act_123' });
-
+    expect(metaGet.mock.calls[0][0]).toBe('/act_123/ads');
     const params = metaGet.mock.calls[0][1];
     expect(JSON.parse(params.filtering)).toEqual([
       { field: 'effective_status', operator: 'IN', value: ['ACTIVE'] },
     ]);
   });
 
-  it('merges raw Meta filtering with status and entity filters', async () => {
+  it('scopes to the campaign endpoint and merges raw Meta filtering when only campaignId is given', async () => {
     const metaGet = createGetSpy();
     const client = { metaGet } as unknown as MetaClient;
 
@@ -199,6 +202,7 @@ describe('getAdDestinations filtering', () => {
       explicitFilters: [{ field: 'impressions', operator: 'GREATER_THAN', value: 100 }],
     });
 
+    expect(metaGet.mock.calls[0][0]).toBe('/cmp_1/ads');
     const params = metaGet.mock.calls[0][1];
     expect(JSON.parse(params.filtering)).toContainEqual({
       field: 'impressions',
@@ -207,11 +211,19 @@ describe('getAdDestinations filtering', () => {
     });
   });
 
-  it('actually filters results to the requested ad set (regression for the reported bug)', async () => {
+  it('actually filters results to the requested ad set by calling its nested /ads edge (regression for the reported bug)', async () => {
     // Simulates the exact scenario the user hit: asking for ads in one specific
-    // ad set should not silently return ads from other ad sets too.
+    // ad set should not silently return ads from other ad sets, or nothing at all.
     const metaGet = vi.fn().mockResolvedValue({
-      data: [{ id: 'ad_in_adset', name: 'POSTER', status: 'ACTIVE', effective_status: 'ACTIVE' }],
+      data: [
+        {
+          id: 'ad_in_adset',
+          name: 'POSTER',
+          status: 'ACTIVE',
+          effective_status: 'ACTIVE',
+          adset_id: '120251877326190415',
+        },
+      ],
     });
     const client = { metaGet } as unknown as MetaClient;
 
@@ -220,34 +232,166 @@ describe('getAdDestinations filtering', () => {
       adSetId: '120251877326190415',
     });
 
+    expect(metaGet.mock.calls[0][0]).toBe('/120251877326190415/ads');
     expect(result).toHaveLength(1);
     expect(result[0].ad_id).toBe('ad_in_adset');
-    const params = metaGet.mock.calls[0][1];
-    expect(JSON.parse(params.filtering)).toContainEqual({
-      field: 'adset.id',
-      operator: 'IN',
-      value: ['120251877326190415'],
+  });
+
+  it('drops ads outside the requested ad sets when multiple adSetId values force the account-level endpoint', async () => {
+    const metaGet = vi.fn().mockResolvedValue({
+      data: [
+        {
+          id: 'ad_in',
+          name: 'In Scope',
+          status: 'ACTIVE',
+          effective_status: 'ACTIVE',
+          adset_id: 'as_1',
+        },
+        {
+          id: 'ad_out',
+          name: 'Out Of Scope',
+          status: 'ACTIVE',
+          effective_status: 'ACTIVE',
+          adset_id: 'as_other',
+        },
+      ],
     });
+    const client = { metaGet } as unknown as MetaClient;
+
+    const result = await getAdDestinations(client, {
+      adAccountId: 'act_123',
+      adSetId: ['as_1', 'as_2'],
+    });
+
+    expect(metaGet.mock.calls[0][0]).toBe('/act_123/ads');
+    expect(result).toHaveLength(1);
+    expect(result[0].ad_id).toBe('ad_in');
   });
 });
 
 describe('getAdCreativeMapping filtering', () => {
-  it('merges raw Meta filtering with campaign/ad set filters', async () => {
+  it('scopes to the ad set endpoint and merges raw Meta filtering when only adSetId is given', async () => {
     const metaGet = createGetSpy();
     const client = { metaGet } as unknown as MetaClient;
 
     await getAdCreativeMapping(client, {
       adAccountId: 'act_123',
-      campaignId: 'cmp_1',
       adSetId: 'as_1',
       explicitFilters: [{ field: 'effective_status', operator: 'IN', value: ['ACTIVE', 'PAUSED'] }],
     });
 
+    expect(metaGet.mock.calls[0][0]).toBe('/as_1/ads');
     const params = metaGet.mock.calls[0][1];
     expect(JSON.parse(params.filtering)).toEqual([
-      { field: 'campaign.id', operator: 'IN', value: ['cmp_1'] },
-      { field: 'adset.id', operator: 'IN', value: ['as_1'] },
       { field: 'effective_status', operator: 'IN', value: ['ACTIVE', 'PAUSED'] },
     ]);
+  });
+
+  it('falls back to the account endpoint and post-filters when both campaignId and adSetId are given', async () => {
+    const metaGet = vi.fn().mockResolvedValue({
+      data: [
+        { id: 'ad_in', name: 'In Scope', creative: { id: 'creative_in' }, campaign_id: 'cmp_1', adset_id: 'as_1' },
+        {
+          id: 'ad_out',
+          name: 'Out Of Scope',
+          creative: { id: 'creative_out' },
+          campaign_id: 'cmp_other',
+          adset_id: 'as_1',
+        },
+      ],
+    });
+    const client = { metaGet } as unknown as MetaClient;
+
+    const result = await getAdCreativeMapping(client, {
+      adAccountId: 'act_123',
+      campaignId: 'cmp_1',
+      adSetId: 'as_1',
+    });
+
+    expect(metaGet.mock.calls[0][0]).toBe('/act_123/ads');
+    expect(result).toHaveLength(1);
+    expect(result[0].ad_id).toBe('ad_in');
+    expect(result[0].creative_id).toBe('creative_in');
+  });
+});
+
+describe('resolveAdsEdgeScope', () => {
+  it('scopes to the nested ad set endpoint when only a single adSetId is given', () => {
+    expect(resolveAdsEdgeScope('123', undefined, 'as_1')).toEqual({
+      path: '/as_1/ads',
+      needsPostFilter: false,
+    });
+  });
+
+  it('scopes to the nested campaign endpoint when only a single campaignId is given', () => {
+    expect(resolveAdsEdgeScope('123', 'cmp_1', undefined)).toEqual({
+      path: '/cmp_1/ads',
+      needsPostFilter: false,
+    });
+  });
+
+  it('falls back to the account endpoint with no post-filter when neither is given', () => {
+    expect(resolveAdsEdgeScope('123', undefined, undefined)).toEqual({
+      path: '/act_123/ads',
+      needsPostFilter: false,
+    });
+  });
+
+  it('falls back to the account endpoint and requires a post-filter when both are given', () => {
+    expect(resolveAdsEdgeScope('123', 'cmp_1', 'as_1')).toEqual({
+      path: '/act_123/ads',
+      needsPostFilter: true,
+    });
+  });
+
+  it('falls back to the account endpoint and requires a post-filter when adSetId is an array', () => {
+    expect(resolveAdsEdgeScope('123', undefined, ['as_1', 'as_2'])).toEqual({
+      path: '/act_123/ads',
+      needsPostFilter: true,
+    });
+  });
+
+  it('prefers a single-element array the same as a bare string', () => {
+    expect(resolveAdsEdgeScope('123', undefined, ['as_1'])).toEqual({
+      path: '/as_1/ads',
+      needsPostFilter: false,
+    });
+  });
+});
+
+describe('filterAdsByEntityScope', () => {
+  const ads = [
+    { id: 'a1', campaign_id: 'cmp_1', adset_id: 'as_1' },
+    { id: 'a2', campaign_id: 'cmp_1', adset_id: 'as_2' },
+    { id: 'a3', campaign_id: 'cmp_2', adset_id: 'as_1' },
+  ];
+  const getCampaignId = (ad: (typeof ads)[number]) => ad.campaign_id;
+  const getAdSetId = (ad: (typeof ads)[number]) => ad.adset_id;
+
+  it('returns all ads unchanged when neither filter is given', () => {
+    expect(filterAdsByEntityScope(ads, undefined, undefined, getCampaignId, getAdSetId)).toEqual(
+      ads
+    );
+  });
+
+  it('keeps only ads matching the given adSetId', () => {
+    const result = filterAdsByEntityScope(ads, undefined, 'as_1', getCampaignId, getAdSetId);
+    expect(result.map((ad) => ad.id)).toEqual(['a1', 'a3']);
+  });
+
+  it('keeps only ads matching both campaignId and adSetId', () => {
+    const result = filterAdsByEntityScope(ads, 'cmp_1', 'as_1', getCampaignId, getAdSetId);
+    expect(result.map((ad) => ad.id)).toEqual(['a1']);
+  });
+
+  it('matches against any id in an array filter', () => {
+    const result = filterAdsByEntityScope(
+      ads,
+      undefined,
+      ['as_1', 'as_2'],
+      getCampaignId,
+      getAdSetId
+    );
+    expect(result.map((ad) => ad.id)).toEqual(['a1', 'a2', 'a3']);
   });
 });

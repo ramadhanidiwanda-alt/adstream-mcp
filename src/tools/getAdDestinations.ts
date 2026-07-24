@@ -3,6 +3,8 @@ import { normalizeAccountId } from '../utils/normalizeAccountId.js';
 import {
   buildMetaIdFilteringRules,
   mergeMetaFilteringRules,
+  resolveAdsEdgeScope,
+  filterAdsByEntityScope,
   type MetaFilteringRule,
 } from '../utils/metaFiltering.js';
 
@@ -103,6 +105,8 @@ interface MetaAdWithCreative {
   name?: string;
   status?: string;
   effective_status?: string;
+  campaign_id?: string;
+  adset_id?: string;
   issues_info?: Array<Record<string, unknown>>;
   ad_review_feedback?: Record<string, unknown>;
   creative?: MetaCreativeExpanded;
@@ -258,8 +262,12 @@ function inferCreativeType(creative: MetaCreativeExpanded): string {
 /**
  * Fetch active ads with destination URLs from Meta Ads API.
  *
- * Uses `/act_{id}/ads?fields=id,name,status,effective_status,creative{id,object_type,object_story_spec,asset_feed_spec}`
- * with optional `effective_status` filter.
+ * Uses `/act_{id}/ads` — or the nested `/{campaign_id}/ads` / `/{adset_id}/ads`
+ * edge when scoped to a single campaign or ad set, since Meta does not
+ * support scoping the account-level `/ads` edge via `filtering` (see
+ * `resolveAdsEdgeScope`) — with
+ * `fields=id,name,status,effective_status,creative{id,object_type,object_story_spec,asset_feed_spec}`
+ * and an optional `effective_status` filter.
  */
 export async function getAdDestinations(
   client: MetaClient,
@@ -278,8 +286,10 @@ export async function getAdDestinations(
 
   // Build fields — request creative expanded with object_story_spec and asset_feed_spec
   const fields =
-    'id,name,status,effective_status,issues_info,ad_review_feedback,' +
+    'id,name,status,effective_status,campaign_id,adset_id,issues_info,ad_review_feedback,' +
     'creative{id,object_type,object_story_spec{link_data{link,call_to_action{type,value{link}},child_attachments{link}},video_data{call_to_action{type,value{link}}}},asset_feed_spec{link_urls{website_url},groups{components{link_url{website_url}}}}}';
+
+  const { path, needsPostFilter } = resolveAdsEdgeScope(adAccountId, campaignId, adSetId);
 
   const params: Record<string, string | number> = {
     fields,
@@ -290,11 +300,7 @@ export async function getAdDestinations(
     effectiveStatus.length > 0
       ? [{ field: 'effective_status', operator: 'IN', value: effectiveStatus }]
       : undefined,
-    buildMetaIdFilteringRules([
-      { field: 'campaign.id', value: campaignId },
-      { field: 'adset.id', value: adSetId },
-      { field: 'id', value: adIds },
-    ]),
+    buildMetaIdFilteringRules([{ field: 'id', value: adIds }]),
     explicitFilters
   );
 
@@ -309,9 +315,18 @@ export async function getAdDestinations(
   const response = await client.metaGet<{
     data: MetaAdWithCreative[];
     paging?: { cursors?: { after?: string } };
-  }>(`/act_${adAccountId}/ads`, params);
+  }>(path, params);
 
-  const ads = response.data || [];
+  const rawAds = response.data || [];
+  const ads = needsPostFilter
+    ? filterAdsByEntityScope(
+        rawAds,
+        campaignId,
+        adSetId,
+        (ad) => ad.campaign_id,
+        (ad) => ad.adset_id
+      )
+    : rawAds;
 
   const result: AdDestinationInfo[] = ads.map((ad) => {
     const creative = ad.creative;
