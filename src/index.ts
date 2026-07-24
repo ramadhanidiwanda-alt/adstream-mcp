@@ -287,6 +287,15 @@ export type * from './broker/commerceReportEngine.js';
 export { buildCommerceReport } from './broker/commerceReportEngine.js';
 export { ProviderRegistry } from './broker/providerRegistry.js';
 export { MetaAdsAdapter } from './providers/meta/MetaAdsAdapter.js';
+export {
+  META_ODAX_OBJECTIVES,
+  META_CONVERSION_LOCATIONS,
+  MetaObjectiveLaunchValidationError,
+  buildMetaPromotedObject,
+  parseMetaApiMajor,
+  resolveMetaObjectiveLaunchSpec,
+} from './providers/meta/objectiveLaunchMatrix.js';
+export type * from './providers/meta/objectiveLaunchMatrix.js';
 export { normalizeMetaInsight, normalizeMetaInsights } from './providers/meta/normalizer.js';
 export type * from './providers/meta/normalizer.js';
 export type * from './providers/meta/MetaAdsAdapter.js';

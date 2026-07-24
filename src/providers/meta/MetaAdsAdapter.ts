@@ -1058,7 +1058,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
     return this.clientFactory({
       accessToken: credential.accessToken ?? '',
       adAccountId: credential.accountId ?? '',
-      apiVersion: credential.apiVersion ?? 'v23.0',
+      apiVersion: credential.apiVersion ?? 'v25.0',
     });
   }
 
@@ -3799,7 +3799,7 @@ function isMetaComplianceAuditPermissionError(error: unknown): boolean {
 }
 
 function supportsMediaSourcingSpec(apiVersion: string | undefined): boolean {
-  const match = /^v(\d+)(?:\.|$)/i.exec(apiVersion ?? 'v23.0');
+  const match = /^v(\d+)(?:\.|$)/i.exec(apiVersion ?? 'v25.0');
   return match !== null && Number(match[1]) >= 23;
 }
 

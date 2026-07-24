@@ -16,14 +16,14 @@ const configSchema = z.object({
       (id) => id === undefined || id.startsWith('act_'),
       'Invalid ad account ID format. ID should start with "act_"'
     ),
-  apiVersion: z.string().default('v23.0'),
+  apiVersion: z.string().default('v25.0'),
 });
 
 export function loadConfig(): MetaConfig {
   const config = {
     accessToken: process.env.META_ACCESS_TOKEN || '',
     adAccountId: process.env.META_AD_ACCOUNT_ID || undefined,
-    apiVersion: process.env.META_API_VERSION || 'v23.0',
+    apiVersion: process.env.META_API_VERSION || 'v25.0',
   };
 
   try {
