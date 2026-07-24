@@ -21,8 +21,7 @@
     "lint": "eslint src",
     "format": "prettier --write src",
     "test:local-meta-breakdown": "tsx --env-file=.env scripts/testLocalMetaBreakdown.ts",
-    "test:live-instagram-media": "tsx --env-file=.env scripts/testLiveInstagramMedia.ts",
-    "test:live-existing-post-creative": "tsx --env-file=.env scripts/testLiveExistingPostCreative.ts"
+    "test:live-instagram-media": "tsx --env-file=.env scripts/testLiveInstagramMedia.ts"
   },
   "keywords": [
     "meta-ads",
