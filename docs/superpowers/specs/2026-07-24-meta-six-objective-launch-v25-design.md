@@ -340,4 +340,3 @@ Deferred roadmap variants include:
 - Existing CPAS behavior passes v25 regression coverage.
 - Activation requires a separate explicit approval.
 - Build, lint, full tests, security checks, and diff checks pass.
-
