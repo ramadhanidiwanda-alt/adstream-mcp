@@ -190,6 +190,10 @@ describe('createAdCreative', () => {
   });
 
   it('builds an Instant Form Leads dry-run with the form CTA', async () => {
+    mockMetaGet.mockResolvedValueOnce({
+      data: [{ id: 'form-1', name: 'Consultation', status: 'ACTIVE', locale: 'en_US' }],
+    });
+
     const result = await createAdCreative(mockClient, {
       adAccountId: 'act_1',
       name: 'Consultation Leads',
@@ -216,6 +220,10 @@ describe('createAdCreative', () => {
         },
       },
     });
+    expect(mockMetaGet).toHaveBeenCalledWith('/page-1/leadgen_forms', {
+      fields: 'id,name,status,locale,created_time',
+      limit: 50,
+    });
   });
 
   it('rejects an objective-aware Instant Form Lead without a form ID', async () => {
@@ -238,6 +246,85 @@ describe('createAdCreative', () => {
       status: 'failed',
       error: expect.stringMatching(/leadFormId wajib diisi/i),
     });
+  });
+
+  it('requires a Website Leads destination URL even when a lead form ID is supplied', async () => {
+    const result = await createAdCreative(mockClient, {
+      adAccountId: 'act_1',
+      name: 'Website Leads missing URL',
+      pageId: 'page-1',
+      objective: 'OUTCOME_LEADS',
+      conversionLocation: 'WEBSITE',
+      creative: {
+        creativeFormat: 'single_image',
+        creativeSpec: {
+          imageHash: 'image-1',
+          primaryText: 'Book a consultation',
+          leadFormId: 'form-1',
+        },
+      },
+    });
+
+    expect(result).toMatchObject({
+      status: 'failed',
+      error: expect.stringMatching(/destinationUrl wajib diisi/i),
+    });
+  });
+
+  it('rejects a Website Leads form ID instead of overriding the resolved URL destination', async () => {
+    const result = await createAdCreative(mockClient, {
+      adAccountId: 'act_1',
+      name: 'Website Leads with form',
+      pageId: 'page-1',
+      objective: 'OUTCOME_LEADS',
+      conversionLocation: 'WEBSITE',
+      creative: {
+        creativeFormat: 'single_image',
+        creativeSpec: {
+          imageHash: 'image-1',
+          primaryText: 'Book a consultation',
+          destinationUrl: 'https://example.com/consultation',
+          leadFormId: 'form-1',
+        },
+      },
+    });
+
+    expect(result).toMatchObject({
+      status: 'failed',
+      error: expect.stringMatching(/leadFormId.*INSTANT_FORM/i),
+    });
+  });
+
+  it('rejects an Instant Form that is not owned by the selected Page before posting', async () => {
+    mockMetaGet.mockResolvedValueOnce({
+      data: [{ id: 'other-form', name: 'Other Page form', status: 'ACTIVE', locale: 'en_US' }],
+    });
+
+    const result = await createAdCreative(
+      mockClient,
+      {
+        adAccountId: 'act_1',
+        name: 'Mismatched Instant Form',
+        pageId: 'page-1',
+        objective: 'OUTCOME_LEADS',
+        conversionLocation: 'INSTANT_FORM',
+        creative: {
+          creativeFormat: 'single_image',
+          creativeSpec: {
+            imageHash: 'image-1',
+            primaryText: 'Book a consultation',
+            leadFormId: 'form-1',
+          },
+        },
+      },
+      { dryRun: false, confirmed: true }
+    );
+
+    expect(result).toMatchObject({
+      status: 'failed',
+      error: expect.stringMatching(/ads_list_lead_forms/i),
+    });
+    expect(mockMetaPost).not.toHaveBeenCalled();
   });
 
   it.each([

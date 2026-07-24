@@ -10,6 +10,7 @@ import {
   type StructuredMutationError,
 } from '../types.js';
 import { buildMetaCreativeFormatPayload } from '../providers/meta/buildCreativeFormatPayload.js';
+import { listLeadForms } from './listLeadForms.js';
 import {
   resolveMetaObjectiveLaunchSpec,
   type MetaConversionLocation,
@@ -116,10 +117,13 @@ export async function createAdCreative(
 
   let preview: Record<string, unknown>;
   try {
-    const enrichedOptions = await withAutoVideoThumbnail(client, options);
-    preview = buildCreativePayload(
-      withResolvedObjectiveDestinationMode(enrichedOptions, client.apiVersion ?? 'v25.0')
+    const resolvedOptions = await withResolvedObjectiveDestinationMode(
+      client,
+      options,
+      client.apiVersion ?? 'v25.0'
     );
+    const enrichedOptions = await withAutoVideoThumbnail(client, resolvedOptions);
+    preview = buildCreativePayload(enrichedOptions);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     const structuredError = validationError(message);
@@ -564,10 +568,11 @@ function buildCreativePayload(options: CreateAdCreativeOptions): Record<string, 
   return payload;
 }
 
-function withResolvedObjectiveDestinationMode(
+async function withResolvedObjectiveDestinationMode(
+  client: MetaClient,
   options: CreateAdCreativeOptions,
   apiVersion: string
-): CreateAdCreativeOptions {
+): Promise<CreateAdCreativeOptions> {
   if (options.objective === undefined && options.conversionLocation === undefined) return options;
 
   if (options.objective === undefined || options.conversionLocation === undefined) {
@@ -585,12 +590,29 @@ function withResolvedObjectiveDestinationMode(
     apiVersion,
   });
 
-  if (
-    launchSpec.destinationMode === 'INSTANT_FORM' &&
-    (!('leadFormId' in options.creative.creativeSpec) ||
-      !options.creative.creativeSpec.leadFormId?.trim())
-  ) {
-    throw new Error('leadFormId wajib diisi untuk Instant Form Leads.');
+  const leadFormId = getLeadFormId(options.creative);
+  const destinationUrl = options.creative.creativeSpec.destinationUrl;
+
+  if (launchSpec.destinationMode === 'EXTERNAL_URL') {
+    if (!destinationUrl?.trim()) throw new Error('destinationUrl wajib diisi untuk Website Leads.');
+    if (leadFormId?.trim()) {
+      throw new Error('leadFormId hanya dapat digunakan untuk destinationMode INSTANT_FORM.');
+    }
+  }
+
+  if (launchSpec.destinationMode === 'INSTANT_FORM') {
+    if (!leadFormId?.trim()) throw new Error('leadFormId wajib diisi untuk Instant Form Leads.');
+    if (!options.pageId?.trim()) throw new Error('pageId wajib diisi untuk Instant Form Leads.');
+    if (destinationUrl?.trim()) {
+      throw new Error('destinationUrl tidak dapat digunakan untuk destinationMode INSTANT_FORM.');
+    }
+
+    const forms = await listLeadForms(client, { pageId: options.pageId.trim() });
+    if (!forms.some((form) => form.lead_form_id === leadFormId.trim())) {
+      throw new Error(
+        'leadFormId tidak ditemukan pada Page terpilih. Gunakan ads_list_lead_forms untuk memilih Instant Form milik Page tersebut.'
+      );
+    }
   }
 
   return {
@@ -603,6 +625,10 @@ function withResolvedObjectiveDestinationMode(
       },
     } as MetaCreativeSpec,
   };
+}
+
+function getLeadFormId(creative: MetaCreativeSpec): string | undefined {
+  return 'leadFormId' in creative.creativeSpec ? creative.creativeSpec.leadFormId : undefined;
 }
 
 /**

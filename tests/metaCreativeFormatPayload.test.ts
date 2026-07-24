@@ -68,6 +68,7 @@ describe('buildMetaCreativeFormatPayload', () => {
         pageId: 'page-1',
         creativeFormat: 'single_image',
         creativeSpec: {
+          destinationMode: 'INSTANT_FORM',
           imageHash: 'hash-1',
           primaryText: 'Book a consultation',
           headline: 'Talk to our team',
@@ -91,20 +92,21 @@ describe('buildMetaCreativeFormatPayload', () => {
     });
   });
 
-  it('rejects mixing an Instant Form with an external link', () => {
+  it('rejects leadFormId outside the resolved Instant Form destination mode', () => {
     expect(() =>
       buildMetaCreativeFormatPayload({
         mode: 'standard',
         pageId: 'page-1',
         creativeFormat: 'single_image',
         creativeSpec: {
+          destinationMode: 'EXTERNAL_URL',
           imageHash: 'hash-1',
           primaryText: 'Book a consultation',
           destinationUrl: 'https://example.com',
           leadFormId: 'form-1',
         },
       })
-    ).toThrow(/leadFormId.*destinationUrl|destinationUrl.*leadFormId/i);
+    ).toThrow(/leadFormId.*INSTANT_FORM/i);
   });
 
   it('builds an Engagement existing post without fabricating an external URL', () => {

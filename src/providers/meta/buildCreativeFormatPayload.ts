@@ -114,6 +114,7 @@ function buildSingleImage(
   input: Extract<BuildMetaCreativeFormatPayloadInput, { creativeFormat: 'single_image' }>
 ): Record<string, unknown> {
   const { creativeSpec } = input;
+  const leadFormId = resolveLeadFormId(creativeSpec);
   if (creativeSpec.destinationMode === 'NONE') {
     return withDegreesOfFreedomSpec(
       {
@@ -130,7 +131,7 @@ function buildSingleImage(
     );
   }
 
-  if (creativeSpec.leadFormId) {
+  if (leadFormId) {
     const linkData: Record<string, unknown> = {
       image_hash: required(creativeSpec.imageHash, 'imageHash'),
       message: required(creativeSpec.primaryText, 'primaryText'),
@@ -138,7 +139,7 @@ function buildSingleImage(
         creativeSpec.callToAction,
         creativeSpec.destinationUrl,
         input.collaborativeAppSpec,
-        creativeSpec.leadFormId
+        leadFormId
       ),
     };
     const headline = optional(creativeSpec.headline, 'headline');
@@ -195,6 +196,7 @@ function buildVideo(
   input: Extract<BuildMetaCreativeFormatPayloadInput, { creativeFormat: 'video' }>
 ): Record<string, unknown> {
   const { creativeSpec } = input;
+  const leadFormId = resolveLeadFormId(creativeSpec);
   const thumbnailImageHash = optional(creativeSpec.thumbnailImageHash, 'thumbnailImageHash');
   const thumbnailImageUrl = optional(creativeSpec.thumbnailImageUrl, 'thumbnailImageUrl');
 
@@ -219,7 +221,7 @@ function buildVideo(
     );
   }
 
-  if (creativeSpec.leadFormId) {
+  if (leadFormId) {
     const videoData: Record<string, unknown> = {
       video_id: required(creativeSpec.videoId, 'videoId'),
       message: required(creativeSpec.primaryText, 'primaryText'),
@@ -227,7 +229,7 @@ function buildVideo(
         creativeSpec.callToAction,
         creativeSpec.destinationUrl,
         input.collaborativeAppSpec,
-        creativeSpec.leadFormId
+        leadFormId
       ),
     };
     const headline = optional(creativeSpec.headline, 'headline');
@@ -280,6 +282,33 @@ function buildVideo(
     withDirectOmnichannelLinkFields(input, payload, destinationUrl, creativeSpec.applinkTreatment),
     input.optOutEnhancements
   );
+}
+
+function resolveLeadFormId(creativeSpec: {
+  destinationMode?: string;
+  destinationUrl?: string;
+  leadFormId?: string;
+}): string | undefined {
+  const destinationMode = creativeSpec.destinationMode;
+  const leadFormId = creativeSpec.leadFormId?.trim();
+  const destinationUrl = creativeSpec.destinationUrl?.trim();
+
+  if (destinationMode === 'INSTANT_FORM') {
+    if (!leadFormId) throw new Error('leadFormId wajib diisi untuk destinationMode INSTANT_FORM.');
+    if (destinationUrl) {
+      throw new Error('destinationUrl tidak dapat digunakan untuk destinationMode INSTANT_FORM.');
+    }
+    return leadFormId;
+  }
+
+  if (destinationMode === 'EXTERNAL_URL' && !destinationUrl) {
+    throw new Error('destinationUrl wajib diisi untuk destinationMode EXTERNAL_URL.');
+  }
+  if (leadFormId) {
+    throw new Error('leadFormId hanya dapat digunakan untuk destinationMode INSTANT_FORM.');
+  }
+
+  return undefined;
 }
 
 function buildCarousel(
