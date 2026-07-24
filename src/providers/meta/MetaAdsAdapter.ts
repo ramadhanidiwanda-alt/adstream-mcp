@@ -679,6 +679,37 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
         };
       }
 
+      if (campaignId !== undefined || adSetId !== undefined) {
+        const { ads, nextCursor } = await this.fetchActiveAdsWithCreatives(
+          client,
+          accountId,
+          campaignId,
+          adSetId,
+          fields,
+          undefined,
+          typeof request.params.limit === 'number' ? request.params.limit : 100,
+          typeof request.params.cursor === 'string' ? request.params.cursor : undefined
+        );
+
+        return {
+          ok: true,
+          provider: 'meta',
+          data: ads
+            .filter(
+              (ad): ad is MetaActiveAdCreativeRecord & { creative: MetaCreativeRecord } =>
+                ad.creative !== undefined
+            )
+            .map((ad) =>
+              this.normalizeCreative(accountId, ad.creative, request, {
+                ...auditContext,
+                ad,
+                activePlacements: deriveMetaActivePlacements(ad.adset?.targeting),
+              })
+            ),
+          meta: { nextCursor },
+        };
+      }
+
       const response = await client.metaGet<{
         data: MetaCreativeRecord[];
         paging?: { cursors?: { after?: string } };

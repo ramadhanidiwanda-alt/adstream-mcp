@@ -870,6 +870,104 @@ describe('MetaAdsAdapter', () => {
     expect(JSON.stringify(response)).not.toContain('secret-token');
   });
 
+  it('scopes ads_get_creatives to a single ad set via the nested /ads endpoint instead of ignoring the filter', async () => {
+    let capturedPath: string | undefined;
+    let capturedParams: Record<string, unknown> | undefined;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: () =>
+        ({
+          metaGet: async (path: string, params: Record<string, unknown>) => {
+            capturedPath = path;
+            capturedParams = params;
+            return {
+              data: [
+                {
+                  id: 'ad_1',
+                  name: 'Scoped Ad',
+                  status: 'ACTIVE',
+                  effective_status: 'ACTIVE',
+                  campaign_id: 'cmp_1',
+                  adset: { id: 'as_1', name: 'Scoped Ad Set', targeting: {} },
+                  creative: {
+                    id: 'creative_1',
+                    name: 'Scoped Creative',
+                    object_story_spec: { link_data: { link: 'https://example.test/scoped' } },
+                  },
+                },
+              ],
+              paging: { cursors: { after: 'next_scoped' } },
+            };
+          },
+        }) as never,
+    });
+
+    const response = await adapter.getCreativePerformance({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: { adSetId: '120251043076600394' },
+      credentials: {
+        provider: 'meta',
+        accessToken: 'secret-token',
+        accountId: 'act_123',
+        apiVersion: 'v23.0',
+        source: 'test',
+      },
+    });
+
+    expect(capturedPath).toBe('/120251043076600394/ads');
+    expect(capturedParams?.filtering).toBeUndefined();
+    expect(response.ok).toBe(true);
+    expect(response.data).toHaveLength(1);
+    expect(response.data?.[0]).toMatchObject({
+      identity: { ad_id: 'ad_1', creative_id: 'creative_1' },
+      creative: { destination_url: 'https://example.test/scoped' },
+    });
+    expect(response.meta).toMatchObject({ nextCursor: 'next_scoped' });
+  });
+
+  it('drops creatives outside the requested campaign when campaignId and adSetId are both given', async () => {
+    const adapter = new MetaAdsAdapter({
+      clientFactory: () =>
+        ({
+          metaGet: async () => ({
+            data: [
+              {
+                id: 'ad_in',
+                name: 'In Scope',
+                campaign_id: 'cmp_1',
+                adset: { id: 'as_1', targeting: {} },
+                creative: { id: 'creative_in' },
+              },
+              {
+                id: 'ad_out',
+                name: 'Out Of Scope',
+                campaign_id: 'cmp_other',
+                adset: { id: 'as_1', targeting: {} },
+                creative: { id: 'creative_out' },
+              },
+            ],
+            paging: {},
+          }),
+        }) as never,
+    });
+
+    const response = await adapter.getCreativePerformance({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: { campaignId: 'cmp_1', adSetId: 'as_1' },
+      credentials: {
+        provider: 'meta',
+        accessToken: 'secret-token',
+        accountId: 'act_123',
+        apiVersion: 'v23.0',
+        source: 'test',
+      },
+    });
+
+    expect(response.data).toHaveLength(1);
+    expect(response.data?.[0]?.identity.creative_id).toBe('creative_in');
+  });
+
   it('omits media_sourcing_spec on Meta API versions that do not support it', async () => {
     let capturedParams: Record<string, unknown> | undefined;
     const adapter = new MetaAdsAdapter({
