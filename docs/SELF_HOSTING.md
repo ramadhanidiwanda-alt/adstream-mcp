@@ -4,14 +4,14 @@ This guide explains the supported ways to use `adstream-mcp` from Claude, OpenAI
 
 ## Choose your setup
 
-| User type | Recommended setup | Why |
-| --- | --- | --- |
+| User type                                 | Recommended setup           | Why                                                   |
+| ----------------------------------------- | --------------------------- | ----------------------------------------------------- |
 | Non-coding user who wants the least setup | Cuan Insight connection key | No Meta token handling, no custom credential plumbing |
-| Developer using a local laptop | Docker stdio | No public server, no domain, no HTTPS |
-| Developer comfortable with Node.js | Node stdio | Fast local development |
-| Team or server deployment | Remote Streamable HTTP | Share one MCP endpoint behind HTTPS/auth |
-| OpenAI API developer | Responses API + remote MCP | Use OpenAI tool type `mcp` |
-| Custom GPT / GPT Actions user | REST/OpenAPI wrapper | GPT Actions are REST/OpenAPI, not raw MCP |
+| Developer using a local laptop            | Docker stdio                | No public server, no domain, no HTTPS                 |
+| Developer comfortable with Node.js        | Node stdio                  | Fast local development                                |
+| Team or server deployment                 | Remote Streamable HTTP      | Share one MCP endpoint behind HTTPS/auth              |
+| OpenAI API developer                      | Responses API + remote MCP  | Use OpenAI tool type `mcp`                            |
+| Custom GPT / GPT Actions user             | REST/OpenAPI wrapper        | GPT Actions are REST/OpenAPI, not raw MCP             |
 
 ## Important positioning
 
@@ -31,6 +31,7 @@ CUAN_INSIGHT_API_BASE_URL=https://your-cuan-insight-domain/functions/v1
 ```
 
 Security notes:
+
 - Do not commit `.env`.
 - Do not share the connection key publicly.
 - For hosted multi-user MCP, do not configure one shared global key; pass a per-user connection key per request.
@@ -51,7 +52,7 @@ Edit `.env`:
 BROKER_RUNTIME_MODE=local
 META_ACCESS_TOKEN=your_meta_access_token
 META_AD_ACCOUNT_ID=act_your_ad_account_id
-META_API_VERSION=v20.0
+META_API_VERSION=v25.0
 ```
 
 Build local Docker image:
@@ -99,14 +100,12 @@ Example MCP config:
   "mcpServers": {
     "adstream-mcp": {
       "command": "node",
-      "args": [
-        "/absolute/path/to/adstream-mcp/mcp-server/dist/index.js"
-      ],
+      "args": ["/absolute/path/to/adstream-mcp/mcp-server/dist/index.js"],
       "env": {
         "BROKER_RUNTIME_MODE": "local",
         "META_ACCESS_TOKEN": "your_meta_access_token",
         "META_AD_ACCOUNT_ID": "act_your_ad_account_id",
-        "META_API_VERSION": "v20.0"
+        "META_API_VERSION": "v25.0"
       }
     }
   }
@@ -183,6 +182,7 @@ print(response.output_text)
 ```
 
 Notes:
+
 - The remote MCP server must be reachable by OpenAI, unless you use a supported secure tunnel.
 - Use `require_approval: "always"` when testing or handling sensitive data.
 - Use `allowed_tools` to limit cost, latency, and risk.

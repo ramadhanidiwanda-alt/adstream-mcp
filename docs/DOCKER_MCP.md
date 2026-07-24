@@ -116,7 +116,7 @@ Set these values in `.env` if you still use direct Meta token mode:
 BROKER_RUNTIME_MODE=local
 META_ACCESS_TOKEN=your_meta_access_token
 META_AD_ACCOUNT_ID=act_your_ad_account_id
-META_API_VERSION=v20.0
+META_API_VERSION=v25.0
 ```
 
 ## Remote Transport Notes

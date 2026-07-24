@@ -27,40 +27,40 @@ MCP provides structured data. AI and skills provide reasoning.
 
 The intended public API should stay small:
 
-| Tool | Purpose |
-|---|---|
-| `ads_list_accounts` | List accessible ads accounts |
-| `ads_list_campaigns` | List campaign identity/status metadata |
-| `ads_get_performance` | Fetch normalized ads performance rows across levels |
-| `ads_get_creatives` | Fetch creative metadata and creative metrics |
-| `ads_get_change_history` | Fetch provider change history when available |
-| `ads_get_capabilities` | Discover supported providers, metrics, breakdowns, levels, and writes |
-| `commerce_get_performance` | Fetch commerce/SKU/product/order performance when available |
+| Tool                       | Purpose                                                               |
+| -------------------------- | --------------------------------------------------------------------- |
+| `ads_list_accounts`        | List accessible ads accounts                                          |
+| `ads_list_campaigns`       | List campaign identity/status metadata                                |
+| `ads_get_performance`      | Fetch normalized ads performance rows across levels                   |
+| `ads_get_creatives`        | Fetch creative metadata and creative metrics                          |
+| `ads_get_change_history`   | Fetch provider change history when available                          |
+| `ads_get_capabilities`     | Discover supported providers, metrics, breakdowns, levels, and writes |
+| `commerce_get_performance` | Fetch commerce/SKU/product/order performance when available           |
 
 ## Write tools (scoped mutations; creation tools use dry-run + confirmation):
 
-| Tool | Purpose |
-|------|---------|
-| `ads_create_campaign` | Create a campaign under an ad account |
-| `ads_create_adset` | Create an ad set with pre-flight validation (bid strategy, CBO, budget) |
-| `ads_create_adcreative` | Create ad creative with page link, media, or **Click-to-WhatsApp** (`destinationType`, `pageWelcomeMessage`, `whatsappPhoneNumberId`) |
-| `ads_create_ad` | Create an ad linking ad set and creative |
-| `ads_update_adset` | Update ad set settings (budget, status, targeting) |
-| `ads_pause_campaign` | Pause an active campaign |
-| `ads_resume_campaign` | Resume a paused campaign |
-| `ads_update_campaign_budget` | Change campaign daily budget |
-| `ads_rename_campaign` | Rename a campaign |
-| `ads_archive_ad` | Archive an ad or campaign |
-| `ads_upload_image` | Upload image to Meta Ads Image Library |
-| `ads_upload_video` | Upload video to Meta Ads Video Library |
+| Tool                         | Purpose                                                                                                                               |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `ads_create_campaign`        | Create a campaign under an ad account                                                                                                 |
+| `ads_create_adset`           | Create an ad set with pre-flight validation (bid strategy, CBO, budget)                                                               |
+| `ads_create_adcreative`      | Create ad creative with page link, media, or **Click-to-WhatsApp** (`destinationType`, `pageWelcomeMessage`, `whatsappPhoneNumberId`) |
+| `ads_create_ad`              | Create an ad linking ad set and creative                                                                                              |
+| `ads_update_adset`           | Update ad set settings (budget, status, targeting)                                                                                    |
+| `ads_pause_campaign`         | Pause an active campaign                                                                                                              |
+| `ads_resume_campaign`        | Resume a paused campaign                                                                                                              |
+| `ads_update_campaign_budget` | Change campaign daily budget                                                                                                          |
+| `ads_rename_campaign`        | Rename a campaign                                                                                                                     |
+| `ads_archive_ad`             | Archive an ad or campaign                                                                                                             |
+| `ads_upload_image`           | Upload image to Meta Ads Image Library                                                                                                |
+| `ads_upload_video`           | Upload video to Meta Ads Video Library                                                                                                |
 
 ## WhatsApp Discovery Tools (read-only, Meta-specific)
 
-| Tool | Purpose |
-|------|---------|
-| `ads_list_whatsapp_accounts` | Discover WhatsApp Business Accounts (owned + client-shared) |
-| `ads_list_whatsapp_phone_numbers` | List phone numbers per WABA (get `phone_number_id` for CTWA) |
-| `ads_list_whatsapp_message_templates` | List WhatsApp message templates (filter by name/status) |
+| Tool                                  | Purpose                                                      |
+| ------------------------------------- | ------------------------------------------------------------ |
+| `ads_list_whatsapp_accounts`          | Discover WhatsApp Business Accounts (owned + client-shared)  |
+| `ads_list_whatsapp_phone_numbers`     | List phone numbers per WABA (get `phone_number_id` for CTWA) |
+| `ads_list_whatsapp_message_templates` | List WhatsApp message templates (filter by name/status)      |
 
 ### Standard and Collaborative Ads creative formats
 
@@ -86,20 +86,10 @@ The four creation tools above use dry-run by default and execute only when `dryR
   },
   "assetFeedSpec": {
     "ad_formats": ["AUTOMATIC_FORMAT"],
-    "bodies": [
-      { "text": "Primary text A" },
-      { "text": "Primary text B" }
-    ],
-    "titles": [
-      { "text": "Headline A" },
-      { "text": "Headline B" }
-    ],
-    "images": [
-      { "hash": "<uploaded_image_hash>" }
-    ],
-    "link_urls": [
-      { "website_url": "https://example.com/product" }
-    ],
+    "bodies": [{ "text": "Primary text A" }, { "text": "Primary text B" }],
+    "titles": [{ "text": "Headline A" }, { "text": "Headline B" }],
+    "images": [{ "hash": "<uploaded_image_hash>" }],
+    "link_urls": [{ "website_url": "https://example.com/product" }],
     "call_to_action_types": ["LEARN_MORE"]
   }
 }
@@ -214,16 +204,16 @@ See [Remote Mode](#configuration--remote-mode-with-cuan-insight) for full setup.
 
 ### Environment Variables
 
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `META_ACCESS_TOKEN` | ✅ | — | Meta Ads access token |
-| `META_AD_ACCOUNT_ID` | ❌ | — | Default ad account (optional, AI can pick via `ads_list_accounts`) |
-| `META_API_VERSION` | ❌ | `v23.0` | Meta Graph API version |
-| `TIKTOK_ACCESS_TOKEN` | ❌ | — | TikTok Ads access token |
-| `MCP_HTTP_ENABLED` | ❌ | `false` | Enable HTTP transport |
-| `ADSTREAM_ENABLE_WRITES` | ❌ | `false` | Expose the optional write tools; off by default so only read tools appear |
-| `ADSTREAM_ENABLE_DESTRUCTIVE_ACTIONS` | ❌ | `false` | Separate kill switch for archive/delete calls (`ads_archive_ad`, `ARCHIVED`/`DELETED` status changes); off by default even if writes are enabled |
-| `CUAN_INSIGHT_AUTH_MODE` | ❌ | — | Set to `connection_key` for remote mode |
+| Variable                              | Required | Default | Description                                                                                                                                      |
+| ------------------------------------- | -------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `META_ACCESS_TOKEN`                   | ✅       | —       | Meta Ads access token                                                                                                                            |
+| `META_AD_ACCOUNT_ID`                  | ❌       | —       | Default ad account (optional, AI can pick via `ads_list_accounts`)                                                                               |
+| `META_API_VERSION`                    | ❌       | `v25.0` | Meta Graph API version                                                                                                                           |
+| `TIKTOK_ACCESS_TOKEN`                 | ❌       | —       | TikTok Ads access token                                                                                                                          |
+| `MCP_HTTP_ENABLED`                    | ❌       | `false` | Enable HTTP transport                                                                                                                            |
+| `ADSTREAM_ENABLE_WRITES`              | ❌       | `false` | Expose the optional write tools; off by default so only read tools appear                                                                        |
+| `ADSTREAM_ENABLE_DESTRUCTIVE_ACTIONS` | ❌       | `false` | Separate kill switch for archive/delete calls (`ads_archive_ad`, `ARCHIVED`/`DELETED` status changes); off by default even if writes are enabled |
+| `CUAN_INSIGHT_AUTH_MODE`              | ❌       | —       | Set to `connection_key` for remote mode                                                                                                          |
 
 ---
 
@@ -241,13 +231,13 @@ const client = new MetaClient(config);
 // Get campaigns
 const campaigns = await getCampaigns(client, {
   adAccountId: config.adAccountId,
-  fields: ['id', 'name', 'status', 'objective']
+  fields: ['id', 'name', 'status', 'objective'],
 });
 
 // Get insights
 const insights = await getCampaignInsights(client, {
   adAccountId: config.adAccountId,
-  datePreset: 'last_30d'
+  datePreset: 'last_30d',
 });
 
 console.log(`Found ${campaigns.length} campaigns`);
@@ -278,9 +268,9 @@ const allInsights = await getCampaignInsights(client, {
   adAccountId: 'act_123456789',
   since: '2026-06-01',
   until: '2026-06-19',
-  paginate: true,      // ← auto-fetch all pages
-  pageDelay: 100,      // ms delay between pages
-  maxPages: 10,        // safety limit
+  paginate: true, // ← auto-fetch all pages
+  pageDelay: 100, // ms delay between pages
+  maxPages: 10, // safety limit
 });
 
 console.log(`Total: ${allInsights.length} rows`);
@@ -290,12 +280,12 @@ The client automatically handles Meta's cursor/after pagination, rate limit head
 
 Available options for all insight tools (`getCampaignInsights`, `getAdsetInsights`, `getAdsInsights`):
 
-| Option | Default | Description |
-|--------|---------|-------------|
-| `paginate` | `false` | Enable multi-page fetching |
-| `maxPages` | `10` | Max pages to fetch (safety limit) |
-| `pageDelay` | `200` | Delay between pages (ms) |
-| `limit` | `100` | Rows per page |
+| Option      | Default | Description                       |
+| ----------- | ------- | --------------------------------- |
+| `paginate`  | `false` | Enable multi-page fetching        |
+| `maxPages`  | `10`    | Max pages to fetch (safety limit) |
+| `pageDelay` | `200`   | Delay between pages (ms)          |
+| `limit`     | `100`   | Rows per page                     |
 
 ---
 
@@ -328,9 +318,9 @@ For production or autonomous AI agents, use a System User token that never expir
 1. Go to [Meta Business Settings](https://business.facebook.com/settings)
 2. Navigate to **Users** > **System Users**
 3. Click **Add** to create a new System User
-3. Assign the System User to your Ad Account with **Analyst** role (or **Advertiser** role for write access)
-4. Click **Generate New Token**
-5. Select `ads_read` and `ads_management` permissions
+4. Assign the System User to your Ad Account with **Analyst** role (or **Advertiser** role for write access)
+5. Click **Generate New Token**
+6. Select `ads_read` and `ads_management` permissions
 7. Copy the token (never expires)
 
 **Recommended for:** Production use, AI agents, scheduled jobs
@@ -415,6 +405,7 @@ See [`examples/`](examples/) directory:
 - `rule-templates-demo.ts` — Legacy rule template example
 
 Run examples:
+
 ```bash
 npm run example:daily-report
 npm run example:campaign-audit
@@ -503,17 +494,17 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 ## Comparison to Other Tools
 
-| Feature | This Project | NotFair | Meta Official |
-|---------|-------------|---------|---------------|
-| TypeScript Library | ✅ | ❌ | ❌ |
-| AI Skills | ✅ | ✅ | ❌ |
-| Self-hosted MCP | ✅ | ❌ (cloud) | N/A |
-| Read Operations | ✅ | ✅ | ✅ |
-| Write Operations | ✅ (creation tools: dry-run + confirmed) | ✅ | ✅ |
-| Rule Engine | ✅ | ❌ | ❌ |
-| Open Source | ✅ | ✅ | ✅ |
-| Target Audience | Both | End users | Developers |
-| Connection Key Auth | ✅ | ❌ | ❌ |
+| Feature             | This Project                             | NotFair    | Meta Official |
+| ------------------- | ---------------------------------------- | ---------- | ------------- |
+| TypeScript Library  | ✅                                       | ❌         | ❌            |
+| AI Skills           | ✅                                       | ✅         | ❌            |
+| Self-hosted MCP     | ✅                                       | ❌ (cloud) | N/A           |
+| Read Operations     | ✅                                       | ✅         | ✅            |
+| Write Operations    | ✅ (creation tools: dry-run + confirmed) | ✅         | ✅            |
+| Rule Engine         | ✅                                       | ❌         | ❌            |
+| Open Source         | ✅                                       | ✅         | ✅            |
+| Target Audience     | Both                                     | End users  | Developers    |
+| Connection Key Auth | ✅                                       | ❌         | ❌            |
 
 ---
 

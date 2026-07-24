@@ -10,6 +10,7 @@
 Menjadi **open-source Ads + Commerce MCP connector hub** untuk AI agents dan developers — menggabungkan TypeScript library, MCP server, AI-native skills, dan Cuan Insight sebagai credential control plane.
 
 **Target Audience:**
+
 - 🎯 Primary: End users (marketers) via AI skills
 - 🎯 Secondary: Developers via TypeScript library + MCP
 - 🎯 Tertiary: Agencies and Cuan Insight workspaces managing multiple providers/accounts
@@ -19,6 +20,7 @@ Menjadi **open-source Ads + Commerce MCP connector hub** untuk AI agents dan dev
 ## Completed ✅
 
 ### v0.1.0 (2026-05-27) - Foundation
+
 - ✅ Core MetaClient wrapper
 - ✅ 6 read-only tools (campaigns, insights at all levels)
 - ✅ Basic analysis & recommendations
@@ -26,12 +28,14 @@ Menjadi **open-source Ads + Commerce MCP connector hub** untuk AI agents dan dev
 - ✅ TypeScript types & Zod validation
 
 ### v0.2.0 (2026-05-28) - Rule Engine
+
 - ✅ Flexible rule system (AND/OR logic, 6 operators)
 - ✅ 26 pre-built rule templates (4 categories)
 - ✅ Priority-based recommendations
 - ✅ Custom rule creation
 
 ### v0.3.0 (2026-05-29) - AI Skills Layer
+
 - ✅ Markdown-based skills (audit, manage)
 - ✅ Business context persistence
 - ✅ Dollar-denominated recommendations
@@ -41,12 +45,14 @@ Menjadi **open-source Ads + Commerce MCP connector hub** untuk AI agents dan dev
 - ✅ Decision trees & heuristics
 
 ### v0.4.1 (2026-06-14) - Location Breakdown Insights
+
 - ✅ Location Breakdown API with country/region/DMA
 - ✅ Custom sortable top-locations view
 - ✅ Cuan Insight Connection Key auth mode
 - ✅ minSpend/minClicks filtering
 
 ### v0.4.2 (2026-06-19) - Pagination & CI Pipeline
+
 - ✅ Pagination loop — auto-fetch all pages via cursor/after
 - ✅ Rate limit safety — auto-delay at >80%, retry 429
 - ✅ GitHub Actions CI: tsc + test + gitleaks
@@ -54,6 +60,7 @@ Menjadi **open-source Ads + Commerce MCP connector hub** untuk AI agents dan dev
 - ✅ 16 new pagination tests (391 total)
 
 ### v0.5.0 (2026-06-20) - Write Operations (Campaign)
+
 - ✅ `metaPost()` — POST mutations to Meta Graph API
 - ✅ 4 campaign tools: pause, resume, budget, rename
 - ✅ Approval workflow: dry-run → confirm → execute → audit
@@ -64,6 +71,7 @@ Menjadi **open-source Ads + Commerce MCP connector hub** untuk AI agents dan dev
 - ✅ Real API dry-run verified
 
 ### v0.5.1 (2026-06-23) - Campaign Listing Broker Tool
+
 - ✅ `ads_list_campaigns` MCP broker tool (Meta + TikTok)
 - ✅ `AdsProviderAdapter.listCampaigns()` interface method
 - ✅ `AdsBroker.listCampaigns()` with credential resolution
@@ -73,6 +81,7 @@ Menjadi **open-source Ads + Commerce MCP connector hub** untuk AI agents dan dev
 - ✅ Closes gap where `meta_get_campaigns` was blocked in remote mode
 
 ### v0.5.2 (2026-06-25) - Account-Level Performance Broker Tool
+
 - ✅ `ads_get_account_performance` MCP broker tool
 - ✅ Meta Insights `level=account` via new `getAccountInsights()` tool
 - ✅ Account-level normalized metrics for spend, reach, clicks, purchases, purchase value, ROAS, and leads
@@ -94,6 +103,7 @@ Menjadi **open-source Ads + Commerce MCP connector hub** untuk AI agents dan dev
 **Goal:** Extend mutation coverage to ad set, ad, and creative levels with full write parity across all entity levels.
 
 #### Features
+
 - ✅ **Safety Contract Prerequisite**
   - ✅ Follow `docs/WRITE_SAFETY_CONTRACT.md` for every new mutation
   - ✅ Prove dry-run, confirmation, permission, audit, and redaction behavior before exposing tools
@@ -125,6 +135,7 @@ Menjadi **open-source Ads + Commerce MCP connector hub** untuk AI agents dan dev
   - ✅ MCP tool dispatch completeness tests
 
 **Additional tools shipped in v0.6.0:**
+
 - `ads_get_targeting_options` — search Meta targeting options
 - `ads_get_video_source` — get raw video source URL
 - `ads_get_ad_creative_mapping` — link ads to creatives
@@ -136,6 +147,30 @@ Menjadi **open-source Ads + Commerce MCP connector hub** untuk AI agents dan dev
 - `ads_list_pixels`, `ads_list_catalogs`, `ads_list_product_sets` — commerce infrastructure discovery
 - `ads_list_whatsapp_accounts`, `ads_list_whatsapp_phone_numbers`, `ads_list_whatsapp_message_templates` — WhatsApp discovery
 - `ads_create_ecommerce_campaign_bundle` — e-commerce campaign bundle creation
+
+### Meta v25 six-objective launch baseline (2026-07)
+
+**What marketers can prepare now:** a guarded, offline-tested creation path for
+the six ODAX objectives. `ads_check_launch_readiness` identifies the inputs, then
+the existing `ads_create_campaign`, `ads_create_adset`, `ads_create_adcreative`,
+and `ads_create_ad` tools create a reviewable structure in `PAUSED` status.
+
+| Objective     | Supported canonical destination / conversion location |
+| ------------- | ----------------------------------------------------- |
+| Awareness     | `AWARENESS`                                           |
+| Traffic       | `WEBSITE`                                             |
+| Engagement    | `POST` or `VIDEO`                                     |
+| Leads         | `WEBSITE` or `INSTANT_FORM`                           |
+| App promotion | `APP`                                                 |
+| Sales         | `WEBSITE`                                             |
+
+- ✅ Meta API v25.0 is the default; the objective matrix retains explicit v23/v24/v25 compatibility.
+- ✅ CPAS catalog sales has a v25 regression path, requiring Meta-provided catalog/product-set access.
+- ✅ Creation and activation are deliberately separate: creation stays `PAUSED`, read-back follows, and activation needs a second approval.
+- ⚠️ Focused tests cover the baseline, but it is not marked release-complete until the full offline suite passes.
+- ⚠️ No live Meta contract test or activation was run for this scope. Account eligibility, policy review, and delivery are determined by Meta.
+
+**Deferred variants:** Messaging, Calls, broader Catalog/CPAS, app events/value/re-engagement, Ad Recall Lift, Quality Leads/CRM, and additional Advantage+ variants.
 
 ---
 
@@ -161,6 +196,7 @@ Menjadi **open-source Ads + Commerce MCP connector hub** untuk AI agents dan dev
 **Goal:** Tighten safety and complete the write tool experience.
 
 #### Features
+
 - [ ] **Whitelist mode** — only allow writes to explicitly listed campaigns/adsets/ads
 - [ ] **Blacklist mode** — never allow writes to certain campaigns/adsets/ads
 - [ ] **Batch operations** — pause/resume/archive multiple entities in one call
@@ -169,6 +205,7 @@ Menjadi **open-source Ads + Commerce MCP connector hub** untuk AI agents dan dev
 - [ ] **Changelog + release** — bump to v0.7.0, update CHANGELOG.md, tag release
 
 #### Why Important
+
 - Whitelist/blacklist prevent accidental writes to critical campaigns
 - Batch ops save time for agencies managing many campaigns
 - Rollback provides safety net for mistakes
@@ -180,6 +217,7 @@ Menjadi **open-source Ads + Commerce MCP connector hub** untuk AI agents dan dev
 **Goal:** Support agencies managing multiple ad accounts
 
 #### Features
+
 - [ ] **Account Management**
   - [ ] List all accessible accounts
   - [ ] Switch between accounts
@@ -198,11 +236,13 @@ Menjadi **open-source Ads + Commerce MCP connector hub** untuk AI agents dan dev
   - [ ] Add cross-account comparison skill
 
 **Why Important:**
+
 - Agencies manage 10-100+ accounts
 - Need to compare performance across clients
 - Bulk operations save time
 
 **Data Structure:**
+
 ```json
 {
   "accounts": {
@@ -228,6 +268,7 @@ Menjadi **open-source Ads + Commerce MCP connector hub** untuk AI agents dan dev
 **Goal:** Deeper insights and predictive analytics
 
 #### Features
+
 - [ ] **Predictive Analytics**
   - [ ] Budget forecasting (if I spend $X, expect Y conversions)
   - [ ] Seasonality detection (auto-detect patterns)
@@ -252,11 +293,13 @@ Menjadi **open-source Ads + Commerce MCP connector hub** untuk AI agents dan dev
   - [ ] Update `manage/SKILL.md` with new analysis
 
 **Why Important:**
+
 - Proactive recommendations (before problems happen)
 - Data-driven creative decisions
 - Competitive advantage
 
 **Technical Approach:**
+
 - Time-series analysis (rolling averages, trends)
 - Statistical models (linear regression, ARIMA)
 - Historical data (store 90 days minimum)
@@ -268,6 +311,7 @@ Menjadi **open-source Ads + Commerce MCP connector hub** untuk AI agents dan dev
 **Goal:** Pre-built playbooks for common verticals
 
 #### Features
+
 - [ ] **E-commerce Playbook**
   - [ ] Product catalog campaigns
   - [ ] Dynamic product ads (DPA)
@@ -299,11 +343,13 @@ Menjadi **open-source Ads + Commerce MCP connector hub** untuk AI agents dan dev
   - [ ] Auto-detect industry from business context
 
 **Why Important:**
+
 - Faster onboarding (pre-built best practices)
 - Industry-specific recommendations
 - Higher success rate
 
 **Structure:**
+
 ```
 skills/meta-ads/playbooks/
 ├── ecommerce/
@@ -328,6 +374,7 @@ skills/meta-ads/playbooks/
 **Goal:** Connect with other tools in the marketing stack
 
 #### Features
+
 - [ ] **Shopify Integration**
   - [ ] Sync product catalog
   - [ ] Actual revenue (vs Meta-reported)
@@ -358,12 +405,14 @@ skills/meta-ads/playbooks/
   - [ ] Use integration data in analysis
 
 **Why Important:**
+
 - Meta data alone is incomplete
 - Need actual revenue (not Meta-reported)
 - Need LTV for true profitability
 - Notifications keep users engaged
 
 **Technical Approach:**
+
 - OAuth for each integration
 - Webhook listeners for real-time data
 - Data sync every 24 hours
@@ -376,6 +425,7 @@ skills/meta-ads/playbooks/
 **Goal:** Stable, feature-complete, production-grade
 
 #### Features
+
 - [ ] **Stability**
   - [ ] 95%+ test coverage
   - [ ] Error handling for all edge cases
@@ -401,6 +451,7 @@ skills/meta-ads/playbooks/
   - [ ] SLA guarantees
 
 **Why Important:**
+
 - Ready for production use
 - Enterprise customers need these features
 - Competitive with paid tools
@@ -412,6 +463,7 @@ skills/meta-ads/playbooks/
 ### Beyond v1.0.0
 
 **Advanced Features:**
+
 - [ ] Machine learning models (predict ROAS, detect fraud)
 - [ ] Automated optimization (AI makes changes automatically)
 - [ ] Custom dashboards (drag-and-drop)
@@ -419,12 +471,14 @@ skills/meta-ads/playbooks/
 - [ ] API for third-party integrations
 
 **Platform Expansion:**
+
 - [ ] Google Ads support (next major provider after report engine)
 - [ ] TikTok parity (regular ads + GMV Max commerce reporting)
 - [ ] Indonesian marketplace ads (Shopee/Tokopedia/Lazada/Blibli), pursued in parallel based on API access
 - [ ] Unified cross-platform ads reporting and separate commerce/GMV reporting
 
 **Community:**
+
 - [ ] Public skill marketplace (users share custom skills)
 - [ ] Plugin system (extend functionality)
 - [ ] Community templates
@@ -450,15 +504,15 @@ skills/meta-ads/playbooks/
 
 **Priority Matrix:**
 
-| Feature | Impact | Complexity | Strategic | Priority |
-|---------|--------|------------|-----------|----------|
-| Campaign Write Operations | High | Medium | High | ✅ Done (v0.5.0) |
-| Adset & Ad Write Operations | High | Medium | High | ✅ Done (v0.6.0) |
-| Safety Guards & Whitelist/Blacklist | High | Medium | High | **P0** (v0.7.0) |
-| Multi-Account | Medium | Low | High | **P1** (v0.8.0) |
-| Predictive Analytics | Medium | High | Medium | **P2** (v0.9.0) |
-| Industry Templates | High | Low | Medium | **P2** (v1.0.0) |
-| Integrations | High | High | High | **P2** (v1.1.0) |
+| Feature                             | Impact | Complexity | Strategic | Priority         |
+| ----------------------------------- | ------ | ---------- | --------- | ---------------- |
+| Campaign Write Operations           | High   | Medium     | High      | ✅ Done (v0.5.0) |
+| Adset & Ad Write Operations         | High   | Medium     | High      | ✅ Done (v0.6.0) |
+| Safety Guards & Whitelist/Blacklist | High   | Medium     | High      | **P0** (v0.7.0)  |
+| Multi-Account                       | Medium | Low        | High      | **P1** (v0.8.0)  |
+| Predictive Analytics                | Medium | High       | Medium    | **P2** (v0.9.0)  |
+| Industry Templates                  | High   | Low        | Medium    | **P2** (v1.0.0)  |
+| Integrations                        | High   | High       | High      | **P2** (v1.1.0)  |
 
 ---
 
@@ -467,21 +521,25 @@ skills/meta-ads/playbooks/
 **How we measure success:**
 
 ### Adoption
+
 - [ ] 1,000 npm downloads/month (v0.4)
 - [ ] 5,000 npm downloads/month (v0.6)
 - [ ] 10,000 npm downloads/month (v1.0)
 
 ### Engagement
+
 - [ ] 100 active users (v0.4)
 - [ ] 500 active users (v0.6)
 - [ ] 1,000 active users (v1.0)
 
 ### Quality
+
 - [ ] 90%+ test coverage (v0.6)
 - [ ] < 5 bugs/month (v1.0)
 - [ ] 4.5+ stars on npm (v1.0)
 
 ### Community
+
 - [ ] 10 GitHub contributors (v0.6)
 - [ ] 50 GitHub stars (v0.6)
 - [ ] 200 GitHub stars (v1.0)
