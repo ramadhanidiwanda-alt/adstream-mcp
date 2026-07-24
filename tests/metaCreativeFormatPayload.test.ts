@@ -147,6 +147,43 @@ describe('buildMetaCreativeFormatPayload', () => {
     });
   });
 
+  it('builds a standard App Promotion video CTA without CPAS omnichannel fields', () => {
+    const result = buildMetaCreativeFormatPayload({
+      mode: 'standard',
+      pageId: 'page-1',
+      standardAppSpec: {
+        applicationId: 'app-1',
+        objectStoreUrl: 'https://apps.apple.com/app/id123',
+        deepLinkUrl: 'myapp://home',
+      },
+      creativeFormat: 'video',
+      creativeSpec: {
+        videoId: 'video-1',
+        primaryText: 'Install the app',
+        destinationUrl: 'https://apps.apple.com/app/id123',
+      },
+    });
+
+    expect(result).toMatchObject({
+      object_story_spec: {
+        page_id: 'page-1',
+        video_data: {
+          video_id: 'video-1',
+          call_to_action: {
+            type: 'INSTALL_MOBILE_APP',
+            value: {
+              link: 'myapp://home',
+              app_link: 'myapp://home',
+              application: 'app-1',
+            },
+          },
+        },
+      },
+    });
+    expect(result).not.toHaveProperty('omnichannel_link_spec');
+    expect(result).not.toHaveProperty('applink_treatment');
+  });
+
   it('builds a standard single-image link creative', () => {
     expect(
       buildMetaCreativeFormatPayload({

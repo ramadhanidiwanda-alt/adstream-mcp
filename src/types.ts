@@ -190,6 +190,13 @@ export interface MetaCollaborativeAppSpec {
   ios?: { appName: string; appStoreId: string };
 }
 
+/** App identity for the standard Meta App Promotion install path. */
+export interface MetaStandardAppSpec {
+  applicationId: string;
+  objectStoreUrl: string;
+  deepLinkUrl?: string;
+}
+
 export type MetaApplinkTreatment =
   | 'deeplink_with_appstore_fallback'
   | 'deeplink_with_web_fallback'

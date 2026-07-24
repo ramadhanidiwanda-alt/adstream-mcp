@@ -34,6 +34,7 @@ import type {
   MetaCollaborativeCatalogContext,
   MetaConfig,
   MetaCreativeFormat,
+  MetaStandardAppSpec,
   MetaCreativeSpec,
   PlacementPerformanceReport,
 } from '../../types.js';
@@ -1515,6 +1516,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
     let creative: MetaCreativeSpec | undefined;
     let collaborativeProductSetId: string | undefined;
     let collaborativeAppSpec: MetaCollaborativeAppSpec | undefined;
+    let standardAppSpec: MetaStandardAppSpec | undefined;
     let destinationType: CreativeDestinationType | undefined;
     let objective: MetaOdaxObjective | undefined;
     let conversionLocation: MetaConversionLocation | undefined;
@@ -1528,6 +1530,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
         'collaborativeProductSetId'
       );
       collaborativeAppSpec = parseCollaborativeAppSpec(request.params.collaborativeAppSpec);
+      standardAppSpec = parseStandardAppSpec(request.params.standardAppSpec);
       if (hasCreativeFormat && hasCreativeSpec) {
         const creativeFormat = parseMetaCreativeFormat(request.params.creativeFormat);
         creative = parseMetaCreativeSpec(
@@ -1649,6 +1652,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
           creative,
           collaborativeProductSetId,
           collaborativeAppSpec,
+          standardAppSpec,
           linkData,
           objectStorySpec: creative ? undefined : objectStorySpec,
           assetFeedSpec: creative ? undefined : assetFeedSpec,
@@ -3419,6 +3423,7 @@ export const CREATE_AD_CREATIVE_PARAMS = new Set([
   'creativeSpec',
   'collaborativeProductSetId',
   'collaborativeAppSpec',
+  'standardAppSpec',
   'link',
   'message',
   'headline',
@@ -3649,6 +3654,16 @@ function parseCollaborativeAppSpec(value: unknown): MetaCollaborativeAppSpec | u
           },
         }
       : {}),
+  };
+}
+
+function parseStandardAppSpec(value: unknown): MetaStandardAppSpec | undefined {
+  if (value === undefined) return undefined;
+  const app = requireRecord(value, 'standardAppSpec');
+  return {
+    applicationId: requireString(app.applicationId, 'standardAppSpec.applicationId'),
+    objectStoreUrl: requireString(app.objectStoreUrl, 'standardAppSpec.objectStoreUrl'),
+    deepLinkUrl: optionalString(app.deepLinkUrl, 'standardAppSpec.deepLinkUrl'),
   };
 }
 

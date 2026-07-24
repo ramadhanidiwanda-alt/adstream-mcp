@@ -1709,6 +1709,52 @@ describe('MetaAdsAdapter', () => {
     }
   );
 
+  it('passes the standard app spec through to canonical App Promotion creative building', async () => {
+    let receivedOptions: Record<string, unknown> | undefined;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        createAdCreative: async (_client, options) => {
+          receivedOptions = options as unknown as Record<string, unknown>;
+          return {
+            operation: 'create_adcreative',
+            status: 'dry_run',
+            executed: false,
+            preview: {},
+          };
+        },
+      },
+    });
+
+    const response = await adapter.createAdCreative({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {
+        name: 'App installs',
+        pageId: 'page-1',
+        objective: 'OUTCOME_APP_PROMOTION',
+        conversionLocation: 'APP',
+        creativeFormat: 'video',
+        creativeSpec: { videoId: 'video-1', primaryText: 'Install now' },
+        standardAppSpec: {
+          applicationId: 'app-1',
+          objectStoreUrl: 'https://apps.apple.com/app/id123',
+          deepLinkUrl: 'myapp://home',
+        },
+      },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    });
+
+    expect(response.ok).toBe(true);
+    expect(receivedOptions).toMatchObject({
+      standardAppSpec: {
+        applicationId: 'app-1',
+        objectStoreUrl: 'https://apps.apple.com/app/id123',
+        deepLinkUrl: 'myapp://home',
+      },
+    });
+  });
+
   it('threads a video creativeSpec.applinkTreatment override through parsing into the dry-run omnichannel preview', async () => {
     const adapter = new MetaAdsAdapter({
       clientFactory: (config) => ({ config }) as never,

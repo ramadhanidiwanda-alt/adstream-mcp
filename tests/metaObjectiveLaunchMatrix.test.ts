@@ -144,6 +144,12 @@ describe('Meta objective launch matrix', () => {
       application_id: 'app-1',
       object_store_url: 'https://apps.apple.com/app/id123',
     });
+    expect(app).toMatchObject({
+      optimizationGoal: 'APP_INSTALLS',
+      billingEvent: 'IMPRESSIONS',
+      destinationType: 'APP',
+      promotedObjectKind: 'application',
+    });
   });
 
   it('recommends lead-form discovery when preparing Instant Form Leads', () => {

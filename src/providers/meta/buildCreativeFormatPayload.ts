@@ -3,6 +3,7 @@ import type {
   MetaApplinkTreatment,
   MetaCollaborativeAppSpec,
   MetaCreativeSpec,
+  MetaStandardAppSpec,
 } from '../../types.js';
 import { assertMetaCreativeCompatibility } from './creativeFormatCompatibility.js';
 
@@ -12,6 +13,7 @@ export type BuildMetaCreativeFormatPayloadInput = MetaCreativeSpec & {
   instagramUserId?: string;
   collaborativeProductSetId?: string;
   collaborativeAppSpec?: MetaCollaborativeAppSpec;
+  standardAppSpec?: MetaStandardAppSpec;
   /**
    * Nama-nama fitur degrees_of_freedom_spec yang di-OPT_OUT (disable).
    * Contoh: ['image_auto_crop', 'text_optimizations', 'image_templates'].
@@ -64,7 +66,8 @@ function cta(
   type: string | undefined,
   destinationUrl?: string,
   collaborativeAppSpec?: MetaCollaborativeAppSpec,
-  leadFormId?: string
+  leadFormId?: string,
+  standardAppSpec?: MetaStandardAppSpec
 ): Record<string, unknown> {
   const normalizedType = type?.trim() || 'LEARN_MORE';
   if (leadFormId) {
@@ -78,6 +81,21 @@ function cta(
   }
   if (normalizedType === 'WHATSAPP_MESSAGE' && !collaborativeAppSpec) {
     return { type: normalizedType };
+  }
+
+  if (standardAppSpec) {
+    const appLink = required(
+      standardAppSpec.deepLinkUrl ?? standardAppSpec.objectStoreUrl,
+      'standardAppSpec.deepLinkUrl atau standardAppSpec.objectStoreUrl'
+    );
+    return {
+      type: type?.trim() || 'INSTALL_MOBILE_APP',
+      value: {
+        link: appLink,
+        app_link: appLink,
+        application: required(standardAppSpec.applicationId, 'standardAppSpec.applicationId'),
+      },
+    };
   }
 
   const value: Record<string, unknown> = { link: required(destinationUrl, 'destinationUrl') };
@@ -164,7 +182,13 @@ function buildSingleImage(
     image_hash: required(creativeSpec.imageHash, 'imageHash'),
     message: required(creativeSpec.primaryText, 'primaryText'),
     link: destinationUrl,
-    call_to_action: cta(creativeSpec.callToAction, destinationUrl, input.collaborativeAppSpec),
+    call_to_action: cta(
+      creativeSpec.callToAction,
+      destinationUrl,
+      input.collaborativeAppSpec,
+      undefined,
+      input.standardAppSpec
+    ),
   };
   const headline = optional(creativeSpec.headline, 'headline');
   const description = optional(creativeSpec.description, 'description');
@@ -253,7 +277,13 @@ function buildVideo(
   const videoData: Record<string, unknown> = {
     video_id: required(creativeSpec.videoId, 'videoId'),
     message: required(creativeSpec.primaryText, 'primaryText'),
-    call_to_action: cta(creativeSpec.callToAction, destinationUrl, input.collaborativeAppSpec),
+    call_to_action: cta(
+      creativeSpec.callToAction,
+      destinationUrl,
+      input.collaborativeAppSpec,
+      undefined,
+      input.standardAppSpec
+    ),
   };
   const headline = optional(creativeSpec.headline, 'headline');
   const pageWelcomeMessage = optional(creativeSpec.pageWelcomeMessage, 'pageWelcomeMessage');

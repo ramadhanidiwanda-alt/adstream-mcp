@@ -226,6 +226,63 @@ describe('createAdCreative', () => {
     });
   });
 
+  it('builds an App Promotion dry-run with the standard app-install CTA', async () => {
+    const result = await createAdCreative(mockClient, {
+      adAccountId: 'act_1',
+      name: 'Install our app',
+      pageId: 'page-1',
+      objective: 'OUTCOME_APP_PROMOTION',
+      conversionLocation: 'APP',
+      standardAppSpec: {
+        applicationId: 'app-1',
+        objectStoreUrl: 'https://apps.apple.com/app/id123',
+        deepLinkUrl: 'myapp://home',
+      },
+      creative: {
+        creativeFormat: 'video',
+        creativeSpec: { videoId: 'video-1', primaryText: 'Install now' },
+      },
+    });
+
+    expect(result).toMatchObject({
+      status: 'dry_run',
+      preview: {
+        object_story_spec: {
+          video_data: {
+            call_to_action: {
+              type: 'INSTALL_MOBILE_APP',
+              value: {
+                link: 'myapp://home',
+                app_link: 'myapp://home',
+                application: 'app-1',
+              },
+            },
+          },
+        },
+      },
+    });
+    expect(result.preview).not.toHaveProperty('omnichannel_link_spec');
+  });
+
+  it('rejects an App Promotion dry-run without a standard app spec', async () => {
+    const result = await createAdCreative(mockClient, {
+      adAccountId: 'act_1',
+      name: 'Incomplete app install',
+      pageId: 'page-1',
+      objective: 'OUTCOME_APP_PROMOTION',
+      conversionLocation: 'APP',
+      creative: {
+        creativeFormat: 'single_image',
+        creativeSpec: { imageHash: 'image-1', primaryText: 'Install now' },
+      },
+    });
+
+    expect(result).toMatchObject({
+      status: 'failed',
+      error: expect.stringMatching(/standardAppSpec\.applicationId/i),
+    });
+  });
+
   it('rejects an objective-aware Instant Form Lead without a form ID', async () => {
     const result = await createAdCreative(mockClient, {
       adAccountId: 'act_1',

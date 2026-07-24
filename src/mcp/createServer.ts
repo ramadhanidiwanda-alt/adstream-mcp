@@ -585,6 +585,16 @@ export const createAdCreativeInputSchema = {
     .describe(
       'Identitas aplikasi retailer untuk tujuan omnichannel, termasuk ID aplikasi dan data Android/iOS. Untuk creativeFormat video, single_image, dan existing_post, field omnichannel (applink_treatment, omnichannel_link_spec) otomatis ditambahkan begitu field ini diisi — tidak perlu mode: collaborative_ads atau collaborativeProductSetId untuk ketiga format tersebut.'
     ),
+  standardAppSpec: z
+    .object({
+      applicationId: z.string(),
+      objectStoreUrl: z.string(),
+      deepLinkUrl: z.string().optional(),
+    })
+    .optional()
+    .describe(
+      'Kontrak aplikasi untuk OUTCOME_APP_PROMOTION + APP. Wajib isi applicationId dan objectStoreUrl; deepLinkUrl opsional dipakai untuk CTA install.'
+    ),
   link: z
     .string()
     .optional()

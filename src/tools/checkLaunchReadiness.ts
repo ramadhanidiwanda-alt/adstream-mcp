@@ -124,6 +124,11 @@ export function checkLaunchReadiness(options: LaunchReadinessOptions): LaunchRea
   }
   const deprecationWarning = getWorkflowDeprecationWarning(options.workflow);
   if (deprecationWarning) warnings.push(deprecationWarning);
+  if (resolvedSpec.key === 'app_installs') {
+    warnings.push(
+      'SDK/MMP dan setup app-event tidak dapat dibuktikan oleh connector; verifikasi keduanya di Meta Events Manager sebelum execute.'
+    );
+  }
 
   for (const requiredInput of resolvedSpec.requiredInputs) {
     requireInput(checks, missing, requiredInput, options);

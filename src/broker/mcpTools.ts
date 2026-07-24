@@ -1918,6 +1918,18 @@ function createCreateAdCreativeInputSchema() {
         required: ['applicationId'],
         additionalProperties: false,
       },
+      standardAppSpec: {
+        type: 'object',
+        description:
+          'Kontrak aplikasi untuk OUTCOME_APP_PROMOTION + APP. Wajib isi applicationId dan objectStoreUrl; deepLinkUrl opsional dipakai untuk CTA install.',
+        properties: {
+          applicationId: { type: 'string' },
+          objectStoreUrl: { type: 'string' },
+          deepLinkUrl: { type: 'string' },
+        },
+        required: ['applicationId', 'objectStoreUrl'],
+        additionalProperties: false,
+      },
       link: {
         type: 'string',
         description: 'Field legacy/backward-compatible untuk URL tujuan iklan link sederhana.',

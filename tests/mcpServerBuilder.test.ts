@@ -505,6 +505,15 @@ describe('MCP server builder', () => {
       type: 'object',
       required: ['applicationId'],
     });
+    expect(creativeProperties.standardAppSpec).toMatchObject({
+      type: 'object',
+      required: ['applicationId', 'objectStoreUrl'],
+      properties: {
+        applicationId: { type: 'string' },
+        objectStoreUrl: { type: 'string' },
+        deepLinkUrl: { type: 'string' },
+      },
+    });
     expect(creativeProperties.message.description).toMatch(/legacy|backward-compatible/i);
     expect(creativeProperties.objectStorySpec.description).toMatch(/advanced|backward-compatible/i);
   });

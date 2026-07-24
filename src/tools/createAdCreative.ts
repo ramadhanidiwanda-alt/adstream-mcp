@@ -7,6 +7,7 @@ import {
   type MetaCreativeSpec,
   type MetaCreativeVerification,
   type MetaCreativeVerificationSummary,
+  type MetaStandardAppSpec,
   type StructuredMutationError,
 } from '../types.js';
 import { buildMetaCreativeFormatPayload } from '../providers/meta/buildCreativeFormatPayload.js';
@@ -39,6 +40,7 @@ export interface CreateAdCreativeOptions {
   creative?: MetaCreativeSpec;
   collaborativeProductSetId?: string;
   collaborativeAppSpec?: MetaCollaborativeAppSpec;
+  standardAppSpec?: MetaStandardAppSpec;
   linkData?: {
     link: string;
     message: string;
@@ -494,6 +496,7 @@ function buildCreativePayload(options: CreateAdCreativeOptions): Record<string, 
         instagramUserId: options.instagramUserId,
         collaborativeProductSetId: options.collaborativeProductSetId,
         collaborativeAppSpec: options.collaborativeAppSpec,
+        standardAppSpec: options.standardAppSpec,
         optOutEnhancements: options.optOutEnhancements,
       })
     );
@@ -593,6 +596,16 @@ async function withResolvedObjectiveDestinationMode(
   const leadFormId = getLeadFormId(options.creative);
   const destinationUrl = options.creative.creativeSpec.destinationUrl;
 
+  if (launchSpec.destinationMode === 'APP') {
+    const standardAppSpec = options.standardAppSpec;
+    const applicationId = standardAppSpec?.applicationId?.trim();
+    const objectStoreUrl = standardAppSpec?.objectStoreUrl?.trim();
+    if (!applicationId)
+      throw new Error('standardAppSpec.applicationId wajib diisi untuk App Promotion.');
+    if (!objectStoreUrl)
+      throw new Error('standardAppSpec.objectStoreUrl wajib diisi untuk App Promotion.');
+  }
+
   if (launchSpec.destinationMode === 'EXTERNAL_URL') {
     if (!destinationUrl?.trim()) throw new Error('destinationUrl wajib diisi untuk Website Leads.');
     if (leadFormId?.trim()) {
@@ -622,6 +635,9 @@ async function withResolvedObjectiveDestinationMode(
       creativeSpec: {
         ...options.creative.creativeSpec,
         destinationMode: launchSpec.destinationMode,
+        ...(launchSpec.destinationMode === 'APP'
+          ? { destinationUrl: options.standardAppSpec?.objectStoreUrl }
+          : {}),
       },
     } as MetaCreativeSpec,
   };

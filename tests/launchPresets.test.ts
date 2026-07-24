@@ -152,6 +152,21 @@ describe('launch presets', () => {
       expect.arrayContaining(['applicationId', 'objectStoreUrl'])
     );
     expect(
+      checkLaunchReadiness({
+        workflow: 'app_installs',
+        writesEnabled: true,
+        pageId: 'page-1',
+        applicationId: 'app-1',
+        objectStoreUrl: 'https://apps.apple.com/app/id123',
+        dailyBudget: 100,
+        countries: ['ID'],
+        primaryText: 'Install now',
+        headline: 'Get the app',
+        videoId: 'video-1',
+        specialAdCategories: [],
+      }).warnings
+    ).toEqual(expect.arrayContaining([expect.stringMatching(/SDK\/MMP.*app-event/i)]));
+    expect(
       checkLaunchReadiness({ workflow: 'sales_website', writesEnabled: true }).missing
     ).toEqual(expect.arrayContaining(['pixelId', 'destinationUrl']));
     expect(
