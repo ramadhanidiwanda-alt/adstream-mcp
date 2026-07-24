@@ -104,15 +104,16 @@ export async function createEcommerceCampaignBundle(
   validatePayload(payload);
 
   const { dryRun = true, confirmed = false, maxRetries = 3 } = options;
-  const hasVideo = Boolean(payload.videoId?.trim() || payload.videoFilePath?.trim());
+  const selectedCreativeFormat =
+    payload.videoId?.trim() || payload.videoFilePath?.trim() ? 'video' : 'single_image';
   const salesSpec = resolveMetaObjectiveLaunchSpec({
     objective: 'OUTCOME_SALES',
     conversionLocation: 'WEBSITE',
     optimizationGoal: payload.optimizationGoal,
-    creativeFormat: hasVideo ? 'video' : 'single_image',
+    creativeFormat: selectedCreativeFormat,
     apiVersion: client.apiVersion ?? 'v25.0',
   });
-  const preview = buildPreview(payload, salesSpec, hasVideo);
+  const preview = buildPreview(payload, salesSpec, selectedCreativeFormat === 'video');
   const baseResult: EcommerceCampaignBundleResult = {
     operation: 'create_ecommerce_campaign_bundle',
     status: 'dry_run',
@@ -209,7 +210,7 @@ export async function createEcommerceCampaignBundle(
 
     // Step 3: Upload the selected creative asset if needed.
     let imageHash = payload.imageHash?.trim();
-    if (payload.imageFilePath?.trim() && !imageHash) {
+    if (selectedCreativeFormat === 'single_image' && payload.imageFilePath?.trim() && !imageHash) {
       const uploadResult = await uploadImage(client, {
         adAccountId: payload.adAccountId,
         filePath: payload.imageFilePath.trim(),
@@ -222,7 +223,7 @@ export async function createEcommerceCampaignBundle(
     }
 
     let videoId = payload.videoId?.trim();
-    if (payload.videoFilePath?.trim() && !videoId) {
+    if (selectedCreativeFormat === 'video' && payload.videoFilePath?.trim() && !videoId) {
       const uploadResult = await uploadVideo(client, {
         adAccountId: payload.adAccountId,
         filePath: payload.videoFilePath.trim(),
@@ -243,29 +244,30 @@ export async function createEcommerceCampaignBundle(
         pageId: payload.pageId.trim(),
         objective: salesSpec.objective,
         conversionLocation: salesSpec.conversionLocation,
-        creative: videoId
-          ? {
-              creativeFormat: 'video',
-              creativeSpec: {
-                videoId,
-                primaryText: payload.primaryText.trim(),
-                headline: payload.headline.trim(),
-                description: payload.description?.trim(),
-                destinationUrl: payload.destinationUrl.trim(),
-                callToAction: payload.callToActionType ?? 'SHOP_NOW',
+        creative:
+          selectedCreativeFormat === 'video'
+            ? {
+                creativeFormat: 'video',
+                creativeSpec: {
+                  videoId: requireBundleVideoId(videoId),
+                  primaryText: payload.primaryText.trim(),
+                  headline: payload.headline.trim(),
+                  description: payload.description?.trim(),
+                  destinationUrl: payload.destinationUrl.trim(),
+                  callToAction: payload.callToActionType ?? 'SHOP_NOW',
+                },
+              }
+            : {
+                creativeFormat: 'single_image',
+                creativeSpec: {
+                  imageHash: requireBundleImageHash(imageHash),
+                  primaryText: payload.primaryText.trim(),
+                  headline: payload.headline.trim(),
+                  description: payload.description?.trim(),
+                  destinationUrl: payload.destinationUrl.trim(),
+                  callToAction: payload.callToActionType ?? 'SHOP_NOW',
+                },
               },
-            }
-          : {
-              creativeFormat: 'single_image',
-              creativeSpec: {
-                imageHash: requireBundleImageHash(imageHash),
-                primaryText: payload.primaryText.trim(),
-                headline: payload.headline.trim(),
-                description: payload.description?.trim(),
-                destinationUrl: payload.destinationUrl.trim(),
-                callToAction: payload.callToActionType ?? 'SHOP_NOW',
-              },
-            },
         instagramUserId: payload.instagramUserId?.trim(),
         threadsProfileId: payload.threadsProfileId?.trim(),
       },
@@ -473,6 +475,13 @@ function requireNonEmpty(value: string | undefined, field: string): void {
 function requireBundleImageHash(value: string | undefined): string {
   if (!value?.trim()) {
     throw new Error('Image launch requires imageHash or a successful image upload');
+  }
+  return value.trim();
+}
+
+function requireBundleVideoId(value: string | undefined): string {
+  if (!value?.trim()) {
+    throw new Error('Video launch requires videoId or a successful video upload');
   }
   return value.trim();
 }
