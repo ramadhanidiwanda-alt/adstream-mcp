@@ -3353,6 +3353,12 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
     const geoLocations = request.params.geoLocations;
     const ageMin = typeof request.params.ageMin === 'number' ? request.params.ageMin : undefined;
     const ageMax = typeof request.params.ageMax === 'number' ? request.params.ageMax : undefined;
+    const ageRange =
+      Array.isArray(request.params.ageRange) &&
+      request.params.ageRange.length === 2 &&
+      request.params.ageRange.every((n): n is number => typeof n === 'number')
+        ? ([request.params.ageRange[0], request.params.ageRange[1]] as [number, number])
+        : undefined;
     const publisherPlatforms = request.params.publisherPlatforms;
     const interests = request.params.interests;
     const behaviors = request.params.behaviors;
@@ -3381,6 +3387,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       !geoLocations &&
       ageMin === undefined &&
       ageMax === undefined &&
+      ageRange === undefined &&
       !publisherPlatforms &&
       !interests &&
       !behaviors &&
@@ -3406,6 +3413,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
     if (geoLocations && typeof geoLocations === 'object') targeting.geoLocations = geoLocations;
     if (ageMin !== undefined) targeting.ageMin = ageMin;
     if (ageMax !== undefined) targeting.ageMax = ageMax;
+    if (ageRange !== undefined) targeting.ageRange = ageRange;
     if (Array.isArray(publisherPlatforms)) targeting.publisherPlatforms = publisherPlatforms;
     if (Array.isArray(interests)) targeting.interests = interests;
     if (Array.isArray(genders)) targeting.genders = genders;

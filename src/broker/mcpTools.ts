@@ -1741,6 +1741,14 @@ function createCreateAdSetInputSchema() {
       },
       ageMin: { type: 'number', description: 'Minimum age target (e.g. 18).' },
       ageMax: { type: 'number', description: 'Maximum age target (e.g. 65).' },
+      ageRange: {
+        type: 'array',
+        items: { type: 'number' },
+        minItems: 2,
+        maxItems: 2,
+        description:
+          'Advantage+ Audience age suggestion [min, max] — distinct from the hard ageMin/ageMax filter. Only meaningful when advantageAudience/targetingAutomation.advantage_audience is 1.',
+      },
       genders: {
         type: 'array',
         items: { type: 'number' },
@@ -2370,6 +2378,14 @@ function createUpdateAdSetInputSchema() {
       geoLocations: { type: 'object', description: 'Geo targeting object.' },
       ageMin: { type: 'number', description: 'Minimum age target.' },
       ageMax: { type: 'number', description: 'Maximum age target.' },
+      ageRange: {
+        type: 'array',
+        items: { type: 'number' },
+        minItems: 2,
+        maxItems: 2,
+        description:
+          'Advantage+ Audience age suggestion [min, max] — distinct from the hard ageMin/ageMax filter. Only meaningful when advantageAudience/targetingAutomation.advantage_audience is 1. In mode="patch" (default), merges with the ad set\'s current remote targeting.',
+      },
       genders: {
         type: 'array',
         items: { type: 'number' },

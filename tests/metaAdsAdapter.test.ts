@@ -3136,6 +3136,38 @@ describe('MetaAdsAdapter', () => {
     });
   });
 
+  it('passes ageRange through to ad set targeting', async () => {
+    let receivedOptions: Record<string, unknown> | undefined;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        createAdSet: async (_client, options) => {
+          receivedOptions = options as unknown as Record<string, unknown>;
+          return { operation: 'create_adset', status: 'dry_run', executed: false, preview: {} };
+        },
+      },
+    });
+
+    const response = await adapter.createAdSet({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {
+        campaignId: 'cmp_123',
+        name: 'Advantage+ Audience Ad Set',
+        ageMin: 18,
+        ageMax: 65,
+        ageRange: [35, 65],
+        advantageAudience: 1,
+      },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    });
+
+    expect(response.ok).toBe(true);
+    const targeting = receivedOptions?.targeting as Record<string, unknown>;
+    expect(targeting.ageRange).toEqual([35, 65]);
+    expect(targeting.targetingAutomation).toEqual({ advantage_audience: 1 });
+  });
+
   it('passes custom audiences and excluded custom audiences into ad set targeting', async () => {
     let receivedOptions: Record<string, unknown> | undefined;
     const adapter = new MetaAdsAdapter({

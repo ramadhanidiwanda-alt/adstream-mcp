@@ -13,6 +13,7 @@ const source = {
     age_min: 18,
     age_max: 65,
     age_range: [25, 65],
+    targeting_automation: { advantage_audience: 1 },
     custom_audiences: [{ id: 'aud_1' }],
     geo_locations: { countries: ['ID'] },
   },
@@ -43,13 +44,14 @@ describe('buildCloneAdSetPayload', () => {
     expect(payload.end_time).toBe('2026-07-27T23:59:00+0700');
   });
 
-  it('strips read-only targeting fields (age_range) but keeps custom audiences', () => {
+  it('keeps age_range (writable, tied to targeting_automation.advantage_audience) and custom audiences', () => {
     const payload = buildCloneAdSetPayload(source, {
       adAccountId: 'act_1',
       sourceAdSetId: 'as_src',
     });
     const targeting = payload.targeting as Record<string, unknown>;
-    expect(targeting.age_range).toBeUndefined();
+    expect(targeting.age_range).toEqual([25, 65]);
+    expect(targeting.targeting_automation).toEqual({ advantage_audience: 1 });
     expect(targeting.age_min).toBe(18);
     expect(targeting.custom_audiences).toEqual([{ id: 'aud_1' }]);
   });
