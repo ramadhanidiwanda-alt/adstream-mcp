@@ -340,7 +340,12 @@ const createCampaignInputSchema = {
     .describe(
       'standard untuk iklan Meta biasa; collaborative_ads untuk katalog retailer yang sudah dibagikan.'
     ),
-  objective: z.enum(META_ODAX_OBJECTIVES).describe('Meta ODAX campaign objective.'),
+  objective: z
+    .enum(META_ODAX_OBJECTIVES)
+    .optional()
+    .describe(
+      'Meta ODAX campaign objective. Meta-only and optional when provider is tiktok — use `objectiveType` instead.'
+    ),
   objectiveType: z
     .enum([
       'REACH',
@@ -427,40 +432,17 @@ const createAdSetInputSchema = {
     .optional()
     .describe('Lifetime budget in local currency minor units. Do NOT set if campaign uses CBO.'),
   billingEvent: z
-    .enum([
-      'IMPRESSIONS',
-      'LINK_CLICKS',
-      'PAGE_LIKES',
-      'POST_ENGAGEMENT',
-      'VIDEO_VIEWS',
-      'LEADS',
-      'APP_INSTALLS',
-      'REACH',
-      'VALUE',
-      'LANDING_PAGE_VIEWS',
-      'OFFSITE_CONVERSIONS',
-    ])
+    .string()
     .optional()
-    .describe('Billing event. Defaults to IMPRESSIONS.'),
+    .describe(
+      'Billing event. Meta values: IMPRESSIONS (default), LINK_CLICKS, PAGE_LIKES, POST_ENGAGEMENT, VIDEO_VIEWS, LEADS, APP_INSTALLS, REACH, VALUE, LANDING_PAGE_VIEWS, OFFSITE_CONVERSIONS. TikTok values: CPC, CPM.'
+    ),
   optimizationGoal: z
-    .enum([
-      'NONE',
-      'APP_INSTALLS',
-      'CONVERSATIONS',
-      'ENGAGED_USERS',
-      'IMPRESSIONS',
-      'LANDING_PAGE_VIEWS',
-      'LEAD_GENERATION',
-      'LINK_CLICKS',
-      'OFFSITE_CONVERSIONS',
-      'PAGE_LIKES',
-      'POST_ENGAGEMENT',
-      'REACH',
-      'THRUPLAY',
-      'VALUE',
-    ])
+    .string()
     .optional()
-    .describe('Optimization goal. Required when conversionLocation is omitted.'),
+    .describe(
+      'Optimization goal. Meta values: NONE, APP_INSTALLS, CONVERSATIONS, ENGAGED_USERS, IMPRESSIONS, LANDING_PAGE_VIEWS, LEAD_GENERATION, LINK_CLICKS, OFFSITE_CONVERSIONS, PAGE_LIKES, POST_ENGAGEMENT, REACH, THRUPLAY, VALUE (required when conversionLocation is omitted). TikTok values are objective-specific, e.g. CLICK, LANDING_PAGE_VIEW, VIDEO_VIEW, ENGAGED_VIEW, FOLLOWERS, CONVERT, IN_APP_EVENT, REACH, LEAD_GENERATION, APP_INSTALLS, VALUE — see the TikTok objective launch matrix for the authoritative list per objective.'
+    ),
   conversionLocation: z
     .enum(META_CONVERSION_LOCATIONS)
     .optional()

@@ -548,6 +548,51 @@ describe('MCP server builder', () => {
     }
   });
 
+  it('accepts a TikTok ads_create_campaign call without the Meta-only objective field', async () => {
+    // Regression: `objective` (Meta ODAX enum) used to be hard-required by both
+    // the JSON schema (src/broker/mcpTools.ts) and the Zod schema
+    // (src/mcp/createServer.ts), so a TikTok caller supplying only
+    // `objectiveType` was rejected with a Zod "Required" error before the
+    // request ever reached the broker.
+    process.env.ADSTREAM_ENABLE_WRITES = 'true';
+    const adsBroker = {
+      ...createBrokerStub(),
+      createCampaign: vi.fn(async () => ({
+        ok: true,
+        provider: 'tiktok',
+        data: { id: 'campaign-1', status: 'dry_run' },
+      })),
+    } as unknown as AdsBroker;
+    const { client, server } = await createConnectedClient({
+      config: { adAccountId: 'act_123' },
+      adsBroker,
+    });
+
+    try {
+      const response = await client.callTool({
+        name: 'ads_create_campaign',
+        arguments: {
+          provider: 'tiktok',
+          accountId: 'advertiser_123',
+          name: 'TikTok Traffic Campaign',
+          objectiveType: 'TRAFFIC',
+        },
+      });
+
+      expect(response.isError).not.toBe(true);
+      expect(response.content?.[0]?.text ?? '').not.toMatch(/objective.*Required/i);
+      expect(adsBroker.createCampaign).toHaveBeenCalledWith(
+        expect.objectContaining({
+          provider: 'tiktok',
+          accountId: 'advertiser_123',
+          params: expect.objectContaining({ objectiveType: 'TRAFFIC' }),
+        })
+      );
+    } finally {
+      await Promise.all([client.close(), server.close()]);
+    }
+  });
+
   it('accepts a non-enumerated callToActionType (e.g. BOOK_TRAVEL) at the MCP schema boundary', async () => {
     // Regression: callToActionType used to be a closed Zod enum missing many
     // real Meta CTA types (BOOK_TRAVEL, WHATSAPP_MESSAGE, ...) used in

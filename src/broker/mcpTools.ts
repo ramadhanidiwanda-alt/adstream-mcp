@@ -232,7 +232,7 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
   {
     name: 'ads_check_launch_readiness',
     description:
-      'Read-only Meta v25 launch checklist. Resolves one of the six ODAX objectives into a canonical workflow, required inputs, and setup spec; it does not perform writes.',
+      'Read-only launch checklist for Meta or TikTok (provider param). For Meta, resolves one of the six ODAX objectives into a canonical workflow, required inputs, and setup spec; for TikTok, resolves an objective_type via tiktokObjectiveType into its required launch fields. Does not perform writes.',
     inputSchema: createLaunchReadinessInputSchema(),
   },
   {
@@ -332,13 +332,13 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
   {
     name: 'ads_create_campaign',
     description:
-      'Create a Meta ad campaign with a specified objective. Dry-run by default. Set dryRun=false and confirmed=true to execute. Campaign is created PAUSED by default.',
+      'Create a Meta or TikTok ad campaign (provider param) with a specified objective — objective for Meta ODAX, objectiveType for TikTok. Dry-run by default. Set dryRun=false and confirmed=true to execute. Campaign is created PAUSED by default.',
     inputSchema: createCreateCampaignInputSchema(),
   },
   {
     name: 'ads_create_adset',
     description:
-      'Create a Meta ad set under an existing campaign. Dry-run by default. Set dryRun=false and confirmed=true to execute. Ad set is created PAUSED by default.',
+      'Create a Meta ad set or TikTok ad group (provider param) under an existing campaign. Dry-run by default. Set dryRun=false and confirmed=true to execute. Ad set is created PAUSED by default.',
     inputSchema: createCreateAdSetInputSchema(),
   },
   {
@@ -350,7 +350,7 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
   {
     name: 'ads_create_ad',
     description:
-      'Create a Meta ad by linking an existing ad set to an existing creative. Dry-run by default. Set dryRun=false and confirmed=true to execute. Ad is created PAUSED by default.',
+      'Create a Meta or TikTok ad (provider param). Meta: links an existing ad set to an existing creative via creativeId. TikTok: creates inline creatives on an existing ad group via creatives. Dry-run by default. Set dryRun=false and confirmed=true to execute. Ad is created PAUSED by default.',
     inputSchema: createCreateAdInputSchema(),
   },
   {
@@ -1529,7 +1529,8 @@ function createCreateCampaignInputSchema() {
       objective: {
         type: 'string',
         enum: [...META_ODAX_OBJECTIVES],
-        description: 'Meta ODAX campaign objective.',
+        description:
+          'Meta ODAX campaign objective. Meta-only and optional when provider is tiktok — use `objectiveType` instead.',
       },
       objectiveType: {
         type: 'string',
@@ -1596,7 +1597,7 @@ function createCreateCampaignInputSchema() {
         description: 'Must be true to execute after preview.',
       },
     },
-    required: ['accountId', 'name', 'objective'],
+    required: ['accountId', 'name'],
   };
 }
 
@@ -1661,40 +1662,13 @@ function createCreateAdSetInputSchema() {
       },
       billingEvent: {
         type: 'string',
-        enum: [
-          'IMPRESSIONS',
-          'LINK_CLICKS',
-          'PAGE_LIKES',
-          'POST_ENGAGEMENT',
-          'VIDEO_VIEWS',
-          'LEADS',
-          'APP_INSTALLS',
-          'REACH',
-          'VALUE',
-          'LANDING_PAGE_VIEWS',
-          'OFFSITE_CONVERSIONS',
-        ],
-        description: 'Billing event. Defaults to IMPRESSIONS.',
+        description:
+          'Billing event. Meta values: IMPRESSIONS (default), LINK_CLICKS, PAGE_LIKES, POST_ENGAGEMENT, VIDEO_VIEWS, LEADS, APP_INSTALLS, REACH, VALUE, LANDING_PAGE_VIEWS, OFFSITE_CONVERSIONS. TikTok values: CPC, CPM.',
       },
       optimizationGoal: {
         type: 'string',
-        enum: [
-          'NONE',
-          'APP_INSTALLS',
-          'CONVERSATIONS',
-          'ENGAGED_USERS',
-          'IMPRESSIONS',
-          'LANDING_PAGE_VIEWS',
-          'LEAD_GENERATION',
-          'LINK_CLICKS',
-          'OFFSITE_CONVERSIONS',
-          'PAGE_LIKES',
-          'POST_ENGAGEMENT',
-          'REACH',
-          'THRUPLAY',
-          'VALUE',
-        ],
-        description: 'Optimization goal. Required when conversionLocation is omitted.',
+        description:
+          'Optimization goal. Meta values: NONE, APP_INSTALLS, CONVERSATIONS, ENGAGED_USERS, IMPRESSIONS, LANDING_PAGE_VIEWS, LEAD_GENERATION, LINK_CLICKS, OFFSITE_CONVERSIONS, PAGE_LIKES, POST_ENGAGEMENT, REACH, THRUPLAY, VALUE (required when conversionLocation is omitted). TikTok values are objective-specific, e.g. CLICK, LANDING_PAGE_VIEW, VIDEO_VIEW, ENGAGED_VIEW, FOLLOWERS, CONVERT, IN_APP_EVENT, REACH, LEAD_GENERATION, APP_INSTALLS, VALUE — see the TikTok objective launch matrix for the authoritative list per objective.',
       },
       conversionLocation: {
         type: 'string',

@@ -14,6 +14,11 @@ describe('TikTok-aware MCP tool schemas', () => {
     expect(schema.required).not.toContain('objectiveType');
   });
 
+  it('ads_create_campaign does not hard-require the Meta-only objective field', () => {
+    const schema = schemaFor('ads_create_campaign');
+    expect(schema.required).not.toContain('objective');
+  });
+
   it('ads_create_adset exposes TikTok-only fields', () => {
     const schema = schemaFor('ads_create_adset');
     for (const field of ['bidType', 'bidPrice', 'placementType', 'identityType', 'identityId', 'appId', 'promotionType', 'optimizationEvent', 'catalogId', 'storeId', 'productSource']) {
