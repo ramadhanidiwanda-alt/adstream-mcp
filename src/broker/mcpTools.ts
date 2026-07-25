@@ -559,7 +559,7 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
     name: 'tiktok_gmv_max_create_campaign',
     description:
       'Create a TikTok GMV Max campaign for Shop sellers. Requires store_ids, objective_type, campaign_name, and budget.',
-    inputSchema: createAdsInputSchema([]),
+    inputSchema: createGmvMaxCampaignInputSchema(),
   },
   {
     name: 'tiktok_gmv_max_update_campaign',
@@ -1365,6 +1365,47 @@ function createWriteInputSchema(required: string[]) {
       ...writeProperties,
     },
     required,
+  };
+}
+
+function createGmvMaxCampaignInputSchema() {
+  const schema = createAdsInputSchema([]);
+  return {
+    type: 'object',
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      campaignName: { type: 'string', description: 'GMV Max campaign name.' },
+      objectiveType: {
+        type: 'string',
+        description: 'TikTok objective_type for the GMV Max campaign, e.g. PRODUCT_SALES.',
+      },
+      storeIds: { type: 'array', items: { type: 'string' }, description: 'TikTok Shop store IDs.' },
+      budget: { type: 'number', description: 'Campaign budget.' },
+      budgetMode: { type: 'string', description: 'Budget mode, e.g. BUDGET_MODE_DAY.' },
+      shoppingAdsType: {
+        type: 'string',
+        enum: ['PRODUCT', 'LIVE'],
+        description:
+          'PRODUCT for catalog-driven GMV Max, LIVE for livestream GMV Max. Required to pick the correct extra fields below.',
+      },
+      productSpecificType: {
+        type: 'string',
+        description: 'shopping_ads_type=PRODUCT only, e.g. ALL.',
+      },
+      itemGroupIds: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'shopping_ads_type=PRODUCT only — product item_group_ids.',
+      },
+      identityList: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'shopping_ads_type=LIVE only — the LIVE source identity.',
+      },
+      dryRun: { type: 'boolean', description: 'Defaults to true. Set false only after preview.' },
+      confirmed: { type: 'boolean', description: 'Must be true to execute after preview.' },
+    },
+    required: ['accountId', 'campaignName', 'objectiveType', 'storeIds', 'shoppingAdsType'],
   };
 }
 

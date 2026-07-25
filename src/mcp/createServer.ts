@@ -302,6 +302,34 @@ const ecommerceLaunchInputSchema = {
   confirmed: z.boolean().optional().describe('Must be true to execute after preview.'),
 };
 
+const gmvMaxCampaignInputSchema = {
+  ...adsBaseInputSchema,
+  accountId: z.string().describe('Provider account id. Required for GMV Max campaign creation.'),
+  campaignName: z.string().describe('GMV Max campaign name.'),
+  objectiveType: z
+    .string()
+    .describe('TikTok objective_type for the GMV Max campaign, e.g. PRODUCT_SALES.'),
+  storeIds: z.array(z.string()).describe('TikTok Shop store IDs.'),
+  budget: z.number().optional().describe('Campaign budget.'),
+  budgetMode: z.string().optional().describe('Budget mode, e.g. BUDGET_MODE_DAY.'),
+  shoppingAdsType: z
+    .enum(['PRODUCT', 'LIVE'])
+    .describe(
+      'PRODUCT for catalog-driven GMV Max, LIVE for livestream GMV Max. Required to pick the correct extra fields below.'
+    ),
+  productSpecificType: z.string().optional().describe('shopping_ads_type=PRODUCT only, e.g. ALL.'),
+  itemGroupIds: z
+    .array(z.string())
+    .optional()
+    .describe('shopping_ads_type=PRODUCT only — product item_group_ids.'),
+  identityList: z
+    .array(z.string())
+    .optional()
+    .describe('shopping_ads_type=LIVE only — the LIVE source identity.'),
+  dryRun: z.boolean().optional().describe('Defaults to true. Set false only after preview.'),
+  confirmed: z.boolean().optional().describe('Must be true to execute after preview.'),
+};
+
 const createCampaignInputSchema = {
   ...adsBaseInputSchema,
   accountId: z.string().describe('Provider account id. Required for campaign creation.'),
@@ -1101,6 +1129,8 @@ export function createMetaAdsMcpServer(options: CreateMetaAdsMcpServerOptions = 
       inputSchema = updateCampaignInputSchema;
     } else if (toolDefinition.name === 'ads_get_targeting_options') {
       inputSchema = getTargetingOptionsInputSchema;
+    } else if (toolDefinition.name === 'tiktok_gmv_max_create_campaign') {
+      inputSchema = gmvMaxCampaignInputSchema;
     } else if (hasCampaignName) {
       inputSchema = ecommerceLaunchInputSchema;
     } else if (hasCampaignId) {

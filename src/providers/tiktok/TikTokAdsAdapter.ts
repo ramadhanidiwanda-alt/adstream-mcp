@@ -789,6 +789,14 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
         scheduleType: params.scheduleType as string | undefined,
         scheduleStartTime: params.scheduleStartTime as string | undefined,
         operationStatus: String(params.operationStatus ?? 'ENABLE'),
+        shoppingAdsType: params.shoppingAdsType as 'PRODUCT' | 'LIVE' | undefined,
+        productSpecificType: params.productSpecificType as string | undefined,
+        itemGroupIds: Array.isArray(params.itemGroupIds)
+          ? params.itemGroupIds.map(String)
+          : undefined,
+        identityList: Array.isArray(params.identityList)
+          ? params.identityList.map(String)
+          : undefined,
       });
       return { ok: true, provider: 'tiktok', data: { operation: 'create_ecommerce_campaign_bundle', status: 'executed', executed: true, preview: { campaign: {}, adSet: {}, creative: {}, ad: {} }, warnings: [], ids: { campaignId: result.campaign_id }, responses: { campaign: result as unknown as Record<string, unknown> } } };
     } catch (error) {
