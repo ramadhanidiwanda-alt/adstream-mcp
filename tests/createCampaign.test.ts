@@ -162,7 +162,7 @@ describe('createCampaign', () => {
     });
 
     it('calls metaPost and returns executed with id on success', async () => {
-      mockClient.metaPost.mockResolvedValueOnce({ id: '120248446250030168' });
+      mockMetaPost.mockResolvedValueOnce({ id: '120248446250030168' });
 
       const result = await createCampaign(mockClient, validOptions, {
         dryRun: false,
@@ -174,7 +174,7 @@ describe('createCampaign', () => {
       expect(result.id).toBe('120248446250030168');
       expect(mockClient.metaPost).toHaveBeenCalledTimes(1);
 
-      const [path, payload] = mockClient.metaPost.mock.calls[0];
+      const [path, payload] = mockMetaPost.mock.calls[0];
       expect(path).toContain('/act_123456789/campaigns');
       expect(payload.name).toBe('Test Campaign');
       expect(payload.objective).toBe('OUTCOME_TRAFFIC');
@@ -183,7 +183,7 @@ describe('createCampaign', () => {
     });
 
     it('returns failed when Meta does not return an id', async () => {
-      mockClient.metaPost.mockResolvedValueOnce({ success: true });
+      mockMetaPost.mockResolvedValueOnce({ success: true });
 
       const result = await createCampaign(mockClient, validOptions, {
         dryRun: false,
@@ -196,7 +196,7 @@ describe('createCampaign', () => {
     });
 
     it('returns failed on API error', async () => {
-      mockClient.metaPost.mockRejectedValueOnce(new Error('Rate limit exceeded'));
+      mockMetaPost.mockRejectedValueOnce(new Error('Rate limit exceeded'));
 
       const result = await createCampaign(mockClient, validOptions, {
         dryRun: false,
@@ -208,7 +208,7 @@ describe('createCampaign', () => {
     });
 
     it('handles ACTIVE status option', async () => {
-      mockClient.metaPost.mockResolvedValueOnce({ id: '120248446250030169' });
+      mockMetaPost.mockResolvedValueOnce({ id: '120248446250030169' });
 
       const result = await createCampaign(
         mockClient,
@@ -220,12 +220,12 @@ describe('createCampaign', () => {
       );
 
       expect(result.status).toBe('executed');
-      const payload = mockClient.metaPost.mock.calls[0][1];
+      const payload = mockMetaPost.mock.calls[0][1];
       expect(payload.status).toBe('ACTIVE');
     });
 
     it('handles specialAdCategories', async () => {
-      mockClient.metaPost.mockResolvedValueOnce({ id: '120248446250030170' });
+      mockMetaPost.mockResolvedValueOnce({ id: '120248446250030170' });
 
       const result = await createCampaign(
         mockClient,
@@ -237,14 +237,14 @@ describe('createCampaign', () => {
       );
 
       expect(result.status).toBe('executed');
-      const payload = mockClient.metaPost.mock.calls[0][1];
+      const payload = mockMetaPost.mock.calls[0][1];
       expect(payload.special_ad_categories).toEqual(['CREDIT']);
     });
   });
 
   describe('adAccountId normalization', () => {
     it('works with numeric accountId', async () => {
-      mockClient.metaPost.mockResolvedValueOnce({ id: '120248446250030171' });
+      mockMetaPost.mockResolvedValueOnce({ id: '120248446250030171' });
 
       const result = await createCampaign(
         mockClient,
@@ -256,9 +256,8 @@ describe('createCampaign', () => {
       );
 
       expect(result.status).toBe('executed');
-      const [path] = mockClient.metaPost.mock.calls[0];
+      const [path] = mockMetaPost.mock.calls[0];
       expect(path).toBe('/act_123456789/campaigns');
     });
   });
-
 });
