@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildMetaCreativeFormatPayload } from '../src/providers/meta/buildCreativeFormatPayload.js';
+import { readNested } from './support/json.js';
 
 describe('buildMetaCreativeFormatPayload', () => {
   it('builds an Awareness single image without an external URL or CTA', () => {
@@ -330,7 +331,9 @@ describe('buildMetaCreativeFormatPayload', () => {
         page_welcome_message: '{"type":"VISUAL_EDITOR"}',
       },
     });
-    expect(result.object_story_spec.link_data.call_to_action).not.toHaveProperty('value');
+    expect(
+      readNested(result, 'object_story_spec', 'link_data', 'call_to_action')
+    ).not.toHaveProperty('value');
   });
 
   it('omits page_welcome_message from single_image when not provided', () => {
@@ -375,7 +378,9 @@ describe('buildMetaCreativeFormatPayload', () => {
         page_welcome_message: '{"type":"VISUAL_EDITOR"}',
       },
     });
-    expect(result.object_story_spec.video_data.call_to_action).not.toHaveProperty('value');
+    expect(
+      readNested(result, 'object_story_spec', 'video_data', 'call_to_action')
+    ).not.toHaveProperty('value');
   });
 
   it('adds official asset_feed_spec message_extensions to placement-image creatives', () => {
@@ -437,7 +442,7 @@ describe('buildMetaCreativeFormatPayload', () => {
         },
       },
     });
-    expect(result.object_story_spec.video_data).not.toHaveProperty('description');
+    expect(readNested(result, 'object_story_spec', 'video_data')).not.toHaveProperty('description');
     expect(result.omnichannel_link_spec).toMatchObject({
       app: {
         application_id: '957549474255294',
@@ -1239,6 +1244,7 @@ describe('buildMetaCreativeFormatPayload', () => {
       creativeSpec: {
         imageHashes: ['image-1', 'image-2'],
         videoIds: ['video-1'],
+        primaryText: 'Copy A',
         primaryTexts: ['Copy A', 'Copy B'],
         headlines: ['Headline A'],
         destinationUrl: 'https://example.com/flexible',
@@ -1590,6 +1596,7 @@ describe('buildMetaCreativeFormatPayload', () => {
         creativeSpec: {
           imageHashes: [' '],
           videoIds: [],
+          primaryText: 'Copy',
           primaryTexts: ['Copy'],
           destinationUrl: 'https://example.com/flexible',
         },
@@ -1605,6 +1612,7 @@ describe('buildMetaCreativeFormatPayload', () => {
         creativeFormat: 'flexible',
         creativeSpec: {
           imageHashes: ['image-1'],
+          primaryText: ' ',
           primaryTexts: [' '],
           destinationUrl: 'https://example.com/flexible',
         },
@@ -1620,6 +1628,7 @@ describe('buildMetaCreativeFormatPayload', () => {
         creativeFormat: 'flexible',
         creativeSpec: {
           imageHashes: ['image-1'],
+          primaryText: 'Copy',
           primaryTexts: ['Copy'],
           destinationUrl: 'https://example.com/flexible',
         },

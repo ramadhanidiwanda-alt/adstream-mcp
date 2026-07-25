@@ -22,3 +22,29 @@ export async function readJsonString(response: Response, field: string): Promise
   }
   return value;
 }
+
+/**
+ * Drill into a nested plain object, validating each hop.
+ *
+ * Payload builders and API readers return `Record<string, unknown>`, so a test
+ * that wants `result.a.b.c` hits "of type 'unknown'" at the second hop. Casting
+ * per drill would hide a genuinely missing level; this throws instead, naming
+ * the hop that was not an object.
+ */
+export function readNested(value: unknown, ...path: string[]): Record<string, unknown> {
+  let current: unknown = value;
+  const walked: string[] = [];
+  for (const key of path) {
+    if (typeof current !== 'object' || current === null) {
+      throw new Error(
+        `Expected an object at ${walked.join('.') || '<root>'}, got ${JSON.stringify(current)}`
+      );
+    }
+    current = (current as Record<string, unknown>)[key];
+    walked.push(key);
+  }
+  if (typeof current !== 'object' || current === null) {
+    throw new Error(`Expected an object at ${walked.join('.')}, got ${JSON.stringify(current)}`);
+  }
+  return current as Record<string, unknown>;
+}

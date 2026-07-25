@@ -1,13 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { MetaClient } from '../src/metaClient.js';
 import { readAdCreativeFull } from '../src/tools/readAdCreativeFull.js';
+import { readNested } from './support/json.js';
 
 function createMockClient(results: Record<string, Record<string, unknown>> = {}): MetaClient {
   return {
     metaGetObject: vi.fn().mockImplementation(async (path: string, opts: { fields?: string }) => {
       // Return the first matching mock result; if none, return empty
       const key = Object.keys(results).find((k) => (opts.fields ?? '').includes(k));
-      return results[key] ?? {};
+      return key === undefined ? {} : (results[key] ?? {});
     }),
     metaGet: vi.fn(),
     metaPost: vi.fn(),
@@ -46,8 +47,8 @@ describe('readAdCreativeFull', () => {
     expect(result.status).toBe('ACTIVE');
     expect(result.object_type).toBe('SHARE');
     expect(result.object_story_spec).toBeDefined();
-    expect(result.object_story_spec.link_data.link).toBe('https://example.com');
-    expect(result.call_to_action.type).toBe('WHATSAPP_MESSAGE');
+    expect(readNested(result, 'object_story_spec', 'link_data').link).toBe('https://example.com');
+    expect(readNested(result, 'call_to_action').type).toBe('WHATSAPP_MESSAGE');
     expect(result.page_welcome_message).toBe('Halo, ada yang bisa dibantu?');
   });
 
@@ -85,16 +86,18 @@ describe('readAdCreativeFull', () => {
     const urlTags =
       'utm_source={{site_source_name}}&utm_medium={{placement}}&utm_campaign={{campaign.name}}&utm_content={{ad.id}}';
     const client = {
-      metaGetObject: vi.fn().mockImplementation(async (_path: string, opts: { fields?: string }) => {
-        const fields = opts.fields ?? '';
-        if (fields === 'link') {
-          throw new Error('(#100) Tried accessing nonexisting field (link)');
-        }
-        if (fields === 'url_tags') {
-          return { url_tags: urlTags };
-        }
-        return { id: 'cr_123', name: 'Test', status: 'ACTIVE', object_type: 'SHARE' };
-      }),
+      metaGetObject: vi
+        .fn()
+        .mockImplementation(async (_path: string, opts: { fields?: string }) => {
+          const fields = opts.fields ?? '';
+          if (fields === 'link') {
+            throw new Error('(#100) Tried accessing nonexisting field (link)');
+          }
+          if (fields === 'url_tags') {
+            return { url_tags: urlTags };
+          }
+          return { id: 'cr_123', name: 'Test', status: 'ACTIVE', object_type: 'SHARE' };
+        }),
       metaGet: vi.fn(),
       metaPost: vi.fn(),
       metaDelete: vi.fn(),
