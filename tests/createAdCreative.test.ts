@@ -640,6 +640,33 @@ describe('createAdCreative', () => {
     });
   });
 
+  it('boosts an existing post under the Sales objective without a launch-matrix rejection', async () => {
+    const result = await createAdCreative(mockClient, {
+      adAccountId: 'act_1',
+      name: 'EP Sales 01',
+      objective: 'OUTCOME_SALES',
+      conversionLocation: 'WEBSITE',
+      creative: {
+        creativeFormat: 'existing_post',
+        creativeSpec: {
+          objectStoryId: 'page-1_123',
+          destinationUrl: 'https://shop.example.com/product',
+          callToAction: 'SHOP_NOW',
+        },
+      },
+    });
+
+    expect(result.status).toBe('dry_run');
+    expect(result.preview).toMatchObject({
+      object_story_id: 'page-1_123',
+      call_to_action: {
+        type: 'SHOP_NOW',
+        value: { link: 'https://shop.example.com/product' },
+      },
+    });
+    expect(result.preview.object_story_spec).toBeUndefined();
+  });
+
   it('returns a structured validation error when a canonical creative requires pageId', async () => {
     const result = await createAdCreative(mockClient, {
       adAccountId: 'act_1',

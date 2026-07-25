@@ -117,6 +117,59 @@ describe('Meta objective launch matrix', () => {
     );
   });
 
+  it('accepts an existing post as Website Sales creative and swaps its required inputs', () => {
+    const spec = resolveMetaObjectiveLaunchSpec({
+      objective: 'OUTCOME_SALES',
+      conversionLocation: 'WEBSITE',
+      creativeFormat: 'existing_post',
+      apiVersion: 'v25.0',
+    });
+
+    expect(spec).toMatchObject({
+      key: 'sales_website',
+      optimizationGoal: 'OFFSITE_CONVERSIONS',
+      destinationType: 'WEBSITE',
+      destinationMode: 'EXTERNAL_URL',
+      promotedObjectKind: 'pixel_purchase',
+    });
+    expect(buildMetaPromotedObject(spec, { pixelId: 'pixel-1' })).toEqual({
+      pixel_id: 'pixel-1',
+      custom_event_type: 'PURCHASE',
+    });
+    // The boosted post supplies its own media and copy; the pixel-tracked
+    // landing page still has to come from destinationUrl.
+    expect(spec.requiredInputs).toContain('existingPostId');
+    expect(spec.requiredInputs).toContain('destinationUrl');
+    expect(spec.requiredInputs).toEqual(
+      expect.not.arrayContaining(['creativeAsset', 'primaryText', 'headline'])
+    );
+  });
+
+  it('keeps asset-based required inputs for Website Sales when no creative format is given', () => {
+    expect(
+      resolveMetaObjectiveLaunchSpec({
+        objective: 'OUTCOME_SALES',
+        conversionLocation: 'WEBSITE',
+        apiVersion: 'v25.0',
+      }).requiredInputs
+    ).toEqual(expect.arrayContaining(['creativeAsset', 'primaryText', 'headline']));
+  });
+
+  it('still rejects an existing post for Catalog Sales', () => {
+    expect(() =>
+      resolveMetaObjectiveLaunchSpec({
+        objective: 'OUTCOME_SALES',
+        conversionLocation: 'CATALOG',
+        creativeFormat: 'existing_post',
+        apiVersion: 'v25.0',
+      })
+    ).toThrowError(
+      expect.objectContaining<Partial<MetaObjectiveLaunchValidationError>>({
+        code: 'UNSUPPORTED_CREATIVE_FORMAT',
+      })
+    );
+  });
+
   it('builds website lead and app-install promoted objects', () => {
     const lead = resolveMetaObjectiveLaunchSpec({
       objective: 'OUTCOME_LEADS',

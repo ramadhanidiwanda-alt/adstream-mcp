@@ -109,6 +109,13 @@ interface MetaObjectiveLaunchMatrixRow extends Omit<
 > {
   defaultGoal: string;
   allowedGoals: readonly string[];
+  /**
+   * Required inputs that replace `requiredInputs` when a specific creative
+   * format is requested. Used where the format itself changes what the
+   * advertiser has to supply — an existing post already carries its own media
+   * and copy, so asking for creativeAsset/primaryText/headline is wrong.
+   */
+  requiredInputsByCreativeFormat?: Partial<Record<MetaCreativeFormat, readonly string[]>>;
 }
 
 const MATRIX: Record<MetaObjectiveLaunchSpec['key'], MetaObjectiveLaunchMatrixRow> = {
@@ -294,7 +301,22 @@ const MATRIX: Record<MetaObjectiveLaunchSpec['key'], MetaObjectiveLaunchMatrixRo
       'headline',
       'specialAdCategories',
     ],
-    supportedCreativeFormats: META_SALES_WEBSITE_CREATIVE_FORMATS,
+    // Boosting an existing Page post or Instagram media is a creative choice,
+    // not a conversion location: Ads Manager keeps conversion location on
+    // Website (pixel + PURCHASE) and only swaps the creative for the post.
+    // buildExistingPost carries destinationUrl as a top-level call_to_action.
+    supportedCreativeFormats: [...META_SALES_WEBSITE_CREATIVE_FORMATS, 'existing_post'],
+    requiredInputsByCreativeFormat: {
+      existing_post: [
+        'pageId',
+        'pixelId',
+        'existingPostId',
+        'destinationUrl',
+        'dailyBudget',
+        'countries',
+        'specialAdCategories',
+      ],
+    },
     defaultCallToAction: 'SHOP_NOW',
     minApiMajor: 23,
     maxApiMajor: 25,
@@ -388,9 +410,15 @@ export function resolveMetaObjectiveLaunchSpec(
     );
   }
 
-  const { defaultGoal: _defaultGoal, allowedGoals, ...spec } = row;
+  const { defaultGoal: _defaultGoal, allowedGoals, requiredInputsByCreativeFormat, ...spec } = row;
+  const formatRequiredInputs =
+    request.creativeFormat === undefined
+      ? undefined
+      : requiredInputsByCreativeFormat?.[request.creativeFormat];
+
   return {
     ...spec,
+    requiredInputs: formatRequiredInputs ?? spec.requiredInputs,
     allowedOptimizationGoals: allowedGoals,
     optimizationGoal,
   };
