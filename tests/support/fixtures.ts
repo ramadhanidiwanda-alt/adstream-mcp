@@ -8,7 +8,7 @@
  * the fields it actually cares about.
  */
 import type { HttpMcpConfig } from '../../src/mcp/http.js';
-import type { MetaConfig } from '../../src/types.js';
+import type { AdInsight, CampaignInsight, MetaConfig } from '../../src/types.js';
 
 /**
  * A complete `HttpMcpConfig`.
@@ -41,6 +41,36 @@ export function metaConfig(overrides: Partial<MetaConfig> = {}): MetaConfig {
   return {
     accessToken: 'test-meta-access-token',
     apiVersion: 'v25.0',
+    ...overrides,
+  };
+}
+
+/**
+ * A complete `CampaignInsight`.
+ *
+ * Meta returns campaign_name alongside campaign_id whenever the field is
+ * requested, so a row carrying only the id is not a shape the normalizer or the
+ * adapters ever see.
+ */
+export function campaignInsight(overrides: Partial<CampaignInsight> = {}): CampaignInsight {
+  return {
+    campaign_id: 'cmp_1',
+    campaign_name: 'Campaign 1',
+    spend: '0',
+    impressions: '0',
+    clicks: '0',
+    ...overrides,
+  };
+}
+
+/** A complete `AdInsight` — a `CampaignInsight` plus the ad set and ad identity. */
+export function adInsight(overrides: Partial<AdInsight> = {}): AdInsight {
+  return {
+    ...campaignInsight(),
+    adset_id: 'adset_1',
+    adset_name: 'Ad Set 1',
+    ad_id: 'ad_1',
+    ad_name: 'Ad 1',
     ...overrides,
   };
 }
