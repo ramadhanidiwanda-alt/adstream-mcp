@@ -96,6 +96,10 @@ interface MetaAssetFeedSpec {
 interface MetaCreativeExpanded {
   id?: string;
   object_type?: string;
+  /** Set only when the creative promotes an existing Page post ({page_id}_{post_id}). */
+  object_story_id?: string;
+  /** Set only when the creative promotes an existing Instagram media. */
+  source_instagram_media_id?: string;
   object_story_spec?: MetaObjectStorySpec;
   asset_feed_spec?: MetaAssetFeedSpec;
 }
@@ -243,12 +247,23 @@ function extractUrlsFromCreative(creative: MetaCreativeExpanded): {
 
 // ── Infer creative type from Meta object_type ──
 
-function inferCreativeType(creative: MetaCreativeExpanded): string {
+/**
+ * Classify a creative for reporting.
+ *
+ * `object_type: SHARE` is NOT a boosted-post marker — Meta reports it for any
+ * link-share creative, including ordinary fresh-asset single image, carousel
+ * and video ads built from `object_story_spec.link_data`. The only reliable
+ * discriminator for a boosted existing post is an explicitly set
+ * `object_story_id` (Page post) or `source_instagram_media_id` (IG media).
+ * `effective_object_story_id` must NOT be used: Meta populates it for
+ * fresh-asset ads too, from the hidden Page post it creates for them.
+ */
+export function inferCreativeType(creative: MetaCreativeExpanded): string {
   const objectType = creative.object_type;
   const spec = creative.object_story_spec;
   const assetFeed = creative.asset_feed_spec;
 
-  if (objectType === 'SHARE') return 'existing_post';
+  if (creative.object_story_id || creative.source_instagram_media_id) return 'existing_post';
   if (objectType === 'PRIVACY_CHECK_FAIL') return 'privacy_check_fail';
   if (objectType === 'STATUS') return 'status_post';
   if (objectType === 'PHOTO') return 'photo_post';
@@ -266,7 +281,7 @@ function inferCreativeType(creative: MetaCreativeExpanded): string {
  * edge when scoped to a single campaign or ad set, since Meta does not
  * support scoping the account-level `/ads` edge via `filtering` (see
  * `resolveAdsEdgeScope`) — with
- * `fields=id,name,status,effective_status,creative{id,object_type,object_story_spec,asset_feed_spec}`
+ * `fields=id,name,status,effective_status,creative{id,object_type,object_story_id,source_instagram_media_id,object_story_spec,asset_feed_spec}`
  * and an optional `effective_status` filter.
  */
 export async function getAdDestinations(
@@ -287,7 +302,7 @@ export async function getAdDestinations(
   // Build fields — request creative expanded with object_story_spec and asset_feed_spec
   const fields =
     'id,name,status,effective_status,campaign_id,adset_id,issues_info,ad_review_feedback,' +
-    'creative{id,object_type,object_story_spec{link_data{link,call_to_action{type,value{link}},child_attachments{link}},video_data{call_to_action{type,value{link}}}},asset_feed_spec{link_urls{website_url},groups{components{link_url{website_url}}}}}';
+    'creative{id,object_type,object_story_id,source_instagram_media_id,object_story_spec{link_data{link,call_to_action{type,value{link}},child_attachments{link}},video_data{call_to_action{type,value{link}}}},asset_feed_spec{link_urls{website_url},groups{components{link_url{website_url}}}}}';
 
   const { path, needsPostFilter } = resolveAdsEdgeScope(adAccountId, campaignId, adSetId);
 
