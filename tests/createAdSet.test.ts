@@ -257,6 +257,52 @@ describe('createAdSet — bid strategy + pre-flight validation', () => {
       expect(result.error).toContain('bidConstraints');
     });
 
+    // Meta's bid-strategy docs are symmetric: COST_CAP and
+    // LOWEST_COST_WITH_BID_CAP require bid_amount, while LOWEST_COST_WITHOUT_CAP
+    // and LOWEST_COST_WITH_MIN_ROAS must not carry one. Only the "required" half
+    // was validated, so a forbidden bid_amount reached Meta as a raw rejection.
+    it.each(['LOWEST_COST_WITHOUT_CAP', 'LOWEST_COST_WITH_MIN_ROAS'])(
+      'should reject a bidAmount supplied alongside %s',
+      async (bidStrategy) => {
+        const client = createMockClient();
+        const result = await createAdSet(
+          client,
+          {
+            ...defaultOptions,
+            bidStrategy,
+            bidAmount: 500000,
+            ...(bidStrategy === 'LOWEST_COST_WITH_MIN_ROAS'
+              ? { bidConstraints: { roas_average_floor: 20000 } }
+              : {}),
+          },
+          { dryRun: false, confirmed: true }
+        );
+        expect(result.status).toBe('failed');
+        expect(result.error).toContain('bidAmount');
+        expect(result.structuredError?.code).toBe('INVALID_BID_AMOUNT');
+      }
+    );
+
+    // Demanding bidAmount off the campaign's strategy while the ad set overrides
+    // it with an uncapped one is a catch-22: Meta forbids bid_amount under
+    // LOWEST_COST_WITHOUT_CAP, so the only way to satisfy the demand is to send a
+    // combination Meta rejects.
+    it('should not demand bidAmount when the ad set overrides a capped campaign strategy', async () => {
+      const client = createMockClient({ bid_strategy: 'COST_CAP', daily_budget: undefined });
+      const result = await createAdSet(
+        client,
+        {
+          ...defaultOptions,
+          bidStrategy: 'LOWEST_COST_WITHOUT_CAP',
+        },
+        { dryRun: true }
+      );
+
+      expect(result.status).toBe('dry_run');
+      expect(result.preview?.bid_strategy).toBe('LOWEST_COST_WITHOUT_CAP');
+      expect(result.preview?.bid_amount).toBeUndefined();
+    });
+
     it('should accept LOWEST_COST_WITHOUT_CAP without bidAmount', async () => {
       const client = createMockClient();
       const result = await createAdSet(

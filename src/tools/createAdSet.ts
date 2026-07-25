@@ -183,6 +183,14 @@ interface CollaborativeProductSetInfo {
 /** Bid strategies that require bid_amount */
 const STRATEGIES_REQUIRING_BID_AMOUNT = ['COST_CAP', 'LOWEST_COST_WITH_BID_CAP', 'TARGET_COST'];
 
+/**
+ * Bid strategies that must NOT carry bid_amount. Meta's bid-strategy reference is
+ * symmetric about this: automatic bidding takes no bid, and min-ROAS expresses its
+ * floor through bid_constraints.roas_average_floor instead. Sending bid_amount
+ * anyway is rejected provider-side, so it is worth catching locally.
+ */
+const STRATEGIES_FORBIDDING_BID_AMOUNT = ['LOWEST_COST_WITHOUT_CAP', 'LOWEST_COST_WITH_MIN_ROAS'];
+
 /** Map known Meta error subcodes to human-readable messages */
 function mapSubcodeError(subcode: number | undefined, bidStrategy?: string): string | null {
   if (subcode === undefined) return null;
@@ -320,6 +328,27 @@ export async function createAdSet(
       structuredError: validationError(
         'MISSING_BID_AMOUNT',
         `bidAmount is required when bidStrategy is '${options.bidStrategy}'.`
+      ),
+    };
+  }
+
+  // Check: bid_strategy forbidding bid_amount but bidAmount provided anyway
+  if (
+    options.bidStrategy &&
+    STRATEGIES_FORBIDDING_BID_AMOUNT.includes(options.bidStrategy) &&
+    options.bidAmount !== undefined
+  ) {
+    const alternative =
+      options.bidStrategy === 'LOWEST_COST_WITH_MIN_ROAS'
+        ? `express the floor through bidConstraints ({ roas_average_floor: target ROAS × 10000 })`
+        : `switch bidStrategy to 'COST_CAP' or 'LOWEST_COST_WITH_BID_CAP' if you need to cap the bid`;
+    return {
+      ...baseResult,
+      status: 'failed',
+      error: `bidAmount cannot be used with bidStrategy '${options.bidStrategy}'. Remove bidAmount, or ${alternative}.`,
+      structuredError: validationError(
+        'INVALID_BID_AMOUNT',
+        `bidAmount cannot be used with bidStrategy '${options.bidStrategy}'.`
       ),
     };
   }
@@ -498,9 +527,19 @@ export async function createAdSet(
       };
     }
 
-    // Check 2: Campaign's bid strategy requires bid_amount on ad set
+    // Check 2: Campaign's bid strategy requires bid_amount on ad set — unless this
+    // ad set overrides it with a strategy that forbids one. Demanding bidAmount
+    // then would be a catch-22, since the only value that satisfies the demand is
+    // one Meta rejects for the overriding strategy.
     const campaignBidStrategy = campaign.bid_strategy;
-    if (campaignBidStrategy && STRATEGIES_REQUIRING_BID_AMOUNT.includes(campaignBidStrategy)) {
+    const adSetOverridesWithUncapped =
+      options.bidStrategy !== undefined &&
+      STRATEGIES_FORBIDDING_BID_AMOUNT.includes(options.bidStrategy);
+    if (
+      campaignBidStrategy &&
+      STRATEGIES_REQUIRING_BID_AMOUNT.includes(campaignBidStrategy) &&
+      !adSetOverridesWithUncapped
+    ) {
       if (options.bidAmount === undefined) {
         return {
           ...baseResult,
