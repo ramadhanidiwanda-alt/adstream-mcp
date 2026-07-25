@@ -1,3 +1,7 @@
+import fs from 'node:fs';
+import crypto from 'node:crypto';
+import pathModule from 'node:path';
+
 export interface TikTokApiConfig {
   accessToken: string;
   apiVersion?: string;
@@ -28,7 +32,8 @@ export class TikTokApiClient {
   private accessToken: string;
 
   constructor(config: TikTokApiConfig) {
-    this.baseUrl = config.baseUrl ?? `https://business-api.tiktok.com/open_api/${config.apiVersion ?? 'v1.3'}`;
+    this.baseUrl =
+      config.baseUrl ?? `https://business-api.tiktok.com/open_api/${config.apiVersion ?? 'v1.3'}`;
     this.accessToken = config.accessToken;
   }
 
@@ -40,6 +45,52 @@ export class TikTokApiClient {
   /** POST request to TikTok API */
   async post<T = unknown>(path: string, body: Record<string, unknown> = {}): Promise<T> {
     return this.request<T>('POST', path, undefined, body);
+  }
+
+  /**
+   * POST multipart/form-data to TikTok's file upload endpoints
+   * (/file/image/ad/upload/, /file/video/ad/upload/). TikTok requires
+   * an MD5 signature of the raw file bytes when upload_type=UPLOAD_BY_FILE.
+   */
+  async postMultipart<T = unknown>(
+    path: string,
+    fields: Record<string, string>,
+    file: { fieldName: string; filePath: string; signatureFieldName: string }
+  ): Promise<T> {
+    if (!fs.existsSync(file.filePath)) {
+      throw new Error(`File not found: ${file.filePath}`);
+    }
+    const stat = fs.statSync(file.filePath);
+    if (!stat.isFile()) {
+      throw new Error(`Path is not a file: ${file.filePath}`);
+    }
+
+    const fileBuffer = fs.readFileSync(file.filePath);
+    const signature = crypto.createHash('md5').update(fileBuffer).digest('hex');
+    const fileName = pathModule.basename(file.filePath);
+
+    const formData = new FormData();
+    for (const [key, value] of Object.entries(fields)) {
+      formData.append(key, value);
+    }
+    formData.append(file.signatureFieldName, signature);
+    formData.append('file_name', fileName);
+    formData.append(file.fieldName, new Blob([fileBuffer]), fileName);
+
+    const url = `${this.baseUrl}${path}`;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Access-Token': this.accessToken },
+      body: formData,
+    });
+
+    const data = (await response.json()) as TikTokApiResponse<T>;
+    if (data.code !== 0) {
+      throw new TikTokApiError(data);
+    }
+
+    return data.data;
   }
 
   private async request<T>(

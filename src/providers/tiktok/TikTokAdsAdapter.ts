@@ -92,6 +92,7 @@ import type {
   CreateSmartPlusAdGroupOptions,
 } from '../../tools/tiktok/createTikTokSmartPlus.js';
 import { checkTikTokLaunchReadiness } from '../../tools/checkTikTokLaunchReadiness.js';
+import { uploadTikTokImage, uploadTikTokVideo } from '../../tools/tiktok/uploadTikTokMedia.js';
 import type { TikTokObjective } from './objectiveLaunchMatrix.js';
 // The AdsProviderAdapter interface's optional checkLaunchReadiness method is declared against
 // Meta's LaunchReadinessResult shape (see broker/types.ts). TikTok's readiness result
@@ -966,12 +967,73 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
     }
   }
 
-  async uploadImage(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<ImageUploadResult>> {
-    return this.writeNotImplemented();
+  async uploadImage(request: AdsBrokerRequest): Promise<AdsBrokerResponse<ImageUploadResult>> {
+    if (!this.client) return this.writeNotImplemented();
+    const filePath = String(request.params.filePath ?? '');
+    const advertiserId = String(request.accountId ?? request.credentials?.accountId ?? '');
+    try {
+      const result = await uploadTikTokImage(this.client, { advertiserId, filePath });
+      if (result.status === 'failed') {
+        return {
+          ok: false,
+          provider: 'tiktok',
+          errors: [
+            {
+              provider: 'tiktok',
+              code: 'UPLOAD_FAILED',
+              message: result.error ?? 'TikTok image upload failed',
+            },
+          ],
+        };
+      }
+      return {
+        ok: true,
+        provider: 'tiktok',
+        data: {
+          operation: 'upload_image',
+          status: 'executed',
+          image_hash: result.image_id,
+          url: result.image_url,
+          filename: result.filename,
+        },
+      };
+    } catch (error) {
+      return this.errorResponse(error);
+    }
   }
 
-  async uploadVideo(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<VideoUploadResult>> {
-    return this.writeNotImplemented();
+  async uploadVideo(request: AdsBrokerRequest): Promise<AdsBrokerResponse<VideoUploadResult>> {
+    if (!this.client) return this.writeNotImplemented();
+    const filePath = String(request.params.filePath ?? '');
+    const advertiserId = String(request.accountId ?? request.credentials?.accountId ?? '');
+    try {
+      const result = await uploadTikTokVideo(this.client, { advertiserId, filePath });
+      if (result.status === 'failed') {
+        return {
+          ok: false,
+          provider: 'tiktok',
+          errors: [
+            {
+              provider: 'tiktok',
+              code: 'UPLOAD_FAILED',
+              message: result.error ?? 'TikTok video upload failed',
+            },
+          ],
+        };
+      }
+      return {
+        ok: true,
+        provider: 'tiktok',
+        data: {
+          operation: 'upload_video',
+          status: 'executed',
+          video_id: result.video_id,
+          title: result.filename,
+        },
+      };
+    } catch (error) {
+      return this.errorResponse(error);
+    }
   }
 
   async getAccountInfo(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<AccountInfoResult>> {

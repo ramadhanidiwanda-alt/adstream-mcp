@@ -439,13 +439,13 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
   {
     name: 'ads_upload_image',
     description:
-      'Upload a local image file to the Meta Ads Image Library. Returns image_hash for use in creative creation. Supported formats: .jpg, .jpeg, .png. Max file size: 30 MB.',
+      'Upload a local image file to the ad account image library. Meta: returns image_hash, .jpg/.jpeg/.png, max 30 MB. TikTok: returns image_id (returned in the same image_hash field), .jpg/.jpeg/.png, max 30 MB.',
     inputSchema: createUploadInputSchema(['filePath']),
   },
   {
     name: 'ads_upload_video',
     description:
-      'Upload a local video file to the Meta Ads Video Library. Returns video_id for use in creative creation. Supported formats: .mp4, .mov, .avi, .wmv. Max file size: 1 GB. Video processing is async.',
+      'Upload a local video file to the ad account video library. Meta: returns video_id, .mp4/.mov/.avi/.wmv, max 1 GB, async processing. TikTok: returns video_id, .mp4/.mov, max 1 GB.',
     inputSchema: createUploadInputSchema(['filePath']),
   },
   {

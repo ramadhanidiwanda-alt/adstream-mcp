@@ -346,3 +346,14 @@ describe('TikTokAdsAdapter.checkLaunchReadiness', () => {
     }
   });
 });
+
+describe('TikTokAdsAdapter upload', () => {
+  it('uploadImage returns NOT_IMPLEMENTED without a client', async () => {
+    const adapter = new TikTokAdsAdapter();
+    const response = await adapter.uploadImage({
+      params: { filePath: '/tmp/does-not-matter.jpg' },
+    });
+    expect(response.ok).toBe(false);
+    expect(response.errors?.[0].code).toBe('NOT_IMPLEMENTED');
+  });
+});
