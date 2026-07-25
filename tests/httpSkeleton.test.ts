@@ -5,6 +5,7 @@ import {
   parseHttpMcpConfig,
   startHttpMcpServer,
 } from '../src/mcp/http.js';
+import { httpMcpConfig } from './support/fixtures.js';
 
 describe('HTTP MCP skeleton config', () => {
   let originalEnv: NodeJS.ProcessEnv;
@@ -97,10 +98,7 @@ describe('HTTP MCP skeleton endpoints', () => {
 
   it('returns health status in HTTP mode', async () => {
     server = createServer(
-      createHttpMcpRequestHandler(
-        { enabled: true, host: '127.0.0.1', port: 0, path: '/mcp', transport: 'http' },
-        { BROKER_RUNTIME_MODE: 'remote' }
-      )
+      createHttpMcpRequestHandler(httpMcpConfig(), { BROKER_RUNTIME_MODE: 'remote' })
     );
 
     await new Promise<void>((resolve) => server?.listen(0, '127.0.0.1', resolve));
@@ -116,10 +114,9 @@ describe('HTTP MCP skeleton endpoints', () => {
 
   it('returns health status in SSE mode', async () => {
     server = createServer(
-      createHttpMcpRequestHandler(
-        { enabled: true, host: '127.0.0.1', port: 0, path: '/mcp', transport: 'sse' },
-        { BROKER_RUNTIME_MODE: 'local' }
-      )
+      createHttpMcpRequestHandler(httpMcpConfig({ transport: 'sse' }), {
+        BROKER_RUNTIME_MODE: 'local',
+      })
     );
 
     await new Promise<void>((resolve) => server?.listen(0, '127.0.0.1', resolve));
@@ -135,10 +132,9 @@ describe('HTTP MCP skeleton endpoints', () => {
 
   it('returns health status in Streamable HTTP mode', async () => {
     server = createServer(
-      createHttpMcpRequestHandler(
-        { enabled: true, host: '127.0.0.1', port: 0, path: '/mcp', transport: 'streamable-http' },
-        { BROKER_RUNTIME_MODE: 'remote' }
-      )
+      createHttpMcpRequestHandler(httpMcpConfig({ transport: 'streamable-http' }), {
+        BROKER_RUNTIME_MODE: 'remote',
+      })
     );
 
     await new Promise<void>((resolve) => server?.listen(0, '127.0.0.1', resolve));
@@ -154,14 +150,7 @@ describe('HTTP MCP skeleton endpoints', () => {
 
   it('returns 401 when bearer token is missing (HTTP mode)', async () => {
     server = createServer(
-      createHttpMcpRequestHandler({
-        enabled: true,
-        host: '127.0.0.1',
-        port: 0,
-        path: '/mcp',
-        transport: 'http',
-        bearerToken: 'secret-test-token',
-      })
+      createHttpMcpRequestHandler(httpMcpConfig({ bearerToken: 'secret-test-token' }))
     );
 
     await new Promise<void>((resolve) => server?.listen(0, '127.0.0.1', resolve));
@@ -178,14 +167,9 @@ describe('HTTP MCP skeleton endpoints', () => {
 
   it('returns 401 when bearer token is missing (SSE mode)', async () => {
     server = createServer(
-      createHttpMcpRequestHandler({
-        enabled: true,
-        host: '127.0.0.1',
-        port: 0,
-        path: '/mcp',
-        transport: 'sse',
-        bearerToken: 'secret-sse-token',
-      })
+      createHttpMcpRequestHandler(
+        httpMcpConfig({ transport: 'sse', bearerToken: 'secret-sse-token' })
+      )
     );
 
     await new Promise<void>((resolve) => server?.listen(0, '127.0.0.1', resolve));
@@ -203,14 +187,9 @@ describe('HTTP MCP skeleton endpoints', () => {
 
   it('returns 401 when bearer token is missing (Streamable HTTP mode)', async () => {
     server = createServer(
-      createHttpMcpRequestHandler({
-        enabled: true,
-        host: '127.0.0.1',
-        port: 0,
-        path: '/mcp',
-        transport: 'streamable-http',
-        bearerToken: 'secret-test-token',
-      })
+      createHttpMcpRequestHandler(
+        httpMcpConfig({ transport: 'streamable-http', bearerToken: 'secret-test-token' })
+      )
     );
 
     await new Promise<void>((resolve) => server?.listen(0, '127.0.0.1', resolve));
@@ -227,14 +206,9 @@ describe('HTTP MCP skeleton endpoints', () => {
 
   it('returns 401 with invalid bearer token (Streamable HTTP mode)', async () => {
     server = createServer(
-      createHttpMcpRequestHandler({
-        enabled: true,
-        host: '127.0.0.1',
-        port: 0,
-        path: '/mcp',
-        transport: 'streamable-http',
-        bearerToken: 'valid-token',
-      })
+      createHttpMcpRequestHandler(
+        httpMcpConfig({ transport: 'streamable-http', bearerToken: 'valid-token' })
+      )
     );
 
     await new Promise<void>((resolve) => server?.listen(0, '127.0.0.1', resolve));
@@ -253,16 +227,7 @@ describe('HTTP MCP skeleton endpoints', () => {
 
   it('returns 501 in HTTP mode with valid bearer', async () => {
     const token = 'secret-test-token';
-    server = createServer(
-      createHttpMcpRequestHandler({
-        enabled: true,
-        host: '127.0.0.1',
-        port: 0,
-        path: '/mcp',
-        transport: 'http',
-        bearerToken: token,
-      })
-    );
+    server = createServer(createHttpMcpRequestHandler(httpMcpConfig({ bearerToken: token })));
 
     await new Promise<void>((resolve) => server?.listen(0, '127.0.0.1', resolve));
     const address = server.address();
@@ -281,14 +246,7 @@ describe('HTTP MCP skeleton endpoints', () => {
 
   it('passes bearer guard and returns 501 in HTTP mode', async () => {
     const token = 'secret-test-token';
-    const started = await startHttpMcpServer({
-      enabled: true,
-      host: '127.0.0.1',
-      port: 0,
-      path: '/mcp',
-      transport: 'http',
-      bearerToken: token,
-    });
+    const started = await startHttpMcpServer(httpMcpConfig({ bearerToken: token }));
     server = started.server;
 
     const response = await fetch(`${started.url}/mcp`, {
@@ -303,15 +261,7 @@ describe('HTTP MCP skeleton endpoints', () => {
   });
 
   it('returns 404 for unknown routes', async () => {
-    server = createServer(
-      createHttpMcpRequestHandler({
-        enabled: true,
-        host: '127.0.0.1',
-        port: 0,
-        path: '/mcp',
-        transport: 'sse',
-      })
-    );
+    server = createServer(createHttpMcpRequestHandler(httpMcpConfig({ transport: 'sse' })));
 
     await new Promise<void>((resolve) => server?.listen(0, '127.0.0.1', resolve));
     const address = server.address();
@@ -338,14 +288,7 @@ describe('SSE transport auth', () => {
 
   it('returns 401 for GET /mcp with invalid bearer token', async () => {
     server = createServer(
-      createHttpMcpRequestHandler({
-        enabled: true,
-        host: '127.0.0.1',
-        port: 0,
-        path: '/mcp',
-        transport: 'sse',
-        bearerToken: 'valid-token',
-      })
+      createHttpMcpRequestHandler(httpMcpConfig({ transport: 'sse', bearerToken: 'valid-token' }))
     );
 
     await new Promise<void>((resolve) => server?.listen(0, '127.0.0.1', resolve));
@@ -365,14 +308,7 @@ describe('SSE transport auth', () => {
 
   it('returns 401 for POST /mcp with invalid bearer token (SSE mode)', async () => {
     server = createServer(
-      createHttpMcpRequestHandler({
-        enabled: true,
-        host: '127.0.0.1',
-        port: 0,
-        path: '/mcp',
-        transport: 'sse',
-        bearerToken: 'valid-token',
-      })
+      createHttpMcpRequestHandler(httpMcpConfig({ transport: 'sse', bearerToken: 'valid-token' }))
     );
 
     await new Promise<void>((resolve) => server?.listen(0, '127.0.0.1', resolve));
@@ -390,15 +326,7 @@ describe('SSE transport auth', () => {
   });
 
   it('allows GET /mcp without auth when no bearer token configured (SSE mode)', async () => {
-    server = createServer(
-      createHttpMcpRequestHandler({
-        enabled: true,
-        host: '127.0.0.1',
-        port: 0,
-        path: '/mcp',
-        transport: 'sse',
-      })
-    );
+    server = createServer(createHttpMcpRequestHandler(httpMcpConfig({ transport: 'sse' })));
 
     await new Promise<void>((resolve) => server?.listen(0, '127.0.0.1', resolve));
     const address = server.address();
@@ -437,13 +365,7 @@ describe('Streamable HTTP transport endpoints', () => {
 
   it('returns 404 for unknown routes', async () => {
     server = createServer(
-      createHttpMcpRequestHandler({
-        enabled: true,
-        host: '127.0.0.1',
-        port: 0,
-        path: '/mcp',
-        transport: 'streamable-http',
-      })
+      createHttpMcpRequestHandler(httpMcpConfig({ transport: 'streamable-http' }))
     );
 
     await new Promise<void>((resolve) => server?.listen(0, '127.0.0.1', resolve));
@@ -458,13 +380,7 @@ describe('Streamable HTTP transport endpoints', () => {
 
   it('returns 501 for GET request (new Streamable HTTP session requires POST)', async () => {
     server = createServer(
-      createHttpMcpRequestHandler({
-        enabled: true,
-        host: '127.0.0.1',
-        port: 0,
-        path: '/mcp',
-        transport: 'streamable-http',
-      })
+      createHttpMcpRequestHandler(httpMcpConfig({ transport: 'streamable-http' }))
     );
 
     await new Promise<void>((resolve) => server?.listen(0, '127.0.0.1', resolve));
@@ -478,39 +394,23 @@ describe('Streamable HTTP transport endpoints', () => {
     expect(text).toContain('Streamable HTTP transport requires MCP_TRANSPORT=streamable-http.');
   });
 
+  describe('HTTP request-scoped connection key header capture', () => {
+    it('createHttpMcpRequestHandler function exists and is callable', () => {
+      const handler = createHttpMcpRequestHandler(
+        httpMcpConfig({ port: 8787, transport: 'sse', bearerToken: 'test-token' }),
+        {}
+      );
 
-describe('HTTP request-scoped connection key header capture', () => {
-  it('createHttpMcpRequestHandler function exists and is callable', () => {
-    const handler = createHttpMcpRequestHandler(
-      {
-        enabled: true,
-        host: '127.0.0.1',
-        port: 8787,
-        path: '/mcp',
-        transport: 'sse',
-        bearerToken: 'test-token',
-      },
-      {}
-    );
+      expect(typeof handler).toBe('function');
+    });
 
-    expect(typeof handler).toBe('function');
+    it('handler returns function for streamable-http transport', () => {
+      const handler = createHttpMcpRequestHandler(
+        httpMcpConfig({ port: 8787, transport: 'streamable-http', bearerToken: 'test-token' }),
+        {}
+      );
+
+      expect(typeof handler).toBe('function');
+    });
   });
-
-  it('handler returns function for streamable-http transport', () => {
-    const handler = createHttpMcpRequestHandler(
-      {
-        enabled: true,
-        host: '127.0.0.1',
-        port: 8787,
-        path: '/mcp',
-        transport: 'streamable-http',
-        bearerToken: 'test-token',
-      },
-      {}
-    );
-
-    expect(typeof handler).toBe('function');
-  });
-});
-
 });

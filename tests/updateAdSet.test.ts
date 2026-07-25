@@ -14,7 +14,8 @@ describe('updateAdSet', () => {
 
   it('returns dry_run without calling API', async () => {
     const r = await updateAdSet(mockClient, { ...baseOpts, name: 'New Name' });
-    expect(r.status).toBe('dry_run'); expect(r.preview.name).toBe('New Name');
+    expect(r.status).toBe('dry_run');
+    expect(r.preview.name).toBe('New Name');
     expect(r.mode).toBe('patch');
   });
 
@@ -50,11 +51,15 @@ describe('updateAdSet', () => {
   });
 
   it('requires explicit replace confirmation for targeting replacement', async () => {
-    const r = await updateAdSet(mockClient, {
-      ...baseOpts,
-      mode: 'replace',
-      targeting: { geoLocations: { countries: ['ID'] } },
-    }, { dryRun: false, confirmed: true });
+    const r = await updateAdSet(
+      mockClient,
+      {
+        ...baseOpts,
+        mode: 'replace',
+        targeting: { geoLocations: { countries: ['ID'] } },
+      },
+      { dryRun: false, confirmed: true }
+    );
     expect(r.status).toBe('failed');
     expect(r.error).toContain('replaceTargetingConfirmed');
     expect(mockMetaPost).not.toHaveBeenCalled();
@@ -62,12 +67,16 @@ describe('updateAdSet', () => {
 
   it('executes replace mode only with explicit replacement confirmation', async () => {
     mockMetaPost.mockResolvedValueOnce({ success: true });
-    const r = await updateAdSet(mockClient, {
-      ...baseOpts,
-      mode: 'replace',
-      replaceTargetingConfirmed: true,
-      targeting: { geoLocations: { countries: ['ID'] } },
-    }, { dryRun: false, confirmed: true });
+    const r = await updateAdSet(
+      mockClient,
+      {
+        ...baseOpts,
+        mode: 'replace',
+        replaceTargetingConfirmed: true,
+        targeting: { geoLocations: { countries: ['ID'] } },
+      },
+      { dryRun: false, confirmed: true }
+    );
     expect(r.status).toBe('executed');
     expect(r.mode).toBe('replace');
     expect(mockMetaPost).toHaveBeenCalled();
@@ -80,8 +89,13 @@ describe('updateAdSet', () => {
 
   it('executes update on success', async () => {
     mockMetaPost.mockResolvedValueOnce({ success: true });
-    const r = await updateAdSet(mockClient, { ...baseOpts, name: 'New Name', dailyBudget: 50000 }, { dryRun: false, confirmed: true });
-    expect(r.status).toBe('executed'); expect(r.success).toBe(true);
+    const r = await updateAdSet(
+      mockClient,
+      { ...baseOpts, name: 'New Name', dailyBudget: 50000 },
+      { dryRun: false, confirmed: true }
+    );
+    expect(r.status).toBe('executed');
+    expect(r.success).toBe(true);
     expect(r.id).toBe('as789');
     expect(mockMetaPost.mock.calls[0][0]).toBe('/as789');
     expect(mockMetaPost.mock.calls[0][1].daily_budget).toBe(50000);
@@ -89,7 +103,11 @@ describe('updateAdSet', () => {
 
   it('returns failed on error', async () => {
     mockMetaPost.mockRejectedValueOnce(new Error('update error'));
-    const r = await updateAdSet(mockClient, { ...baseOpts, name: 'Fail' }, { dryRun: false, confirmed: true });
+    const r = await updateAdSet(
+      mockClient,
+      { ...baseOpts, name: 'Fail' },
+      { dryRun: false, confirmed: true }
+    );
     expect(r.status).toBe('failed');
   });
 });

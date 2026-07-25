@@ -41,8 +41,8 @@ export async function assertBudgetIncreaseWithinLimit(
   if (newValue > maxAllowed) {
     throw new Error(
       `Budget increase exceeds safety limit. ` +
-      `Current: ${currentValue}, requested: ${newValue}, ` +
-      `max allowed (${(maxIncreasePct * 100).toFixed(0)}% increase): ${maxAllowed}.`
+        `Current: ${currentValue}, requested: ${newValue}, ` +
+        `max allowed (${(maxIncreasePct * 100).toFixed(0)}% increase): ${maxAllowed}.`
     );
   }
 }

@@ -31,16 +31,16 @@ describe('assertBudgetIncreaseWithinLimit', () => {
     });
 
     await expect(
-      assertBudgetIncreaseWithinLimit(
-        client,
-        'cmp1',
-        100000,
-        'spend_cap,name',
-        (row) => Number(row.spend_cap ?? 0)
+      assertBudgetIncreaseWithinLimit(client, 'cmp1', 100000, 'spend_cap,name', (row) =>
+        Number(row.spend_cap ?? 0)
       )
     ).resolves.toBeUndefined();
 
-    expect(client.metaGet).toHaveBeenCalledWith('/cmp1', { fields: 'spend_cap,name' }, { maxRetries: 3 });
+    expect(client.metaGet).toHaveBeenCalledWith(
+      '/cmp1',
+      { fields: 'spend_cap,name' },
+      { maxRetries: 3 }
+    );
   });
 
   it('throws when new value exceeds the increase cap', async () => {
@@ -49,12 +49,8 @@ describe('assertBudgetIncreaseWithinLimit', () => {
     });
 
     await expect(
-      assertBudgetIncreaseWithinLimit(
-        client,
-        'cmp1',
-        999999,
-        'spend_cap,name',
-        (row) => Number(row.spend_cap ?? 0)
+      assertBudgetIncreaseWithinLimit(client, 'cmp1', 999999, 'spend_cap,name', (row) =>
+        Number(row.spend_cap ?? 0)
       )
     ).rejects.toThrow('Budget increase exceeds safety limit');
   });
@@ -63,12 +59,8 @@ describe('assertBudgetIncreaseWithinLimit', () => {
     (client.metaGet as ReturnType<typeof vi.fn>).mockResolvedValue({ data: [{ name: 'Test' }] });
 
     await expect(
-      assertBudgetIncreaseWithinLimit(
-        client,
-        'cmp1',
-        999999,
-        'spend_cap,name',
-        (row) => Number(row.spend_cap ?? 0)
+      assertBudgetIncreaseWithinLimit(client, 'cmp1', 999999, 'spend_cap,name', (row) =>
+        Number(row.spend_cap ?? 0)
       )
     ).resolves.toBeUndefined();
   });

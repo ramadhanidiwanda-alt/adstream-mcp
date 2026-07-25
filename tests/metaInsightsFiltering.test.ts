@@ -290,7 +290,13 @@ describe('getAdCreativeMapping filtering', () => {
   it('falls back to the account endpoint and post-filters when both campaignId and adSetId are given', async () => {
     const metaGet = vi.fn().mockResolvedValue({
       data: [
-        { id: 'ad_in', name: 'In Scope', creative: { id: 'creative_in' }, campaign_id: 'cmp_1', adset_id: 'as_1' },
+        {
+          id: 'ad_in',
+          name: 'In Scope',
+          creative: { id: 'creative_in' },
+          campaign_id: 'cmp_1',
+          adset_id: 'as_1',
+        },
         {
           id: 'ad_out',
           name: 'Out Of Scope',

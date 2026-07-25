@@ -151,7 +151,9 @@ const MATRIX: Record<TikTokObjectiveLaunchSpec['key'], MatrixRow> = {
 export function resolveTikTokObjectiveLaunchSpec(
   request: TikTokObjectiveLaunchRequest
 ): TikTokObjectiveLaunchSpec {
-  const row = Object.values(MATRIX).find((candidate) => candidate.objectiveType === request.objectiveType);
+  const row = Object.values(MATRIX).find(
+    (candidate) => candidate.objectiveType === request.objectiveType
+  );
   if (row === undefined) {
     throw new TikTokObjectiveLaunchValidationError(
       'UNSUPPORTED_OBJECTIVE',

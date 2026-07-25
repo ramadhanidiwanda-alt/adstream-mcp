@@ -90,7 +90,11 @@ describe('location breakdown insights', () => {
     });
 
     expect(receivedBreakdowns).toEqual(['country']);
-    expect(response.data?.[0].dimensions).toEqual({ country: 'ID', region: undefined, dma: undefined });
+    expect(response.data?.[0].dimensions).toEqual({
+      country: 'ID',
+      region: undefined,
+      dma: undefined,
+    });
   });
 
   it('rejects unsupported broker location breakdowns', async () => {

@@ -136,9 +136,7 @@ export function parseBrokerConfigFromEnv(): BrokerConfig {
     const baseUrl = process.env.CUAN_INSIGHT_API_BASE_URL;
 
     if (!baseUrl || baseUrl.trim() === '') {
-      throw new Error(
-        'CUAN_INSIGHT_API_BASE_URL is required when BROKER_RUNTIME_MODE=remote'
-      );
+      throw new Error('CUAN_INSIGHT_API_BASE_URL is required when BROKER_RUNTIME_MODE=remote');
     }
 
     const endpointPath = process.env.CUAN_INSIGHT_CREDENTIAL_RESOLVE_PATH;
@@ -168,10 +166,7 @@ export function parseBrokerConfigFromEnv(): BrokerConfig {
 
     let timeoutMs: number | undefined;
     if (timeoutStr) {
-      timeoutMs = parseOptionalPositiveInteger(
-        timeoutStr,
-        'CUAN_INSIGHT_REQUEST_TIMEOUT_MS'
-      );
+      timeoutMs = parseOptionalPositiveInteger(timeoutStr, 'CUAN_INSIGHT_REQUEST_TIMEOUT_MS');
     }
 
     return {
@@ -205,9 +200,7 @@ function parseOptionalPositiveInteger(value: string, name: string): number {
   const parsed = parseInt(value, 10);
 
   if (isNaN(parsed) || parsed <= 0) {
-    throw new Error(
-      `${name} must be a positive integer, got: ${value}`
-    );
+    throw new Error(`${name} must be a positive integer, got: ${value}`);
   }
 
   return parsed;

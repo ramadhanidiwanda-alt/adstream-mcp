@@ -1,10 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createServer, type Server } from 'node:http';
 import { createHash, randomBytes } from 'node:crypto';
-import {
-  createHttpMcpRequestHandler,
-  parseHttpMcpConfig,
-} from '../src/mcp/http.js';
+import { createHttpMcpRequestHandler, parseHttpMcpConfig } from '../src/mcp/http.js';
 import {
   OAuthStore,
   type IOAuthStore,
@@ -12,6 +9,7 @@ import {
   type OAuthStoreDriver,
 } from '../src/mcp/oauthStore.js';
 import { SupabaseOAuthStore } from '../src/mcp/oauthStoreSupabase.js';
+import { readJson, readJsonString } from './support/json.js';
 
 // ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -83,12 +81,18 @@ describe('OAuthStore unit tests', () => {
     });
 
     const first = store.redeemAuthorizationCode({
-      code, codeVerifier, clientId: 'test-client', redirectUri: 'https://example.com/callback',
+      code,
+      codeVerifier,
+      clientId: 'test-client',
+      redirectUri: 'https://example.com/callback',
     });
     expect(first).toBeDefined();
 
     const second = store.redeemAuthorizationCode({
-      code, codeVerifier, clientId: 'test-client', redirectUri: 'https://example.com/callback',
+      code,
+      codeVerifier,
+      clientId: 'test-client',
+      redirectUri: 'https://example.com/callback',
     });
     expect(second).toBeUndefined();
   });
@@ -98,13 +102,18 @@ describe('OAuthStore unit tests', () => {
     const codeChallenge = pkceChallenge(codeVerifier);
 
     const { code } = store.createAuthorizationCode({
-      connectionKey: 'test-key', clientId: 'test-client',
+      connectionKey: 'test-key',
+      clientId: 'test-client',
       redirectUri: 'https://example.com/callback',
-      codeChallenge, codeChallengeMethod: 'S256', scope: 'mcp',
+      codeChallenge,
+      codeChallengeMethod: 'S256',
+      scope: 'mcp',
     });
 
     const redeemed = store.redeemAuthorizationCode({
-      code, codeVerifier: 'wrong-verifier', clientId: 'test-client',
+      code,
+      codeVerifier: 'wrong-verifier',
+      clientId: 'test-client',
       redirectUri: 'https://example.com/callback',
     });
     expect(redeemed).toBeUndefined();
@@ -112,16 +121,19 @@ describe('OAuthStore unit tests', () => {
 
   it('creates and resolves access token', () => {
     const { accessToken, expiresIn } = store.createAccessToken({
-      connectionKey: 'test-key', scope: 'mcp read write', clientId: 'test-client',
+      connectionKey: 'test-key',
+      scope: 'mcp read write',
+      clientId: 'test-client',
     });
 
     expect(accessToken).toBeTruthy();
     expect(expiresIn).toBe(60);
 
     const resolved = store.resolveAccessToken(accessToken);
-    expect(resolved).toBeDefined();
-    expect(resolved!.connectionKey).toBe('test-key');
-    expect(resolved!.scope).toBe('mcp read write');
+    expect(resolved).toMatchObject({ authType: 'connection_key', scope: 'mcp read write' });
+    // connectionKey lives only on the connection_key arm of OAuthResolvedToken.
+    if (resolved?.authType !== 'connection_key') throw new Error('expected connection_key auth');
+    expect(resolved.connectionKey).toBe('test-key');
   });
 
   it('rejects invalid access token', () => {
@@ -130,7 +142,9 @@ describe('OAuthStore unit tests', () => {
 
   it('revokes access token', () => {
     const { accessToken } = store.createAccessToken({
-      connectionKey: 'test-key', scope: 'mcp', clientId: 'test-client',
+      connectionKey: 'test-key',
+      scope: 'mcp',
+      clientId: 'test-client',
     });
 
     expect(store.revokeAccessToken(accessToken)).toBe(true);
@@ -143,16 +157,24 @@ describe('OAuthStore unit tests', () => {
     const codeChallenge = pkceChallenge(codeVerifier);
 
     const { code } = shortStore.createAuthorizationCode({
-      connectionKey: 'test-key', clientId: 'test-client',
+      connectionKey: 'test-key',
+      clientId: 'test-client',
       redirectUri: 'https://example.com/callback',
-      codeChallenge, codeChallengeMethod: 'S256', scope: 'mcp',
+      codeChallenge,
+      codeChallengeMethod: 'S256',
+      scope: 'mcp',
     });
 
     await new Promise((r) => setTimeout(r, 10));
 
-    expect(shortStore.redeemAuthorizationCode({
-      code, codeVerifier, clientId: 'test-client', redirectUri: 'https://example.com/callback',
-    })).toBeUndefined();
+    expect(
+      shortStore.redeemAuthorizationCode({
+        code,
+        codeVerifier,
+        clientId: 'test-client',
+        redirectUri: 'https://example.com/callback',
+      })
+    ).toBeUndefined();
   });
 
   it('rejects wrong client_id', () => {
@@ -160,15 +182,22 @@ describe('OAuthStore unit tests', () => {
     const codeChallenge = pkceChallenge(codeVerifier);
 
     const { code } = store.createAuthorizationCode({
-      connectionKey: 'test-key', clientId: 'client-a',
+      connectionKey: 'test-key',
+      clientId: 'client-a',
       redirectUri: 'https://example.com/callback',
-      codeChallenge, codeChallengeMethod: 'S256', scope: 'mcp',
+      codeChallenge,
+      codeChallengeMethod: 'S256',
+      scope: 'mcp',
     });
 
-    expect(store.redeemAuthorizationCode({
-      code, codeVerifier, clientId: 'client-b',
-      redirectUri: 'https://example.com/callback',
-    })).toBeUndefined();
+    expect(
+      store.redeemAuthorizationCode({
+        code,
+        codeVerifier,
+        clientId: 'client-b',
+        redirectUri: 'https://example.com/callback',
+      })
+    ).toBeUndefined();
   });
 
   it('rejects wrong redirect_uri', () => {
@@ -176,22 +205,33 @@ describe('OAuthStore unit tests', () => {
     const codeChallenge = pkceChallenge(codeVerifier);
 
     const { code } = store.createAuthorizationCode({
-      connectionKey: 'test-key', clientId: 'test-client',
+      connectionKey: 'test-key',
+      clientId: 'test-client',
       redirectUri: 'https://example.com/callback',
-      codeChallenge, codeChallengeMethod: 'S256', scope: 'mcp',
+      codeChallenge,
+      codeChallengeMethod: 'S256',
+      scope: 'mcp',
     });
 
-    expect(store.redeemAuthorizationCode({
-      code, codeVerifier, clientId: 'test-client', redirectUri: 'https://evil.com/callback',
-    })).toBeUndefined();
+    expect(
+      store.redeemAuthorizationCode({
+        code,
+        codeVerifier,
+        clientId: 'test-client',
+        redirectUri: 'https://evil.com/callback',
+      })
+    ).toBeUndefined();
   });
 
   it('rejects non-S256 code challenge method', () => {
     expect(() => {
       store.createAuthorizationCode({
-        connectionKey: 'test-key', clientId: 'test-client',
+        connectionKey: 'test-key',
+        clientId: 'test-client',
         redirectUri: 'https://example.com/callback',
-        codeChallenge: 'plain', codeChallengeMethod: 'plain', scope: 'mcp',
+        codeChallenge: 'plain',
+        codeChallengeMethod: 'plain',
+        scope: 'mcp',
       });
     }).toThrow('Only S256');
   });
@@ -199,12 +239,17 @@ describe('OAuthStore unit tests', () => {
   it('returns stats without leaking secrets', () => {
     const challenge = pkceChallenge('verifier');
     store.createAuthorizationCode({
-      connectionKey: 'secret-key', clientId: 'test-client',
+      connectionKey: 'secret-key',
+      clientId: 'test-client',
       redirectUri: 'https://example.com/callback',
-      codeChallenge: challenge, codeChallengeMethod: 'S256', scope: 'mcp',
+      codeChallenge: challenge,
+      codeChallengeMethod: 'S256',
+      scope: 'mcp',
     });
     store.createAccessToken({
-      connectionKey: 'secret-key', scope: 'mcp', clientId: 'test-client',
+      connectionKey: 'secret-key',
+      scope: 'mcp',
+      clientId: 'test-client',
     });
 
     const stats = store.getStats();
@@ -221,7 +266,9 @@ interface TestContext {
   port: number;
 }
 
-async function createTestServer(config?: Partial<import('../src/mcp/http.js').HttpMcpConfig>): Promise<TestContext> {
+async function createTestServer(
+  config?: Partial<import('../src/mcp/http.js').HttpMcpConfig>
+): Promise<TestContext> {
   const server = createServer(
     createHttpMcpRequestHandler({
       enabled: true,
@@ -254,7 +301,10 @@ async function closeTestServer(ctx: TestContext): Promise<void> {
 async function doOAuthAuthorize(
   ctx: TestContext,
   params?: Partial<{
-    clientId: string; redirectUri: string; state: string; scope: string;
+    clientId: string;
+    redirectUri: string;
+    state: string;
+    scope: string;
     connectionKey: string;
   }>
 ): Promise<{ location: string; codeVerifier: string }> {
@@ -314,12 +364,16 @@ async function doOAuthTokenExchange(
 describe('OAuth metadata endpoints', () => {
   let ctx: TestContext;
 
-  beforeEach(async () => { ctx = await createTestServer(); });
-  afterEach(async () => { await closeTestServer(ctx); });
+  beforeEach(async () => {
+    ctx = await createTestServer();
+  });
+  afterEach(async () => {
+    await closeTestServer(ctx);
+  });
 
   it('returns 200 for oauth-authorization-server metadata', async () => {
     const res = await fetch(`http://127.0.0.1:${ctx.port}/.well-known/oauth-authorization-server`);
-    const body = await res.json();
+    const body = await readJson(res);
 
     expect(res.status).toBe(200);
     expect(body.issuer).toBe('https://mcp.cuaninsight.com');
@@ -334,7 +388,7 @@ describe('OAuth metadata endpoints', () => {
 
   it('returns 200 for oauth-protected-resource metadata', async () => {
     const res = await fetch(`http://127.0.0.1:${ctx.port}/.well-known/oauth-protected-resource`);
-    const body = await res.json();
+    const body = await readJson(res);
 
     expect(res.status).toBe(200);
     expect(body.resource).toBe('https://mcp.cuaninsight.com/mcp');
@@ -343,7 +397,10 @@ describe('OAuth metadata endpoints', () => {
   });
 
   it('metadata endpoints do not leak secrets', async () => {
-    for (const ep of ['.well-known/oauth-authorization-server', '.well-known/oauth-protected-resource']) {
+    for (const ep of [
+      '.well-known/oauth-authorization-server',
+      '.well-known/oauth-protected-resource',
+    ]) {
       const res = await fetch(`http://127.0.0.1:${ctx.port}/${ep}`);
       const text = await res.text();
       expect(text).not.toContain('secret');
@@ -353,7 +410,7 @@ describe('OAuth metadata endpoints', () => {
 
   it('includes oauth flag in health when publicBaseUrl is set', async () => {
     const res = await fetch(`http://127.0.0.1:${ctx.port}/health`);
-    const body = await res.json();
+    const body = await readJson(res);
     expect(body.oauth).toBe(true);
   });
 
@@ -362,7 +419,7 @@ describe('OAuth metadata endpoints', () => {
     ctx = await createTestServer({ publicBaseUrl: undefined });
 
     const res = await fetch(`http://127.0.0.1:${ctx.port}/.well-known/oauth-authorization-server`);
-    const body = await res.json();
+    const body = await readJson(res);
     expect(body.issuer).toContain('127.0.0.1');
   });
 });
@@ -372,16 +429,23 @@ describe('OAuth metadata endpoints', () => {
 describe('GET /authorize endpoint', () => {
   let ctx: TestContext;
 
-  beforeEach(async () => { ctx = await createTestServer(); });
-  afterEach(async () => { await closeTestServer(ctx); });
+  beforeEach(async () => {
+    ctx = await createTestServer();
+  });
+  afterEach(async () => {
+    await closeTestServer(ctx);
+  });
 
   it('renders form with valid OAuth query params', async () => {
     const challenge = pkceChallenge(randomString());
     const params = new URLSearchParams({
-      response_type: 'code', client_id: 'test-client',
+      response_type: 'code',
+      client_id: 'test-client',
       redirect_uri: 'https://claude.ai/api/mcp/auth_callback',
-      code_challenge: challenge, code_challenge_method: 'S256',
-      state: 'test-state-123', scope: 'mcp read',
+      code_challenge: challenge,
+      code_challenge_method: 'S256',
+      state: 'test-state-123',
+      scope: 'mcp read',
     });
 
     const res = await fetch(`http://127.0.0.1:${ctx.port}/authorize?${params}`);
@@ -398,12 +462,16 @@ describe('GET /authorize endpoint', () => {
 
   it('renders return_to as hidden context when provided', async () => {
     const challenge = pkceChallenge(randomString());
-    const returnTo = 'https://chatgpt.com/apps#settings/Connectors?connector=asdk_app_123&show-settings-behind-connector-link=true';
+    const returnTo =
+      'https://chatgpt.com/apps#settings/Connectors?connector=asdk_app_123&show-settings-behind-connector-link=true';
     const params = new URLSearchParams({
-      response_type: 'code', client_id: 'test-client',
+      response_type: 'code',
+      client_id: 'test-client',
       redirect_uri: 'https://claude.ai/api/mcp/auth_callback',
-      code_challenge: challenge, code_challenge_method: 'S256',
-      state: 'test-state-123', scope: 'mcp read',
+      code_challenge: challenge,
+      code_challenge_method: 'S256',
+      state: 'test-state-123',
+      scope: 'mcp read',
       return_to: returnTo,
     });
 
@@ -412,44 +480,52 @@ describe('GET /authorize endpoint', () => {
 
     expect(res.status).toBe(200);
     expect(html).toContain('name="return_to"');
-    expect(html).toContain('https://chatgpt.com/apps#settings/Connectors?connector=asdk_app_123&amp;show-settings-behind-connector-link=true');
+    expect(html).toContain(
+      'https://chatgpt.com/apps#settings/Connectors?connector=asdk_app_123&amp;show-settings-behind-connector-link=true'
+    );
   });
 
   it('rejects unsafe return_to query params', async () => {
     const challenge = pkceChallenge(randomString());
     const params = new URLSearchParams({
-      response_type: 'code', client_id: 'test-client',
+      response_type: 'code',
+      client_id: 'test-client',
       redirect_uri: 'https://claude.ai/api/mcp/auth_callback',
-      code_challenge: challenge, code_challenge_method: 'S256',
-      state: 'test-state-123', scope: 'mcp read',
+      code_challenge: challenge,
+      code_challenge_method: 'S256',
+      state: 'test-state-123',
+      scope: 'mcp read',
       return_to: 'http://chatgpt.com/apps',
     });
 
     const res = await fetch(`http://127.0.0.1:${ctx.port}/authorize?${params}`);
 
     expect(res.status).toBe(400);
-    const body = await res.json();
+    const body = await readJson(res);
     expect(body.error).toBe('invalid_request');
     expect(body.error_description).toContain('return_to');
   });
 
   it('returns 400 for missing required params', async () => {
     const res = await fetch(`http://127.0.0.1:${ctx.port}/authorize`);
-    const body = await res.json();
+    const body = await readJson(res);
     expect(res.status).toBe(400);
     expect(body.error).toBe('invalid_request');
   });
 
   it('returns 400 for unsupported code challenge method', async () => {
     const params = new URLSearchParams({
-      response_type: 'code', client_id: 'test-client',
+      response_type: 'code',
+      client_id: 'test-client',
       redirect_uri: 'https://example.com/callback',
-      code_challenge: 'plain', code_challenge_method: 'plain',
-      state: 'test-state', scope: 'mcp',
+      code_challenge: 'plain',
+      code_challenge_method: 'plain',
+      state: 'test-state',
+      scope: 'mcp',
     });
 
     const res = await fetch(`http://127.0.0.1:${ctx.port}/authorize?${params}`);
-    const body = await res.json();
+    const body = await readJson(res);
     expect(res.status).toBe(400);
     expect(body.error).toBe('invalid_request');
   });
@@ -460,15 +536,24 @@ describe('GET /authorize endpoint', () => {
 describe('Full authorize + token flow', () => {
   let ctx: TestContext;
 
-  beforeEach(async () => { ctx = await createTestServer(); });
-  afterEach(async () => { await closeTestServer(ctx); });
+  beforeEach(async () => {
+    ctx = await createTestServer();
+  });
+  afterEach(async () => {
+    await closeTestServer(ctx);
+  });
 
   /** Helper: run full authorize flow and return the redirect location + code verifier */
-  async function doAuthorize(params?: Partial<{
-    clientId: string; redirectUri: string; state: string; scope: string;
-    returnTo: string;
-    connectionKey: string;
-  }>): Promise<{ location: string; codeVerifier: string }> {
+  async function doAuthorize(
+    params?: Partial<{
+      clientId: string;
+      redirectUri: string;
+      state: string;
+      scope: string;
+      returnTo: string;
+      connectionKey: string;
+    }>
+  ): Promise<{ location: string; codeVerifier: string }> {
     const verifier = randomString();
     const challenge = pkceChallenge(verifier);
 
@@ -530,10 +615,13 @@ describe('Full authorize + token flow', () => {
   it('returns 400 for missing connection_key', async () => {
     const challenge = pkceChallenge(randomString());
     const formBody = new URLSearchParams({
-      response_type: 'code', client_id: 'test-client',
+      response_type: 'code',
+      client_id: 'test-client',
       redirect_uri: 'https://example.com/callback',
-      code_challenge: challenge, code_challenge_method: 'S256',
-      state: 'state', scope: 'mcp',
+      code_challenge: challenge,
+      code_challenge_method: 'S256',
+      state: 'state',
+      scope: 'mcp',
       // missing: connection_key
     });
 
@@ -543,7 +631,7 @@ describe('Full authorize + token flow', () => {
       body: formBody.toString(),
     });
     expect(res.status).toBe(400);
-    const body = await res.json();
+    const body = await readJson(res);
     expect(body.error).toBe('invalid_request');
   });
 
@@ -558,7 +646,8 @@ describe('Full authorize + token flow', () => {
   });
 
   it('preserves return_to context on success', async () => {
-    const returnTo = 'https://chatgpt.com/apps#settings/Connectors?connector=asdk_app_123&show-settings-behind-connector-link=true';
+    const returnTo =
+      'https://chatgpt.com/apps#settings/Connectors?connector=asdk_app_123&show-settings-behind-connector-link=true';
     const { location } = await doAuthorize({ returnTo });
 
     const url = new URL(location);
@@ -570,10 +659,13 @@ describe('Full authorize + token flow', () => {
   it('rejects unsafe return_to context', async () => {
     const challenge = pkceChallenge(randomString());
     const formBody = new URLSearchParams({
-      response_type: 'code', client_id: 'test-client',
+      response_type: 'code',
+      client_id: 'test-client',
       redirect_uri: 'https://claude.ai/api/mcp/auth_callback',
-      code_challenge: challenge, code_challenge_method: 'S256',
-      state: 'test-state', scope: 'mcp read',
+      code_challenge: challenge,
+      code_challenge_method: 'S256',
+      state: 'test-state',
+      scope: 'mcp read',
       connection_key: 'ck_test_key',
       return_to: 'javascript:alert(1)',
     });
@@ -586,7 +678,7 @@ describe('Full authorize + token flow', () => {
     });
 
     expect(res.status).toBe(400);
-    const body = await res.json();
+    const body = await readJson(res);
     expect(body.error).toBe('invalid_request');
     expect(body.error_description).toContain('return_to');
   });
@@ -597,10 +689,13 @@ describe('Full authorize + token flow', () => {
 
     // Authorize
     const formBody = new URLSearchParams({
-      response_type: 'code', client_id: 'my-app',
+      response_type: 'code',
+      client_id: 'my-app',
       redirect_uri: 'https://claude.ai/api/mcp/auth_callback',
-      code_challenge: challenge, code_challenge_method: 'S256',
-      state: 'my-state', scope: 'mcp read write',
+      code_challenge: challenge,
+      code_challenge_method: 'S256',
+      state: 'my-state',
+      scope: 'mcp read write',
       connection_key: 'ck_key_123',
     });
 
@@ -619,7 +714,7 @@ describe('Full authorize + token flow', () => {
     const tokenRes = await doTokenExchange(code, codeVerifier, 'my-app');
     expect(tokenRes.status).toBe(200);
 
-    const tokenData = await tokenRes.json();
+    const tokenData = await readJson(tokenRes);
     expect(tokenData.access_token).toBeTruthy();
     expect(tokenData.token_type).toBe('Bearer');
     expect(tokenData.expires_in).toBeGreaterThan(0);
@@ -630,7 +725,7 @@ describe('Full authorize + token flow', () => {
 
   it('rejects invalid authorization code', async () => {
     const res = await doTokenExchange('invalid-code', 'verifier');
-    const data = await res.json();
+    const data = await readJson(res);
     expect(res.status).toBe(400);
     expect(data.error).toBe('invalid_grant');
   });
@@ -645,7 +740,7 @@ describe('Full authorize + token flow', () => {
 
     // Second exchange — fail
     const second = await doTokenExchange(code, codeVerifier);
-    const data = await second.json();
+    const data = await readJson(second);
     expect(second.status).toBe(400);
     expect(data.error).toBe('invalid_grant');
   });
@@ -656,7 +751,7 @@ describe('Full authorize + token flow', () => {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({ grant_type: 'client_credentials' }).toString(),
     });
-    const data = await res.json();
+    const data = await readJson(res);
     expect(res.status).toBe(400);
     expect(data.error).toBe('unsupported_grant_type');
   });
@@ -666,7 +761,7 @@ describe('Full authorize + token flow', () => {
     const code = extractCode(location);
 
     const res = await doTokenExchange(code, 'wrong-verifier');
-    const data = await res.json();
+    const data = await readJson(res);
     expect(res.status).toBe(400);
     expect(data.error).toBe('invalid_grant');
   });
@@ -677,12 +772,11 @@ describe('Full authorize + token flow', () => {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({ grant_type: 'authorization_code' }).toString(),
     });
-    const data = await res.json();
+    const data = await readJson(res);
     expect(res.status).toBe(400);
     expect(data.error).toBe('invalid_request');
   });
 });
-
 
 // ── OAuth client_id allowlist ──────────────────────────────────────────────
 
@@ -691,10 +785,12 @@ describe('OAuth client_id allowlist', () => {
 
   it('allows configured client_id at GET /authorize', async () => {
     ctx = await createTestServer({ allowedClientIds: ['cuan-insight-claude'] });
-    const res = await fetch(`http://127.0.0.1:${ctx.port}/authorize` +
-      '?response_type=code&client_id=cuan-insight-claude' +
-      '&redirect_uri=https://example.com/callback&code_challenge=abc' +
-      '&code_challenge_method=S256&state=xyz&scope=mcp');
+    const res = await fetch(
+      `http://127.0.0.1:${ctx.port}/authorize` +
+        '?response_type=code&client_id=cuan-insight-claude' +
+        '&redirect_uri=https://example.com/callback&code_challenge=abc' +
+        '&code_challenge_method=S256&state=xyz&scope=mcp'
+    );
     expect(res.status).toBe(200);
     expect(res.headers.get('content-type')).toContain('text/html');
     await closeTestServer(ctx);
@@ -702,12 +798,14 @@ describe('OAuth client_id allowlist', () => {
 
   it('rejects disallowed client_id at GET /authorize', async () => {
     ctx = await createTestServer({ allowedClientIds: ['cuan-insight-claude'] });
-    const res = await fetch(`http://127.0.0.1:${ctx.port}/authorize` +
-      '?response_type=code&client_id=bad-client' +
-      '&redirect_uri=https://example.com/callback&code_challenge=abc' +
-      '&code_challenge_method=S256&state=xyz&scope=mcp');
+    const res = await fetch(
+      `http://127.0.0.1:${ctx.port}/authorize` +
+        '?response_type=code&client_id=bad-client' +
+        '&redirect_uri=https://example.com/callback&code_challenge=abc' +
+        '&code_challenge_method=S256&state=xyz&scope=mcp'
+    );
     expect(res.status).toBe(400);
-    const data = await res.json();
+    const data = await readJson(res);
     expect(data.error).toBe('invalid_client');
     await closeTestServer(ctx);
   });
@@ -715,10 +813,13 @@ describe('OAuth client_id allowlist', () => {
   it('allows configured client_id at POST /authorize', async () => {
     ctx = await createTestServer({ allowedClientIds: ['cuan-insight-claude'] });
     const formBody = new URLSearchParams({
-      response_type: 'code', client_id: 'cuan-insight-claude',
+      response_type: 'code',
+      client_id: 'cuan-insight-claude',
       redirect_uri: 'https://claude.ai/api/mcp/auth_callback',
-      code_challenge: randomString(), code_challenge_method: 'S256',
-      state: 'state', scope: 'mcp',
+      code_challenge: randomString(),
+      code_challenge_method: 'S256',
+      state: 'state',
+      scope: 'mcp',
       connection_key: 'ck_key',
     });
     const res = await fetch(`http://127.0.0.1:${ctx.port}/authorize`, {
@@ -733,10 +834,13 @@ describe('OAuth client_id allowlist', () => {
   it('rejects disallowed client_id at POST /authorize', async () => {
     ctx = await createTestServer({ allowedClientIds: ['cuan-insight-claude'] });
     const formBody = new URLSearchParams({
-      response_type: 'code', client_id: 'bad-client',
+      response_type: 'code',
+      client_id: 'bad-client',
       redirect_uri: 'https://claude.ai/api/mcp/auth_callback',
-      code_challenge: randomString(), code_challenge_method: 'S256',
-      state: 'state', scope: 'mcp',
+      code_challenge: randomString(),
+      code_challenge_method: 'S256',
+      state: 'state',
+      scope: 'mcp',
       connection_key: 'ck_key',
     });
     const res = await fetch(`http://127.0.0.1:${ctx.port}/authorize`, {
@@ -745,7 +849,7 @@ describe('OAuth client_id allowlist', () => {
       body: formBody.toString(),
     });
     expect(res.status).toBe(400);
-    const data = await res.json();
+    const data = await readJson(res);
     expect(data.error).toBe('invalid_client');
     await closeTestServer(ctx);
   });
@@ -757,22 +861,26 @@ describe('OAuth client_id allowlist', () => {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
         grant_type: 'authorization_code',
-        code: 'some-code', redirect_uri: 'https://example.com/callback',
-        client_id: 'bad-client', code_verifier: 'verifier',
+        code: 'some-code',
+        redirect_uri: 'https://example.com/callback',
+        client_id: 'bad-client',
+        code_verifier: 'verifier',
       }).toString(),
     });
     expect(res.status).toBe(400);
-    const data = await res.json();
+    const data = await readJson(res);
     expect(data.error).toBe('invalid_client');
     await closeTestServer(ctx);
   });
 
   it('no allowlist preserves all clients (backward compat)', async () => {
     ctx = await createTestServer({ allowedClientIds: undefined });
-    const res = await fetch(`http://127.0.0.1:${ctx.port}/authorize` +
-      '?response_type=code&client_id=any-client' +
-      '&redirect_uri=https://example.com/callback&code_challenge=abc' +
-      '&code_challenge_method=S256&state=xyz&scope=mcp');
+    const res = await fetch(
+      `http://127.0.0.1:${ctx.port}/authorize` +
+        '?response_type=code&client_id=any-client' +
+        '&redirect_uri=https://example.com/callback&code_challenge=abc' +
+        '&code_challenge_method=S256&state=xyz&scope=mcp'
+    );
     expect(res.status).toBe(200);
     expect(res.headers.get('content-type')).toContain('text/html');
     await closeTestServer(ctx);
@@ -784,8 +892,12 @@ describe('OAuth client_id allowlist', () => {
 describe('POST /revoke endpoint', () => {
   let ctx: TestContext;
 
-  beforeEach(async () => { ctx = await createTestServer(); });
-  afterEach(async () => { await closeTestServer(ctx); });
+  beforeEach(async () => {
+    ctx = await createTestServer();
+  });
+  afterEach(async () => {
+    await closeTestServer(ctx);
+  });
 
   it('returns 200 when revoking a valid token', async () => {
     // Get a token via full flow
@@ -793,56 +905,67 @@ describe('POST /revoke endpoint', () => {
     const challenge = pkceChallenge(codeVerifier);
 
     const formBody = new URLSearchParams({
-      response_type: 'code', client_id: 'test-client',
+      response_type: 'code',
+      client_id: 'test-client',
       redirect_uri: 'https://claude.ai/api/mcp/auth_callback',
-      code_challenge: challenge, code_challenge_method: 'S256',
-      state: 'state', scope: 'mcp',
+      code_challenge: challenge,
+      code_challenge_method: 'S256',
+      state: 'state',
+      scope: 'mcp',
       connection_key: 'ck_key',
     });
 
     const authRes = await fetch(`http://127.0.0.1:${ctx.port}/authorize`, {
-      method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: formBody.toString(), redirect: 'manual',
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: formBody.toString(),
+      redirect: 'manual',
     });
 
     const code = new URL(authRes.headers.get('location')!).searchParams.get('code')!;
 
     const tokenRes = await fetch(`http://127.0.0.1:${ctx.port}/token`, {
-      method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
-        grant_type: 'authorization_code', code,
+        grant_type: 'authorization_code',
+        code,
         redirect_uri: 'https://claude.ai/api/mcp/auth_callback',
-        client_id: 'test-client', code_verifier: codeVerifier,
+        client_id: 'test-client',
+        code_verifier: codeVerifier,
       }).toString(),
     });
-    const { access_token } = await tokenRes.json();
+    const access_token = await readJsonString(tokenRes, 'access_token');
 
     // Revoke
     const revokeRes = await fetch(`http://127.0.0.1:${ctx.port}/revoke`, {
-      method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({ token: access_token }).toString(),
     });
-    const revokeData = await revokeRes.json();
+    const revokeData = await readJson(revokeRes);
     expect(revokeRes.status).toBe(200);
     expect(revokeData.ok).toBe(true);
   });
 
   it('returns 400 for missing token param', async () => {
     const res = await fetch(`http://127.0.0.1:${ctx.port}/revoke`, {
-      method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams().toString(),
     });
-    const data = await res.json();
+    const data = await readJson(res);
     expect(res.status).toBe(400);
     expect(data.error).toBe('invalid_request');
   });
 
   it('returns 200 for non-existent token (RFC 7009)', async () => {
     const res = await fetch(`http://127.0.0.1:${ctx.port}/revoke`, {
-      method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({ token: 'non-existent-token' }).toString(),
     });
-    const data = await res.json();
+    const data = await readJson(res);
     expect(res.status).toBe(200);
     expect(data.ok).toBe(true);
   });
@@ -853,8 +976,12 @@ describe('POST /revoke endpoint', () => {
 describe('CORS preflight', () => {
   let ctx: TestContext;
 
-  beforeEach(async () => { ctx = await createTestServer(); });
-  afterEach(async () => { await closeTestServer(ctx); });
+  beforeEach(async () => {
+    ctx = await createTestServer();
+  });
+  afterEach(async () => {
+    await closeTestServer(ctx);
+  });
 
   it('returns 204 with CORS headers for OPTIONS', async () => {
     const res = await fetch(`http://127.0.0.1:${ctx.port}/health`, {
@@ -871,13 +998,17 @@ describe('CORS preflight', () => {
 describe('HTTP config with OAuth fields', () => {
   let originalEnv: NodeJS.ProcessEnv;
 
-  beforeEach(() => { originalEnv = { ...process.env }; });
-  afterEach(() => { process.env = originalEnv; });
+  beforeEach(() => {
+    originalEnv = { ...process.env };
+  });
+  afterEach(() => {
+    process.env = originalEnv;
+  });
 
   it('parses OAuth config from environment', () => {
     process.env.MCP_PUBLIC_BASE_URL = 'https://mcp.cuaninsight.com';
-    process.env.MCP_OAUTH_AUTH_CODE_TTL_SECONDS='600';
-    process.env.MCP_OAUTH_ACCESS_TOKEN_TTL_SECONDS='43200';
+    process.env.MCP_OAUTH_AUTH_CODE_TTL_SECONDS = '600';
+    process.env.MCP_OAUTH_ACCESS_TOKEN_TTL_SECONDS = '43200';
 
     const config = parseHttpMcpConfig();
     expect(config.publicBaseUrl).toBe('https://mcp.cuaninsight.com');
@@ -897,13 +1028,13 @@ describe('HTTP config with OAuth fields', () => {
   });
 
   it('parses MCP_OAUTH_ALLOWED_CLIENT_IDS as array when set', () => {
-    process.env.MCP_OAUTH_ALLOWED_CLIENT_IDS='cuan-insight-claude,cuan-insight-local';
+    process.env.MCP_OAUTH_ALLOWED_CLIENT_IDS = 'cuan-insight-claude,cuan-insight-local';
     const config = parseHttpMcpConfig();
     expect(config.allowedClientIds).toEqual(['cuan-insight-claude', 'cuan-insight-local']);
   });
 
   it('parses single allowed client ID', () => {
-    process.env.MCP_OAUTH_ALLOWED_CLIENT_IDS='cuan-insight-claude';
+    process.env.MCP_OAUTH_ALLOWED_CLIENT_IDS = 'cuan-insight-claude';
     const config = parseHttpMcpConfig();
     expect(config.allowedClientIds).toEqual(['cuan-insight-claude']);
   });
@@ -915,7 +1046,7 @@ describe('HTTP config with OAuth fields', () => {
   });
 
   it('handles empty or whitespace-only MCP_OAUTH_ALLOWED_CLIENT_IDS', () => {
-    process.env.MCP_OAUTH_ALLOWED_CLIENT_IDS=''
+    process.env.MCP_OAUTH_ALLOWED_CLIENT_IDS = '';
     const config1 = parseHttpMcpConfig();
     expect(config1.allowedClientIds).toBeUndefined();
 
@@ -930,8 +1061,12 @@ describe('HTTP config with OAuth fields', () => {
 describe('MCP endpoint auth gating (OAuth mode)', () => {
   let ctx: TestContext;
 
-  beforeEach(async () => { ctx = await createTestServer(); });
-  afterEach(async () => { await closeTestServer(ctx); });
+  beforeEach(async () => {
+    ctx = await createTestServer();
+  });
+  afterEach(async () => {
+    await closeTestServer(ctx);
+  });
 
   it('returns 401 for unauthenticated POST /mcp in OAuth mode', async () => {
     const res = await fetch(`http://127.0.0.1:${ctx.port}/mcp`, {
@@ -946,7 +1081,7 @@ describe('MCP endpoint auth gating (OAuth mode)', () => {
     });
 
     expect(res.status).toBe(401);
-    expect(await res.json()).toEqual({ error: 'Unauthorized' });
+    expect(await readJson(res)).toEqual({ error: 'Unauthorized' });
   });
 
   it('returns 401 with WWW-Authenticate pointing to auth server', async () => {
@@ -978,7 +1113,7 @@ describe('MCP endpoint auth gating (OAuth mode)', () => {
     const { location, codeVerifier } = await doOAuthAuthorize(ctx);
     const code = extractCode(location);
     const tokenRes = await doOAuthTokenExchange(code, codeVerifier, ctx);
-    const tokenBody: any = await tokenRes.json();
+    const tokenBody = await readJson(tokenRes);
     const accessToken = tokenBody.access_token;
 
     // Use token to access /mcp — verify auth gate passes (no 401)
@@ -990,7 +1125,7 @@ describe('MCP endpoint auth gating (OAuth mode)', () => {
         signal: controller.signal,
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken}`,
+          Authorization: `Bearer ${accessToken}`,
         },
         body: JSON.stringify({
           jsonrpc: '2.0',
@@ -1012,7 +1147,7 @@ describe('MCP endpoint auth gating (OAuth mode)', () => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer invalid-token',
+        Authorization: 'Bearer invalid-token',
       },
       body: JSON.stringify({
         jsonrpc: '2.0',
@@ -1067,7 +1202,7 @@ describe('MCP endpoint auth gating (OAuth mode)', () => {
           signal: controller.signal,
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': 'Bearer legacy-static-token',
+            Authorization: 'Bearer legacy-static-token',
           },
           body: JSON.stringify({
             jsonrpc: '2.0',
@@ -1088,10 +1223,14 @@ describe('MCP endpoint auth gating (OAuth mode)', () => {
   });
 
   it('metadata endpoints remain public', async () => {
-    const authzRes = await fetch(`http://127.0.0.1:${ctx.port}/.well-known/oauth-authorization-server`);
+    const authzRes = await fetch(
+      `http://127.0.0.1:${ctx.port}/.well-known/oauth-authorization-server`
+    );
     expect(authzRes.status).toBe(200);
 
-    const protectRes = await fetch(`http://127.0.0.1:${ctx.port}/.well-known/oauth-protected-resource`);
+    const protectRes = await fetch(
+      `http://127.0.0.1:${ctx.port}/.well-known/oauth-protected-resource`
+    );
     expect(protectRes.status).toBe(200);
 
     const healthRes = await fetch(`http://127.0.0.1:${ctx.port}/health`);
@@ -1104,8 +1243,12 @@ describe('MCP endpoint auth gating (OAuth mode)', () => {
 describe('POST /register — Dynamic Client Registration', () => {
   let ctx: TestContext;
 
-  beforeEach(async () => { ctx = await createTestServer(); });
-  afterEach(async () => { await closeTestServer(ctx); });
+  beforeEach(async () => {
+    ctx = await createTestServer();
+  });
+  afterEach(async () => {
+    await closeTestServer(ctx);
+  });
 
   it('returns 201 with client_id for valid registration', async () => {
     const res = await fetch(`http://127.0.0.1:${ctx.port}/register`, {
@@ -1122,9 +1265,8 @@ describe('POST /register — Dynamic Client Registration', () => {
     });
 
     expect(res.status).toBe(201);
-    const body = await res.json();
-    expect(body.client_id).toBeTruthy();
-    expect(body.client_id.length).toBe(64);
+    const body = await readJson(res);
+    expect(body.client_id).toEqual(expect.stringMatching(/^.{64}$/));
     expect(body.client_id_issued_at).toBeGreaterThan(0);
     expect(body.redirect_uris).toEqual(['https://claude.ai/api/mcp/auth_callback']);
     expect(body.grant_types).toEqual(['authorization_code']);
@@ -1143,7 +1285,7 @@ describe('POST /register — Dynamic Client Registration', () => {
     });
 
     expect(res.status).toBe(400);
-    const body = await res.json();
+    const body = await readJson(res);
     expect(body.error).toBe('invalid_client_metadata');
   });
 
@@ -1155,7 +1297,7 @@ describe('POST /register — Dynamic Client Registration', () => {
     });
 
     expect(res.status).toBe(400);
-    const body = await res.json();
+    const body = await readJson(res);
     expect(body.error).toBe('invalid_client_metadata');
   });
 
@@ -1167,7 +1309,7 @@ describe('POST /register — Dynamic Client Registration', () => {
     });
 
     expect(res.status).toBe(400);
-    const body = await res.json();
+    const body = await readJson(res);
     expect(body.error).toBe('invalid_client_metadata');
   });
 
@@ -1182,7 +1324,7 @@ describe('POST /register — Dynamic Client Registration', () => {
     });
 
     expect(res.status).toBe(400);
-    const body = await res.json();
+    const body = await readJson(res);
     expect(body.error).toBe('invalid_client_metadata');
   });
 
@@ -1196,7 +1338,7 @@ describe('POST /register — Dynamic Client Registration', () => {
     });
 
     expect(res.status).toBe(201);
-    const body = await res.json();
+    const body = await readJson(res);
     expect(body.client_id).toBeTruthy();
   });
 });
@@ -1223,19 +1365,20 @@ describe('DCR-registered client in OAuth flow', () => {
         scope: 'mcp read write',
       }),
     });
-    const regBody = await regRes.json();
-    registeredClientId = regBody.client_id;
+    registeredClientId = await readJsonString(regRes, 'client_id');
   });
-  afterEach(async () => { await closeTestServer(ctx); });
+  afterEach(async () => {
+    await closeTestServer(ctx);
+  });
 
   it('DCR-registered client_id is accepted by GET /authorize', async () => {
     const challenge = pkceChallenge(randomString());
     const res = await fetch(
       `http://127.0.0.1:${ctx.port}/authorize` +
-      `?response_type=code&client_id=${registeredClientId}` +
-      `&redirect_uri=${encodeURIComponent(registeredRedirectUri)}` +
-      `&code_challenge=${challenge}&code_challenge_method=S256` +
-      `&state=test&scope=mcp`
+        `?response_type=code&client_id=${registeredClientId}` +
+        `&redirect_uri=${encodeURIComponent(registeredRedirectUri)}` +
+        `&code_challenge=${challenge}&code_challenge_method=S256` +
+        `&state=test&scope=mcp`
     );
 
     expect(res.status).toBe(200);
@@ -1246,14 +1389,14 @@ describe('DCR-registered client in OAuth flow', () => {
     const challenge = pkceChallenge(randomString());
     const res = await fetch(
       `http://127.0.0.1:${ctx.port}/authorize` +
-      `?response_type=code&client_id=${registeredClientId}` +
-      `&redirect_uri=https://evil.com/phish` +
-      `&code_challenge=${challenge}&code_challenge_method=S256` +
-      `&state=test&scope=mcp`
+        `?response_type=code&client_id=${registeredClientId}` +
+        `&redirect_uri=https://evil.com/phish` +
+        `&code_challenge=${challenge}&code_challenge_method=S256` +
+        `&state=test&scope=mcp`
     );
 
     expect(res.status).toBe(400);
-    const body = await res.json();
+    const body = await readJson(res);
     expect(body.error).toBe('invalid_request');
   });
 
@@ -1278,7 +1421,7 @@ describe('DCR-registered client in OAuth flow', () => {
     });
 
     expect(tokenRes.status).toBe(200);
-    const tokenBody = await tokenRes.json();
+    const tokenBody = await readJson(tokenRes);
     expect(tokenBody.access_token).toBeTruthy();
   });
 
@@ -1302,7 +1445,7 @@ describe('DCR-registered client in OAuth flow', () => {
     });
 
     expect(tokenRes.status).toBe(400);
-    const body = await tokenRes.json();
+    const body = await readJson(tokenRes);
     expect(body.error).toBe('invalid_grant');
   });
 });
@@ -1323,9 +1466,9 @@ describe('DCR and static allowlist compatibility', () => {
     // Static client should still work
     const res = await fetch(
       `http://127.0.0.1:${ctx.port}/authorize` +
-      `?response_type=code&client_id=cuan-insight-claude` +
-      `&redirect_uri=https://example.com/callback&code_challenge=abc` +
-      `&code_challenge_method=S256&state=xyz&scope=mcp`
+        `?response_type=code&client_id=cuan-insight-claude` +
+        `&redirect_uri=https://example.com/callback&code_challenge=abc` +
+        `&code_challenge_method=S256&state=xyz&scope=mcp`
     );
     expect(res.status).toBe(200);
     await closeTestServer(ctx);
@@ -1337,12 +1480,12 @@ describe('DCR and static allowlist compatibility', () => {
     // Try with a client_id not in allowlist and not DCR-registered
     const res = await fetch(
       `http://127.0.0.1:${ctx.port}/authorize` +
-      `?response_type=code&client_id=unregistered-other` +
-      `&redirect_uri=https://example.com/callback&code_challenge=abc` +
-      `&code_challenge_method=S256&state=xyz&scope=mcp`
+        `?response_type=code&client_id=unregistered-other` +
+        `&redirect_uri=https://example.com/callback&code_challenge=abc` +
+        `&code_challenge_method=S256&state=xyz&scope=mcp`
     );
     expect(res.status).toBe(400);
-    const body = await res.json();
+    const body = await readJson(res);
     expect(body.error).toBe('invalid_client');
     await closeTestServer(ctx);
   });

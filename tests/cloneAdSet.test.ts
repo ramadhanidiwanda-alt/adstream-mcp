@@ -16,7 +16,10 @@ const source = {
     custom_audiences: [{ id: 'aud_1' }],
     geo_locations: { countries: ['ID'] },
   },
-  promoted_object: { product_set_id: 'ps_1', omnichannel_object: { app: [{ application_id: '1' }] } },
+  promoted_object: {
+    product_set_id: 'ps_1',
+    omnichannel_object: { app: [{ application_id: '1' }] },
+  },
   attribution_spec: [{ event_type: 'CLICK_THROUGH', window_days: 7 }],
 };
 
@@ -41,7 +44,10 @@ describe('buildCloneAdSetPayload', () => {
   });
 
   it('strips read-only targeting fields (age_range) but keeps custom audiences', () => {
-    const payload = buildCloneAdSetPayload(source, { adAccountId: 'act_1', sourceAdSetId: 'as_src' });
+    const payload = buildCloneAdSetPayload(source, {
+      adAccountId: 'act_1',
+      sourceAdSetId: 'as_src',
+    });
     const targeting = payload.targeting as Record<string, unknown>;
     expect(targeting.age_range).toBeUndefined();
     expect(targeting.age_min).toBe(18);
@@ -49,17 +55,23 @@ describe('buildCloneAdSetPayload', () => {
   });
 
   it('defaults the name to "<source> (copy)" and omits UNDEFINED destination_type', () => {
-    const payload = buildCloneAdSetPayload(source, { adAccountId: 'act_1', sourceAdSetId: 'as_src' });
+    const payload = buildCloneAdSetPayload(source, {
+      adAccountId: 'act_1',
+      sourceAdSetId: 'as_src',
+    });
     expect(payload.name).toBe('30D | MID MONT JULI (copy)');
     expect(payload.destination_type).toBeUndefined();
   });
 
   it('lets an explicit dailyBudget override the source', () => {
-    const payload = buildCloneAdSetPayload({ ...source, daily_budget: '10000' }, {
-      adAccountId: 'act_1',
-      sourceAdSetId: 'as_src',
-      dailyBudget: 50000,
-    });
+    const payload = buildCloneAdSetPayload(
+      { ...source, daily_budget: '10000' },
+      {
+        adAccountId: 'act_1',
+        sourceAdSetId: 'as_src',
+        dailyBudget: 50000,
+      }
+    );
     expect(payload.daily_budget).toBe(50000);
   });
 });
@@ -74,7 +86,11 @@ describe('cloneAdSet', () => {
 
   it('returns a dry-run preview without creating anything', async () => {
     const post = vi.fn();
-    const r = await cloneAdSet(client(post), { adAccountId: 'act_1', sourceAdSetId: 'as_src', name: 'X' });
+    const r = await cloneAdSet(client(post), {
+      adAccountId: 'act_1',
+      sourceAdSetId: 'as_src',
+      name: 'X',
+    });
     expect(r.status).toBe('dry_run');
     expect(r.sourceAdSetId).toBe('as_src');
     expect(r.preview.name).toBe('X');
@@ -83,15 +99,27 @@ describe('cloneAdSet', () => {
 
   it('requires confirmation before executing', async () => {
     const post = vi.fn();
-    const r = await cloneAdSet(client(post), { adAccountId: 'act_1', sourceAdSetId: 'as_src' }, { dryRun: false, confirmed: false });
+    const r = await cloneAdSet(
+      client(post),
+      { adAccountId: 'act_1', sourceAdSetId: 'as_src' },
+      { dryRun: false, confirmed: false }
+    );
     expect(r.status).toBe('pending_confirmation');
     expect(post).not.toHaveBeenCalled();
   });
 
   it('creates the ad set when confirmed and returns the new id', async () => {
     const post = vi.fn().mockResolvedValue({ id: 'as_new' });
-    const r = await cloneAdSet(client(post), { adAccountId: 'act_1', sourceAdSetId: 'as_src' }, { dryRun: false, confirmed: true });
-    expect(post).toHaveBeenCalledWith('/act_1/adsets', expect.objectContaining({ campaign_id: 'cmp_1' }), 3);
+    const r = await cloneAdSet(
+      client(post),
+      { adAccountId: 'act_1', sourceAdSetId: 'as_src' },
+      { dryRun: false, confirmed: true }
+    );
+    expect(post).toHaveBeenCalledWith(
+      '/act_1/adsets',
+      expect.objectContaining({ campaign_id: 'cmp_1' }),
+      3
+    );
     expect(r.status).toBe('executed');
     expect(r.id).toBe('as_new');
   });

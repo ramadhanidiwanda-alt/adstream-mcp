@@ -1,4 +1,4 @@
-import type { TikTokApiClient } from "../tiktokClient.js";
+import type { TikTokApiClient } from '../tiktokClient.js';
 
 export interface TikTokCampaign {
   campaign_id: string;
@@ -36,10 +36,7 @@ export async function getTikTokCampaigns(
   if (options.page) params.page = options.page;
   if (options.pageSize) params.page_size = options.pageSize;
 
-  const response = await client.get<{ list: TikTokCampaign[] }>(
-    "/campaign/get/",
-    params
-  );
+  const response = await client.get<{ list: TikTokCampaign[] }>('/campaign/get/', params);
 
   return response.list ?? [];
 }

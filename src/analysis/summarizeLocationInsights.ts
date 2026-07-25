@@ -1,4 +1,11 @@
-import type { CampaignInsight, LocationInsightRow, LocationInsightSummary, LocationBreakdown, NestedLocationNode, LocationMetrics } from '../types.js';
+import type {
+  CampaignInsight,
+  LocationInsightRow,
+  LocationInsightSummary,
+  LocationBreakdown,
+  NestedLocationNode,
+  LocationMetrics,
+} from '../types.js';
 
 export interface SummarizeLocationOptions {
   insights: CampaignInsight[];
@@ -67,7 +74,9 @@ function buildRow(insight: CampaignInsight): LocationInsightRow {
   };
 }
 
-export function summarizeLocationInsights(options: SummarizeLocationOptions): LocationInsightSummary {
+export function summarizeLocationInsights(
+  options: SummarizeLocationOptions
+): LocationInsightSummary {
   const {
     insights,
     breakdown,

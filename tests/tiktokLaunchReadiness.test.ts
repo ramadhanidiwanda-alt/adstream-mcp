@@ -28,7 +28,10 @@ describe('checkTikTokLaunchReadiness', () => {
   });
 
   it('flags appId and promotionType as missing for APP_PROMOTION', () => {
-    const result = checkTikTokLaunchReadiness({ objectiveType: 'APP_PROMOTION', writesEnabled: true });
+    const result = checkTikTokLaunchReadiness({
+      objectiveType: 'APP_PROMOTION',
+      writesEnabled: true,
+    });
     expect(result.missing).toContain('appId');
     expect(result.missing).toContain('promotionType');
   });

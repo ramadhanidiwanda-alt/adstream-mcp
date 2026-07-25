@@ -60,7 +60,7 @@ export interface CuanInsightCredentialClientConfig {
    * Authentication mode for credential resolution.
    * - 'mcp_token': legacy MCP token flow (default)
    * - 'connection_key': Connection Key from Cuan Insight UI
- * - 'oauth_token': OAuth access token hash (resolved via mcp-resolve-credential authType=oauth_token)
+   * - 'oauth_token': OAuth access token hash (resolved via mcp-resolve-credential authType=oauth_token)
    *
    * Default: 'mcp_token'
    */
@@ -104,8 +104,7 @@ export const CUAN_INSIGHT_CLIENT_ERROR_CODES = [
   'TIMEOUT_ERROR',
 ] as const;
 
-export type CuanInsightClientErrorCode =
-  (typeof CUAN_INSIGHT_CLIENT_ERROR_CODES)[number];
+export type CuanInsightClientErrorCode = (typeof CUAN_INSIGHT_CLIENT_ERROR_CODES)[number];
 
 /**
  * Error thrown by the Cuan Insight credential client.
@@ -205,7 +204,11 @@ export function createCuanInsightCredentialClient(
       // connection_key mode: connectionKey from request (hosted multi-user) or config (local/single-tenant)
       // Skip connection key requirement when using oauth_token auth type
       const effectiveConnectionKey = request.connectionKey?.trim() || config.connectionKey?.trim();
-      if (authMode === 'connection_key' && request.authType !== 'oauth_token' && !effectiveConnectionKey) {
+      if (
+        authMode === 'connection_key' &&
+        request.authType !== 'oauth_token' &&
+        !effectiveConnectionKey
+      ) {
         throw new CuanInsightCredentialClientError(
           'MISSING_CALLER_TOKEN',
           'Connection key is not configured'
@@ -312,7 +315,11 @@ export function createCuanInsightCredentialClient(
           if (normalizedResponse && typeof normalizedResponse === 'object') {
             const nr = normalizedResponse as Record<string, unknown>;
             for (const key of Object.keys(nr)) {
-              if (['providerToken','accessToken','token','key','secret','password'].some(k => key.toLowerCase().includes(k))) {
+              if (
+                ['providerToken', 'accessToken', 'token', 'key', 'secret', 'password'].some((k) =>
+                  key.toLowerCase().includes(k)
+                )
+              ) {
                 safeShape[key] = '<redacted>';
               } else if (typeof nr[key] === 'object' && nr[key] !== null) {
                 safeShape[key] = '<object>';
@@ -359,9 +366,7 @@ export function createCuanInsightCredentialClient(
   };
 }
 
-function normalizeCuanInsightResponse(
-  value: unknown
-): unknown {
+function normalizeCuanInsightResponse(value: unknown): unknown {
   if (!value || typeof value !== 'object') {
     return value;
   }
@@ -389,11 +394,10 @@ function normalizeCuanInsightResponse(
  * This is a runtime type guard to ensure the response from Cuan Insight
  * matches the expected shape before returning it to the caller.
  */
-function isValidCuanInsightResponse(
-  value: unknown
-): value is CuanInsightCredentialResolveResponse {
+function isValidCuanInsightResponse(value: unknown): value is CuanInsightCredentialResolveResponse {
   if (!value || typeof value !== 'object') {
-    if (process.env.MCP_OAUTH_DEBUG === 'true') console.log('[TOOL_DEBUG] contract.fail', 'not_object');
+    if (process.env.MCP_OAUTH_DEBUG === 'true')
+      console.log('[TOOL_DEBUG] contract.fail', 'not_object');
     return false;
   }
 
@@ -401,19 +405,28 @@ function isValidCuanInsightResponse(
 
   // ok field is required and must be boolean
   if (typeof response.ok !== 'boolean') {
-    if (process.env.MCP_OAUTH_DEBUG === 'true') console.log('[TOOL_DEBUG] contract.fail', 'ok_not_boolean', { ok_type: typeof response.ok, ok: response.ok });
+    if (process.env.MCP_OAUTH_DEBUG === 'true')
+      console.log('[TOOL_DEBUG] contract.fail', 'ok_not_boolean', {
+        ok_type: typeof response.ok,
+        ok: response.ok,
+      });
     return false;
   }
 
   // If ok is false, error must be present
   if (response.ok === false) {
     if (!response.error || typeof response.error !== 'object') {
-      if (process.env.MCP_OAUTH_DEBUG === 'true') console.log('[TOOL_DEBUG] contract.fail', 'error_missing');
+      if (process.env.MCP_OAUTH_DEBUG === 'true')
+        console.log('[TOOL_DEBUG] contract.fail', 'error_missing');
       return false;
     }
     const error = response.error as Record<string, unknown>;
     if (typeof error.code !== 'string' || typeof error.message !== 'string') {
-      if (process.env.MCP_OAUTH_DEBUG === 'true') console.log('[TOOL_DEBUG] contract.fail', 'error_fields_invalid', { code_type: typeof error.code, msg_type: typeof error.message });
+      if (process.env.MCP_OAUTH_DEBUG === 'true')
+        console.log('[TOOL_DEBUG] contract.fail', 'error_fields_invalid', {
+          code_type: typeof error.code,
+          msg_type: typeof error.message,
+        });
       return false;
     }
   }
@@ -423,55 +436,68 @@ function isValidCuanInsightResponse(
     // identity is optional but must be valid if present
     if (response.identity !== undefined) {
       if (typeof response.identity !== 'object' || !response.identity) {
-        if (process.env.MCP_OAUTH_DEBUG === 'true') console.log('[TOOL_DEBUG] contract.fail', 'identity_not_object');
+        if (process.env.MCP_OAUTH_DEBUG === 'true')
+          console.log('[TOOL_DEBUG] contract.fail', 'identity_not_object');
         return false;
       }
       const identity = response.identity as Record<string, unknown>;
       if (
-        identity.workspaceId !== undefined &&
-        identity.workspaceId !== null &&
-        typeof identity.workspaceId !== 'string' ||
+        (identity.workspaceId !== undefined &&
+          identity.workspaceId !== null &&
+          typeof identity.workspaceId !== 'string') ||
         typeof identity.plan !== 'string'
       ) {
-        if (process.env.MCP_OAUTH_DEBUG === 'true') console.log('[TOOL_DEBUG] contract.fail', 'identity_fields', { ws_type: typeof identity.workspaceId, ws_val: identity.workspaceId, plan_type: typeof identity.plan, plan_val: identity.plan });
+        if (process.env.MCP_OAUTH_DEBUG === 'true')
+          console.log('[TOOL_DEBUG] contract.fail', 'identity_fields', {
+            ws_type: typeof identity.workspaceId,
+            ws_val: identity.workspaceId,
+            plan_type: typeof identity.plan,
+            plan_val: identity.plan,
+          });
         return false;
       }
-      if (
-        identity.userId !== undefined &&
-        typeof identity.userId !== 'string'
-      ) {
-        if (process.env.MCP_OAUTH_DEBUG === 'true') console.log('[TOOL_DEBUG] contract.fail', 'identity_userid', { userid_type: typeof identity.userId });
+      if (identity.userId !== undefined && typeof identity.userId !== 'string') {
+        if (process.env.MCP_OAUTH_DEBUG === 'true')
+          console.log('[TOOL_DEBUG] contract.fail', 'identity_userid', {
+            userid_type: typeof identity.userId,
+          });
         return false;
       }
     }
 
     // providerAccess is optional but must be valid if present
     if (response.providerAccess !== undefined) {
-      if (
-        typeof response.providerAccess !== 'object' ||
-        !response.providerAccess
-      ) {
-        if (process.env.MCP_OAUTH_DEBUG === 'true') console.log('[TOOL_DEBUG] contract.fail', 'providerAccess_not_object');
+      if (typeof response.providerAccess !== 'object' || !response.providerAccess) {
+        if (process.env.MCP_OAUTH_DEBUG === 'true')
+          console.log('[TOOL_DEBUG] contract.fail', 'providerAccess_not_object');
         return false;
       }
       const access = response.providerAccess as Record<string, unknown>;
       if (
         typeof access.provider !== 'string' ||
-        typeof access.accountId !== 'string' && access.accountId !== null ||
+        (typeof access.accountId !== 'string' && access.accountId !== null) ||
         !Array.isArray(access.scopes) ||
         typeof access.allowed !== 'boolean'
       ) {
-        if (process.env.MCP_OAUTH_DEBUG === 'true') console.log('[TOOL_DEBUG] contract.fail', 'providerAccess_fields', { prov_type: typeof access.provider, acct_type: typeof access.accountId, acct_val: access.accountId, scopes_is_array: Array.isArray(access.scopes), allowed_type: typeof access.allowed, allowed_val: access.allowed });
+        if (process.env.MCP_OAUTH_DEBUG === 'true')
+          console.log('[TOOL_DEBUG] contract.fail', 'providerAccess_fields', {
+            prov_type: typeof access.provider,
+            acct_type: typeof access.accountId,
+            acct_val: access.accountId,
+            scopes_is_array: Array.isArray(access.scopes),
+            allowed_type: typeof access.allowed,
+            allowed_val: access.allowed,
+          });
         return false;
       }
     }
 
     // providerToken is optional but must be string if present
-    if (
-      response.providerToken !== undefined &&
-      typeof response.providerToken !== 'string'
-    ) {
-      if (process.env.MCP_OAUTH_DEBUG === 'true') console.log('[TOOL_DEBUG] contract.fail', 'providerToken_type', { tok_type: typeof response.providerToken });
+    if (response.providerToken !== undefined && typeof response.providerToken !== 'string') {
+      if (process.env.MCP_OAUTH_DEBUG === 'true')
+        console.log('[TOOL_DEBUG] contract.fail', 'providerToken_type', {
+          tok_type: typeof response.providerToken,
+        });
       return false;
     }
   }

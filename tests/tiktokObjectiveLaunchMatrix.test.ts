@@ -94,13 +94,18 @@ describe('TikTok objective launch matrix', () => {
 
   it('buildTikTokObjectiveFields returns adgroup-level app fields for APP_PROMOTION', () => {
     const spec = resolveTikTokObjectiveLaunchSpec({ objectiveType: 'APP_PROMOTION' });
-    const fields = buildTikTokObjectiveFields(spec, { appId: 'app_1', promotionType: 'APP_INSTALL' });
+    const fields = buildTikTokObjectiveFields(spec, {
+      appId: 'app_1',
+      promotionType: 'APP_INSTALL',
+    });
     expect(fields.adgroup).toEqual({ app_id: 'app_1', promotion_type: 'APP_INSTALL' });
   });
 
   it('buildTikTokObjectiveFields throws MISSING_OBJECTIVE_FIELD when required field absent', () => {
     const spec = resolveTikTokObjectiveLaunchSpec({ objectiveType: 'APP_PROMOTION' });
-    expect(() => buildTikTokObjectiveFields(spec, {})).toThrow(TikTokObjectiveLaunchValidationError);
+    expect(() => buildTikTokObjectiveFields(spec, {})).toThrow(
+      TikTokObjectiveLaunchValidationError
+    );
   });
 
   it('buildTikTokObjectiveFields returns adgroup-level pixel fields for WEB_CONVERSIONS', () => {

@@ -133,7 +133,9 @@ describe('MetaClient — Pagination', () => {
       .mockResolvedValueOnce(
         mockResponse(page1, { next: 'https://graph.facebook.com/v20.0/test?after=c2' })
       )
-      .mockResolvedValueOnce(mockResponse(emptyPage, { next: 'https://graph.facebook.com/v20.0/test?after=c3' }));
+      .mockResolvedValueOnce(
+        mockResponse(emptyPage, { next: 'https://graph.facebook.com/v20.0/test?after=c3' })
+      );
 
     const result = await client.metaGet<{ data: Array<{ id: string }> }>(
       '/test',
@@ -188,7 +190,9 @@ describe('MetaClient — Pagination', () => {
 
     fetchSpy
       .mockResolvedValueOnce(
-        mockResponse(page1, { next: 'https://graph.facebook.com/v20.0/test?after=eyJ0eXBlIjoiRkEifQ%3D%3D' })
+        mockResponse(page1, {
+          next: 'https://graph.facebook.com/v20.0/test?after=eyJ0eXBlIjoiRkEifQ%3D%3D',
+        })
       )
       .mockResolvedValueOnce(mockResponse(page2));
 
@@ -222,7 +226,13 @@ describe('MetaClient — Rate Limit', () => {
 
   it('parses X-Ad-Account-Usage header correctly', async () => {
     const usageHeader = JSON.stringify({
-      acc_id_act_123: { usage: 28, acc_id: 'act_123', call_count: 28, total_cputime: 3, total_time: 3 },
+      acc_id_act_123: {
+        usage: 28,
+        acc_id: 'act_123',
+        call_count: 28,
+        total_cputime: 3,
+        total_time: 3,
+      },
     });
 
     fetchSpy.mockResolvedValue(
@@ -239,7 +249,13 @@ describe('MetaClient — Rate Limit', () => {
   it('retries on HTTP 429 with exponential backoff', async () => {
     // 429 first, then 429 again, then success
     const usageHeader = JSON.stringify({
-      acc_id_act_123: { usage: 95, acc_id: 'act_123', call_count: 95, total_cputime: 10, total_time: 10 },
+      acc_id_act_123: {
+        usage: 95,
+        acc_id: 'act_123',
+        call_count: 95,
+        total_cputime: 10,
+        total_time: 10,
+      },
     });
 
     fetchSpy
@@ -309,7 +325,13 @@ describe('MetaClient — Rate Limit', () => {
 
   it('applies longer page delay when rate limit >80% in paginated mode', async () => {
     const usageHeader = JSON.stringify({
-      acc_id_act_123: { usage: 85, acc_id: 'act_123', call_count: 85, total_cputime: 10, total_time: 10 },
+      acc_id_act_123: {
+        usage: 85,
+        acc_id: 'act_123',
+        call_count: 85,
+        total_cputime: 10,
+        total_time: 10,
+      },
     });
 
     const page1 = [{ id: '1' }];
@@ -349,9 +371,9 @@ describe('MetaClient — Rate Limit', () => {
       })
     );
 
-    await expect(
-      client.metaGet<{ data: Array<{ id: string }> }>('/test')
-    ).rejects.toThrow(MetaApiError);
+    await expect(client.metaGet<{ data: Array<{ id: string }> }>('/test')).rejects.toThrow(
+      MetaApiError
+    );
 
     // Only 1 call, no retry for non-429
     expect(fetchSpy).toHaveBeenCalledTimes(1);

@@ -110,7 +110,8 @@ export async function createTikTokAdGroup(
   if (options.scheduleStartTime) body.schedule_start_time = options.scheduleStartTime;
   if (options.scheduleEndTime) body.schedule_end_time = options.scheduleEndTime;
   if (options.creativeMaterialMode) body.creative_material_mode = options.creativeMaterialMode;
-  if (options.conversionBidPrice !== undefined) body.conversion_bid_price = options.conversionBidPrice;
+  if (options.conversionBidPrice !== undefined)
+    body.conversion_bid_price = options.conversionBidPrice;
   if (options.frequency !== undefined) body.frequency = options.frequency;
   if (options.frequencySchedule !== undefined) body.frequency_schedule = options.frequencySchedule;
   if (options.dayparting) body.dayparting = options.dayparting;
@@ -171,7 +172,8 @@ function buildTargeting(t: TargetingObject): Record<string, unknown> {
   if (t.device_price_ranges) targeting.device_price_ranges = t.device_price_ranges;
   if (t.excluded_audience_ids) targeting.excluded_audience_ids = t.excluded_audience_ids;
   if (t.excluded_custom_actions) targeting.excluded_custom_actions = t.excluded_custom_actions;
-  if (t.excluded_pangle_audience_package_ids) targeting.excluded_pangle_audience_package_ids = t.excluded_pangle_audience_package_ids;
+  if (t.excluded_pangle_audience_package_ids)
+    targeting.excluded_pangle_audience_package_ids = t.excluded_pangle_audience_package_ids;
   if (t.gender) targeting.gender = t.gender;
   if (t.household_income) targeting.household_income = t.household_income;
   if (t.interest_category_ids) targeting.interest_category_ids = t.interest_category_ids;

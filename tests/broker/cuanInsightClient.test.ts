@@ -1034,7 +1034,7 @@ describe('createCuanInsightCredentialClient — hosted Supabase auth', () => {
       })
     );
 
-    const callArgs = mockFetch.mock.calls[0];
+    const callArgs = vi.mocked(mockFetch).mock.calls[0];
     const headers = (callArgs[1] as RequestInit).headers as Record<string, string>;
     expect(headers['X-Cuan-MCP-Token']).toBeUndefined();
   });
@@ -1158,7 +1158,7 @@ describe('createCuanInsightCredentialClient — connection_key auth mode', () =>
       })
     );
 
-    const callArgs = mockFetch.mock.calls[0];
+    const callArgs = vi.mocked(mockFetch).mock.calls[0];
     const headers = (callArgs[1] as RequestInit).headers as Record<string, string>;
     expect(headers['x-cuan-mcp-connection-key']).toBeUndefined();
   });
@@ -1205,7 +1205,7 @@ describe('createCuanInsightCredentialClient — connection_key auth mode', () =>
       })
     );
 
-    const callArgs = mockFetch.mock.calls[0];
+    const callArgs = vi.mocked(mockFetch).mock.calls[0];
     const headers = (callArgs[1] as RequestInit).headers as Record<string, string>;
     // Should NOT have X-Cuan-MCP-Token in connection_key mode
     expect(headers['X-Cuan-MCP-Token']).toBeUndefined();
@@ -1244,7 +1244,7 @@ describe('createCuanInsightCredentialClient — connection_key auth mode', () =>
       requestedScopes: ['read'],
     });
 
-    const callArgs = mockFetch.mock.calls[0];
+    const callArgs = vi.mocked(mockFetch).mock.calls[0];
     const headers = (callArgs[1] as RequestInit).headers as Record<string, string>;
 
     expect(headers['Authorization']).toBe(`Bearer ${SUPABASE_ANON_KEY}`);
@@ -1284,7 +1284,7 @@ describe('createCuanInsightCredentialClient — connection_key auth mode', () =>
       requestedScopes: ['read'],
     });
 
-    const callArgs = mockFetch.mock.calls[0];
+    const callArgs = vi.mocked(mockFetch).mock.calls[0];
     const headers = (callArgs[1] as RequestInit).headers as Record<string, string>;
 
     // MCP token mode: Authorization Bearer with callerToken, no connection key
@@ -1446,7 +1446,7 @@ describe('createCuanInsightCredentialClient — per-request connection key (host
     });
 
     // Should use request-scoped key, not config key
-    const callArgs = mockFetch.mock.calls[0];
+    const callArgs = vi.mocked(mockFetch).mock.calls[0];
     const headers = (callArgs[1] as RequestInit).headers as Record<string, string>;
     expect(headers['x-cuan-mcp-connection-key']).toBe(REQUEST_CONNECTION_KEY);
     expect(headers['x-cuan-mcp-connection-key']).not.toBe(CONNECTION_KEY);
@@ -1484,7 +1484,7 @@ describe('createCuanInsightCredentialClient — per-request connection key (host
       requestedScopes: ['read'],
     });
 
-    const callArgs = mockFetch.mock.calls[0];
+    const callArgs = vi.mocked(mockFetch).mock.calls[0];
     const headers = (callArgs[1] as RequestInit).headers as Record<string, string>;
     expect(headers['x-cuan-mcp-connection-key']).toBe(REQUEST_CONNECTION_KEY);
   });
@@ -1533,7 +1533,7 @@ describe('createCuanInsightCredentialClient — per-request connection key (host
       requestedScopes: ['read'],
     });
 
-    const calls = mockFetch.mock.calls;
+    const calls = vi.mocked(mockFetch).mock.calls;
     const headersA = (calls[0][1] as RequestInit).headers as Record<string, string>;
     const headersB = (calls[1][1] as RequestInit).headers as Record<string, string>;
 
@@ -1595,7 +1595,7 @@ describe('createCuanInsightCredentialClient — per-request connection key (host
       requestedScopes: ['read'],
     });
 
-    const callArgs = mockFetch.mock.calls[0];
+    const callArgs = vi.mocked(mockFetch).mock.calls[0];
     const headers = (callArgs[1] as RequestInit).headers as Record<string, string>;
     expect(headers['x-cuan-mcp-connection-key']).toBe(CONNECTION_KEY);
   });
@@ -1669,7 +1669,7 @@ describe('createCuanInsightCredentialClient — per-request connection key (host
       requestedScopes: ['read'],
     });
 
-    const callArgs = mockFetch.mock.calls[0];
+    const callArgs = vi.mocked(mockFetch).mock.calls[0];
     const headers = (callArgs[1] as RequestInit).headers as Record<string, string>;
     // mcp_token mode: Authorization Bearer with callerToken
     expect(headers['Authorization']).toBe(`Bearer ${CALLER_TOKEN}`);
@@ -1714,9 +1714,7 @@ describe('createCuanInsightCredentialClient — URL construction', () => {
       requestedScopes: ['read'],
     });
 
-    expect(capturedUrl).toBe(
-      'https://project.supabase.co/functions/v1/mcp-resolve-credential'
-    );
+    expect(capturedUrl).toBe('https://project.supabase.co/functions/v1/mcp-resolve-credential');
   });
 
   it('preserves base URL path with trailing slash', async () => {
@@ -1754,9 +1752,7 @@ describe('createCuanInsightCredentialClient — URL construction', () => {
       requestedScopes: ['read'],
     });
 
-    expect(capturedUrl).toBe(
-      'https://project.supabase.co/functions/v1/mcp-resolve-credential'
-    );
+    expect(capturedUrl).toBe('https://project.supabase.co/functions/v1/mcp-resolve-credential');
   });
 
   it('handles base URL without path segments', async () => {
@@ -1794,8 +1790,6 @@ describe('createCuanInsightCredentialClient — URL construction', () => {
       requestedScopes: ['read'],
     });
 
-    expect(capturedUrl).toBe(
-      'https://api.example.com/mcp/credentials/resolve'
-    );
+    expect(capturedUrl).toBe('https://api.example.com/mcp/credentials/resolve');
   });
 });

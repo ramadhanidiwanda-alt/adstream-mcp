@@ -6,6 +6,8 @@ import { ADS_MCP_TOOL_DEFINITIONS, getAdsMcpToolDefinitions } from '../src/broke
 import { COMMERCE_MCP_TOOL_DEFINITIONS } from '../src/broker/commerceTools.js';
 import { META_ODAX_OBJECTIVES } from '../src/providers/meta/objectiveLaunchMatrix.js';
 import type { AdsBroker } from '../src/broker/AdsBroker.js';
+import { metaConfig } from './support/fixtures.js';
+import { toolResultText, toolSchemaProperty } from './support/mcp.js';
 
 const legacyToolNames = [
   'meta_get_ad_accounts',
@@ -88,7 +90,7 @@ function createBrokerStub(): AdsBroker {
 
 async function createConnectedClient(
   options: Parameters<typeof createMetaAdsMcpServer>[0] = {
-    config: { adAccountId: 'act_123' },
+    config: metaConfig({ adAccountId: 'act_123' }),
     adsBroker: createBrokerStub(),
   }
 ) {
@@ -161,7 +163,7 @@ describe('MCP server builder', () => {
         })),
       } as unknown as AdsBroker;
       const { client, server } = await createConnectedClient({
-        config: { adAccountId: 'act_123' },
+        config: metaConfig({ adAccountId: 'act_123' }),
         adsBroker,
       });
 
@@ -201,7 +203,7 @@ describe('MCP server builder', () => {
       })),
     } as unknown as AdsBroker;
     const { client, server } = await createConnectedClient({
-      config: { adAccountId: 'act_123' },
+      config: metaConfig({ adAccountId: 'act_123' }),
       adsBroker,
     });
 
@@ -261,7 +263,7 @@ describe('MCP server builder', () => {
       listAdVideos: vi.fn(async () => ({ ok: true, provider: 'meta', data: [{ id: 'video-1' }] })),
     } as unknown as AdsBroker;
     const { client, server } = await createConnectedClient({
-      config: { adAccountId: 'act_123' },
+      config: metaConfig({ adAccountId: 'act_123' }),
       adsBroker,
     });
 
@@ -300,7 +302,7 @@ describe('MCP server builder', () => {
       })),
     } as unknown as AdsBroker;
     const { client, server } = await createConnectedClient({
-      config: { adAccountId: 'act_123' },
+      config: metaConfig({ adAccountId: 'act_123' }),
       adsBroker,
     });
 
@@ -334,16 +336,14 @@ describe('MCP server builder', () => {
     const adSetTool = response.tools.find((tool) => tool.name === 'ads_create_adset');
     const creativeTool = response.tools.find((tool) => tool.name === 'ads_create_adcreative');
 
-    expect(adSetTool?.inputSchema.properties.isDynamicCreative.description).toMatch(/legacy/i);
-    expect(adSetTool?.inputSchema.properties.isDynamicCreative.description).toMatch(
-      /jangan diisi/i
-    );
+    expect(toolSchemaProperty(adSetTool, 'isDynamicCreative').description).toMatch(/legacy/i);
+    expect(toolSchemaProperty(adSetTool, 'isDynamicCreative').description).toMatch(/jangan diisi/i);
     expect(creativeTool?.inputSchema.properties).toHaveProperty('objectStorySpec');
     expect(creativeTool?.inputSchema.properties).toHaveProperty('assetFeedSpec');
     expect(creativeTool?.inputSchema.properties).toHaveProperty('urlTags');
     expect(creativeTool?.inputSchema.required).not.toContain('message');
     expect(creativeTool?.description).toContain('Flexible');
-    expect(creativeTool?.inputSchema.properties.assetFeedSpec.description).toContain('Flexible');
+    expect(toolSchemaProperty(creativeTool, 'assetFeedSpec').description).toContain('Flexible');
   });
 
   it('accepts urlTags at the MCP schema boundary for Meta URL parameters', async () => {
@@ -352,7 +352,7 @@ describe('MCP server builder', () => {
     const urlTags =
       'utm_source={{site_source_name}}&utm_medium={{placement}}&utm_campaign={{campaign.name}}&utm_content={{ad.id}}';
     const { client, server } = await createConnectedClient({
-      config: { adAccountId: 'act_123' },
+      config: metaConfig({ adAccountId: 'act_123' }),
       adsBroker,
     });
 
@@ -522,7 +522,7 @@ describe('MCP server builder', () => {
     process.env.ADSTREAM_ENABLE_WRITES = 'true';
     const adsBroker = createBrokerStub();
     const { client, server } = await createConnectedClient({
-      config: { adAccountId: 'act_123' },
+      config: metaConfig({ adAccountId: 'act_123' }),
       adsBroker,
     });
 
@@ -564,7 +564,7 @@ describe('MCP server builder', () => {
       })),
     } as unknown as AdsBroker;
     const { client, server } = await createConnectedClient({
-      config: { adAccountId: 'act_123' },
+      config: metaConfig({ adAccountId: 'act_123' }),
       adsBroker,
     });
 
@@ -580,7 +580,7 @@ describe('MCP server builder', () => {
       });
 
       expect(response.isError).not.toBe(true);
-      expect(response.content?.[0]?.text ?? '').not.toMatch(/objective.*Required/i);
+      expect(toolResultText(response)).not.toMatch(/objective.*Required/i);
       expect(adsBroker.createCampaign).toHaveBeenCalledWith(
         expect.objectContaining({
           provider: 'tiktok',
@@ -601,7 +601,7 @@ describe('MCP server builder', () => {
     process.env.ADSTREAM_ENABLE_WRITES = 'true';
     const adsBroker = createBrokerStub();
     const { client, server } = await createConnectedClient({
-      config: { adAccountId: 'act_123' },
+      config: metaConfig({ adAccountId: 'act_123' }),
       adsBroker,
     });
 
@@ -650,7 +650,7 @@ describe('MCP server builder', () => {
       });
 
       expect(response.isError).toBe(true);
-      expect(response.content[0]?.text).toMatch(/titles/i);
+      expect(toolResultText(response)).toMatch(/titles/i);
     } finally {
       await Promise.all([client.close(), server.close()]);
     }
@@ -669,7 +669,7 @@ describe('MCP server builder', () => {
       call_to_action_types: ['LEARN_MORE'],
     };
     const { client, server } = await createConnectedClient({
-      config: { adAccountId: 'act_123' },
+      config: metaConfig({ adAccountId: 'act_123' }),
       adsBroker,
     });
 
@@ -708,7 +708,7 @@ describe('MCP server builder', () => {
       },
     };
     const { client, server } = await createConnectedClient({
-      config: { adAccountId: 'act_123' },
+      config: metaConfig({ adAccountId: 'act_123' }),
       adsBroker,
     });
 
@@ -784,7 +784,7 @@ describe('MCP server builder', () => {
         arguments: {},
       });
 
-      const text = response.content[0]?.text ?? '';
+      const text = toolResultText(response);
       expect(text).toContain('"ok": true');
       expect(text).not.toContain('test-mcp-token-secret');
       expect(text).not.toContain('test-supabase-anon-key');

@@ -10,10 +10,20 @@ import type {
   AdsProviderId,
   CredentialContext,
 } from '../src/broker/types.js';
-import type { CredentialResolveRequest, CredentialResolveResult } from '../src/broker/credentials.js';
+import { isAdsProviderId } from '../src/broker/types.js';
+import type {
+  CredentialResolveRequest,
+  CredentialResolveResult,
+} from '../src/broker/credentials.js';
+import { providerAdapterStub } from './support/adapter.js';
 
 class StubCredentialResolver {
   async resolve(request: CredentialResolveRequest): Promise<CredentialResolveResult> {
+    // CredentialResolveRequest.provider is `unknown`; the real resolvers all
+    // narrow it with isAdsProviderId before use, so the stub does too.
+    if (!isAdsProviderId(request.provider)) {
+      throw new Error(`Stub resolver got a non-provider: ${String(request.provider)}`);
+    }
     return {
       ok: true,
       credential: {
@@ -26,7 +36,10 @@ class StubCredentialResolver {
   }
 }
 
-function accountRecord(provider: AdsProviderId, options: Partial<AdsMetricRecord> = {}): AdsMetricRecord {
+function accountRecord(
+  provider: AdsProviderId,
+  options: Partial<AdsMetricRecord> = {}
+): AdsMetricRecord {
   return {
     provider,
     level: 'account',
@@ -42,10 +55,12 @@ function createAdapter(
   id: AdsProviderId,
   accountResponse: () => Promise<AdsBrokerResponse<AdsMetricRecord[]>>
 ): AdsProviderAdapter {
-  const notUsed = async (): Promise<AdsBrokerResponse<AdsMetricRecord[]>> => ({ ok: true, provider: id, data: [] });
-  return {
-    id,
-    displayName: `${id} stub`,
+  const notUsed = async (): Promise<AdsBrokerResponse<AdsMetricRecord[]>> => ({
+    ok: true,
+    provider: id,
+    data: [],
+  });
+  return providerAdapterStub(id, {
     capabilities: { providers: [id], categories: ['insights', 'reports'], operations: ['read'] },
     listAccounts: async () => ({ ok: true, provider: id, data: [] }),
     listCampaigns: async () => ({ ok: true, provider: id, data: [] }),
@@ -55,17 +70,16 @@ function createAdapter(
     getAdPerformance: notUsed,
     getCreativePerformance: notUsed,
     getPlacementPerformance: async () => ({ ok: true, provider: id, data: [] }),
-    pauseCampaign: async () => ({ ok: false, provider: id, errors: [{ provider: id, code: 'NOT_IMPLEMENTED', message: 'no' }] }),
-    resumeCampaign: async () => ({ ok: false, provider: id, errors: [{ provider: id, code: 'NOT_IMPLEMENTED', message: 'no' }] }),
-    updateCampaignBudget: async () => ({ ok: false, provider: id, errors: [{ provider: id, code: 'NOT_IMPLEMENTED', message: 'no' }] }),
-    renameCampaign: async () => ({ ok: false, provider: id, errors: [{ provider: id, code: 'NOT_IMPLEMENTED', message: 'no' }] }),
-  } as AdsProviderAdapter;
+  });
 }
 
 function createBroker(adapters: AdsProviderAdapter[]): AdsBroker {
   const registry = new ProviderRegistry();
   for (const adapter of adapters) registry.register(adapter);
-  return new AdsBroker({ providerRegistry: registry, credentialResolver: new StubCredentialResolver() });
+  return new AdsBroker({
+    providerRegistry: registry,
+    credentialResolver: new StubCredentialResolver(),
+  });
 }
 
 const baseRequest: AdsBrokerRequest = {
@@ -80,20 +94,24 @@ describe('AdsBroker cross-provider reports', () => {
     const meta = createAdapter('meta', async () => ({
       ok: true,
       provider: 'meta',
-      data: [accountRecord('meta', {
-        delivery: { spend: 100, impressions: 1000 },
-        clicks: { clicks: 50 },
-        commerce: { purchase_value: 400 },
-      })],
+      data: [
+        accountRecord('meta', {
+          delivery: { spend: 100, impressions: 1000 },
+          clicks: { clicks: 50 },
+          commerce: { purchase_value: 400 },
+        }),
+      ],
     }));
     const tiktok = createAdapter('tiktok', async () => ({
       ok: true,
       provider: 'tiktok',
-      data: [accountRecord('tiktok', {
-        delivery: { spend: 50, impressions: 500 },
-        clicks: { clicks: 30 },
-        conversions: { conversion_value: 200 },
-      })],
+      data: [
+        accountRecord('tiktok', {
+          delivery: { spend: 50, impressions: 500 },
+          clicks: { clicks: 30 },
+          conversions: { conversion_value: 200 },
+        }),
+      ],
     }));
 
     const broker = createBroker([meta, tiktok]);
@@ -157,12 +175,22 @@ describe('AdsBroker cross-provider reports', () => {
     const meta = createAdapter('meta', async () => ({
       ok: true,
       provider: 'meta',
-      data: [accountRecord('meta', { setup: { currency: 'USD' }, delivery: { spend: 100, impressions: 1000 } })],
+      data: [
+        accountRecord('meta', {
+          setup: { currency: 'USD' },
+          delivery: { spend: 100, impressions: 1000 },
+        }),
+      ],
     }));
     const tiktok = createAdapter('tiktok', async () => ({
       ok: true,
       provider: 'tiktok',
-      data: [accountRecord('tiktok', { setup: { currency: 'IDR' }, delivery: { spend: 50, impressions: 500 } })],
+      data: [
+        accountRecord('tiktok', {
+          setup: { currency: 'IDR' },
+          delivery: { spend: 50, impressions: 500 },
+        }),
+      ],
     }));
 
     const broker = createBroker([meta, tiktok]);

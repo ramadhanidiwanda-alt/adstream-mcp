@@ -156,8 +156,9 @@ export async function getSmartPlusCampaign(
   };
   if (options.campaignIds) params.campaign_ids = JSON.stringify(options.campaignIds);
 
-  return client.get<{ list: SmartPlusCampaignResult[] }>('/smart_plus/campaign/get/', params)
-    .then(r => r.list ?? []);
+  return client
+    .get<{ list: SmartPlusCampaignResult[] }>('/smart_plus/campaign/get/', params)
+    .then((r) => r.list ?? []);
 }
 
 /**

@@ -2,7 +2,10 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { AdsBroker } from '../../src/broker/AdsBroker.js';
 import { CredentialResolver, CuanInsightCredentialProvider } from '../../src/broker/credentials.js';
 import { createDefaultProviderRegistry } from '../../src/broker/factory.js';
-import type { CuanInsightCredentialClient, CuanInsightCredentialResolveResponse } from '../../src/broker/cuanInsight.js';
+import type {
+  CuanInsightCredentialClient,
+  CuanInsightCredentialResolveResponse,
+} from '../../src/broker/cuanInsight.js';
 
 const PROVIDER_TOKEN = 'provider-token-secret-value';
 const CALLER_TOKEN = 'caller-token-secret-value';
@@ -51,7 +54,7 @@ describe('Remote broker integration', () => {
 
     // This will fail at the Meta API call level (no real token), but proves
     // the credential resolution path works
-    const result = await broker.listAccounts({ provider: 'meta' });
+    const result = await broker.listAccounts({ provider: 'meta', params: {} });
 
     // We expect an error from Meta API, not from credential resolution
     expect(result.ok).toBe(false);
@@ -84,7 +87,7 @@ describe('Remote broker integration', () => {
       }),
     });
 
-    const result = await broker.listAccounts({ provider: 'meta' });
+    const result = await broker.listAccounts({ provider: 'meta', params: {} });
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
@@ -116,7 +119,7 @@ describe('Remote broker integration', () => {
       }),
     });
 
-    const result = await broker.listAccounts({ provider: 'meta' });
+    const result = await broker.listAccounts({ provider: 'meta', params: {} });
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
@@ -145,7 +148,7 @@ describe('Remote broker integration', () => {
       }),
     });
 
-    const result = await broker.listAccounts({ provider: 'meta' });
+    const result = await broker.listAccounts({ provider: 'meta', params: {} });
 
     expect(result.ok).toBe(false);
     // Ensure tokens are redacted
@@ -176,7 +179,7 @@ describe('Remote broker integration', () => {
       }),
     });
 
-    const result = await broker.listAccounts({ provider: 'tiktok' });
+    const result = await broker.listAccounts({ provider: 'tiktok', params: {} });
 
     // Should fail at TikTok API level, not credential resolution
     expect(result.ok).toBe(false);
@@ -211,7 +214,7 @@ describe('Remote broker — discovery flow for ads_list_accounts', () => {
       }),
     });
 
-    const result = await broker.listAccounts({ provider: 'meta' });
+    const result = await broker.listAccounts({ provider: 'meta', params: {} });
 
     // Will fail at Meta API (no real network), but credential resolution should succeed
     expect(result.ok).toBe(false);
@@ -224,17 +227,19 @@ describe('Remote broker — discovery flow for ads_list_accounts', () => {
   });
 
   it('account-scoped tools still pass accountId normally', async () => {
-    const resolve = vi.fn(async () => ({
-      ok: true,
-      providerAccess: {
-        provider: 'meta',
-        accountId: 'act_123',
-        scopes: ['read'],
-        allowed: true,
-      },
-      providerToken: PROVIDER_TOKEN,
-      providerApiVersion: 'v20.0',
-    }));
+    const resolve = vi.fn(
+      async (): Promise<CuanInsightCredentialResolveResponse> => ({
+        ok: true,
+        providerAccess: {
+          provider: 'meta',
+          accountId: 'act_123',
+          scopes: ['read'],
+          allowed: true,
+        },
+        providerToken: PROVIDER_TOKEN,
+        providerApiVersion: 'v20.0',
+      })
+    );
 
     const broker = new AdsBroker({
       providerRegistry: createDefaultProviderRegistry(),
@@ -256,9 +261,7 @@ describe('Remote broker — discovery flow for ads_list_accounts', () => {
     });
 
     // Resolver should receive accountId
-    expect(resolve).toHaveBeenCalledWith(
-      expect.objectContaining({ accountId: 'act_123' })
-    );
+    expect(resolve).toHaveBeenCalledWith(expect.objectContaining({ accountId: 'act_123' }));
   });
 
   it('does not leak provider token in discovery error responses', async () => {
@@ -280,7 +283,7 @@ describe('Remote broker — discovery flow for ads_list_accounts', () => {
       }),
     });
 
-    const result = await broker.listAccounts({ provider: 'meta' });
+    const result = await broker.listAccounts({ provider: 'meta', params: {} });
 
     expect(result.ok).toBe(false);
     expect(JSON.stringify(result)).not.toContain(PROVIDER_TOKEN);

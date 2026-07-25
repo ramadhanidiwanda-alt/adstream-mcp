@@ -136,7 +136,8 @@ describe('credential redaction utilities', () => {
   });
 
   it('masks bearer tokens and token query params', () => {
-    const message = 'Authorization: Bearer bearer-secret access_token=query-secret&appsecret_proof=proof-secret';
+    const message =
+      'Authorization: Bearer bearer-secret access_token=query-secret&appsecret_proof=proof-secret';
     const redacted = redactErrorMessage(message);
 
     expect(redacted).toContain('Authorization: Bearer [REDACTED]');

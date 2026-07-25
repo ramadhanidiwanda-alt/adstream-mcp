@@ -21,9 +21,7 @@ export const generalRules: Rule[] = [
     id: 'general-high-cpc',
     name: 'High Cost Per Click',
     description: 'CPC is significantly high',
-    conditions: [
-      { metric: 'cpc', operator: '>', value: 50000 },
-    ],
+    conditions: [{ metric: 'cpc', operator: '>', value: 50000 }],
     logic: 'AND',
     action: 'Review targeting, optimize bids, or improve ad relevance',
     priority: 'high',
@@ -85,9 +83,7 @@ export const generalRules: Rule[] = [
     id: 'general-excellent-ctr',
     name: 'Excellent CTR',
     description: 'Very high click-through rate',
-    conditions: [
-      { metric: 'ctr', operator: '>', value: 3.0 },
-    ],
+    conditions: [{ metric: 'ctr', operator: '>', value: 3.0 }],
     logic: 'AND',
     action: 'Excellent engagement, consider scaling or testing similar creative',
     priority: 'low',

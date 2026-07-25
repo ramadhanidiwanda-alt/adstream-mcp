@@ -40,16 +40,24 @@ export function buildAdsContentMatrix(
   const rows = records.map(toContentMatrixRow);
   const groupedRows = groupRows(rows, groupBy);
   const groups = Array.from(groupedRows.values()).map((groupRowsForKey) =>
-    buildGroup(groupRowsForKey, { groupBy, sortBy, sortDirection, topLimit, bottomLimit, includeAllRows: options.includeAllRows })
+    buildGroup(groupRowsForKey, {
+      groupBy,
+      sortBy,
+      sortDirection,
+      topLimit,
+      bottomLimit,
+      includeAllRows: options.includeAllRows,
+    })
   );
 
   return {
     provider: options.provider,
     report_kind: 'content_matrix',
     date_range: { since: options.since, until: options.until },
-    comparison: options.comparisonMode && options.comparisonMode !== 'none'
-      ? { mode: options.comparisonMode }
-      : undefined,
+    comparison:
+      options.comparisonMode && options.comparisonMode !== 'none'
+        ? { mode: options.comparisonMode }
+        : undefined,
     group_by: groupBy,
     sort: { metric: sortBy, direction: sortDirection },
     groups,
@@ -66,18 +74,18 @@ function toContentMatrixRow(record: AdsMetricRecord): AdsContentMatrixRow {
   const metrics = buildMetrics(record);
   const hasConversion = Boolean(
     record.conversions?.conversions ||
-      record.conversions?.results ||
-      record.commerce?.purchases ||
-      record.leads?.leads ||
-      record.leads?.registrations
+    record.conversions?.results ||
+    record.commerce?.purchases ||
+    record.leads?.leads ||
+    record.leads?.registrations
   );
   const hasCreativeAsset = Boolean(
     record.creative?.creative_url ||
-      record.creative?.thumbnail_url ||
-      record.creative?.video_id ||
-      record.creative?.image_hash ||
-      record.creative?.headline ||
-      record.creative?.primary_text
+    record.creative?.thumbnail_url ||
+    record.creative?.video_id ||
+    record.creative?.image_hash ||
+    record.creative?.headline ||
+    record.creative?.primary_text
   );
 
   return {
@@ -116,18 +124,20 @@ function buildGroup(
   }
 ): AdsContentMatrixGroup {
   const first = rows[0];
-  const sortedRows = [...rows].sort((left, right) => compareRows(left, right, options.sortBy, options.sortDirection));
-  const bottomDirection: AdsContentMatrixSortDirection = options.sortDirection === 'desc' ? 'asc' : 'desc';
+  const sortedRows = [...rows].sort((left, right) =>
+    compareRows(left, right, options.sortBy, options.sortDirection)
+  );
+  const bottomDirection: AdsContentMatrixSortDirection =
+    options.sortDirection === 'desc' ? 'asc' : 'desc';
   const bottomRows = [...rows]
     .sort((left, right) => compareRows(left, right, options.sortBy, bottomDirection))
     .slice(0, options.bottomLimit);
 
-  const groupId = options.groupBy === 'adset'
-    ? first.adset_or_adgroup_id ?? 'unknown_adset'
-    : first.campaign_id ?? 'unknown_campaign';
-  const groupName = options.groupBy === 'adset'
-    ? first.adset_or_adgroup_name
-    : first.campaign_name;
+  const groupId =
+    options.groupBy === 'adset'
+      ? (first.adset_or_adgroup_id ?? 'unknown_adset')
+      : (first.campaign_id ?? 'unknown_campaign');
+  const groupName = options.groupBy === 'adset' ? first.adset_or_adgroup_name : first.campaign_name;
 
   return {
     group_by: options.groupBy,
@@ -144,13 +154,17 @@ function buildGroup(
   };
 }
 
-function groupRows(rows: AdsContentMatrixRow[], groupBy: AdsContentMatrixGroupBy): Map<string, AdsContentMatrixRow[]> {
+function groupRows(
+  rows: AdsContentMatrixRow[],
+  groupBy: AdsContentMatrixGroupBy
+): Map<string, AdsContentMatrixRow[]> {
   const groups = new Map<string, AdsContentMatrixRow[]>();
 
   for (const row of rows) {
-    const key = groupBy === 'adset'
-      ? row.adset_or_adgroup_id ?? 'unknown_adset'
-      : row.campaign_id ?? 'unknown_campaign';
+    const key =
+      groupBy === 'adset'
+        ? (row.adset_or_adgroup_id ?? 'unknown_adset')
+        : (row.campaign_id ?? 'unknown_campaign');
     const existingRows = groups.get(key) ?? [];
     existingRows.push(row);
     groups.set(key, existingRows);
@@ -164,7 +178,8 @@ function buildMetrics(record: AdsMetricRecord): AdsContentMatrixMetric[] {
   const impressions = record.delivery.impressions;
   const clicks = record.clicks?.clicks ?? 0;
   const purchases = record.commerce?.purchases ?? null;
-  const purchaseValue = record.commerce?.purchase_value ?? record.conversions?.conversion_value ?? null;
+  const purchaseValue =
+    record.commerce?.purchase_value ?? record.conversions?.conversion_value ?? null;
 
   return [
     observedMetric('spend', spend, 'currency'),
@@ -174,14 +189,46 @@ function buildMetrics(record: AdsMetricRecord): AdsContentMatrixMetric[] {
     observedMetric('landing_page_views', record.clicks?.landing_page_views ?? null, 'count'),
     observedMetric('purchases', purchases, 'count'),
     observedMetric('purchase_value', purchaseValue, 'currency'),
-    ratioMetric('ctr', record.clicks?.ctr ?? null, clicks, impressions, 'clicks / impressions * 100', 'percentage'),
+    ratioMetric(
+      'ctr',
+      record.clicks?.ctr ?? null,
+      clicks,
+      impressions,
+      'clicks / impressions * 100',
+      'percentage'
+    ),
     ratioMetric('cpc', record.clicks?.cpc ?? null, spend, clicks, 'spend / clicks', 'currency'),
-    ratioMetric('cpm', record.delivery.cpm ?? null, spend * 1000, impressions, 'spend / impressions * 1000', 'currency'),
-    ratioMetric('purchase_roas', record.commerce?.purchase_roas ?? record.conversions?.roas ?? null, purchaseValue, spend, 'purchase_value / spend', 'ratio'),
-    ratioMetric('cost_per_purchase', record.commerce?.cost_per_purchase ?? null, spend, purchases, 'spend / purchases', 'currency'),
+    ratioMetric(
+      'cpm',
+      record.delivery.cpm ?? null,
+      spend * 1000,
+      impressions,
+      'spend / impressions * 1000',
+      'currency'
+    ),
+    ratioMetric(
+      'purchase_roas',
+      record.commerce?.purchase_roas ?? record.conversions?.roas ?? null,
+      purchaseValue,
+      spend,
+      'purchase_value / spend',
+      'ratio'
+    ),
+    ratioMetric(
+      'cost_per_purchase',
+      record.commerce?.cost_per_purchase ?? null,
+      spend,
+      purchases,
+      'spend / purchases',
+      'currency'
+    ),
     observedMetric('engagements', record.engagement?.engagements ?? null, 'count'),
     observedMetric('video_views', record.video?.video_views ?? null, 'count'),
-    observedMetric('hook_rate', record.video?.hook_rate ?? record.video?.thumbstop_rate ?? null, 'percentage'),
+    observedMetric(
+      'hook_rate',
+      record.video?.hook_rate ?? record.video?.thumbstop_rate ?? null,
+      'percentage'
+    ),
     observedMetric('hold_rate', record.video?.hold_rate ?? null, 'percentage'),
   ];
 }
@@ -206,7 +253,11 @@ function buildSummaryMetrics(rows: AdsContentMatrixRow[]): AdsContentMatrixMetri
   ];
 }
 
-function observedMetric(key: string, value: number | null | undefined, unit: AdsContentMatrixMetric['unit']): AdsContentMatrixMetric {
+function observedMetric(
+  key: string,
+  value: number | null | undefined,
+  unit: AdsContentMatrixMetric['unit']
+): AdsContentMatrixMetric {
   return {
     key,
     value: finiteOrNull(value),
@@ -227,9 +278,10 @@ function ratioMetric(
   const observed = finiteOrNull(observedValue);
   const safeNumerator = finiteOrNull(numerator);
   const safeDenominator = finiteOrNull(denominator);
-  const calculated = safeNumerator !== null && safeDenominator !== null && safeDenominator !== 0
-    ? safeNumerator / safeDenominator
-    : null;
+  const calculated =
+    safeNumerator !== null && safeDenominator !== null && safeDenominator !== 0
+      ? safeNumerator / safeDenominator
+      : null;
 
   return {
     key,

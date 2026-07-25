@@ -23,11 +23,9 @@ import { parseBrokerConfigFromEnv } from '../src/broker/config.js';
 
 const require = createRequire(import.meta.url);
 const dotenvSafe = require('dotenv-safe') as {
-  config: (options?: {
-    allowEmptyValues?: boolean;
-    example?: string;
-    path?: string;
-  }) => { error?: Error };
+  config: (options?: { allowEmptyValues?: boolean; example?: string; path?: string }) => {
+    error?: Error;
+  };
 };
 
 function loadEnv() {
@@ -101,7 +99,8 @@ async function testStagingCredentialResolution() {
 
   // Read env vars
   const baseUrl = getRequiredEnv('CUAN_INSIGHT_API_BASE_URL');
-  const endpointPath = process.env.CUAN_INSIGHT_CREDENTIAL_RESOLVE_PATH || '/mcp-resolve-credential';
+  const endpointPath =
+    process.env.CUAN_INSIGHT_CREDENTIAL_RESOLVE_PATH || '/mcp-resolve-credential';
   const supabaseAnonKey = getRequiredEnv('CUAN_INSIGHT_SUPABASE_ANON_KEY');
   const mcpToken = getRequiredEnv('CUAN_INSIGHT_MCP_TOKEN');
   const provider = getRequiredEnv('CUAN_INSIGHT_TEST_PROVIDER');

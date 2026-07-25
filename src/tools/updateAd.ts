@@ -1,6 +1,9 @@
 import type { MetaClient } from '../metaClient.js';
 import type { StructuredMutationError } from '../types.js';
-import { formatMetaWriteError, formatStructuredMetaWriteError } from '../utils/formatMetaWriteError.js';
+import {
+  formatMetaWriteError,
+  formatStructuredMetaWriteError,
+} from '../utils/formatMetaWriteError.js';
 
 export interface UpdateAdOptions {
   adId: string;
@@ -68,7 +71,11 @@ export async function updateAd(
   }
 
   try {
-    const response = await client.metaPost<Record<string, unknown>>(`/${options.adId}`, preview, maxRetries);
+    const response = await client.metaPost<Record<string, unknown>>(
+      `/${options.adId}`,
+      preview,
+      maxRetries
+    );
 
     const confirmedCreativeId = options.creativeId
       ? await readBackCreativeId(client, options.adId, maxRetries)
@@ -120,8 +127,10 @@ function buildUpdateAdPayload(options: UpdateAdOptions): Record<string, unknown>
   if (options.creativeId !== undefined) payload.creative = { creative_id: options.creativeId };
   if (options.trackingSpecs !== undefined) payload.tracking_specs = options.trackingSpecs;
   if (options.conversionDomain !== undefined) payload.conversion_domain = options.conversionDomain;
-  if (options.adScheduleStartTime !== undefined) payload.ad_schedule_start_time = options.adScheduleStartTime;
-  if (options.adScheduleEndTime !== undefined) payload.ad_schedule_end_time = options.adScheduleEndTime;
+  if (options.adScheduleStartTime !== undefined)
+    payload.ad_schedule_start_time = options.adScheduleStartTime;
+  if (options.adScheduleEndTime !== undefined)
+    payload.ad_schedule_end_time = options.adScheduleEndTime;
 
   return payload;
 }

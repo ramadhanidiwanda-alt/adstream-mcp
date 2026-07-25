@@ -7,7 +7,12 @@ import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { createMetaAdsMcpServer } from './createServer.js';
 import type { AuthInfo } from '@modelcontextprotocol/sdk/server/auth/types.js';
-import { OAuthStore, type IOAuthStore, type OAuthResolvedToken, createOAuthStoreFromEnv } from './oauthStore.js';
+import {
+  OAuthStore,
+  type IOAuthStore,
+  type OAuthResolvedToken,
+  createOAuthStoreFromEnv,
+} from './oauthStore.js';
 import { renderAuthorizeForm } from './authorizeForm.js';
 
 const HTTP_TRANSPORT_UNAVAILABLE_MESSAGE =
@@ -57,12 +62,27 @@ function oauthDebug(stage: string, data: Record<string, unknown>, env?: NodeJS.P
     // Redact all potentially sensitive keys
     const safe: Record<string, unknown> = {};
     const blocked = new Set([
-      'connection_key', 'key', 'code', 'code_verifier', 'access_token',
-      'token', 'secret', 'client_secret', 'password', 'authorization',
-      'body', 'key_hash', 'bearer',
+      'connection_key',
+      'key',
+      'code',
+      'code_verifier',
+      'access_token',
+      'token',
+      'secret',
+      'client_secret',
+      'password',
+      'authorization',
+      'body',
+      'key_hash',
+      'bearer',
     ]);
     for (const [k, v] of Object.entries(data)) {
-      if (blocked.has(k.toLowerCase()) || k.toLowerCase().includes('secret') || k.toLowerCase().includes('token') || k.toLowerCase().includes('key')) {
+      if (
+        blocked.has(k.toLowerCase()) ||
+        k.toLowerCase().includes('secret') ||
+        k.toLowerCase().includes('token') ||
+        k.toLowerCase().includes('key')
+      ) {
         safe[k] = '[REDACTED]';
       } else {
         safe[k] = v;
@@ -126,7 +146,10 @@ export function parseHttpMcpConfig(env: NodeJS.ProcessEnv = process.env): HttpMc
  */
 function parseAllowedClientIds(raw?: string): string[] | undefined {
   if (!raw || typeof raw !== 'string') return undefined;
-  const ids = raw.split(',').map((s) => s.trim()).filter(Boolean);
+  const ids = raw
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
   return ids.length > 0 ? ids : undefined;
 }
 
@@ -134,11 +157,7 @@ function parseAllowedClientIds(raw?: string): string[] | undefined {
  * Check if a client_id is allowed based on allowlist config.
  * If allowlist is not configured, all clients are accepted.
  */
-function isClientIdAllowed(
-  clientId: string,
-  allowedIds?: string[],
-  store?: IOAuthStore
-): boolean {
+function isClientIdAllowed(clientId: string, allowedIds?: string[], store?: IOAuthStore): boolean {
   if (!allowedIds || allowedIds.length === 0) return true;
   if (allowedIds.includes(clientId)) return true;
   // Also check DCR-registered clients
@@ -156,19 +175,26 @@ function writeJson(res: ServerResponse, statusCode: number, payload: unknown): v
     'Content-Type': 'application/json',
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-cuan-mcp-connection-key, mcp-session-id',
+    'Access-Control-Allow-Headers':
+      'Content-Type, Authorization, x-cuan-mcp-connection-key, mcp-session-id',
   });
   res.end(body);
 }
 
-function writeJsonWithWwwAuth(res: ServerResponse, statusCode: number, payload: unknown, wwwAuth?: string): void {
+function writeJsonWithWwwAuth(
+  res: ServerResponse,
+  statusCode: number,
+  payload: unknown,
+  wwwAuth?: string
+): void {
   const body = JSON.stringify(payload);
   res.writeHead(statusCode, {
     'Content-Type': 'application/json',
     'WWW-Authenticate': wwwAuth ?? 'Bearer realm="Cuan Insight MCP"',
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-cuan-mcp-connection-key, mcp-session-id',
+    'Access-Control-Allow-Headers':
+      'Content-Type, Authorization, x-cuan-mcp-connection-key, mcp-session-id',
   });
   res.end(body);
 }
@@ -258,10 +284,7 @@ function extractAuthContext(
 }
 
 /** Backward-compat: extract connectionKey string for legacy callers. */
-function extractConnectionKey(
-  req: IncomingMessage,
-  store?: IOAuthStore
-): string | undefined {
+function extractConnectionKey(req: IncomingMessage, store?: IOAuthStore): string | undefined {
   const ctx = extractAuthContext(req, store);
   return ctx?.connectionKey;
 }
@@ -278,10 +301,7 @@ function extractConnectionKey(
  * 2. x-cuan-mcp-connection-key header
  * 3. Authorization: Bearer *** alias
  */
-function buildRequestAuth(
-  req: IncomingMessage,
-  store?: IOAuthStore
-): AuthInfo | undefined {
+function buildRequestAuth(req: IncomingMessage, store?: IOAuthStore): AuthInfo | undefined {
   const ctx = extractAuthContext(req, store);
   if (!ctx) return undefined;
 
@@ -350,10 +370,7 @@ function hasValidMcpAuth(
 
 // ── OAuth Route Handlers ─────────────────────────────────────────────────
 
-function handleWellKnownAuthorizationServer(
-  config: HttpMcpConfig,
-  res: ServerResponse
-): void {
+function handleWellKnownAuthorizationServer(config: HttpMcpConfig, res: ServerResponse): void {
   const issuer = config.publicBaseUrl ?? `http://${config.host}:${config.port}`;
   writeJson(res, 200, {
     issuer,
@@ -368,10 +385,7 @@ function handleWellKnownAuthorizationServer(
   });
 }
 
-function handleWellKnownProtectedResource(
-  config: HttpMcpConfig,
-  res: ServerResponse
-): void {
+function handleWellKnownProtectedResource(config: HttpMcpConfig, res: ServerResponse): void {
   const issuer = config.publicBaseUrl ?? `http://${config.host}:${config.port}`;
   writeJson(res, 200, {
     resource: `${issuer}${config.path}`,
@@ -394,7 +408,7 @@ async function handleGetAuthorize(
   req: IncomingMessage,
   res: ServerResponse,
   url: URL,
-  allowedClientIds: string[] | undefined,
+  allowedClientIds: string[] | undefined
 ): Promise<void> {
   const responseType = url.searchParams.get('response_type');
   const clientId = url.searchParams.get('client_id');
@@ -406,17 +420,29 @@ async function handleGetAuthorize(
   const resource = url.searchParams.get('resource') || undefined;
   const returnTo = url.searchParams.get('return_to') || undefined;
 
-  oauthDebug('authorize.get.start', {
-    client_id_prefix: clientId?.slice(0, 8) ?? 'none',
-    redirect_uri_host: redirectUri ? (() => { try { return new URL(redirectUri).host; } catch { return 'invalid'; } })() : 'none',
-    has_response_type: !!responseType,
-    has_scope: !!scope,
-    has_resource: !!resource,
-    has_return_to: !!returnTo,
-    has_state: !!state,
-    has_code_challenge: !!codeChallenge,
-    has_code_challenge_method: !!codeChallengeMethod,
-  }, process.env);
+  oauthDebug(
+    'authorize.get.start',
+    {
+      client_id_prefix: clientId?.slice(0, 8) ?? 'none',
+      redirect_uri_host: redirectUri
+        ? (() => {
+            try {
+              return new URL(redirectUri).host;
+            } catch {
+              return 'invalid';
+            }
+          })()
+        : 'none',
+      has_response_type: !!responseType,
+      has_scope: !!scope,
+      has_resource: !!resource,
+      has_return_to: !!returnTo,
+      has_state: !!state,
+      has_code_challenge: !!codeChallenge,
+      has_code_challenge_method: !!codeChallengeMethod,
+    },
+    process.env
+  );
 
   // Validate required params
   const errors: string[] = [];
@@ -425,10 +451,12 @@ async function handleGetAuthorize(
   if (!redirectUri) errors.push('redirect_uri required');
   if (!codeChallenge) errors.push('code_challenge required');
   if (!codeChallengeMethod) errors.push('code_challenge_method required');
-  if (codeChallengeMethod && codeChallengeMethod !== 'S256') errors.push('Only S256 code_challenge_method is supported');
+  if (codeChallengeMethod && codeChallengeMethod !== 'S256')
+    errors.push('Only S256 code_challenge_method is supported');
   if (!state) errors.push('state required');
   if (!scope) errors.push('scope required');
-  if (returnTo && !isSafeReturnToUrl(returnTo)) errors.push('return_to must be an absolute https URL');
+  if (returnTo && !isSafeReturnToUrl(returnTo))
+    errors.push('return_to must be an absolute https URL');
 
   if (errors.length > 0) {
     writeJson(res, 400, { error: 'invalid_request', error_description: errors.join('; ') });
@@ -446,7 +474,10 @@ async function handleGetAuthorize(
   const registeredClient = store.getRegisteredClient(clientId!);
   if (registeredClient) {
     if (!registeredClient.redirectUris.includes(redirectUri!)) {
-      writeJson(res, 400, { error: 'invalid_request', error_description: 'redirect_uri not registered for this client.' });
+      writeJson(res, 400, {
+        error: 'invalid_request',
+        error_description: 'redirect_uri not registered for this client.',
+      });
       return;
     }
   }
@@ -464,11 +495,15 @@ async function handleGetAuthorize(
     returnTo,
   });
 
-  oauthDebug('authorize.get.success', {
-    client_id_prefix: clientId?.slice(0, 8) ?? 'none',
-    response_type: responseType,
-    has_resource: !!resource,
-  }, process.env);
+  oauthDebug(
+    'authorize.get.success',
+    {
+      client_id_prefix: clientId?.slice(0, 8) ?? 'none',
+      response_type: responseType,
+      has_resource: !!resource,
+    },
+    process.env
+  );
 
   writeHtml(res, 200, html);
 }
@@ -477,7 +512,7 @@ async function handlePostAuthorize(
   req: IncomingMessage,
   res: ServerResponse,
   env: NodeJS.ProcessEnv,
-  allowedClientIds: string[] | undefined,
+  allowedClientIds: string[] | undefined
 ): Promise<void> {
   // Read form body
   const body = await readBody(req);
@@ -494,15 +529,27 @@ async function handlePostAuthorize(
   const resource = params.get('resource') || undefined;
   const returnTo = params.get('return_to') || undefined;
 
-  oauthDebug('authorize.post.start', {
-    client_id_prefix: clientId?.slice(0, 8) ?? 'none',
-    redirect_uri_host: redirectUri ? (() => { try { return new URL(redirectUri).host; } catch { return 'invalid'; } })() : 'none',
-    has_connection_key: !!connectionKey,
-    has_resource: !!resource,
-    has_return_to: !!returnTo,
-    has_state: !!state,
-    has_code_challenge: !!codeChallenge,
-  }, env);
+  oauthDebug(
+    'authorize.post.start',
+    {
+      client_id_prefix: clientId?.slice(0, 8) ?? 'none',
+      redirect_uri_host: redirectUri
+        ? (() => {
+            try {
+              return new URL(redirectUri).host;
+            } catch {
+              return 'invalid';
+            }
+          })()
+        : 'none',
+      has_connection_key: !!connectionKey,
+      has_resource: !!resource,
+      has_return_to: !!returnTo,
+      has_state: !!state,
+      has_code_challenge: !!codeChallenge,
+    },
+    env
+  );
 
   // Validate all required params
   const errors: string[] = [];
@@ -511,11 +558,13 @@ async function handlePostAuthorize(
   if (!redirectUri) errors.push('redirect_uri required');
   if (!codeChallenge) errors.push('code_challenge required');
   if (!codeChallengeMethod) errors.push('code_challenge_method required');
-  if (codeChallengeMethod && codeChallengeMethod !== 'S256') errors.push('Only S256 code_challenge_method is supported');
+  if (codeChallengeMethod && codeChallengeMethod !== 'S256')
+    errors.push('Only S256 code_challenge_method is supported');
   if (!state) errors.push('state required');
   if (!scope) errors.push('scope required');
   if (!connectionKey) errors.push('connection_key required');
-  if (returnTo && !isSafeReturnToUrl(returnTo)) errors.push('return_to must be an absolute https URL');
+  if (returnTo && !isSafeReturnToUrl(returnTo))
+    errors.push('return_to must be an absolute https URL');
 
   if (errors.length > 0) {
     writeJson(res, 400, { error: 'invalid_request', error_description: errors.join('; ') });
@@ -533,7 +582,10 @@ async function handlePostAuthorize(
   const registeredClient = store.getRegisteredClient(clientId!);
   if (registeredClient) {
     if (!registeredClient.redirectUris.includes(redirectUri!)) {
-      writeJson(res, 400, { error: 'invalid_request', error_description: 'redirect_uri not registered for this client.' });
+      writeJson(res, 400, {
+        error: 'invalid_request',
+        error_description: 'redirect_uri not registered for this client.',
+      });
       return;
     }
   }
@@ -542,7 +594,10 @@ async function handlePostAuthorize(
   try {
     new URL(redirectUri!);
   } catch {
-    writeJson(res, 400, { error: 'invalid_request', error_description: 'redirect_uri is not a valid URL' });
+    writeJson(res, 400, {
+      error: 'invalid_request',
+      error_description: 'redirect_uri is not a valid URL',
+    });
     return;
   }
 
@@ -551,9 +606,13 @@ async function handlePostAuthorize(
   const keyValidation = await validateConnectionKey(connectionKey!, env);
 
   if (!keyValidation.valid) {
-    oauthDebug('authorize.post.connection_key_invalid', {
-      client_id_prefix: clientId?.slice(0, 8) ?? 'none',
-    }, env);
+    oauthDebug(
+      'authorize.post.connection_key_invalid',
+      {
+        client_id_prefix: clientId?.slice(0, 8) ?? 'none',
+      },
+      env
+    );
     // Re-render form with error
     const html = renderAuthorizeForm({
       responseType: responseType!,
@@ -576,13 +635,17 @@ async function handlePostAuthorize(
 
   const isSupabaseDriver = (env.MCP_OAUTH_STORE_DRIVER ?? 'memory') === 'supabase';
 
-  oauthDebug('authorize.post.connection_key_valid', {
-    client_id_prefix: clientId?.slice(0, 8) ?? 'none',
-    has_resource: !!resource,
-    has_return_to: !!returnTo,
-    has_connection_key_id: !!keyValidation.connectionKeyId,
-    driver: isSupabaseDriver ? 'supabase' : 'memory',
-  }, env);
+  oauthDebug(
+    'authorize.post.connection_key_valid',
+    {
+      client_id_prefix: clientId?.slice(0, 8) ?? 'none',
+      has_resource: !!resource,
+      has_return_to: !!returnTo,
+      has_connection_key_id: !!keyValidation.connectionKeyId,
+      driver: isSupabaseDriver ? 'supabase' : 'memory',
+    },
+    env
+  );
 
   // Build auth code params based on driver mode
   const authCodeParams: Parameters<typeof store.createAuthorizationCode>[0] = {
@@ -604,11 +667,21 @@ async function handlePostAuthorize(
 
   const { code } = store.createAuthorizationCode(authCodeParams);
 
-  oauthDebug('authorize.post.code_created', {
-    client_id_prefix: clientId?.slice(0, 8) ?? 'none',
-    has_resource: !!resource,
-    redirect_uri_host: (() => { try { return new URL(redirectUri!).host; } catch { return 'invalid'; } })(),
-  }, env);
+  oauthDebug(
+    'authorize.post.code_created',
+    {
+      client_id_prefix: clientId?.slice(0, 8) ?? 'none',
+      has_resource: !!resource,
+      redirect_uri_host: (() => {
+        try {
+          return new URL(redirectUri!).host;
+        } catch {
+          return 'invalid';
+        }
+      })(),
+    },
+    env
+  );
 
   // Redirect back
   const redirectUrl = new URL(redirectUri!);
@@ -618,13 +691,17 @@ async function handlePostAuthorize(
     redirectUrl.searchParams.set('return_to', returnTo);
   }
 
-  oauthDebug('authorize.post.redirect', {
-    client_id_prefix: clientId?.slice(0, 8) ?? 'none',
-    redirect_uri_scheme_host: `${redirectUrl.protocol}//${redirectUrl.host}`,
-    has_code: true,
-    has_state: true,
-    has_return_to: !!returnTo,
-  }, env);
+  oauthDebug(
+    'authorize.post.redirect',
+    {
+      client_id_prefix: clientId?.slice(0, 8) ?? 'none',
+      redirect_uri_scheme_host: `${redirectUrl.protocol}//${redirectUrl.host}`,
+      has_code: true,
+      has_state: true,
+      has_return_to: !!returnTo,
+    },
+    env
+  );
 
   res.writeHead(302, { Location: redirectUrl.toString() });
   res.end();
@@ -634,7 +711,7 @@ async function handlePostToken(
   req: IncomingMessage,
   res: ServerResponse,
   env: NodeJS.ProcessEnv,
-  allowedClientIds: string[] | undefined,
+  allowedClientIds: string[] | undefined
 ): Promise<void> {
   const body = await readBody(req);
   const params = new URLSearchParams(body);
@@ -646,13 +723,17 @@ async function handlePostToken(
   const codeVerifier = params.get('code_verifier');
   const refreshTokenParam = params.get('refresh_token');
 
-  oauthDebug('token.post.start', {
-    client_id_prefix: clientId?.slice(0, 8) ?? 'none',
-    grant_type: grantType,
-    has_code: !!code,
-    has_redirect_uri: !!redirectUri,
-    has_code_verifier: !!codeVerifier,
-  }, env);
+  oauthDebug(
+    'token.post.start',
+    {
+      client_id_prefix: clientId?.slice(0, 8) ?? 'none',
+      grant_type: grantType,
+      has_code: !!code,
+      has_redirect_uri: !!redirectUri,
+      has_code_verifier: !!codeVerifier,
+    },
+    env
+  );
 
   // Validate
   if (grantType !== 'authorization_code' && grantType !== 'refresh_token') {
@@ -664,14 +745,7 @@ async function handlePostToken(
 
   // ── refresh_token grant ──
   if (grantType === 'refresh_token') {
-    await handleRefreshTokenGrant(
-      res,
-      env,
-      store,
-      allowedClientIds,
-      clientId,
-      refreshTokenParam,
-    );
+    await handleRefreshTokenGrant(res, env, store, allowedClientIds, clientId, refreshTokenParam);
     return;
   }
 
@@ -679,23 +753,32 @@ async function handlePostToken(
   if (!code || !redirectUri || !clientId || !codeVerifier) {
     writeJson(res, 400, {
       error: 'invalid_request',
-      error_description: 'Missing required parameters: code, redirect_uri, client_id, code_verifier',
+      error_description:
+        'Missing required parameters: code, redirect_uri, client_id, code_verifier',
     });
     return;
   }
 
   // Validate client_id against allowlist (if configured) including DCR
   if (!isClientIdAllowed(clientId, allowedClientIds, store)) {
-    oauthDebug('token.post.client_invalid', {
-      client_id_prefix: clientId?.slice(0, 8) ?? 'none',
-    }, env);
+    oauthDebug(
+      'token.post.client_invalid',
+      {
+        client_id_prefix: clientId?.slice(0, 8) ?? 'none',
+      },
+      env
+    );
     writeJson(res, 400, { error: 'invalid_client', error_description: 'Client ID tidak dikenal.' });
     return;
   }
 
-  oauthDebug('token.post.client_valid', {
-    client_id_prefix: clientId?.slice(0, 8) ?? 'none',
-  }, env);
+  oauthDebug(
+    'token.post.client_valid',
+    {
+      client_id_prefix: clientId?.slice(0, 8) ?? 'none',
+    },
+    env
+  );
 
   // Redeem auth code
   // (store already initialized above for client validation)
@@ -707,18 +790,29 @@ async function handlePostToken(
   });
 
   if (!redeemed) {
-    oauthDebug('token.post.redeem_failed', {
-      client_id_prefix: clientId?.slice(0, 8) ?? 'none',
-      redirect_uri_match: false, // unknown which check failed
-    }, env);
-    writeJson(res, 400, { error: 'invalid_grant', error_description: 'Authorization code is invalid, expired, or already used' });
+    oauthDebug(
+      'token.post.redeem_failed',
+      {
+        client_id_prefix: clientId?.slice(0, 8) ?? 'none',
+        redirect_uri_match: false, // unknown which check failed
+      },
+      env
+    );
+    writeJson(res, 400, {
+      error: 'invalid_grant',
+      error_description: 'Authorization code is invalid, expired, or already used',
+    });
     return;
   }
 
-  oauthDebug('token.post.code_found', {
-    client_id_prefix: clientId?.slice(0, 8) ?? 'none',
-    scope: redeemed.scope,
-  }, env);
+  oauthDebug(
+    'token.post.code_found',
+    {
+      client_id_prefix: clientId?.slice(0, 8) ?? 'none',
+      scope: redeemed.scope,
+    },
+    env
+  );
 
   // Create access token — pass whichever credential reference was redeemed
   const { accessToken, expiresIn } = store.createAccessToken({
@@ -745,13 +839,17 @@ async function handlePostToken(
     refreshToken = undefined;
   }
 
-  oauthDebug('token.post.issued', {
-    client_id_prefix: clientId?.slice(0, 8) ?? 'none',
-    token_type: 'Bearer',
-    expires_in: expiresIn,
-    scope: redeemed.scope,
-    has_refresh_token: !!refreshToken,
-  }, env);
+  oauthDebug(
+    'token.post.issued',
+    {
+      client_id_prefix: clientId?.slice(0, 8) ?? 'none',
+      token_type: 'Bearer',
+      expires_in: expiresIn,
+      scope: redeemed.scope,
+      has_refresh_token: !!refreshToken,
+    },
+    env
+  );
 
   writeJson(res, 200, {
     access_token: accessToken,
@@ -775,7 +873,7 @@ async function handleRefreshTokenGrant(
   store: IOAuthStore,
   allowedClientIds: string[] | undefined,
   clientId: string | null,
-  refreshTokenParam: string | null,
+  refreshTokenParam: string | null
 ): Promise<void> {
   if (!clientId || !refreshTokenParam) {
     writeJson(res, 400, {
@@ -792,9 +890,13 @@ async function handleRefreshTokenGrant(
 
   const redeemed = store.redeemRefreshToken(refreshTokenParam, clientId);
   if (!redeemed) {
-    oauthDebug('token.post.refresh_invalid', {
-      client_id_prefix: clientId.slice(0, 8),
-    }, env);
+    oauthDebug(
+      'token.post.refresh_invalid',
+      {
+        client_id_prefix: clientId.slice(0, 8),
+      },
+      env
+    );
     writeJson(res, 400, {
       error: 'invalid_grant',
       error_description: 'Refresh token is invalid, expired, revoked, or already used.',
@@ -823,13 +925,17 @@ async function handleRefreshTokenGrant(
     refreshToken = undefined;
   }
 
-  oauthDebug('token.post.refreshed', {
-    client_id_prefix: clientId.slice(0, 8),
-    token_type: 'Bearer',
-    expires_in: expiresIn,
-    scope: redeemed.scope,
-    has_refresh_token: !!refreshToken,
-  }, env);
+  oauthDebug(
+    'token.post.refreshed',
+    {
+      client_id_prefix: clientId.slice(0, 8),
+      token_type: 'Bearer',
+      expires_in: expiresIn,
+      scope: redeemed.scope,
+      has_refresh_token: !!refreshToken,
+    },
+    env
+  );
 
   writeJson(res, 200, {
     access_token: accessToken,
@@ -860,16 +966,25 @@ async function handlePostRegister(
   try {
     payload = JSON.parse(body);
   } catch {
-    writeJson(res, 400, { error: 'invalid_client_metadata', error_description: 'Request body must be valid JSON.' });
+    writeJson(res, 400, {
+      error: 'invalid_client_metadata',
+      error_description: 'Request body must be valid JSON.',
+    });
     return;
   }
 
-  oauthDebug('dcr.register.start', {
-    redirect_uris_count: Array.isArray(payload.redirect_uris) ? (payload.redirect_uris as unknown[]).length : 0,
-    client_name: payload.client_name || 'unnamed',
-    has_grant_types: !!payload.grant_types,
-    has_response_types: !!payload.response_types,
-  }, env);
+  oauthDebug(
+    'dcr.register.start',
+    {
+      redirect_uris_count: Array.isArray(payload.redirect_uris)
+        ? (payload.redirect_uris as unknown[]).length
+        : 0,
+      client_name: payload.client_name || 'unnamed',
+      has_grant_types: !!payload.grant_types,
+      has_response_types: !!payload.response_types,
+    },
+    env
+  );
 
   // Validate redirect_uris
   const redirectUris = payload.redirect_uris;
@@ -886,7 +1001,8 @@ async function handlePostRegister(
   if (tokenEndpointAuthMethod && tokenEndpointAuthMethod !== 'none') {
     writeJson(res, 400, {
       error: 'invalid_client_metadata',
-      error_description: 'Only token_endpoint_auth_method=none is supported for public PKCE clients.',
+      error_description:
+        'Only token_endpoint_auth_method=none is supported for public PKCE clients.',
     });
     return;
   }
@@ -921,17 +1037,21 @@ async function handlePostRegister(
     scope: payload.scope as string | undefined,
   });
 
-  oauthDebug('dcr.register.success', {
-    client_id_prefix: clientId.slice(0, 8),
-    redirect_uris_count: redirectUris.length,
-    token_endpoint_auth_method: tokenEndpointAuthMethod,
-    scope: payload.scope || 'mcp read write',
-  }, env);
+  oauthDebug(
+    'dcr.register.success',
+    {
+      client_id_prefix: clientId.slice(0, 8),
+      redirect_uris_count: redirectUris.length,
+      token_endpoint_auth_method: tokenEndpointAuthMethod,
+      scope: payload.scope || 'mcp read write',
+    },
+    env
+  );
 
   // Safe logging — never log raw body or secrets
   console.error(
     `DCR: registered client ${clientId.slice(0, 8)}... ` +
-    `(${redirectUris.length} redirect_uri(s), name: ${payload.client_name || 'unnamed'})`
+      `(${redirectUris.length} redirect_uri(s), name: ${payload.client_name || 'unnamed'})`
   );
 
   const resolvedGrantTypes = grantTypes ?? ['authorization_code'];
@@ -959,7 +1079,10 @@ async function handlePostRevoke(
   const token = params.get('token');
 
   if (!token) {
-    writeJson(res, 400, { error: 'invalid_request', error_description: 'token parameter is required' });
+    writeJson(res, 400, {
+      error: 'invalid_request',
+      error_description: 'token parameter is required',
+    });
     return;
   }
 
@@ -983,8 +1106,12 @@ async function handlePostRevoke(
 function extractConnectionKeyId(body: Record<string, unknown>): string | undefined {
   const candidates: Array<Record<string, unknown> | undefined> = [
     body.identity as Record<string, unknown> | undefined,
-    body.data ? (body.data as Record<string, unknown>).identity as Record<string, unknown> | undefined : undefined,
-    body.result ? (body.result as Record<string, unknown>).identity as Record<string, unknown> | undefined : undefined,
+    body.data
+      ? ((body.data as Record<string, unknown>).identity as Record<string, unknown> | undefined)
+      : undefined,
+    body.result
+      ? ((body.result as Record<string, unknown>).identity as Record<string, unknown> | undefined)
+      : undefined,
   ];
 
   for (const identity of candidates) {
@@ -1026,7 +1153,7 @@ async function validateConnectionKey(
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${supabaseAnonKey}`,
+        Authorization: `Bearer ${supabaseAnonKey}`,
         'x-cuan-mcp-connection-key': connectionKey,
       },
       body: JSON.stringify({
@@ -1039,33 +1166,42 @@ async function validateConnectionKey(
     // Safe debug: log response status and body shape regardless of outcome
     if (OAUTH_DEBUG(env)) {
       try {
-        const debugBody = await resolveResponse.clone().json() as Record<string, unknown>;
+        const debugBody = (await resolveResponse.clone().json()) as Record<string, unknown>;
         const topKeys = Object.keys(debugBody);
         const identityRaw = debugBody.identity as Record<string, unknown> | undefined;
-        console.error('[OAUTH_DEBUG] validate_connection_key.http_response', JSON.stringify({
-          status: resolveResponse.status,
-          ok: resolveResponse.ok,
-          top_level_keys: topKeys,
-          has_identity: !!identityRaw,
-          identity_keys: identityRaw ? Object.keys(identityRaw) : [],
-          has_data: 'data' in debugBody,
-          has_error: 'error' in debugBody,
-          error_code: typeof debugBody.error === 'object' && debugBody.error ? (debugBody.error as Record<string,unknown>).code : null,
-          content_type: resolveResponse.headers.get('content-type'),
-        }));
+        console.error(
+          '[OAUTH_DEBUG] validate_connection_key.http_response',
+          JSON.stringify({
+            status: resolveResponse.status,
+            ok: resolveResponse.ok,
+            top_level_keys: topKeys,
+            has_identity: !!identityRaw,
+            identity_keys: identityRaw ? Object.keys(identityRaw) : [],
+            has_data: 'data' in debugBody,
+            has_error: 'error' in debugBody,
+            error_code:
+              typeof debugBody.error === 'object' && debugBody.error
+                ? (debugBody.error as Record<string, unknown>).code
+                : null,
+            content_type: resolveResponse.headers.get('content-type'),
+          })
+        );
       } catch {
-        console.error('[OAUTH_DEBUG] validate_connection_key.http_response', JSON.stringify({
-          status: resolveResponse.status,
-          ok: resolveResponse.ok,
-          top_level_keys: 'unparseable',
-        }));
+        console.error(
+          '[OAUTH_DEBUG] validate_connection_key.http_response',
+          JSON.stringify({
+            status: resolveResponse.status,
+            ok: resolveResponse.ok,
+            top_level_keys: 'unparseable',
+          })
+        );
       }
     }
 
     if (resolveResponse.ok) {
       // Parse identity to extract connectionKeyId (added in Cuan Insight PR #59)
       try {
-        const body = await resolveResponse.json() as Record<string, unknown>;
+        const body = (await resolveResponse.json()) as Record<string, unknown>;
 
         // Safe extraction: check multiple possible paths
         const connectionKeyId = extractConnectionKeyId(body);
@@ -1079,20 +1215,23 @@ async function validateConnectionKey(
           const resultRaw = body.result as Record<string, unknown> | undefined;
           const resultIdentity = resultRaw?.identity as Record<string, unknown> | undefined;
 
-          console.error('[OAUTH_DEBUG] validate_connection_key.response_shape', JSON.stringify({
-            status: resolveResponse.status,
-            top_level_keys: topKeys,
-            has_identity: !!identityRaw,
-            identity_keys: identityRaw ? Object.keys(identityRaw) : [],
-            has_data: !!dataRaw,
-            has_data_identity: !!dataIdentity,
-            data_identity_keys: dataIdentity ? Object.keys(dataIdentity) : [],
-            has_result: !!resultRaw,
-            has_result_identity: !!resultIdentity,
-            result_identity_keys: resultIdentity ? Object.keys(resultIdentity) : [],
-            has_providerAccess: 'providerAccess' in body || 'provider_access' in body,
-            extracted_connection_key_id: !!connectionKeyId,
-          }));
+          console.error(
+            '[OAUTH_DEBUG] validate_connection_key.response_shape',
+            JSON.stringify({
+              status: resolveResponse.status,
+              top_level_keys: topKeys,
+              has_identity: !!identityRaw,
+              identity_keys: identityRaw ? Object.keys(identityRaw) : [],
+              has_data: !!dataRaw,
+              has_data_identity: !!dataIdentity,
+              data_identity_keys: dataIdentity ? Object.keys(dataIdentity) : [],
+              has_result: !!resultRaw,
+              has_result_identity: !!resultIdentity,
+              result_identity_keys: resultIdentity ? Object.keys(resultIdentity) : [],
+              has_providerAccess: 'providerAccess' in body || 'provider_access' in body,
+              extracted_connection_key_id: !!connectionKeyId,
+            })
+          );
         }
 
         return { valid: true, connectionKeyId };
@@ -1155,7 +1294,8 @@ export function createHttpMcpRequestHandler(
       res.writeHead(204, {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-cuan-mcp-connection-key, mcp-session-id',
+        'Access-Control-Allow-Headers':
+          'Content-Type, Authorization, x-cuan-mcp-connection-key, mcp-session-id',
         'Access-Control-Max-Age': '86400',
       });
       res.end();
@@ -1204,7 +1344,10 @@ export function createHttpMcpRequestHandler(
     }
 
     // ── Dynamic Client Registration (POST /register, POST /oauth/register) ──
-    if (req.method === 'POST' && (url.pathname === '/register' || url.pathname === '/oauth/register')) {
+    if (
+      req.method === 'POST' &&
+      (url.pathname === '/register' || url.pathname === '/oauth/register')
+    ) {
       handlePostRegister(req, res, env).catch(() => sendNotFound(res));
       return;
     }
@@ -1330,13 +1473,18 @@ async function handleStreamableHttpRequest(
   // OAuth mode: gate /mcp behind valid auth
   if (config.publicBaseUrl) {
     const authHeader = req.headers.authorization;
-    const hasBearer = !!authHeader && typeof authHeader === 'string' && authHeader.startsWith('Bearer ');
+    const hasBearer =
+      !!authHeader && typeof authHeader === 'string' && authHeader.startsWith('Bearer ');
 
     if (hasBearer) {
-      oauthDebug('mcp.auth.bearer_present', {
-        path: url.pathname,
-        method: req.method,
-      }, env);
+      oauthDebug(
+        'mcp.auth.bearer_present',
+        {
+          path: url.pathname,
+          method: req.method,
+        },
+        env
+      );
     }
 
     if (!hasValidMcpAuth(req, config, store)) {
@@ -1349,18 +1497,26 @@ async function handleStreamableHttpRequest(
     if (hasBearer) {
       const bearerValue = authHeader!.slice(7).trim();
       const resolved = store.resolveAccessToken(bearerValue);
-      oauthDebug('mcp.auth.token_resolved', {
-        resolved: !!resolved,
-        path: url.pathname,
-      }, env);
+      oauthDebug(
+        'mcp.auth.token_resolved',
+        {
+          resolved: !!resolved,
+          path: url.pathname,
+        },
+        env
+      );
     }
 
     const authInfo = buildRequestAuth(req, store);
-    oauthDebug('mcp.auth.connection_context_resolved', {
-      has_oauth_context: !!authInfo?.extra?.oauthAuthContext,
-      has_connection_key: !!authInfo?.extra?.connectionKey,
-      path: url.pathname,
-    }, env);
+    oauthDebug(
+      'mcp.auth.connection_context_resolved',
+      {
+        has_oauth_context: !!authInfo?.extra?.oauthAuthContext,
+        has_connection_key: !!authInfo?.extra?.connectionKey,
+        path: url.pathname,
+      },
+      env
+    );
   } else if (!hasValidBearerToken(req, config.bearerToken)) {
     // Legacy mode: check MCP_HTTP_BEARER_TOKEN only
     sendUnauthorized(res);

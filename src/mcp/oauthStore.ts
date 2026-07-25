@@ -169,9 +169,7 @@ export interface IOAuthStore {
   createAccessToken(params: CreateAccessTokenParams): { accessToken: string; expiresIn: number };
 
   /** Resolve access token to connection context. */
-  resolveAccessToken(
-    accessToken: string
-  ): OAuthResolvedToken | undefined;
+  resolveAccessToken(accessToken: string): OAuthResolvedToken | undefined;
 
   /** Revoke an access token. */
   revokeAccessToken(accessToken: string): boolean;
@@ -342,9 +340,7 @@ export class MemoryOAuthStore implements IOAuthStore {
     if (record.redirectUri !== params.redirectUri) return undefined;
 
     // Verify PKCE
-    const verifierHash = base64UrlEncode(
-      createHash('sha256').update(params.codeVerifier).digest()
-    );
+    const verifierHash = base64UrlEncode(createHash('sha256').update(params.codeVerifier).digest());
 
     if (record.codeChallenge !== verifierHash) return undefined;
 
@@ -388,9 +384,7 @@ export class MemoryOAuthStore implements IOAuthStore {
     return { accessToken, expiresIn: Math.floor(this.accessTokenTtlMs / 1000) };
   }
 
-  resolveAccessToken(
-    accessToken: string
-  ): OAuthResolvedToken | undefined {
+  resolveAccessToken(accessToken: string): OAuthResolvedToken | undefined {
     const tokenHash = sha256Hex(accessToken);
     const record = this.accessTokens.get(tokenHash);
 
@@ -436,9 +430,7 @@ export class MemoryOAuthStore implements IOAuthStore {
 
   // ── Refresh Token ───────────────────────────────────────────────────
 
-  createRefreshToken(
-    params: CreateAccessTokenParams
-  ): { refreshToken: string; expiresIn: number } {
+  createRefreshToken(params: CreateAccessTokenParams): { refreshToken: string; expiresIn: number } {
     const refreshToken = randomToken();
     const tokenHash = sha256Hex(refreshToken);
 
@@ -460,10 +452,7 @@ export class MemoryOAuthStore implements IOAuthStore {
     };
   }
 
-  redeemRefreshToken(
-    refreshToken: string,
-    clientId: string
-  ): RedeemRefreshTokenResult | undefined {
+  redeemRefreshToken(refreshToken: string, clientId: string): RedeemRefreshTokenResult | undefined {
     const tokenHash = sha256Hex(refreshToken);
     const record = this.refreshTokens.get(tokenHash);
 
@@ -604,9 +593,7 @@ export function createOAuthStore(config?: OAuthStoreConfig): MemoryOAuthStore {
  * Reads MCP_OAUTH_STORE_DRIVER to determine which implementation to use.
  * Returns MemoryOAuthStore by default for backward compatibility.
  */
-export function createOAuthStoreFromEnv(
-  env: NodeJS.ProcessEnv = process.env
-): IOAuthStore {
+export function createOAuthStoreFromEnv(env: NodeJS.ProcessEnv = process.env): IOAuthStore {
   const driver = (env.MCP_OAUTH_STORE_DRIVER ?? 'memory') as OAuthStoreDriver;
 
   const config: OAuthStoreConfig = {
@@ -626,7 +613,7 @@ export function createOAuthStoreFromEnv(
       if (!supabaseUrl || !serviceRoleKey) {
         throw new Error(
           'MCP_OAUTH_SUPABASE_URL and MCP_OAUTH_SUPABASE_SERVICE_ROLE_KEY ' +
-          'are required when MCP_OAUTH_STORE_DRIVER=supabase'
+            'are required when MCP_OAUTH_STORE_DRIVER=supabase'
         );
       }
 
@@ -634,8 +621,6 @@ export function createOAuthStoreFromEnv(
     }
 
     default:
-      throw new Error(
-        `Invalid MCP_OAUTH_STORE_DRIVER: ${driver}. Valid values: memory, supabase`
-      );
+      throw new Error(`Invalid MCP_OAUTH_STORE_DRIVER: ${driver}. Valid values: memory, supabase`);
   }
 }

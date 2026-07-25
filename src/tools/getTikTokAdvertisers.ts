@@ -28,10 +28,7 @@ export async function getTikTokAdvertisers(
     params.advertiser_ids = advertiserIds;
   }
 
-  const response = await client.get<{ list: TikTokAdvertiser[] }>(
-    '/advertiser/info/',
-    params
-  );
+  const response = await client.get<{ list: TikTokAdvertiser[] }>('/advertiser/info/', params);
 
   return response.list ?? [];
 }

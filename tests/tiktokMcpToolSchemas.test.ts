@@ -21,7 +21,19 @@ describe('TikTok-aware MCP tool schemas', () => {
 
   it('ads_create_adset exposes TikTok-only fields', () => {
     const schema = schemaFor('ads_create_adset');
-    for (const field of ['bidType', 'bidPrice', 'placementType', 'identityType', 'identityId', 'appId', 'promotionType', 'optimizationEvent', 'catalogId', 'storeId', 'productSource']) {
+    for (const field of [
+      'bidType',
+      'bidPrice',
+      'placementType',
+      'identityType',
+      'identityId',
+      'appId',
+      'promotionType',
+      'optimizationEvent',
+      'catalogId',
+      'storeId',
+      'productSource',
+    ]) {
       expect(schema.properties).toHaveProperty(field);
     }
   });

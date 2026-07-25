@@ -31,8 +31,14 @@ describe('buildAdsContentMatrix', () => {
     const base = createRecord();
     const matrix = buildAdsContentMatrix(
       [
-        createRecord({ identity: { ...base.identity, ad_id: 'ad_1', ad_name: 'A' }, commerce: { purchase_roas: 3 } }),
-        createRecord({ identity: { ...base.identity, ad_id: 'ad_2', ad_name: 'B' }, commerce: { purchase_roas: 1 } }),
+        createRecord({
+          identity: { ...base.identity, ad_id: 'ad_1', ad_name: 'A' },
+          commerce: { purchase_roas: 3 },
+        }),
+        createRecord({
+          identity: { ...base.identity, ad_id: 'ad_2', ad_name: 'B' },
+          commerce: { purchase_roas: 1 },
+        }),
       ],
       {
         provider: 'meta',

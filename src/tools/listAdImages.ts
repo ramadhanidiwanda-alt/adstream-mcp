@@ -27,10 +27,9 @@ export async function listAdImages(
 
   const fields = ['hash', 'url', 'width', 'height', 'name', 'creatives_count'];
 
-  const response = await client.metaGet<AdImagesResponse>(
-    `/act_${adAccountId}/adimages`,
-    { fields: fields.join(',') }
-  );
+  const response = await client.metaGet<AdImagesResponse>(`/act_${adAccountId}/adimages`, {
+    fields: fields.join(','),
+  });
 
   return (response.data ?? []).map((item) => ({
     hash: item.hash,

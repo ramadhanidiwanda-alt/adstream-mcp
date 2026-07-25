@@ -19,7 +19,7 @@ describe('HTTP MCP startup — persistent OAuth load race', () => {
       return {
         ok: true,
         status: 200,
-        json: async () => pathname.endsWith('/mcp_oauth_clients') ? [] : [],
+        json: async () => (pathname.endsWith('/mcp_oauth_clients') ? [] : []),
       };
     }) as unknown as typeof fetch;
     globalThis.fetch = fetchMock;

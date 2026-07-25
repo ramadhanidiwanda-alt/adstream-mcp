@@ -1,4 +1,4 @@
-import type { MetaAdsMode, StructuredMutationError } from '../types.js';
+import type { MetaAdsMode, MetaCreativeVerification, StructuredMutationError } from '../types.js';
 import type { LaunchReadinessResult } from '../tools/checkLaunchReadiness.js';
 
 export const ADS_PROVIDER_IDS = ['meta', 'tiktok', 'google'] as const;
@@ -500,6 +500,10 @@ export interface AdsBrokerResponse<TData = AdsMetricRecord[] | unknown> {
     code?: string;
     message: string;
     details?: Record<string, unknown>;
+    /** Human-readable next step. Set by the MCP tool layer on gated-tool errors. */
+    actionableFix?: string;
+    /** Env var that turns the gated tool on, paired with actionableFix. */
+    enableFlag?: string;
   }>;
   meta?: Record<string, unknown>;
 }
@@ -826,6 +830,8 @@ export interface CreateAdCreativeResult {
   response?: Record<string, unknown>;
   error?: string;
   structuredError?: StructuredMutationError;
+  /** Post-create read-back of the creative. Populated by MetaAdsAdapter.createAdCreative. */
+  verification?: MetaCreativeVerification;
 }
 
 export type CreateAdStatus = 'dry_run' | 'pending_confirmation' | 'executed' | 'failed' | 'deduped';

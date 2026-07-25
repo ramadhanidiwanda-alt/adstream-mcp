@@ -56,10 +56,7 @@ import type {
   TikTokAdGroupStatusOptions,
   TikTokAdGroupBudgetOptions,
 } from '../../tools/tiktok/createTikTokAdGroup.js';
-import {
-  createTikTokAd,
-  updateTikTokAdStatus,
-} from '../../tools/tiktok/createTikTokAd.js';
+import { createTikTokAd, updateTikTokAdStatus } from '../../tools/tiktok/createTikTokAd.js';
 import type {
   CreateTikTokAdOptions,
   TikTokAdStatusOptions,
@@ -163,18 +160,26 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
       return {
         ok: false,
         provider: 'tiktok',
-        errors: [{
-          provider: 'tiktok',
-          code: 'MISSING_ACCOUNT_ID',
-          message: 'accountId is required to list TikTok campaigns (provide accountId or use ads_list_accounts first)',
-        }],
+        errors: [
+          {
+            provider: 'tiktok',
+            code: 'MISSING_ACCOUNT_ID',
+            message:
+              'accountId is required to list TikTok campaigns (provide accountId or use ads_list_accounts first)',
+          },
+        ],
       };
     }
 
     try {
       const page = typeof request.params.page === 'number' ? request.params.page : undefined;
-      const pageSize = typeof request.params.pageSize === 'number' ? request.params.pageSize : undefined;
-      const campaigns = await getTikTokCampaigns(this.client, { advertiserId: accountId, page, pageSize });
+      const pageSize =
+        typeof request.params.pageSize === 'number' ? request.params.pageSize : undefined;
+      const campaigns = await getTikTokCampaigns(this.client, {
+        advertiserId: accountId,
+        page,
+        pageSize,
+      });
       return { ok: true, provider: 'tiktok', data: campaigns };
     } catch (error) {
       return this.errorResponse(error);
@@ -209,32 +214,62 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
     return this.getPerformance(request, 'creative', this.options.mockData?.creatives);
   }
 
-  async getPlacementPerformance(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMetricRecord[]>> {
+  async getPlacementPerformance(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<AdsMetricRecord[]>> {
     return this.getPlacementPerformanceForRequest(request);
   }
 
-  async getChangeHistory(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsChangeHistoryEnvelope>> {
+  async getChangeHistory(
+    _request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<AdsChangeHistoryEnvelope>> {
     return this.notImplemented('TikTok change history is not implemented yet');
   }
 
   async getVideoSource(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<VideoSourceResult>> {
-    return Promise.resolve(this.notImplemented('TikTok video source is not implemented yet') as unknown as AdsBrokerResponse<VideoSourceResult>);
+    return Promise.resolve(
+      this.notImplemented(
+        'TikTok video source is not implemented yet'
+      ) as unknown as AdsBrokerResponse<VideoSourceResult>
+    );
   }
 
-  async getAdCreativeMapping(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdCreativeMappingResult[]>> {
-    return Promise.resolve(this.notImplemented('TikTok ad→creative mapping is not implemented yet') as unknown as AdsBrokerResponse<AdCreativeMappingResult[]>);
+  async getAdCreativeMapping(
+    _request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<AdCreativeMappingResult[]>> {
+    return Promise.resolve(
+      this.notImplemented(
+        'TikTok ad→creative mapping is not implemented yet'
+      ) as unknown as AdsBrokerResponse<AdCreativeMappingResult[]>
+    );
   }
 
-  async getAdDestinations(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdDestinationResult[]>> {
-    return Promise.resolve(this.notImplemented('TikTok ad destinations are not implemented yet') as unknown as AdsBrokerResponse<AdDestinationResult[]>);
+  async getAdDestinations(
+    _request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<AdDestinationResult[]>> {
+    return Promise.resolve(
+      this.notImplemented(
+        'TikTok ad destinations are not implemented yet'
+      ) as unknown as AdsBrokerResponse<AdDestinationResult[]>
+    );
   }
 
-  async readAdCreativeFull(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdCreativeFullResult>> {
-    return Promise.resolve(this.notImplemented('TikTok readAdCreativeFull is not implemented yet') as unknown as AdsBrokerResponse<AdCreativeFullResult>);
+  async readAdCreativeFull(
+    _request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<AdCreativeFullResult>> {
+    return Promise.resolve(
+      this.notImplemented(
+        'TikTok readAdCreativeFull is not implemented yet'
+      ) as unknown as AdsBrokerResponse<AdCreativeFullResult>
+    );
   }
 
   async readAdSetFull(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdSetFullResult>> {
-    return Promise.resolve(this.notImplemented('TikTok readAdSetFull is not implemented yet') as unknown as AdsBrokerResponse<AdSetFullResult>);
+    return Promise.resolve(
+      this.notImplemented(
+        'TikTok readAdSetFull is not implemented yet'
+      ) as unknown as AdsBrokerResponse<AdSetFullResult>
+    );
   }
 
   private async getPlacementPerformanceForRequest(
@@ -264,7 +299,18 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
         advertiserId: accountId,
         reportType: 'BASIC',
         dimensions: ['adgroup_id'],
-        metrics: ['placement_type', 'spend', 'impressions', 'clicks', 'ctr', 'cpc', 'cpm', 'conversions', 'conversion_value', 'real_time_conversion_value_per_cost'],
+        metrics: [
+          'placement_type',
+          'spend',
+          'impressions',
+          'clicks',
+          'ctr',
+          'cpc',
+          'cpm',
+          'conversions',
+          'conversion_value',
+          'real_time_conversion_value_per_cost',
+        ],
         dataLevel: 'AUCTION_ADGROUP',
         startDate: request.since,
         endDate: request.until,
@@ -328,22 +374,40 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
     // Real API client
     if (this.client) {
       try {
-        const dataLevel = level === 'account' ? 'AUCTION_ADVERTISER'
-          : level === 'campaign' ? 'AUCTION_CAMPAIGN'
-          : level === 'adgroup' ? 'AUCTION_ADGROUP'
-          : level === 'ad' ? 'AUCTION_AD'
-          : 'AUCTION_CAMPAIGN';
+        const dataLevel =
+          level === 'account'
+            ? 'AUCTION_ADVERTISER'
+            : level === 'campaign'
+              ? 'AUCTION_CAMPAIGN'
+              : level === 'adgroup'
+                ? 'AUCTION_ADGROUP'
+                : level === 'ad'
+                  ? 'AUCTION_AD'
+                  : 'AUCTION_CAMPAIGN';
 
         const report = await getTikTokReport(this.client, {
           advertiserId: accountId,
           reportType: 'BASIC',
           dimensions: [
-            level === 'account' ? 'advertiser_id'
-              : level === 'ad' ? 'ad_id'
-              : level === 'adgroup' ? 'adgroup_id'
-              : 'campaign_id',
+            level === 'account'
+              ? 'advertiser_id'
+              : level === 'ad'
+                ? 'ad_id'
+                : level === 'adgroup'
+                  ? 'adgroup_id'
+                  : 'campaign_id',
           ],
-          metrics: ['spend', 'impressions', 'clicks', 'ctr', 'cpc', 'cpm', 'conversions', 'conversion_value', 'real_time_conversion_value_per_cost'],
+          metrics: [
+            'spend',
+            'impressions',
+            'clicks',
+            'ctr',
+            'cpc',
+            'cpm',
+            'conversions',
+            'conversion_value',
+            'real_time_conversion_value_per_cost',
+          ],
           dataLevel,
           startDate: request.since,
           endDate: request.until,
@@ -406,7 +470,9 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
     return this.notImplemented();
   }
 
-  private notImplemented(message = 'TikTok Ads adapter requires a client or mock data to be configured'): AdsBrokerResponse<never> {
+  private notImplemented(
+    message = 'TikTok Ads adapter requires a client or mock data to be configured'
+  ): AdsBrokerResponse<never> {
     return {
       ok: false,
       provider: 'tiktok',
@@ -436,7 +502,9 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
 
   // --- Write Operations ---
 
-  async createCampaign(request: AdsBrokerRequest): Promise<AdsBrokerResponse<CreateCampaignResult>> {
+  async createCampaign(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<CreateCampaignResult>> {
     if (!this.client) return this.writeNotImplemented();
     const params = request.params;
     try {
@@ -450,11 +518,21 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
         bidType: params.bidType as string | undefined,
         operationStatus: params.operationStatus as string | undefined,
         budgetOptimizeOn: params.budgetOptimizeOn as boolean | undefined,
-        specialIndustries: Array.isArray(params.specialIndustries) ? params.specialIndustries.map(String) : undefined,
+        specialIndustries: Array.isArray(params.specialIndustries)
+          ? params.specialIndustries.map(String)
+          : undefined,
       });
       return {
-        ok: true, provider: 'tiktok',
-        data: { operation: 'create_campaign', status: 'executed', executed: true, id: result.campaign_id ?? '', preview: {}, response: result as unknown as Record<string, unknown> },
+        ok: true,
+        provider: 'tiktok',
+        data: {
+          operation: 'create_campaign',
+          status: 'executed',
+          executed: true,
+          id: result.campaign_id ?? '',
+          preview: {},
+          response: result as unknown as Record<string, unknown>,
+        },
       };
     } catch (error) {
       return this.errorResponse(error);
@@ -469,12 +547,24 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
     return this.campaignStatusUpdate(request, 'ENABLE');
   }
 
-  async updateCampaignBudget(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>> {
+  async updateCampaignBudget(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<AdsMutationResult>> {
     if (!this.client) return this.writeNotImplemented();
     const campaignId = String(request.params.campaignId ?? '');
     const dailyBudget = Number(request.params.dailyBudget ?? 0);
     if (!campaignId || !dailyBudget) {
-      return { ok: false, provider: 'tiktok', errors: [{ provider: 'tiktok', code: 'MISSING_REQUIRED_PARAMS', message: 'campaignId and dailyBudget are required' }] };
+      return {
+        ok: false,
+        provider: 'tiktok',
+        errors: [
+          {
+            provider: 'tiktok',
+            code: 'MISSING_REQUIRED_PARAMS',
+            message: 'campaignId and dailyBudget are required',
+          },
+        ],
+      };
     }
     try {
       const result = await updateTikTokCampaign(this.client, {
@@ -482,7 +572,16 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
         campaignId,
         budget: dailyBudget,
       });
-      return { ok: true, provider: 'tiktok', data: { success: true, id: campaignId, operation: 'update_campaign_budget', response: result as unknown as Record<string, unknown> } };
+      return {
+        ok: true,
+        provider: 'tiktok',
+        data: {
+          success: true,
+          id: campaignId,
+          operation: 'update_campaign_budget',
+          response: result as unknown as Record<string, unknown>,
+        },
+      };
     } catch (error) {
       return this.errorResponse(error);
     }
@@ -493,7 +592,17 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
     const campaignId = String(request.params.campaignId ?? '');
     const newName = String(request.params.newName ?? '');
     if (!campaignId || !newName) {
-      return { ok: false, provider: 'tiktok', errors: [{ provider: 'tiktok', code: 'MISSING_REQUIRED_PARAMS', message: 'campaignId and newName are required' }] };
+      return {
+        ok: false,
+        provider: 'tiktok',
+        errors: [
+          {
+            provider: 'tiktok',
+            code: 'MISSING_REQUIRED_PARAMS',
+            message: 'campaignId and newName are required',
+          },
+        ],
+      };
     }
     try {
       const result = await updateTikTokCampaign(this.client, {
@@ -501,17 +610,35 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
         campaignId,
         campaignName: newName,
       });
-      return { ok: true, provider: 'tiktok', data: { success: true, id: campaignId, operation: 'rename_campaign', response: result as unknown as Record<string, unknown> } };
+      return {
+        ok: true,
+        provider: 'tiktok',
+        data: {
+          success: true,
+          id: campaignId,
+          operation: 'rename_campaign',
+          response: result as unknown as Record<string, unknown>,
+        },
+      };
     } catch (error) {
       return this.errorResponse(error);
     }
   }
 
-  private async campaignStatusUpdate(request: AdsBrokerRequest, status: 'ENABLE' | 'DISABLE'): Promise<AdsBrokerResponse<AdsMutationResult>> {
+  private async campaignStatusUpdate(
+    request: AdsBrokerRequest,
+    status: 'ENABLE' | 'DISABLE'
+  ): Promise<AdsBrokerResponse<AdsMutationResult>> {
     if (!this.client) return this.writeNotImplemented();
     const campaignId = String(request.params.campaignId ?? '');
     if (!campaignId) {
-      return { ok: false, provider: 'tiktok', errors: [{ provider: 'tiktok', code: 'MISSING_CAMPAIGN_ID', message: 'campaignId is required' }] };
+      return {
+        ok: false,
+        provider: 'tiktok',
+        errors: [
+          { provider: 'tiktok', code: 'MISSING_CAMPAIGN_ID', message: 'campaignId is required' },
+        ],
+      };
     }
     try {
       await updateTikTokCampaignStatus(this.client, {
@@ -519,7 +646,15 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
         campaignId,
         status,
       });
-      return { ok: true, provider: 'tiktok', data: { success: true, id: campaignId, operation: status === 'ENABLE' ? 'resume_campaign' : 'pause_campaign' } };
+      return {
+        ok: true,
+        provider: 'tiktok',
+        data: {
+          success: true,
+          id: campaignId,
+          operation: status === 'ENABLE' ? 'resume_campaign' : 'pause_campaign',
+        },
+      };
     } catch (error) {
       return this.errorResponse(error);
     }
@@ -557,8 +692,16 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
         productSource: params.productSource as string | undefined,
       });
       return {
-        ok: true, provider: 'tiktok',
-        data: { operation: 'create_adset', status: 'executed', executed: true, id: result.adgroup_id ?? '', preview: {}, response: result as unknown as Record<string, unknown> },
+        ok: true,
+        provider: 'tiktok',
+        data: {
+          operation: 'create_adset',
+          status: 'executed',
+          executed: true,
+          id: result.adgroup_id ?? '',
+          preview: {},
+          response: result as unknown as Record<string, unknown>,
+        },
       };
     } catch (error) {
       return this.errorResponse(error);
@@ -569,7 +712,11 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
     if (!this.client) return this.writeNotImplemented();
     const adSetId = String(request.params.adSetId ?? '');
     if (!adSetId) {
-      return { ok: false, provider: 'tiktok', errors: [{ provider: 'tiktok', code: 'MISSING_ADSET_ID', message: 'adSetId is required' }] };
+      return {
+        ok: false,
+        provider: 'tiktok',
+        errors: [{ provider: 'tiktok', code: 'MISSING_ADSET_ID', message: 'adSetId is required' }],
+      };
     }
 
     const status = request.params.status as string | undefined;
@@ -592,7 +739,19 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
           budgetMode: budgetMode ?? 'DAILY',
         });
       }
-      return { ok: true, provider: 'tiktok', data: { operation: 'update_adset', status: 'executed', executed: true, success: true, id: adSetId, preview: {}, response: {} } };
+      return {
+        ok: true,
+        provider: 'tiktok',
+        data: {
+          operation: 'update_adset',
+          status: 'executed',
+          executed: true,
+          success: true,
+          id: adSetId,
+          preview: {},
+          response: {},
+        },
+      };
     } catch (error) {
       return this.errorResponse(error);
     }
@@ -602,15 +761,27 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
     return this.writeNotImplemented() as unknown as AdsBrokerResponse<UpdateAdResult>;
   }
 
-  async updateCampaign(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<UpdateCampaignResult>> {
+  async updateCampaign(
+    _request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<UpdateCampaignResult>> {
     return this.writeNotImplemented() as unknown as AdsBrokerResponse<UpdateCampaignResult>;
   }
 
-  async createAdCreative(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<CreateAdCreativeResult>> {
+  async createAdCreative(
+    _request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<CreateAdCreativeResult>> {
     // TikTok creatives are created as part of ad creation (ad_create includes creatives array)
     return Promise.resolve({
-      ok: false, provider: 'tiktok',
-      errors: [{ provider: 'tiktok', code: 'NOT_IMPLEMENTED', message: 'TikTok creatives are created inline via ad_create. Use createAd with creatives[] parameter.' }],
+      ok: false,
+      provider: 'tiktok',
+      errors: [
+        {
+          provider: 'tiktok',
+          code: 'NOT_IMPLEMENTED',
+          message:
+            'TikTok creatives are created inline via ad_create. Use createAd with creatives[] parameter.',
+        },
+      ],
     } as AdsBrokerResponse<CreateAdCreativeResult>);
   }
 
@@ -637,8 +808,16 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
         operationStatus: params.operationStatus as string | undefined,
       });
       return {
-        ok: true, provider: 'tiktok',
-        data: { operation: 'create_ad', status: 'executed', executed: true, id: result.ad_id ?? '', preview: {}, response: result as unknown as Record<string, unknown> },
+        ok: true,
+        provider: 'tiktok',
+        data: {
+          operation: 'create_ad',
+          status: 'executed',
+          executed: true,
+          id: result.ad_id ?? '',
+          preview: {},
+          response: result as unknown as Record<string, unknown>,
+        },
       };
     } catch (error) {
       return this.errorResponse(error);
@@ -671,7 +850,14 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
       return {
         ok: true,
         provider: 'tiktok',
-        data: { operation: 'archive_ad', status: 'dry_run', executed: false, preview, success: false, id: adId },
+        data: {
+          operation: 'archive_ad',
+          status: 'dry_run',
+          executed: false,
+          preview,
+          success: false,
+          id: adId,
+        },
       };
     }
 
@@ -698,7 +884,7 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
       provider: 'tiktok',
       data: {
         operation: 'archive_ad',
-        status: r.ok ? 'executed' as const : 'failed' as const,
+        status: r.ok ? ('executed' as const) : ('failed' as const),
         executed: r.ok,
         preview,
         success: r.ok,
@@ -709,18 +895,29 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
   }
 
   async cloneUiAd(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<CloneUiAdResult>> {
-    return Promise.resolve(this.writeNotImplemented() as unknown as AdsBrokerResponse<CloneUiAdResult>);
+    return Promise.resolve(
+      this.writeNotImplemented() as unknown as AdsBrokerResponse<CloneUiAdResult>
+    );
   }
 
   async cloneAdSet(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<CloneAdSetResult>> {
-    return Promise.resolve(this.writeNotImplemented() as unknown as AdsBrokerResponse<CloneAdSetResult>);
+    return Promise.resolve(
+      this.writeNotImplemented() as unknown as AdsBrokerResponse<CloneAdSetResult>
+    );
   }
 
-  private async adStatusUpdate(request: AdsBrokerRequest, status: 'ENABLE' | 'DISABLE' | 'DELETE'): Promise<AdsBrokerResponse<AdsMutationResult>> {
+  private async adStatusUpdate(
+    request: AdsBrokerRequest,
+    status: 'ENABLE' | 'DISABLE' | 'DELETE'
+  ): Promise<AdsBrokerResponse<AdsMutationResult>> {
     if (!this.client) return this.writeNotImplemented();
     const adId = String(request.params.adId ?? '');
     if (!adId) {
-      return { ok: false, provider: 'tiktok', errors: [{ provider: 'tiktok', code: 'MISSING_AD_ID', message: 'adId is required' }] };
+      return {
+        ok: false,
+        provider: 'tiktok',
+        errors: [{ provider: 'tiktok', code: 'MISSING_AD_ID', message: 'adId is required' }],
+      };
     }
     try {
       await updateTikTokAdStatus(this.client, {
@@ -728,17 +925,30 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
         adId,
         status: status as 'ENABLE' | 'DISABLE' | 'DELETE',
       });
-      return { ok: true, provider: 'tiktok', data: { success: true, id: adId, operation: status === 'ENABLE' ? 'resume_ad' : status === 'DELETE' ? 'archive_ad' : 'pause_ad' } };
+      return {
+        ok: true,
+        provider: 'tiktok',
+        data: {
+          success: true,
+          id: adId,
+          operation:
+            status === 'ENABLE' ? 'resume_ad' : status === 'DELETE' ? 'archive_ad' : 'pause_ad',
+        },
+      };
     } catch (error) {
       return this.errorResponse(error);
     }
   }
 
-  async getTargetingOptions(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<GetTargetingOptionsResult>> {
+  async getTargetingOptions(
+    _request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<GetTargetingOptionsResult>> {
     return this.writeNotImplemented();
   }
 
-  async createEcommerceCampaignBundle(request: AdsBrokerRequest): Promise<AdsBrokerResponse<EcommerceCampaignBundleResult>> {
+  async createEcommerceCampaignBundle(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<EcommerceCampaignBundleResult>> {
     if (!this.client) return this.writeNotImplemented();
     const params = request.params;
     const platform = String(params.platform ?? 'tiktok_gmv');
@@ -753,7 +963,19 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
           budgetMode: String(params.budgetMode ?? 'DAILY'),
           operationStatus: String(params.operationStatus ?? 'ENABLE'),
         });
-        return { ok: true, provider: 'tiktok', data: { operation: 'create_ecommerce_campaign_bundle', status: 'executed', executed: true, preview: { campaign: {}, adSet: {}, creative: {}, ad: {} }, warnings: [], ids: { campaignId: campaign.campaign_id }, responses: { campaign: campaign as unknown as Record<string, unknown> } } };
+        return {
+          ok: true,
+          provider: 'tiktok',
+          data: {
+            operation: 'create_ecommerce_campaign_bundle',
+            status: 'executed',
+            executed: true,
+            preview: { campaign: {}, adSet: {}, creative: {}, ad: {} },
+            warnings: [],
+            ids: { campaignId: campaign.campaign_id },
+            responses: { campaign: campaign as unknown as Record<string, unknown> },
+          },
+        };
       }
 
       // Default: create GMV Max campaign
@@ -768,7 +990,19 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
         scheduleStartTime: params.scheduleStartTime as string | undefined,
         operationStatus: String(params.operationStatus ?? 'ENABLE'),
       });
-      return { ok: true, provider: 'tiktok', data: { operation: 'create_ecommerce_campaign_bundle', status: 'executed', executed: true, preview: { campaign: {}, adSet: {}, creative: {}, ad: {} }, warnings: [], ids: { campaignId: result.campaign_id }, responses: { campaign: result as unknown as Record<string, unknown> } } };
+      return {
+        ok: true,
+        provider: 'tiktok',
+        data: {
+          operation: 'create_ecommerce_campaign_bundle',
+          status: 'executed',
+          executed: true,
+          preview: { campaign: {}, adSet: {}, creative: {}, ad: {} },
+          warnings: [],
+          ids: { campaignId: result.campaign_id },
+          responses: { campaign: result as unknown as Record<string, unknown> },
+        },
+      };
     } catch (error) {
       return this.errorResponse(error);
     }
@@ -776,7 +1010,9 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
 
   // ── TikTok GMV Max specific methods ──
 
-  async gmvMaxCreateCampaign(request: AdsBrokerRequest): Promise<AdsBrokerResponse<EcommerceCampaignBundleResult>> {
+  async gmvMaxCreateCampaign(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<EcommerceCampaignBundleResult>> {
     if (!this.client) return this.writeNotImplemented();
     const params = request.params;
     try {
@@ -799,13 +1035,27 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
           ? params.identityList.map(String)
           : undefined,
       });
-      return { ok: true, provider: 'tiktok', data: { operation: 'create_ecommerce_campaign_bundle', status: 'executed', executed: true, preview: { campaign: {}, adSet: {}, creative: {}, ad: {} }, warnings: [], ids: { campaignId: result.campaign_id }, responses: { campaign: result as unknown as Record<string, unknown> } } };
+      return {
+        ok: true,
+        provider: 'tiktok',
+        data: {
+          operation: 'create_ecommerce_campaign_bundle',
+          status: 'executed',
+          executed: true,
+          preview: { campaign: {}, adSet: {}, creative: {}, ad: {} },
+          warnings: [],
+          ids: { campaignId: result.campaign_id },
+          responses: { campaign: result as unknown as Record<string, unknown> },
+        },
+      };
     } catch (error) {
       return this.errorResponse(error);
     }
   }
 
-  async gmvMaxUpdateCampaign(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>> {
+  async gmvMaxUpdateCampaign(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<AdsMutationResult>> {
     if (!this.client) return this.writeNotImplemented();
     try {
       const result = await updateGmvMaxCampaign(this.client, {
@@ -815,13 +1065,24 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
         budget: request.params.budget as number | undefined,
         operationStatus: request.params.operationStatus as string | undefined,
       });
-      return { ok: true, provider: 'tiktok', data: { success: true, id: String(request.params.campaignId ?? ''), operation: 'gmv_max_update_campaign', response: result as unknown as Record<string, unknown> } };
+      return {
+        ok: true,
+        provider: 'tiktok',
+        data: {
+          success: true,
+          id: String(request.params.campaignId ?? ''),
+          operation: 'gmv_max_update_campaign',
+          response: result as unknown as Record<string, unknown>,
+        },
+      };
     } catch (error) {
       return this.errorResponse(error);
     }
   }
 
-  async gmvMaxCreateSession(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>> {
+  async gmvMaxCreateSession(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<AdsMutationResult>> {
     if (!this.client) return this.writeNotImplemented();
     try {
       const result = await createGmvMaxSession(this.client, {
@@ -832,15 +1093,28 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
         endTime: String(request.params.endTime ?? ''),
         sessionType: request.params.sessionType as string | undefined,
         sessionBudget: request.params.sessionBudget as number | undefined,
-        productIds: Array.isArray(request.params.productIds) ? request.params.productIds.map(String) : undefined,
+        productIds: Array.isArray(request.params.productIds)
+          ? request.params.productIds.map(String)
+          : undefined,
       });
-      return { ok: true, provider: 'tiktok', data: { success: true, id: result.session_id ?? '', operation: 'gmv_max_create_session', response: result as unknown as Record<string, unknown> } };
+      return {
+        ok: true,
+        provider: 'tiktok',
+        data: {
+          success: true,
+          id: result.session_id ?? '',
+          operation: 'gmv_max_create_session',
+          response: result as unknown as Record<string, unknown>,
+        },
+      };
     } catch (error) {
       return this.errorResponse(error);
     }
   }
 
-  async gmvMaxUpdateSession(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>> {
+  async gmvMaxUpdateSession(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<AdsMutationResult>> {
     if (!this.client) return this.writeNotImplemented();
     try {
       const result = await updateGmvMaxSession(this.client, {
@@ -851,29 +1125,52 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
         startTime: request.params.startTime as string | undefined,
         endTime: request.params.endTime as string | undefined,
       });
-      return { ok: true, provider: 'tiktok', data: { success: true, id: String(request.params.sessionId ?? ''), operation: 'gmv_max_update_session', response: result as unknown as Record<string, unknown> } };
+      return {
+        ok: true,
+        provider: 'tiktok',
+        data: {
+          success: true,
+          id: String(request.params.sessionId ?? ''),
+          operation: 'gmv_max_update_session',
+          response: result as unknown as Record<string, unknown>,
+        },
+      };
     } catch (error) {
       return this.errorResponse(error);
     }
   }
 
-  async gmvMaxDeleteSession(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>> {
+  async gmvMaxDeleteSession(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<AdsMutationResult>> {
     if (!this.client) return this.writeNotImplemented();
     try {
       await deleteGmvMaxSession(this.client, {
         advertiserId: String(request.accountId ?? request.credentials?.accountId ?? ''),
         sessionId: String(request.params.sessionId ?? ''),
       });
-      return { ok: true, provider: 'tiktok', data: { success: true, id: String(request.params.sessionId ?? ''), operation: 'gmv_max_delete_session' } };
+      return {
+        ok: true,
+        provider: 'tiktok',
+        data: {
+          success: true,
+          id: String(request.params.sessionId ?? ''),
+          operation: 'gmv_max_delete_session',
+        },
+      };
     } catch (error) {
       return this.errorResponse(error);
     }
   }
 
-  async gmvMaxGetCampaignInfo(request: AdsBrokerRequest): Promise<AdsBrokerResponse<Record<string, unknown>[]>> {
+  async gmvMaxGetCampaignInfo(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<Record<string, unknown>[]>> {
     if (!this.client) return this.writeNotImplemented();
     try {
-      const campaignIds = Array.isArray(request.params.campaignIds) ? request.params.campaignIds.map(String) : [];
+      const campaignIds = Array.isArray(request.params.campaignIds)
+        ? request.params.campaignIds.map(String)
+        : [];
       const result = await getGmvMaxCampaignInfo(this.client, {
         advertiserId: String(request.accountId ?? request.credentials?.accountId ?? ''),
         campaignIds,
@@ -886,7 +1183,9 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
 
   // ── TikTok Smart Plus specific methods ──
 
-  async smartPlusCreateCampaign(request: AdsBrokerRequest): Promise<AdsBrokerResponse<EcommerceCampaignBundleResult>> {
+  async smartPlusCreateCampaign(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<EcommerceCampaignBundleResult>> {
     if (!this.client) return this.writeNotImplemented();
     try {
       const result = await createSmartPlusCampaign(this.client, {
@@ -897,21 +1196,40 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
         budgetMode: String(request.params.budgetMode ?? 'DAILY'),
         operationStatus: String(request.params.operationStatus ?? 'ENABLE'),
       });
-      return { ok: true, provider: 'tiktok', data: { operation: 'create_ecommerce_campaign_bundle', status: 'executed', executed: true, preview: { campaign: {}, adSet: {}, creative: {}, ad: {} }, warnings: [], ids: { campaignId: result.campaign_id }, responses: { campaign: result as unknown as Record<string, unknown> } } };
+      return {
+        ok: true,
+        provider: 'tiktok',
+        data: {
+          operation: 'create_ecommerce_campaign_bundle',
+          status: 'executed',
+          executed: true,
+          preview: { campaign: {}, adSet: {}, creative: {}, ad: {} },
+          warnings: [],
+          ids: { campaignId: result.campaign_id },
+          responses: { campaign: result as unknown as Record<string, unknown> },
+        },
+      };
     } catch (error) {
       return this.errorResponse(error);
     }
   }
 
-  async smartPlusPauseCampaign(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>> {
+  async smartPlusPauseCampaign(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<AdsMutationResult>> {
     return this.smartPlusCampaignStatus(request, 'DISABLE');
   }
 
-  async smartPlusResumeCampaign(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>> {
+  async smartPlusResumeCampaign(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<AdsMutationResult>> {
     return this.smartPlusCampaignStatus(request, 'ENABLE');
   }
 
-  private async smartPlusCampaignStatus(request: AdsBrokerRequest, status: 'ENABLE' | 'DISABLE'): Promise<AdsBrokerResponse<AdsMutationResult>> {
+  private async smartPlusCampaignStatus(
+    request: AdsBrokerRequest,
+    status: 'ENABLE' | 'DISABLE'
+  ): Promise<AdsBrokerResponse<AdsMutationResult>> {
     if (!this.client) return this.writeNotImplemented();
     try {
       await updateSmartPlusCampaignStatus(this.client, {
@@ -919,13 +1237,24 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
         campaignId: String(request.params.campaignId ?? ''),
         status,
       });
-      return { ok: true, provider: 'tiktok', data: { success: true, id: String(request.params.campaignId ?? ''), operation: status === 'ENABLE' ? 'smart_plus_resume_campaign' : 'smart_plus_pause_campaign' } };
+      return {
+        ok: true,
+        provider: 'tiktok',
+        data: {
+          success: true,
+          id: String(request.params.campaignId ?? ''),
+          operation:
+            status === 'ENABLE' ? 'smart_plus_resume_campaign' : 'smart_plus_pause_campaign',
+        },
+      };
     } catch (error) {
       return this.errorResponse(error);
     }
   }
 
-  async smartPlusCreateAdGroup(request: AdsBrokerRequest): Promise<AdsBrokerResponse<CreateAdSetResult>> {
+  async smartPlusCreateAdGroup(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<CreateAdSetResult>> {
     if (!this.client) return this.writeNotImplemented();
     try {
       const result = await createSmartPlusAdGroup(this.client, {
@@ -939,21 +1268,39 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
         identityId: request.params.identityId as string | undefined,
         identityType: request.params.identityType as string | undefined,
       });
-      return { ok: true, provider: 'tiktok', data: { operation: 'create_adset', status: 'executed', executed: true, id: result.adgroup_id ?? '', preview: {}, response: result as unknown as Record<string, unknown> } };
+      return {
+        ok: true,
+        provider: 'tiktok',
+        data: {
+          operation: 'create_adset',
+          status: 'executed',
+          executed: true,
+          id: result.adgroup_id ?? '',
+          preview: {},
+          response: result as unknown as Record<string, unknown>,
+        },
+      };
     } catch (error) {
       return this.errorResponse(error);
     }
   }
 
-  async smartPlusPauseAdGroup(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>> {
+  async smartPlusPauseAdGroup(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<AdsMutationResult>> {
     return this.smartPlusAdGroupStatus(request, 'DISABLE');
   }
 
-  async smartPlusResumeAdGroup(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>> {
+  async smartPlusResumeAdGroup(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<AdsMutationResult>> {
     return this.smartPlusAdGroupStatus(request, 'ENABLE');
   }
 
-  private async smartPlusAdGroupStatus(request: AdsBrokerRequest, status: 'ENABLE' | 'DISABLE' | 'DELETE'): Promise<AdsBrokerResponse<AdsMutationResult>> {
+  private async smartPlusAdGroupStatus(
+    request: AdsBrokerRequest,
+    status: 'ENABLE' | 'DISABLE' | 'DELETE'
+  ): Promise<AdsBrokerResponse<AdsMutationResult>> {
     if (!this.client) return this.writeNotImplemented();
     try {
       await updateSmartPlusAdGroupStatus(this.client, {
@@ -961,7 +1308,20 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
         adgroupId: String(request.params.adgroupId ?? ''),
         status: status as 'ENABLE' | 'DISABLE' | 'DELETE',
       });
-      return { ok: true, provider: 'tiktok', data: { success: true, id: String(request.params.adgroupId ?? ''), operation: status === 'ENABLE' ? 'smart_plus_resume_adgroup' : status === 'DELETE' ? 'smart_plus_delete_adgroup' : 'smart_plus_pause_adgroup' } };
+      return {
+        ok: true,
+        provider: 'tiktok',
+        data: {
+          success: true,
+          id: String(request.params.adgroupId ?? ''),
+          operation:
+            status === 'ENABLE'
+              ? 'smart_plus_resume_adgroup'
+              : status === 'DELETE'
+                ? 'smart_plus_delete_adgroup'
+                : 'smart_plus_pause_adgroup',
+        },
+      };
     } catch (error) {
       return this.errorResponse(error);
     }
@@ -1068,7 +1428,9 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
         catalogId: params.catalogId as string | undefined,
         storeId: params.storeId as string | undefined,
         productSource: params.productSource as string | undefined,
-        itemGroupIds: Array.isArray(params.itemGroupIds) ? params.itemGroupIds.map(String) : undefined,
+        itemGroupIds: Array.isArray(params.itemGroupIds)
+          ? params.itemGroupIds.map(String)
+          : undefined,
         writesEnabled: params.writesEnabled as boolean | undefined,
       });
       return {
@@ -1082,15 +1444,27 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
   }
 
   async listAdImages(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdImageResult[]>> {
-    return Promise.resolve(this.notImplemented('TikTok ad image library is not implemented yet') as unknown as AdsBrokerResponse<AdImageResult[]>);
+    return Promise.resolve(
+      this.notImplemented(
+        'TikTok ad image library is not implemented yet'
+      ) as unknown as AdsBrokerResponse<AdImageResult[]>
+    );
   }
 
   async listAdVideos(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdVideoResult[]>> {
-    return Promise.resolve(this.notImplemented('TikTok ad video library is not implemented yet') as unknown as AdsBrokerResponse<AdVideoResult[]>);
+    return Promise.resolve(
+      this.notImplemented(
+        'TikTok ad video library is not implemented yet'
+      ) as unknown as AdsBrokerResponse<AdVideoResult[]>
+    );
   }
 
   async getAdPreview(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdPreviewResult[]>> {
-    return Promise.resolve(this.notImplemented('TikTok ad preview is not implemented yet') as unknown as AdsBrokerResponse<AdPreviewResult[]>);
+    return Promise.resolve(
+      this.notImplemented(
+        'TikTok ad preview is not implemented yet'
+      ) as unknown as AdsBrokerResponse<AdPreviewResult[]>
+    );
   }
 
   private writeNotImplemented(): AdsBrokerResponse<never> {
@@ -1115,7 +1489,9 @@ function parsePage(value: unknown): number | undefined {
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
-function getTikTokNextCursor(pageInfo: { page: number; total_page: number } | undefined): string | null {
+function getTikTokNextCursor(
+  pageInfo: { page: number; total_page: number } | undefined
+): string | null {
   if (!pageInfo || pageInfo.page >= pageInfo.total_page) return null;
   return String(pageInfo.page + 1);
 }

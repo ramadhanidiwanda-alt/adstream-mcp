@@ -30,9 +30,7 @@ function escapeHtml(str: string): string {
 }
 
 export function renderAuthorizeForm(params: AuthorizeFormParams): string {
-  const errorHtml = params.error
-    ? `<div class="error">${escapeHtml(params.error)}</div>`
-    : '';
+  const errorHtml = params.error ? `<div class="error">${escapeHtml(params.error)}</div>` : '';
 
   return `<!DOCTYPE html>
 <html lang="en">

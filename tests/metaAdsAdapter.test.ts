@@ -2,6 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { MetaAdsAdapter } from '../src/providers/meta/MetaAdsAdapter.js';
 import { META_LAUNCH_WORKFLOWS } from '../src/tools/checkLaunchReadiness.js';
 import { MetaApiError } from '../src/utils/metaError.js';
+import type { MetaClient } from '../src/metaClient.js';
+import type { CreateAdSetResult } from '../src/tools/createAdSet.js';
+import type { CreateAdCreativeOptions } from '../src/tools/createAdCreative.js';
+import type { AdsBrokerRequest, CredentialContext } from '../src/broker/types.js';
+import { adInsight, campaignInsight } from './support/fixtures.js';
 
 describe('MetaAdsAdapter', () => {
   it('implements required adapter contract shape', () => {
@@ -72,11 +77,7 @@ describe('MetaAdsAdapter', () => {
         'ads_create_adcreative',
         'ads_create_ad',
       ],
-      verificationTools: [
-        'ads_list_campaigns',
-        'ads_read_adset_full',
-        'ads_read_creative_full',
-      ],
+      verificationTools: ['ads_list_campaigns', 'ads_read_adset_full', 'ads_read_creative_full'],
       activationOrder: ['ads_resume_campaign', 'ads_resume_adset', 'ads_resume_ad'],
       requiresSecondActivationApproval: true,
       summary: expect.stringContaining('Belum siap'),
@@ -454,7 +455,14 @@ describe('MetaAdsAdapter', () => {
         getCampaignInsights: async (_client, options) => {
           receivedOptions = options as unknown as Record<string, unknown>;
           return Object.assign(
-            [{ campaign_id: 'cmp_1', spend: '10', impressions: '100', clicks: '5' }],
+            [
+              campaignInsight({
+                campaign_id: 'cmp_1',
+                spend: '10',
+                impressions: '100',
+                clicks: '5',
+              }),
+            ],
             { paging: { cursors: { after: 'next_cursor' } } }
           );
         },
@@ -575,14 +583,14 @@ describe('MetaAdsAdapter', () => {
         getAdsInsights: async () =>
           Object.assign(
             [
-              {
+              adInsight({
                 ad_id: 'ad_1',
                 campaign_id: 'c',
                 adset_id: 'as',
                 spend: '1',
                 impressions: '1',
                 clicks: '0',
-              },
+              }),
             ],
             { paging: { cursors: { after: 'more_data_cursor' } } }
           ),
@@ -607,14 +615,16 @@ describe('MetaAdsAdapter', () => {
   });
 
   it('does not warn when getPerformance returns as many rows as requested', async () => {
-    const rows = Array.from({ length: 3 }, (_, i) => ({
-      ad_id: `ad_${i}`,
-      campaign_id: 'c',
-      adset_id: 'as',
-      spend: '1',
-      impressions: '1',
-      clicks: '0',
-    }));
+    const rows = Array.from({ length: 3 }, (_, i) =>
+      adInsight({
+        ad_id: `ad_${i}`,
+        campaign_id: 'c',
+        adset_id: 'as',
+        spend: '1',
+        impressions: '1',
+        clicks: '0',
+      })
+    );
     const adapter = new MetaAdsAdapter({
       clientFactory: (config) => ({ config }) as never,
       tools: {
@@ -647,14 +657,14 @@ describe('MetaAdsAdapter', () => {
         getAdsInsights: async () =>
           Object.assign(
             [
-              {
+              adInsight({
                 ad_id: 'ad_1',
                 campaign_id: 'c',
                 adset_id: 'as',
                 spend: '1',
                 impressions: '1',
                 clicks: '0',
-              },
+              }),
             ],
             { paging: {} }
           ),
@@ -715,7 +725,7 @@ describe('MetaAdsAdapter', () => {
           },
         }) as never,
     });
-    const request = {
+    const request: AdsBrokerRequest = {
       provider: 'meta' as const,
       accountId: 'act_123',
       params: {
@@ -1693,7 +1703,7 @@ describe('MetaAdsAdapter', () => {
       },
     });
 
-    const credentials = {
+    const credentials: CredentialContext = {
       provider: 'meta' as const,
       accessToken: 'secret-token',
       apiVersion: 'v24.0',
@@ -1774,7 +1784,7 @@ describe('MetaAdsAdapter', () => {
 
   it('defaults canonical Collaborative Ads ad-set routing to Meta v25', async () => {
     let receivedApiVersion: string | undefined;
-    const createAdSet = vi.fn(async (client) => {
+    const createAdSet = vi.fn(async (client: MetaClient): Promise<CreateAdSetResult> => {
       receivedApiVersion = (client as { apiVersion?: string }).apiVersion;
       return { operation: 'create_adset', status: 'dry_run', executed: false, preview: {} };
     });
@@ -2370,7 +2380,7 @@ describe('MetaAdsAdapter', () => {
   });
 
   it('forwards canonical creative launch inputs for a URL-free Awareness creative', async () => {
-    let capturedOptions: Record<string, unknown> | undefined;
+    let capturedOptions: CreateAdCreativeOptions | undefined;
     const adapter = new MetaAdsAdapter({
       clientFactory: (config) => ({ config }) as never,
       tools: {
@@ -2438,7 +2448,7 @@ describe('MetaAdsAdapter', () => {
         },
       },
     });
-    const credentials = {
+    const credentials: CredentialContext = {
       provider: 'meta' as const,
       accessToken: 'workflow-credential',
       source: 'test',
@@ -2512,6 +2522,15 @@ describe('MetaAdsAdapter', () => {
           operation: 'create_ecommerce_campaign_bundle',
           status: 'failed',
           executed: false,
+          summary: {
+            goal: 'sales',
+            budget: 'IDR 100000/day',
+            destination: 'website',
+            audience: 'broad',
+            creative: 'single image',
+            statusAfterCreate: 'PAUSED',
+            needsReview: true,
+          },
           preview: { campaign: {}, adSet: {}, creative: {}, ad: {} },
           ids: { campaignId: 'campaign-1', adSetId: 'adset-1', creativeId: 'creative-1' },
           error: 'Ad creation failed.',
@@ -2638,7 +2657,7 @@ describe('MetaAdsAdapter', () => {
         },
       },
     });
-    const request = {
+    const request: AdsBrokerRequest = {
       provider: 'meta' as const,
       accountId: 'act_123',
       params,
@@ -3431,7 +3450,14 @@ describe('MetaAdsAdapter', () => {
       tools: {
         updateAdSet: async (_client, options) => {
           receivedOptions = options as unknown as Record<string, unknown>;
-          return { operation: 'update_adset', status: 'executed', preview: {}, mode: 'patch' };
+          return {
+            operation: 'update_adset',
+            status: 'executed',
+            executed: true,
+            success: true,
+            preview: {},
+            mode: 'patch',
+          };
         },
       },
     });

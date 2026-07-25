@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { getLocationInsights } from '../src/tools/getLocationInsights.js';
-import { summarizeLocationInsights, summarizeNestedLocationInsights } from '../src/analysis/summarizeLocationInsights.js';
+import {
+  summarizeLocationInsights,
+  summarizeNestedLocationInsights,
+} from '../src/analysis/summarizeLocationInsights.js';
 import type { CampaignInsight, MetaClient } from '../src/index.js';
 
 function createClientStub(insights: CampaignInsight[]): MetaClient {
@@ -29,9 +32,30 @@ function basicInsight(overrides: Partial<CampaignInsight> = {}): CampaignInsight
 describe('getLocationInsights', () => {
   it('returns summary with totals and ranked locations', async () => {
     const client = createClientStub([
-      basicInsight({ campaign_id: '1', campaign_name: 'A', country: 'ID', spend: '200', impressions: '2000', clicks: '80' }),
-      basicInsight({ campaign_id: '2', campaign_name: 'B', country: 'MY', spend: '100', impressions: '1000', clicks: '30' }),
-      basicInsight({ campaign_id: '3', campaign_name: 'C', country: 'ID', spend: '50', impressions: '500', clicks: '10' }),
+      basicInsight({
+        campaign_id: '1',
+        campaign_name: 'A',
+        country: 'ID',
+        spend: '200',
+        impressions: '2000',
+        clicks: '80',
+      }),
+      basicInsight({
+        campaign_id: '2',
+        campaign_name: 'B',
+        country: 'MY',
+        spend: '100',
+        impressions: '1000',
+        clicks: '30',
+      }),
+      basicInsight({
+        campaign_id: '3',
+        campaign_name: 'C',
+        country: 'ID',
+        spend: '50',
+        impressions: '500',
+        clicks: '10',
+      }),
     ]);
 
     const result = await getLocationInsights(client, {
@@ -104,7 +128,16 @@ describe('getLocationInsights', () => {
 
   it('defaults missing CTR/CPC/CPM from computed values', async () => {
     const client = createClientStub([
-      basicInsight({ campaign_id: '1', country: 'ID', spend: '200', impressions: '1000', clicks: '50', ctr: undefined, cpc: undefined, cpm: undefined }),
+      basicInsight({
+        campaign_id: '1',
+        country: 'ID',
+        spend: '200',
+        impressions: '1000',
+        clicks: '50',
+        ctr: undefined,
+        cpc: undefined,
+        cpm: undefined,
+      }),
     ]);
 
     const result = await getLocationInsights(client, {
@@ -158,9 +191,30 @@ describe('summarizeLocationInsights edge cases', () => {
 describe('summarizeNestedLocationInsights', () => {
   it('groups country → region hierarchically', () => {
     const insights = [
-      basicInsight({ campaign_id: '1', country: 'ID', region: 'Jawa Barat', spend: '100', impressions: '1000', clicks: '50' }),
-      basicInsight({ campaign_id: '2', country: 'ID', region: 'Jawa Timur', spend: '50', impressions: '500', clicks: '20' }),
-      basicInsight({ campaign_id: '3', country: 'MY', region: 'Selangor', spend: '75', impressions: '750', clicks: '30' }),
+      basicInsight({
+        campaign_id: '1',
+        country: 'ID',
+        region: 'Jawa Barat',
+        spend: '100',
+        impressions: '1000',
+        clicks: '50',
+      }),
+      basicInsight({
+        campaign_id: '2',
+        country: 'ID',
+        region: 'Jawa Timur',
+        spend: '50',
+        impressions: '500',
+        clicks: '20',
+      }),
+      basicInsight({
+        campaign_id: '3',
+        country: 'MY',
+        region: 'Selangor',
+        spend: '75',
+        impressions: '750',
+        clicks: '30',
+      }),
     ];
 
     const result = summarizeNestedLocationInsights({
@@ -202,15 +256,13 @@ describe('summarizeNestedLocationInsights', () => {
       breakdowns: ['country', 'region'],
     });
 
-    expect(result.hierarchy![0].children![0].key).toBe('A');  // spend 100
-    expect(result.hierarchy![0].children![1].key).toBe('C');  // spend 50
-    expect(result.hierarchy![0].children![2].key).toBe('B');  // spend 30
+    expect(result.hierarchy![0].children![0].key).toBe('A'); // spend 100
+    expect(result.hierarchy![0].children![1].key).toBe('C'); // spend 50
+    expect(result.hierarchy![0].children![2].key).toBe('B'); // spend 30
   });
 
   it('handles unknown region within a country', () => {
-    const insights = [
-      basicInsight({ campaign_id: '1', country: 'ID', region: undefined }),
-    ];
+    const insights = [basicInsight({ campaign_id: '1', country: 'ID', region: undefined })];
 
     const result = summarizeNestedLocationInsights({
       insights,
@@ -238,7 +290,12 @@ describe('summarizeNestedLocationInsights', () => {
 
   it('applies limit to top-level only', () => {
     const insights = Array.from({ length: 10 }, (_, i) =>
-      basicInsight({ campaign_id: `${i}`, country: `C${i}`, region: 'R1', spend: `${100 - i * 10}` })
+      basicInsight({
+        campaign_id: `${i}`,
+        country: `C${i}`,
+        region: 'R1',
+        spend: `${100 - i * 10}`,
+      })
     );
 
     const result = summarizeNestedLocationInsights({

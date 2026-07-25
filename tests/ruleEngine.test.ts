@@ -264,9 +264,7 @@ describe('RuleEngine', () => {
       expect(results[0].campaignId).toBe('1');
       expect(results[0].triggeredRules).toHaveLength(1);
       expect(results[0].overallStatus).toBe('warning');
-      expect(results[0].recommendedActions).toContain(
-        '[HIGH] Fix creative or targeting'
-      );
+      expect(results[0].recommendedActions).toContain('[HIGH] Fix creative or targeting');
 
       // Campaign 2 should trigger medium priority rule
       expect(results[1].campaignId).toBe('2');

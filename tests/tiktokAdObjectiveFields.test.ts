@@ -3,7 +3,10 @@ import { createTikTokAd } from '../src/tools/tiktok/createTikTokAd.js';
 import type { TikTokApiClient } from '../src/tiktokClient.js';
 
 function stubClient(): TikTokApiClient {
-  return { post: vi.fn().mockResolvedValue({ ad_id: 'ad_1' }), get: vi.fn() } as unknown as TikTokApiClient;
+  return {
+    post: vi.fn().mockResolvedValue({ ad_id: 'ad_1' }),
+    get: vi.fn(),
+  } as unknown as TikTokApiClient;
 }
 
 describe('createTikTokAd objective-specific creative fields', () => {

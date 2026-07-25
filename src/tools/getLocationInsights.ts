@@ -4,7 +4,10 @@ import { assertLocationBreakdowns } from '../utils/locationBreakdowns.js';
 import { getCampaignInsights } from './getCampaignInsights.js';
 import { getAdsetInsights } from './getAdsetInsights.js';
 import { getAdsInsights } from './getAdsInsights.js';
-import { summarizeLocationInsights, summarizeNestedLocationInsights } from '../analysis/summarizeLocationInsights.js';
+import {
+  summarizeLocationInsights,
+  summarizeNestedLocationInsights,
+} from '../analysis/summarizeLocationInsights.js';
 import type { LocationInsightSummary, InsightBreakdownOptions } from '../types.js';
 
 export interface GetLocationInsightsOptions extends InsightBreakdownOptions {

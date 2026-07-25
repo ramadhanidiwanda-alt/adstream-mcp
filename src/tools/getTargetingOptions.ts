@@ -1,10 +1,19 @@
 import type { MetaClient } from '../metaClient.js';
 
 export type TargetingOptionType =
-  | 'interests' | 'behaviors' | 'demographics' | 'industries'
-  | 'life_events' | 'family_statuses' | 'education_statuses'
-  | 'college_years' | 'income' | 'relationship_statuses'
-  | 'work_employers' | 'work_positions' | 'work_job_titles';
+  | 'interests'
+  | 'behaviors'
+  | 'demographics'
+  | 'industries'
+  | 'life_events'
+  | 'family_statuses'
+  | 'education_statuses'
+  | 'college_years'
+  | 'income'
+  | 'relationship_statuses'
+  | 'work_employers'
+  | 'work_positions'
+  | 'work_job_titles';
 
 export interface GetTargetingOptionsOptions {
   adAccountId: string;

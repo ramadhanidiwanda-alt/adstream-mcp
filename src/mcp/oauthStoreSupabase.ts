@@ -567,9 +567,7 @@ export class SupabaseOAuthStore implements IOAuthStore {
 
   // ── Refresh Token ────────────────────────────────────────────────────
 
-  createRefreshToken(
-    params: CreateAccessTokenParams
-  ): { refreshToken: string; expiresIn: number } {
+  createRefreshToken(params: CreateAccessTokenParams): { refreshToken: string; expiresIn: number } {
     const refreshToken = randomToken();
     const tokenHash = sha256Hex(refreshToken);
 
@@ -610,10 +608,7 @@ export class SupabaseOAuthStore implements IOAuthStore {
     };
   }
 
-  redeemRefreshToken(
-    refreshToken: string,
-    clientId: string
-  ): RedeemRefreshTokenResult | undefined {
+  redeemRefreshToken(refreshToken: string, clientId: string): RedeemRefreshTokenResult | undefined {
     const tokenHash = sha256Hex(refreshToken);
     const record = this.refreshTokens.get(tokenHash);
 
@@ -672,15 +667,10 @@ export class SupabaseOAuthStore implements IOAuthStore {
 
     void (async () => {
       try {
-        const rows = (await this.supabaseQueryAsync(
-          'mcp_oauth_refresh_tokens',
-          'GET',
-          undefined,
-          [
-            { key: 'token_hash', op: 'eq', value: tokenHash },
-            { key: 'revoked_at', op: 'is', value: 'null' },
-          ]
-        )) as Array<Record<string, unknown>> | undefined;
+        const rows = (await this.supabaseQueryAsync('mcp_oauth_refresh_tokens', 'GET', undefined, [
+          { key: 'token_hash', op: 'eq', value: tokenHash },
+          { key: 'revoked_at', op: 'is', value: 'null' },
+        ])) as Array<Record<string, unknown>> | undefined;
 
         const row = Array.isArray(rows) ? rows[0] : undefined;
         if (!row) return;

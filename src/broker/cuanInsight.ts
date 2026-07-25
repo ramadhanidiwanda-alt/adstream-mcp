@@ -21,8 +21,7 @@ export const CUAN_INSIGHT_CREDENTIAL_ERROR_CODES = [
   'INTERNAL_ERROR',
 ] as const;
 
-export type CuanInsightCredentialErrorCode =
-  (typeof CUAN_INSIGHT_CREDENTIAL_ERROR_CODES)[number];
+export type CuanInsightCredentialErrorCode = (typeof CUAN_INSIGHT_CREDENTIAL_ERROR_CODES)[number];
 
 /**
  * Identity payload describing which Cuan Insight user/workspace the broker is
@@ -132,8 +131,6 @@ export function isCuanInsightCredentialErrorCode(
   );
 }
 
-export function isSupportedCuanInsightProvider(
-  value: unknown
-): value is AdsProviderId {
+export function isSupportedCuanInsightProvider(value: unknown): value is AdsProviderId {
   return isAdsProviderId(value);
 }

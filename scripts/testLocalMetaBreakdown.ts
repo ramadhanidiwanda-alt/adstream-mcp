@@ -25,12 +25,16 @@ function summarizeRows(rows: unknown[]) {
 
 async function main() {
   if (!process.env.META_ACCESS_TOKEN || process.env.META_ACCESS_TOKEN === 'EAA...') {
-    console.log(JSON.stringify({ ok: false, error: 'Fill META_ACCESS_TOKEN in .env first.' }, null, 2));
+    console.log(
+      JSON.stringify({ ok: false, error: 'Fill META_ACCESS_TOKEN in .env first.' }, null, 2)
+    );
     return;
   }
 
   if (!process.env.META_AD_ACCOUNT_ID || process.env.META_AD_ACCOUNT_ID === 'act_') {
-    console.log(JSON.stringify({ ok: false, error: 'Fill META_AD_ACCOUNT_ID in .env first.' }, null, 2));
+    console.log(
+      JSON.stringify({ ok: false, error: 'Fill META_AD_ACCOUNT_ID in .env first.' }, null, 2)
+    );
     return;
   }
 
@@ -38,10 +42,16 @@ async function main() {
   const until = process.env.META_TEST_UNTIL ?? '2026-06-14';
   const level = process.env.META_TEST_LEVEL ?? 'campaign';
   const breakdownRaw = process.env.META_TEST_BREAKDOWN ?? 'country';
-  const breakdowns = breakdownRaw.split(',').map((b) => b.trim()).filter(Boolean);
+  const breakdowns = breakdownRaw
+    .split(',')
+    .map((b) => b.trim())
+    .filter(Boolean);
 
   const server = createMetaAdsMcpServer();
-  const client = new Client({ name: 'local-meta-breakdown-test', version: '1.0.0' }, { capabilities: {} });
+  const client = new Client(
+    { name: 'local-meta-breakdown-test', version: '1.0.0' },
+    { capabilities: {} }
+  );
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
 
   await Promise.all([client.connect(clientTransport), server.connect(serverTransport)]);
@@ -67,7 +77,13 @@ async function main() {
     }
 
     const summary = JSON.parse(text) as { top_locations?: unknown[] };
-    console.log(JSON.stringify({ ok: true, summary, sample: summarizeRows(summary.top_locations ?? []) }, null, 2));
+    console.log(
+      JSON.stringify(
+        { ok: true, summary, sample: summarizeRows(summary.top_locations ?? []) },
+        null,
+        2
+      )
+    );
   } finally {
     await Promise.all([client.close(), server.close()]);
   }
