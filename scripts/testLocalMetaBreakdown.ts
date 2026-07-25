@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
-import { createMetaAdsMcpServer } from '../mcp-server/src/createServer.js';
+import { createMetaAdsMcpServer } from '../src/mcp/createServer.js';
 
 function redact(value: string): string {
   return value.replace(/EA[A-Za-z0-9_-]+/g, '[REDACTED]').replace(/act_\d+/g, 'act_[REDACTED]');
@@ -59,7 +59,8 @@ async function main() {
       },
     });
 
-    const text = response.content?.[0]?.text ?? '';
+    const content = response.content as { text?: string }[] | undefined;
+    const text = content?.[0]?.text ?? '';
     if (response.isError || !text.trim().startsWith('{')) {
       console.log(redact(JSON.stringify({ ok: false, error: text }, null, 2)));
       return;

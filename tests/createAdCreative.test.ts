@@ -496,8 +496,8 @@ describe('createAdCreative', () => {
   it.each([
     {
       label: 'Awareness image',
-      objective: 'OUTCOME_AWARENESS',
-      conversionLocation: 'AWARENESS',
+      objective: 'OUTCOME_AWARENESS' as const,
+      conversionLocation: 'AWARENESS' as const,
       creative: {
         creativeFormat: 'single_image' as const,
         creativeSpec: {
@@ -513,8 +513,8 @@ describe('createAdCreative', () => {
     },
     {
       label: 'Engagement video',
-      objective: 'OUTCOME_ENGAGEMENT',
-      conversionLocation: 'VIDEO',
+      objective: 'OUTCOME_ENGAGEMENT' as const,
+      conversionLocation: 'VIDEO' as const,
       creative: {
         creativeFormat: 'video' as const,
         creativeSpec: {
@@ -638,6 +638,59 @@ describe('createAdCreative', () => {
       },
       url_tags: 'gcn={{campaign.name}}&utm_source=ig',
     });
+  });
+
+  it.each([
+    { objective: 'OUTCOME_SALES' as const, callToAction: 'SHOP_NOW' },
+    { objective: 'OUTCOME_TRAFFIC' as const, callToAction: 'LEARN_MORE' },
+    { objective: 'OUTCOME_LEADS' as const, callToAction: 'SIGN_UP' },
+  ])(
+    'boosts an existing post under $objective without a launch-matrix rejection',
+    async ({ objective, callToAction }) => {
+      const result = await createAdCreative(mockClient, {
+        adAccountId: 'act_1',
+        name: `EP ${objective} 01`,
+        objective,
+        conversionLocation: 'WEBSITE',
+        creative: {
+          creativeFormat: 'existing_post',
+          creativeSpec: {
+            objectStoryId: 'page-1_123',
+            destinationUrl: 'https://shop.example.com/product',
+            callToAction,
+          },
+        },
+      });
+
+      expect(result.status).toBe('dry_run');
+      expect(result.preview).toMatchObject({
+        object_story_id: 'page-1_123',
+        call_to_action: {
+          type: callToAction,
+          value: { link: 'https://shop.example.com/product' },
+        },
+      });
+      expect(result.preview.object_story_spec).toBeUndefined();
+    }
+  );
+
+  // destinationMode resolves to EXTERNAL_URL for every Website row, so the
+  // URL that carries the CTA must still be mandatory when boosting a post.
+  it('still requires destinationUrl when boosting a post for Website Traffic', async () => {
+    const result = await createAdCreative(mockClient, {
+      adAccountId: 'act_1',
+      name: 'EP Traffic no URL',
+      objective: 'OUTCOME_TRAFFIC',
+      conversionLocation: 'WEBSITE',
+      creative: {
+        creativeFormat: 'existing_post',
+        creativeSpec: { objectStoryId: 'page-1_123' },
+      },
+    });
+
+    expect(result.status).toBe('failed');
+    expect(result.error).toMatch(/destinationUrl wajib diisi/i);
+    expect(mockMetaPost).not.toHaveBeenCalled();
   });
 
   it('returns a structured validation error when a canonical creative requires pageId', async () => {

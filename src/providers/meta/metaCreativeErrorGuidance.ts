@@ -10,6 +10,13 @@ const PROVIDER_GUIDANCE: Readonly<Record<string, string>> = {
     'Pastikan katalog atau product set sudah dibagikan ke akun iklan yang membuat creative, lalu pilih product set yang terhubung.',
   '100:1443120':
     'Pastikan Page ID dapat diakses oleh akun iklan dan identitas Page pada creative sudah benar.',
+  // Meta's message for this subcode ("video Instagram harus diunggah ke Facebook")
+  // points at the wrong fix; that requirement was lifted in June 2023. The create
+  // fails because Meta cannot tell which IG account owns the media. Verified live
+  // against v25.0: the identical request succeeds once instagram_user_id is sent.
+  // IMAGE media is inferred, so only video and Reels hit this.
+  '100:1815279':
+    'Video/Reel Instagram tidak perlu diunggah ulang ke Page. Isi instagramUserId (ID akun Instagram pemilik media, dari ads_list_instagram_accounts) bersama creativeSpec.sourceInstagramMediaId, lalu ulangi dry-run.',
 };
 
 /** Return user-facing guidance without replacing the provider's original details. */

@@ -1,0 +1,24 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // Checking only — the build still emits from tsconfig.json, which stays
+    // scoped to src so rootDir and the declaration output are unaffected.
+    "noEmit": true,
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false,
+    // tests/ and scripts/ sit outside src, so the emit-oriented rootDir cannot
+    // apply here.
+    "rootDir": ".",
+    "types": ["node", "vitest/globals"]
+  },
+  // `exclude` is inherited, and tsconfig.json excludes "tests" — leaving it in
+  // place silently filters out everything `include` adds, so this config would
+  // typecheck nothing at all and still exit 0.
+  "exclude": ["node_modules", "dist", ".worktrees", ".claude/worktrees"],
+  // scripts/ is here because nothing else checked it either: a dead import of
+  // ../mcp-server/src/createServer.js and a reference to an undeclared variable
+  // both sat in scripts/ unnoticed, the latter waiting to throw a ReferenceError
+  // instead of the error message it meant to print.
+  "include": ["tests/**/*", "src/**/*", "scripts/**/*"]
+}

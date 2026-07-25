@@ -109,7 +109,42 @@ interface MetaObjectiveLaunchMatrixRow extends Omit<
 > {
   defaultGoal: string;
   allowedGoals: readonly string[];
+  /**
+   * Required inputs that replace `requiredInputs` when a specific creative
+   * format is requested. Used where the format itself changes what the
+   * advertiser has to supply — an existing post already carries its own media
+   * and copy, so asking for creativeAsset/primaryText/headline is wrong.
+   */
+  requiredInputsByCreativeFormat?: Partial<Record<MetaCreativeFormat, readonly string[]>>;
 }
+
+/**
+ * Boosting an existing Page post or Instagram media is a creative choice, not a
+ * conversion location: Ads Manager keeps conversion location on Website and
+ * swaps only the creative for the post. The post already carries its own media
+ * and copy, so creativeAsset/primaryText/headline give way to existingPostId,
+ * while destinationUrl stays mandatory — buildExistingPost sends it as the
+ * top-level call_to_action that drives clicks off the post.
+ */
+const WEBSITE_EXISTING_POST_REQUIRED_INPUTS = [
+  'pageId',
+  'existingPostId',
+  'destinationUrl',
+  'dailyBudget',
+  'countries',
+  'specialAdCategories',
+] as const;
+
+/** Same, for the rows that also optimize against a pixel (Leads and Sales). */
+const WEBSITE_EXISTING_POST_REQUIRED_INPUTS_WITH_PIXEL = [
+  'pageId',
+  'pixelId',
+  'existingPostId',
+  'destinationUrl',
+  'dailyBudget',
+  'countries',
+  'specialAdCategories',
+] as const;
 
 const MATRIX: Record<MetaObjectiveLaunchSpec['key'], MetaObjectiveLaunchMatrixRow> = {
   awareness: {
@@ -154,7 +189,10 @@ const MATRIX: Record<MetaObjectiveLaunchSpec['key'], MetaObjectiveLaunchMatrixRo
       'headline',
       'specialAdCategories',
     ],
-    supportedCreativeFormats: ['single_image', 'video', 'carousel', 'flexible'],
+    supportedCreativeFormats: ['single_image', 'video', 'carousel', 'flexible', 'existing_post'],
+    requiredInputsByCreativeFormat: {
+      existing_post: WEBSITE_EXISTING_POST_REQUIRED_INPUTS,
+    },
     defaultCallToAction: 'LEARN_MORE',
     minApiMajor: 23,
     maxApiMajor: 25,
@@ -217,7 +255,10 @@ const MATRIX: Record<MetaObjectiveLaunchSpec['key'], MetaObjectiveLaunchMatrixRo
       'headline',
       'specialAdCategories',
     ],
-    supportedCreativeFormats: ['single_image', 'video', 'carousel'],
+    supportedCreativeFormats: ['single_image', 'video', 'carousel', 'existing_post'],
+    requiredInputsByCreativeFormat: {
+      existing_post: WEBSITE_EXISTING_POST_REQUIRED_INPUTS_WITH_PIXEL,
+    },
     defaultCallToAction: 'SIGN_UP',
     minApiMajor: 23,
     maxApiMajor: 25,
@@ -294,7 +335,10 @@ const MATRIX: Record<MetaObjectiveLaunchSpec['key'], MetaObjectiveLaunchMatrixRo
       'headline',
       'specialAdCategories',
     ],
-    supportedCreativeFormats: META_SALES_WEBSITE_CREATIVE_FORMATS,
+    supportedCreativeFormats: [...META_SALES_WEBSITE_CREATIVE_FORMATS, 'existing_post'],
+    requiredInputsByCreativeFormat: {
+      existing_post: WEBSITE_EXISTING_POST_REQUIRED_INPUTS_WITH_PIXEL,
+    },
     defaultCallToAction: 'SHOP_NOW',
     minApiMajor: 23,
     maxApiMajor: 25,
@@ -388,9 +432,15 @@ export function resolveMetaObjectiveLaunchSpec(
     );
   }
 
-  const { defaultGoal: _defaultGoal, allowedGoals, ...spec } = row;
+  const { defaultGoal: _defaultGoal, allowedGoals, requiredInputsByCreativeFormat, ...spec } = row;
+  const formatRequiredInputs =
+    request.creativeFormat === undefined
+      ? undefined
+      : requiredInputsByCreativeFormat?.[request.creativeFormat];
+
   return {
     ...spec,
+    requiredInputs: formatRequiredInputs ?? spec.requiredInputs,
     allowedOptimizationGoals: allowedGoals,
     optimizationGoal,
   };

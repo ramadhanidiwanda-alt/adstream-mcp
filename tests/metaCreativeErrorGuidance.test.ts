@@ -13,6 +13,21 @@ describe('getMetaCreativeErrorGuidance', () => {
     ).toMatch(/katalog.*dibagikan|product set/i);
   });
 
+  // Meta's own message for this subcode says the Instagram video "must be
+  // uploaded to Facebook", which sends people down a dead end: nothing needs
+  // uploading, the create just needs instagramUserId so Meta can resolve the
+  // owning IG account. Verified live against v25.0 on 2026-07-25.
+  it('points a rejected existing IG video at the missing instagramUserId', () => {
+    const guidance = getMetaCreativeErrorGuidance({
+      provider: 'meta',
+      providerCode: '100',
+      providerSubcode: '1815279',
+      message: 'Invalid parameter (Video Instagram Harus Diunggah ke Facebook)',
+    });
+    expect(guidance).toMatch(/instagramUserId/);
+    expect(guidance).toMatch(/tidak perlu|tanpa perlu/i);
+  });
+
   it('does not replace the original Meta details', () => {
     const guidance = getMetaCreativeErrorGuidance({
       provider: 'meta',

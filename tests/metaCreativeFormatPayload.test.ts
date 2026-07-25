@@ -701,6 +701,46 @@ describe('buildMetaCreativeFormatPayload', () => {
     ).toEqual({ source_instagram_media_id: '17895695668004550' });
   });
 
+  // Verified live against v25.0 on 2026-07-25: a REELS/video media id alone is
+  // rejected with (#100) subcode 1815279, whose message claims the video "must be
+  // uploaded to Facebook". It does not have to be — Meta simply cannot tell which
+  // IG account owns the media. Adding instagram_user_id makes the identical
+  // create succeed. Meta infers the owner for IMAGE media, which is why photo
+  // posts worked without it and video looked impossible.
+  it('carries instagram_user_id at the top level so an existing IG video is promotable', () => {
+    expect(
+      buildMetaCreativeFormatPayload({
+        mode: 'standard',
+        pageId: '100338525395228',
+        instagramUserId: '17841421517309865',
+        creativeFormat: 'existing_post',
+        creativeSpec: {
+          sourceInstagramMediaId: '18108738530070830',
+          destinationUrl: 'https://pnpbeautyindonesia.com/',
+          callToAction: 'SHOP_NOW',
+        },
+      })
+    ).toEqual({
+      source_instagram_media_id: '18108738530070830',
+      instagram_user_id: '17841421517309865',
+      call_to_action: {
+        type: 'SHOP_NOW',
+        value: { link: 'https://pnpbeautyindonesia.com/' },
+      },
+    });
+  });
+
+  it('omits instagram_user_id from an existing_post creative when none is given', () => {
+    expect(
+      buildMetaCreativeFormatPayload({
+        mode: 'standard',
+        pageId: 'page-1',
+        creativeFormat: 'existing_post',
+        creativeSpec: { objectStoryId: 'page-1_123' },
+      })
+    ).toEqual({ object_story_id: 'page-1_123' });
+  });
+
   // The destination rides on a TOP-LEVEL call_to_action. Nesting it in
   // object_story_spec makes Meta reject the create with (#100) subcode 1487929
   // "Ambiguous Promoted Object" — verified live against v25.0.

@@ -174,6 +174,49 @@ describe('launch presets', () => {
     ).toEqual(expect.arrayContaining(['productSetId', 'catalogId']));
   });
 
+  const BOOSTABLE_WEBSITE_WORKFLOWS = [
+    { workflow: 'sales_website' as const, pixelId: 'pixel-1' },
+    { workflow: 'traffic_website' as const, pixelId: undefined },
+    { workflow: 'leads_website' as const, pixelId: 'pixel-1' },
+  ];
+
+  it.each(BOOSTABLE_WEBSITE_WORKFLOWS)(
+    'asks for the post instead of fresh assets when boosting a post for $workflow',
+    ({ workflow }) => {
+      const result = checkLaunchReadiness({
+        workflow,
+        creativeFormat: 'existing_post',
+        writesEnabled: true,
+      });
+
+      expect(result.missing).toEqual(expect.arrayContaining(['existingPostId', 'destinationUrl']));
+      expect(result.missing).toEqual(
+        expect.not.arrayContaining(['creativeAsset', 'primaryText', 'headline'])
+      );
+      expect(result.resolvedSpec?.supportedCreativeFormats).toContain('existing_post');
+    }
+  );
+
+  it.each(BOOSTABLE_WEBSITE_WORKFLOWS)(
+    'is ready to boost an existing post for $workflow once the post is known',
+    ({ workflow, pixelId }) => {
+      expect(
+        checkLaunchReadiness({
+          workflow,
+          creativeFormat: 'existing_post',
+          pageId: 'page-1',
+          pixelId,
+          existingPostId: 'page-1_post-1',
+          destinationUrl: 'https://shop.example.com/product',
+          dailyBudget: 100000,
+          countries: ['ID'],
+          specialAdCategories: [],
+          writesEnabled: true,
+        })
+      ).toMatchObject({ ready: true, missing: [] });
+    }
+  );
+
   it('keeps legacy workflow aliases compatible and marks deprecated aliases', () => {
     expect(getLaunchPreset('website_sales')).toMatchObject({ workflow: 'sales_website' });
     expect(checkLaunchReadiness({ workflow: 'whatsapp_sales' }).warnings).toEqual(
