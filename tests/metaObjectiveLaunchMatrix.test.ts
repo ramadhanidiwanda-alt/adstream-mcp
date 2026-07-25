@@ -117,42 +117,121 @@ describe('Meta objective launch matrix', () => {
     );
   });
 
-  it('accepts an existing post as Website Sales creative and swaps its required inputs', () => {
+  // An existing post is a creative choice, not a conversion location: every
+  // Website row keeps its own optimization goal and promoted object and swaps
+  // only the creative for the post.
+  const WEBSITE_EXISTING_POST_CASES = [
+    {
+      label: 'Website Sales',
+      objective: 'OUTCOME_SALES' as const,
+      expected: {
+        key: 'sales_website',
+        optimizationGoal: 'OFFSITE_CONVERSIONS',
+        destinationType: 'WEBSITE',
+        destinationMode: 'EXTERNAL_URL',
+        promotedObjectKind: 'pixel_purchase',
+      },
+      promotedObject: { pixel_id: 'pixel-1', custom_event_type: 'PURCHASE' },
+      alsoRequires: ['pixelId'],
+    },
+    {
+      label: 'Website Traffic',
+      objective: 'OUTCOME_TRAFFIC' as const,
+      expected: {
+        key: 'traffic_website',
+        optimizationGoal: 'LANDING_PAGE_VIEWS',
+        destinationType: 'WEBSITE',
+        destinationMode: 'EXTERNAL_URL',
+        promotedObjectKind: 'none',
+      },
+      promotedObject: undefined,
+      alsoRequires: [],
+    },
+    {
+      label: 'Website Leads',
+      objective: 'OUTCOME_LEADS' as const,
+      expected: {
+        key: 'leads_website',
+        optimizationGoal: 'OFFSITE_CONVERSIONS',
+        destinationType: 'WEBSITE',
+        destinationMode: 'EXTERNAL_URL',
+        promotedObjectKind: 'pixel_lead',
+      },
+      promotedObject: { pixel_id: 'pixel-1', custom_event_type: 'LEAD' },
+      alsoRequires: ['pixelId'],
+    },
+  ];
+
+  it.each(WEBSITE_EXISTING_POST_CASES)(
+    'accepts an existing post as $label creative and swaps its required inputs',
+    (testCase) => {
+      const spec = resolveMetaObjectiveLaunchSpec({
+        objective: testCase.objective,
+        conversionLocation: 'WEBSITE',
+        creativeFormat: 'existing_post',
+        apiVersion: 'v25.0',
+      });
+
+      expect(spec).toMatchObject(testCase.expected);
+      expect(buildMetaPromotedObject(spec, { pixelId: 'pixel-1' })).toEqual(
+        testCase.promotedObject
+      );
+      // The boosted post supplies its own media and copy; the tracked landing
+      // page still has to come from destinationUrl.
+      expect(spec.requiredInputs).toEqual(
+        expect.arrayContaining([
+          'pageId',
+          'existingPostId',
+          'destinationUrl',
+          ...testCase.alsoRequires,
+        ])
+      );
+      expect(spec.requiredInputs).toEqual(
+        expect.not.arrayContaining(['creativeAsset', 'primaryText', 'headline'])
+      );
+    }
+  );
+
+  it.each(WEBSITE_EXISTING_POST_CASES)(
+    'keeps asset-based required inputs for $label when no creative format is given',
+    (testCase) => {
+      const spec = resolveMetaObjectiveLaunchSpec({
+        objective: testCase.objective,
+        conversionLocation: 'WEBSITE',
+        apiVersion: 'v25.0',
+      });
+
+      expect(spec.requiredInputs).toEqual(
+        expect.arrayContaining(['creativeAsset', 'primaryText', 'headline'])
+      );
+      expect(spec.requiredInputs).toEqual(expect.not.arrayContaining(['existingPostId']));
+    }
+  );
+
+  // engagement_post owns conversionLocation POST with destinationMode NONE and
+  // needs no override: existing_post is its only supported format already.
+  it('leaves the Engagement post row untouched by the Website overrides', () => {
     const spec = resolveMetaObjectiveLaunchSpec({
-      objective: 'OUTCOME_SALES',
-      conversionLocation: 'WEBSITE',
+      objective: 'OUTCOME_ENGAGEMENT',
+      conversionLocation: 'POST',
       creativeFormat: 'existing_post',
       apiVersion: 'v25.0',
     });
 
     expect(spec).toMatchObject({
-      key: 'sales_website',
-      optimizationGoal: 'OFFSITE_CONVERSIONS',
-      destinationType: 'WEBSITE',
-      destinationMode: 'EXTERNAL_URL',
-      promotedObjectKind: 'pixel_purchase',
+      key: 'engagement_post',
+      optimizationGoal: 'POST_ENGAGEMENT',
+      destinationType: 'ON_POST',
+      destinationMode: 'NONE',
+      promotedObjectKind: 'none',
     });
-    expect(buildMetaPromotedObject(spec, { pixelId: 'pixel-1' })).toEqual({
-      pixel_id: 'pixel-1',
-      custom_event_type: 'PURCHASE',
-    });
-    // The boosted post supplies its own media and copy; the pixel-tracked
-    // landing page still has to come from destinationUrl.
-    expect(spec.requiredInputs).toContain('existingPostId');
-    expect(spec.requiredInputs).toContain('destinationUrl');
-    expect(spec.requiredInputs).toEqual(
-      expect.not.arrayContaining(['creativeAsset', 'primaryText', 'headline'])
-    );
-  });
-
-  it('keeps asset-based required inputs for Website Sales when no creative format is given', () => {
-    expect(
-      resolveMetaObjectiveLaunchSpec({
-        objective: 'OUTCOME_SALES',
-        conversionLocation: 'WEBSITE',
-        apiVersion: 'v25.0',
-      }).requiredInputs
-    ).toEqual(expect.arrayContaining(['creativeAsset', 'primaryText', 'headline']));
+    expect(spec.requiredInputs).toEqual([
+      'pageId',
+      'existingPostId',
+      'dailyBudget',
+      'countries',
+      'specialAdCategories',
+    ]);
   });
 
   it('still rejects an existing post for Catalog Sales', () => {

@@ -118,6 +118,34 @@ interface MetaObjectiveLaunchMatrixRow extends Omit<
   requiredInputsByCreativeFormat?: Partial<Record<MetaCreativeFormat, readonly string[]>>;
 }
 
+/**
+ * Boosting an existing Page post or Instagram media is a creative choice, not a
+ * conversion location: Ads Manager keeps conversion location on Website and
+ * swaps only the creative for the post. The post already carries its own media
+ * and copy, so creativeAsset/primaryText/headline give way to existingPostId,
+ * while destinationUrl stays mandatory — buildExistingPost sends it as the
+ * top-level call_to_action that drives clicks off the post.
+ */
+const WEBSITE_EXISTING_POST_REQUIRED_INPUTS = [
+  'pageId',
+  'existingPostId',
+  'destinationUrl',
+  'dailyBudget',
+  'countries',
+  'specialAdCategories',
+] as const;
+
+/** Same, for the rows that also optimize against a pixel (Leads and Sales). */
+const WEBSITE_EXISTING_POST_REQUIRED_INPUTS_WITH_PIXEL = [
+  'pageId',
+  'pixelId',
+  'existingPostId',
+  'destinationUrl',
+  'dailyBudget',
+  'countries',
+  'specialAdCategories',
+] as const;
+
 const MATRIX: Record<MetaObjectiveLaunchSpec['key'], MetaObjectiveLaunchMatrixRow> = {
   awareness: {
     key: 'awareness',
@@ -161,7 +189,10 @@ const MATRIX: Record<MetaObjectiveLaunchSpec['key'], MetaObjectiveLaunchMatrixRo
       'headline',
       'specialAdCategories',
     ],
-    supportedCreativeFormats: ['single_image', 'video', 'carousel', 'flexible'],
+    supportedCreativeFormats: ['single_image', 'video', 'carousel', 'flexible', 'existing_post'],
+    requiredInputsByCreativeFormat: {
+      existing_post: WEBSITE_EXISTING_POST_REQUIRED_INPUTS,
+    },
     defaultCallToAction: 'LEARN_MORE',
     minApiMajor: 23,
     maxApiMajor: 25,
@@ -224,7 +255,10 @@ const MATRIX: Record<MetaObjectiveLaunchSpec['key'], MetaObjectiveLaunchMatrixRo
       'headline',
       'specialAdCategories',
     ],
-    supportedCreativeFormats: ['single_image', 'video', 'carousel'],
+    supportedCreativeFormats: ['single_image', 'video', 'carousel', 'existing_post'],
+    requiredInputsByCreativeFormat: {
+      existing_post: WEBSITE_EXISTING_POST_REQUIRED_INPUTS_WITH_PIXEL,
+    },
     defaultCallToAction: 'SIGN_UP',
     minApiMajor: 23,
     maxApiMajor: 25,
@@ -301,21 +335,9 @@ const MATRIX: Record<MetaObjectiveLaunchSpec['key'], MetaObjectiveLaunchMatrixRo
       'headline',
       'specialAdCategories',
     ],
-    // Boosting an existing Page post or Instagram media is a creative choice,
-    // not a conversion location: Ads Manager keeps conversion location on
-    // Website (pixel + PURCHASE) and only swaps the creative for the post.
-    // buildExistingPost carries destinationUrl as a top-level call_to_action.
     supportedCreativeFormats: [...META_SALES_WEBSITE_CREATIVE_FORMATS, 'existing_post'],
     requiredInputsByCreativeFormat: {
-      existing_post: [
-        'pageId',
-        'pixelId',
-        'existingPostId',
-        'destinationUrl',
-        'dailyBudget',
-        'countries',
-        'specialAdCategories',
-      ],
+      existing_post: WEBSITE_EXISTING_POST_REQUIRED_INPUTS_WITH_PIXEL,
     },
     defaultCallToAction: 'SHOP_NOW',
     minApiMajor: 23,
