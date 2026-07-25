@@ -421,7 +421,18 @@ function buildExistingPost(
 
   const payload: Record<string, unknown> = objectStoryId
     ? { object_story_id: objectStoryId }
-    : { source_instagram_media_id: sourceInstagramMediaId };
+    : {
+        source_instagram_media_id: sourceInstagramMediaId,
+        // TOP-LEVEL, alongside source_instagram_media_id rather than inside
+        // object_story_spec (that pairing is the Ambiguous Promoted Object
+        // rejection described below). Without it Meta cannot tell which IG
+        // account owns the media, and an existing IG VIDEO/REEL is refused with
+        // (#100) subcode 1815279 claiming it "must be uploaded to Facebook" —
+        // it need not be. Verified live against v25.0: the same create succeeds
+        // as soon as instagram_user_id is present. IMAGE media is inferred, so
+        // photo posts work without it.
+        ...instagramIdentity(input),
+      };
 
   const callToAction = optional(creativeSpec.callToAction, 'callToAction');
 

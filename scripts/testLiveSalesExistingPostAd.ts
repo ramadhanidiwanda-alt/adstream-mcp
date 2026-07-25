@@ -37,24 +37,20 @@ const ACCOUNT_ID = argValue('account-id') ?? 'act_2326988574277142';
 const PAGE_ID = argValue('page-id') ?? '100338525395228';
 const PIXEL_ID = argValue('pixel-id') ?? '210003073678732';
 /**
- * A photo post, because the sourceInstagramMediaId path does not work for IG
- * video here. Meta's own docs say an ad can be built from "a single photo,
- * video, carousel, or reel", and these Reels report boost_eligibility_info
- * {eligible_to_boost: true} — yet passing a REELS id as source_instagram_media_id
- * is rejected with (#100) subcode 1815279, "when advertising an existing
- * Instagram video you must upload it to Facebook before creating the ad".
- *
- * Not a format restriction and not a waiting period: an 8-day-old Reel that
- * reports eligible_to_boost fails identically to one posted hours earlier. What
- * Meta wants is a Facebook-side copy of the video, so an IG video is promotable
- * only once it exists on the Page — and then the Page post is addressed with
- * objectStoryId, not sourceInstagramMediaId. Whether that copy appears depends
- * on IG-to-Page crossposting being enabled for the account, which this script
- * cannot check with a user token.
- *
- * All of which is orthogonal to the objective under test.
+ * Any photo, video, carousel or reel post works, matching Meta's documented
+ * range for using posts as ads. Pass --ig-media-id to try another; both a photo
+ * (18111117658948536) and a Reel (18108738530070830) are verified against v25.0.
  */
 const IG_MEDIA_ID = argValue('ig-media-id') ?? '18111117658948536';
+/**
+ * Mandatory in practice, and the whole reason IG video looked unusable. Meta
+ * rejects a REELS/video source_instagram_media_id with (#100) subcode 1815279,
+ * whose message insists the video "must be uploaded to Facebook" — it must not.
+ * The real problem is that Meta cannot tell which IG account owns the media, and
+ * naming instagram_user_id makes the identical create succeed. IMAGE media is
+ * inferred, which is why photo posts worked without it and hid the gap.
+ */
+const IG_USER_ID = argValue('ig-user-id') ?? '17841421517309865';
 
 const LANDING_PAGE = 'https://pnpbeautyindonesia.com/';
 const CTA = 'SHOP_NOW';
@@ -187,6 +183,7 @@ async function main(): Promise<void> {
     accountId: ACCOUNT_ID,
     name: `LIVE VERIFY sales+existing_post creative ${STAMP}`,
     pageId: PAGE_ID,
+    instagramUserId: IG_USER_ID,
     objective: 'OUTCOME_SALES',
     conversionLocation: 'WEBSITE',
     creativeFormat: 'existing_post',
