@@ -496,8 +496,8 @@ describe('createAdCreative', () => {
   it.each([
     {
       label: 'Awareness image',
-      objective: 'OUTCOME_AWARENESS',
-      conversionLocation: 'AWARENESS',
+      objective: 'OUTCOME_AWARENESS' as const,
+      conversionLocation: 'AWARENESS' as const,
       creative: {
         creativeFormat: 'single_image' as const,
         creativeSpec: {
@@ -513,8 +513,8 @@ describe('createAdCreative', () => {
     },
     {
       label: 'Engagement video',
-      objective: 'OUTCOME_ENGAGEMENT',
-      conversionLocation: 'VIDEO',
+      objective: 'OUTCOME_ENGAGEMENT' as const,
+      conversionLocation: 'VIDEO' as const,
       creative: {
         creativeFormat: 'video' as const,
         creativeSpec: {
