@@ -19,6 +19,7 @@ import type {
   AdsMetricRecord,
   AdsReport,
 } from '../src/broker/types.js';
+import { readNestedArray } from './support/json.js';
 
 const legacyToolNames = [
   'meta_get_ad_accounts',
@@ -544,7 +545,9 @@ describe('ads MCP broker tools', () => {
       | { enum?: readonly string[] }
       | undefined;
 
-    expect(workflowSchema?.enum).toEqual(expect.arrayContaining(LEGACY_READINESS_WORKFLOW_ALIASES));
+    expect(workflowSchema?.enum).toEqual(
+      expect.arrayContaining([...LEGACY_READINESS_WORKFLOW_ALIASES])
+    );
   });
 
   it('routes canonical ads_get_performance by level without removing legacy tools', async () => {
@@ -672,8 +675,9 @@ describe('ads MCP broker tools', () => {
         }),
       ],
     });
-    expect(parsed.data?.rows?.[0]).not.toHaveProperty('actions');
-    expect(parsed.data?.rows?.[0]).not.toHaveProperty('video');
+    const rows = readNestedArray(parsed.data, 'rows');
+    expect(rows[0]).not.toHaveProperty('actions');
+    expect(rows[0]).not.toHaveProperty('video');
   });
 
   it('routes ads_get_creatives to creative performance with canonical creative envelope', async () => {
@@ -806,7 +810,10 @@ describe('ads MCP broker tools', () => {
       );
       const optionalTools = (response.data as { writes: { optionalTools: string[] } }).writes
         .optionalTools;
-      const registeredWriteNames = new Set(
+      // Set<string>, not Set<AdsMcpToolName>: the advertised names come back
+      // from capabilities() as plain strings, and whether they are known tool
+      // names is exactly what this loop is checking.
+      const registeredWriteNames = new Set<string>(
         getAdsMcpToolDefinitions({ includeWrites: true })
           .map((tool) => tool.name)
           .filter((name) => isAdsMcpWriteTool(name))

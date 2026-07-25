@@ -500,6 +500,10 @@ export interface AdsBrokerResponse<TData = AdsMetricRecord[] | unknown> {
     code?: string;
     message: string;
     details?: Record<string, unknown>;
+    /** Human-readable next step. Set by the MCP tool layer on gated-tool errors. */
+    actionableFix?: string;
+    /** Env var that turns the gated tool on, paired with actionableFix. */
+    enableFlag?: string;
   }>;
   meta?: Record<string, unknown>;
 }

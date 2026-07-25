@@ -26,7 +26,6 @@ describe('TikTokAdsAdapter', () => {
     expect(typeof adapter.getCreativePerformance).toBe('function');
   });
 
-
   it('returns NOT_IMPLEMENTED for account performance when no client or mock data is configured', async () => {
     const adapter = new TikTokAdsAdapter();
     const response = await adapter.getAccountPerformance({ params: {} });
@@ -57,7 +56,12 @@ describe('TikTokAdsAdapter', () => {
       since: '2026-05-01',
       until: '2026-05-07',
       params: {},
-      credentials: { provider: 'tiktok', accessToken: 'secret-token', accountId: 'advertiser_1', source: 'test' },
+      credentials: {
+        provider: 'tiktok',
+        accessToken: 'secret-token',
+        accountId: 'advertiser_1',
+        source: 'test',
+      },
     });
 
     expect(response.ok).toBe(true);
@@ -104,7 +108,12 @@ describe('TikTokAdsAdapter', () => {
       since: '2026-05-01',
       until: '2026-05-07',
       params: {},
-      credentials: { provider: 'tiktok', accessToken: 'x', accountId: 'advertiser_123', source: 'test' },
+      credentials: {
+        provider: 'tiktok',
+        accessToken: 'x',
+        accountId: 'advertiser_123',
+        source: 'test',
+      },
     });
 
     expect(response.ok).toBe(true);
@@ -128,7 +137,10 @@ describe('TikTokAdsAdapter', () => {
             page_info: { page: 2, page_size: 100, total_number: 250, total_page: 3 },
           };
         },
-      },
+        // as never like the sibling stubs above: TikTokApiClient.get is generic
+        // (`<T>(path, params?) => Promise<T>`), which no concrete stub body can
+        // satisfy without a cast somewhere.
+      } as never,
     });
 
     const response = await adapter.getCampaignPerformance({
@@ -137,7 +149,12 @@ describe('TikTokAdsAdapter', () => {
       since: '2026-05-01',
       until: '2026-05-07',
       params: { cursor: '2' },
-      credentials: { provider: 'tiktok', accessToken: 'secret-token', accountId: 'advertiser_123', source: 'test' },
+      credentials: {
+        provider: 'tiktok',
+        accessToken: 'secret-token',
+        accountId: 'advertiser_123',
+        source: 'test',
+      },
     });
 
     expect(capturedParams).toMatchObject({ page: 2 });
@@ -179,7 +196,12 @@ describe('TikTokAdsAdapter', () => {
       since: '2026-05-01',
       until: '2026-05-07',
       params: {},
-      credentials: { provider: 'tiktok', accessToken: 'x', accountId: 'advertiser_123', source: 'test' },
+      credentials: {
+        provider: 'tiktok',
+        accessToken: 'x',
+        accountId: 'advertiser_123',
+        source: 'test',
+      },
     });
 
     expect(response.ok).toBe(true);
@@ -227,7 +249,12 @@ describe('TikTokAdsAdapter', () => {
       since: '2026-05-01',
       until: '2026-05-07',
       params: {},
-      credentials: { provider: 'tiktok', accessToken: 'secret-token', accountId: 'advertiser_1', source: 'test' },
+      credentials: {
+        provider: 'tiktok',
+        accessToken: 'secret-token',
+        accountId: 'advertiser_1',
+        source: 'test',
+      },
     });
 
     expect(response.ok).toBe(true);
@@ -258,7 +285,12 @@ describe('TikTokAdsAdapter', () => {
       providerRegistry: registry,
       credentialResolver: new StubCredentialResolver({
         ok: true,
-        credential: { provider: 'tiktok', accessToken: 'secret-token', accountId: 'advertiser_1', source: 'test' },
+        credential: {
+          provider: 'tiktok',
+          accessToken: 'secret-token',
+          accountId: 'advertiser_1',
+          source: 'test',
+        },
       }),
     });
 
@@ -320,13 +352,21 @@ describe('TikTokAdsAdapter', () => {
       provider: 'tiktok',
       accountId: 'advertiser_123',
       params: {},
-      credentials: { provider: 'tiktok', accessToken: 'x', accountId: 'advertiser_123', source: 'test' },
+      credentials: {
+        provider: 'tiktok',
+        accessToken: 'x',
+        accountId: 'advertiser_123',
+        source: 'test',
+      },
     });
 
     expect(response.ok).toBe(true);
     expect(capturedPath).toBe('/campaign/get/');
     expect(capturedParams?.advertiser_id).toBe('advertiser_123');
-    expect(response.data?.[0]).toMatchObject({ campaign_id: 'cmp_1', campaign_name: 'TikTok Campaign A' });
+    expect(response.data?.[0]).toMatchObject({
+      campaign_id: 'cmp_1',
+      campaign_name: 'TikTok Campaign A',
+    });
   });
 
   it('implements listCampaigns method on adapter contract', () => {
@@ -341,8 +381,8 @@ describe('TikTokAdsAdapter.checkLaunchReadiness', () => {
     const response = await adapter.checkLaunchReadiness({ params: { objectiveType: 'REACH' } });
     expect(response.ok).toBe(true);
     if (response.ok) {
-      expect(response.data.ready).toBe(false);
-      expect(response.data.missing).toContain('campaignName');
+      expect(response.data?.ready).toBe(false);
+      expect(response.data?.missing).toContain('campaignName');
     }
   });
 });

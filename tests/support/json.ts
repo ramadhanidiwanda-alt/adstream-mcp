@@ -48,3 +48,15 @@ export function readNested(value: unknown, ...path: string[]): Record<string, un
   }
   return current as Record<string, unknown>;
 }
+
+/** Like {@link readNested}, but the value at the end of the path must be an array. */
+export function readNestedArray(value: unknown, ...path: string[]): unknown[] {
+  const parent = path.length > 1 ? readNested(value, ...path.slice(0, -1)) : value;
+  const key = path[path.length - 1];
+  const found =
+    key === undefined ? parent : (parent as Record<string, unknown> | null | undefined)?.[key];
+  if (!Array.isArray(found)) {
+    throw new Error(`Expected an array at ${path.join('.')}, got ${JSON.stringify(found)}`);
+  }
+  return found;
+}

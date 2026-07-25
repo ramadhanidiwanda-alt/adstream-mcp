@@ -5,10 +5,16 @@ import type {
   AdsBrokerRequest,
   AdsBrokerResponse,
   AdsMetricRecord,
+  AdsMultiProviderReport,
   AdsProviderAdapter,
+  AdsReport,
   CredentialContext,
 } from '../src/broker/types.js';
-import type { CredentialResolveRequest, CredentialResolveResult } from '../src/broker/credentials.js';
+import { providerAdapterStub } from './support/adapter.js';
+import type {
+  CredentialResolveRequest,
+  CredentialResolveResult,
+} from '../src/broker/credentials.js';
 
 class StubCredentialResolver {
   calls: CredentialResolveRequest[] = [];
@@ -57,8 +63,7 @@ function createAdapter(overrides: Partial<AdsProviderAdapter> = {}): AdsProvider
     data: [createMetricRecord()],
   });
 
-  return {
-    id: 'meta',
+  return providerAdapterStub('meta', {
     displayName: 'Meta Ads Stub',
     capabilities: {
       providers: ['meta'],
@@ -88,7 +93,21 @@ function createAdapter(overrides: Partial<AdsProviderAdapter> = {}): AdsProvider
       },
     }),
     ...overrides,
-  };
+  });
+}
+
+/**
+ * Narrow a generateReport payload to the single-provider report.
+ *
+ * generateReport returns AdsReport | AdsMultiProviderReport, and only the
+ * former carries the audit-format finding buckets, so a test reading them has
+ * to say which shape it asked for.
+ */
+function singleProviderReport(data: AdsReport | AdsMultiProviderReport | undefined): AdsReport {
+  if (!data || !('provider' in data)) {
+    throw new Error(`Expected a single-provider report, got ${JSON.stringify(data)}`);
+  }
+  return data;
 }
 
 function createBroker(
@@ -115,7 +134,10 @@ const baseRequest: AdsBrokerRequest = {
 describe('AdsBroker', () => {
   it('rejects unknown provider', async () => {
     const { broker } = createBroker();
-    const response = await broker.getCampaignPerformance({ ...baseRequest, provider: 'shopee' as never });
+    const response = await broker.getCampaignPerformance({
+      ...baseRequest,
+      provider: 'shopee' as never,
+    });
 
     expect(response.ok).toBe(false);
     expect(response.errors?.[0].code).toBe('UNSUPPORTED_PROVIDER');
@@ -344,7 +366,11 @@ describe('AdsBroker', () => {
           data: [
             createMetricRecord({
               level: 'campaign',
-              identity: { account_id: 'act_123', campaign_id: 'cmp_scale', campaign_name: 'Scale Candidate' },
+              identity: {
+                account_id: 'act_123',
+                campaign_id: 'cmp_scale',
+                campaign_name: 'Scale Candidate',
+              },
               delivery: { spend: 200, impressions: 2000 },
               clicks: { clicks: 100 },
               commerce: { purchases: 10, purchase_value: 1000 },
@@ -399,9 +425,10 @@ describe('AdsBroker', () => {
         rating: expect.any(String),
       },
     });
-    expect(response.data?.efficiency_findings.length).toBeGreaterThan(0);
-    expect(response.data?.risk_findings.length).toBeGreaterThan(0);
-    expect(response.data?.opportunity_findings.length).toBeGreaterThan(0);
-    expect(response.data?.next_actions.length).toBeGreaterThan(0);
+    const report = singleProviderReport(response.data);
+    expect(report.efficiency_findings?.length).toBeGreaterThan(0);
+    expect(report.risk_findings?.length).toBeGreaterThan(0);
+    expect(report.opportunity_findings?.length).toBeGreaterThan(0);
+    expect(report.next_actions?.length).toBeGreaterThan(0);
   });
 });
