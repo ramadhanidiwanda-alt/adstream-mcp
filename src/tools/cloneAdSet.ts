@@ -5,6 +5,7 @@ import {
   formatMetaWriteError,
   formatStructuredMetaWriteError,
 } from '../utils/formatMetaWriteError.js';
+import { stripReadonlyTargetingKeys } from '../utils/targetingMerge.js';
 
 export type CloneAdSetStatus = 'dry_run' | 'pending_confirmation' | 'executed' | 'failed';
 
@@ -55,18 +56,22 @@ const CLONE_FIELDS = [
   'frequency_control_specs',
 ].join(',');
 
-// Targeting sub-fields Meta returns on read but rejects on write.
-const READONLY_TARGETING_KEYS = ['age_range'];
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+/**
+ * `age_range` was previously assumed read-only-on-write and stripped here. Verified
+ * against Meta's Advantage+ Audience docs and a live account (2026-07): it's a
+ * writable sibling of age_min/age_max, tied to targeting_automation.advantage_audience.
+ * Since it's copied here alongside the rest of `targeting` (including
+ * targeting_automation from the same source read), the pairing is preserved and no
+ * longer needs stripping. See src/utils/targetingMerge.ts for the shared stripping
+ * hook, kept in case Meta introduces a genuinely read-only sub-field later.
+ */
 function cleanTargeting(targeting: unknown): Record<string, unknown> | undefined {
   if (!isRecord(targeting)) return undefined;
-  const cleaned: Record<string, unknown> = { ...targeting };
-  for (const key of READONLY_TARGETING_KEYS) delete cleaned[key];
-  return cleaned;
+  return stripReadonlyTargetingKeys(targeting);
 }
 
 /** Build the create payload for the clone from the source ad set + overrides. */

@@ -962,6 +962,41 @@ describe('createAdSet — bid strategy + pre-flight validation', () => {
     });
   });
 
+  describe('ageRange (Advantage+ Audience age suggestion)', () => {
+    it('emits age_range alongside age_min/age_max as a flat sibling field', async () => {
+      const client = createMockClient();
+      const result = await createAdSet(
+        client,
+        {
+          ...defaultOptions,
+          targeting: {
+            ageMin: 18,
+            ageMax: 65,
+            ageRange: [35, 65],
+            targetingAutomation: { advantage_audience: 1 },
+          },
+        },
+        { dryRun: true }
+      );
+      const targeting = result.preview.targeting as Record<string, unknown>;
+      expect(targeting.age_min).toBe(18);
+      expect(targeting.age_max).toBe(65);
+      expect(targeting.age_range).toEqual([35, 65]);
+      expect(targeting.targeting_automation).toEqual({ advantage_audience: 1 });
+    });
+
+    it('omits age_range when not provided', async () => {
+      const client = createMockClient();
+      const result = await createAdSet(
+        client,
+        { ...defaultOptions, targeting: { ageMin: 18, ageMax: 65 } },
+        { dryRun: true }
+      );
+      const targeting = result.preview.targeting as Record<string, unknown>;
+      expect(targeting.age_range).toBeUndefined();
+    });
+  });
+
   describe('flexible_spec (behaviors / work_employers / work_positions)', () => {
     it('serializes a flexibleSpec group into targeting.flexible_spec', async () => {
       const client = createMockClient();

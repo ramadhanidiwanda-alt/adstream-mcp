@@ -514,6 +514,12 @@ const createAdSetInputSchema = {
     ),
   ageMin: z.number().optional().describe('Minimum age target (e.g. 18).'),
   ageMax: z.number().optional().describe('Maximum age target (e.g. 65).'),
+  ageRange: z
+    .tuple([z.number(), z.number()])
+    .optional()
+    .describe(
+      'Advantage+ Audience age suggestion [min, max] — distinct from the hard ageMin/ageMax filter. Only meaningful when advantageAudience/targetingAutomation.advantage_audience is 1.'
+    ),
   genders: z
     .array(z.number())
     .optional()
@@ -885,6 +891,12 @@ const updateAdSetInputSchema = {
   geoLocations: z.record(z.unknown()).optional().describe('Geo targeting object.'),
   ageMin: z.number().optional().describe('Minimum age target.'),
   ageMax: z.number().optional().describe('Maximum age target.'),
+  ageRange: z
+    .tuple([z.number(), z.number()])
+    .optional()
+    .describe(
+      'Advantage+ Audience age suggestion [min, max] — distinct from the hard ageMin/ageMax filter. Only meaningful when advantageAudience/targetingAutomation.advantage_audience is 1. In mode="patch" (default), merges with the ad set\'s current remote targeting.'
+    ),
   genders: z
     .array(z.number())
     .optional()

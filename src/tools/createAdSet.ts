@@ -18,6 +18,7 @@ import {
   formatMetaWriteError,
   formatStructuredMetaWriteError,
 } from '../utils/formatMetaWriteError.js';
+import { deepMergeTargeting } from '../utils/targetingMerge.js';
 
 export type AdSetStatus = 'ACTIVE' | 'PAUSED';
 
@@ -76,6 +77,12 @@ export interface AdSetTargeting {
   };
   ageMin?: number;
   ageMax?: number;
+  /**
+   * Advantage+ Audience age suggestion — distinct from the hard age_min/age_max
+   * filter. Only meaningful when targeting_automation.advantage_audience is 1;
+   * omit unless you intend to pair it with that. Shape: [min, max].
+   */
+  ageRange?: [number, number];
   genders?: number[];
   interests?: Array<{ id: string; name?: string }>;
   behaviors?: Array<{ id: string; name?: string }>;
@@ -798,26 +805,6 @@ function buildCollaborativePromotedObject(
   };
 }
 
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-/** Recursively merges `override` on top of `base`. Nested plain objects are merged key-by-key; arrays and primitives in `override` fully replace the corresponding value in `base`. */
-function deepMergeTargeting(
-  base: Record<string, unknown>,
-  override: Record<string, unknown>
-): Record<string, unknown> {
-  const result: Record<string, unknown> = { ...base };
-  for (const [key, value] of Object.entries(override)) {
-    const baseValue = result[key];
-    result[key] =
-      isPlainObject(baseValue) && isPlainObject(value)
-        ? deepMergeTargeting(baseValue, value)
-        : value;
-  }
-  return result;
-}
-
 function buildTargetingPayload(targeting: AdSetTargeting): Record<string, unknown> {
   const result: Record<string, unknown> = {};
 
@@ -827,6 +814,7 @@ function buildTargetingPayload(targeting: AdSetTargeting): Record<string, unknow
 
   if (targeting.ageMin !== undefined) result.age_min = targeting.ageMin;
   if (targeting.ageMax !== undefined) result.age_max = targeting.ageMax;
+  if (targeting.ageRange !== undefined) result.age_range = targeting.ageRange;
   if (targeting.genders !== undefined) result.genders = targeting.genders;
 
   if (targeting.interests !== undefined) result.interests = targeting.interests;
