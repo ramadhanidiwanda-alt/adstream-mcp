@@ -189,7 +189,7 @@ const launchReadinessInputSchema = {
   callToAction: z.string().optional().describe('Call to action (TikTok readiness check).'),
   appId: z.string().optional().describe('TikTok App ID (APP_PROMOTION readiness check).'),
   promotionType: z
-    .string()
+    .enum(['APP_INSTALL', 'APP_RETARGETING'])
     .optional()
     .describe('APP_INSTALL or APP_RETARGETING (TikTok readiness check).'),
   optimizationEvent: z
@@ -767,7 +767,9 @@ const createAdInputSchema = {
   creativeId: z
     .string()
     .optional()
-    .describe('Meta: the creative ID to use for this ad. Not used for TikTok — use creatives instead.'),
+    .describe(
+      'Meta: the creative ID to use for this ad. Not used for TikTok — use creatives instead.'
+    ),
   creatives: z
     .array(z.record(z.unknown()))
     .optional()
