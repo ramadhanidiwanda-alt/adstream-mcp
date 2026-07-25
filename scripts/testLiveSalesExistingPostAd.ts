@@ -32,16 +32,21 @@ import { parseBrokerConfigFromEnv } from '../src/broker/config.js';
 
 const EXECUTE = process.argv.includes('--execute');
 
-/** Supplied by the account owner; see the conversation that introduced this script. */
-const ACCOUNT_ID = argValue('account-id') ?? 'act_2326988574277142';
-const PAGE_ID = argValue('page-id') ?? '100338525395228';
-const PIXEL_ID = argValue('pixel-id') ?? '210003073678732';
+/**
+ * No defaults: every id names a real ad account, Page, pixel and Instagram
+ * account, and those belong in the operator's environment rather than in version
+ * control. Discover them with ads_list_accounts, ads_list_pages, ads_list_pixels
+ * and ads_list_instagram_accounts.
+ */
+const resolveAccountId = () => required('account-id', 'META_LIVE_AD_ACCOUNT_ID');
+const resolvePageId = () => required('page-id', 'META_LIVE_PAGE_ID');
+const resolvePixelId = () => required('pixel-id', 'META_LIVE_PIXEL_ID');
 /**
  * Any photo, video, carousel or reel post works, matching Meta's documented
- * range for using posts as ads. Pass --ig-media-id to try another; both a photo
- * (18111117658948536) and a Reel (18108738530070830) are verified against v25.0.
+ * range for using posts as ads. Both a feed photo and a Reel are verified
+ * against v25.0.
  */
-const IG_MEDIA_ID = argValue('ig-media-id') ?? '18111117658948536';
+const resolveIgMediaId = () => required('ig-media-id', 'META_LIVE_IG_MEDIA_ID');
 /**
  * Mandatory in practice, and the whole reason IG video looked unusable. Meta
  * rejects a REELS/video source_instagram_media_id with (#100) subcode 1815279,
@@ -50,9 +55,9 @@ const IG_MEDIA_ID = argValue('ig-media-id') ?? '18111117658948536';
  * naming instagram_user_id makes the identical create succeed. IMAGE media is
  * inferred, which is why photo posts worked without it and hid the gap.
  */
-const IG_USER_ID = argValue('ig-user-id') ?? '17841421517309865';
+const resolveIgUserId = () => required('ig-user-id', 'META_LIVE_IG_USER_ID');
 
-const LANDING_PAGE = 'https://pnpbeautyindonesia.com/';
+const resolveLandingPage = () => required('landing-page', 'META_LIVE_LANDING_PAGE');
 const CTA = 'SHOP_NOW';
 /** IDR has no minor unit, so this is Rp 50.000 — irrelevant while PAUSED. */
 const DAILY_BUDGET = 50000;
@@ -61,6 +66,12 @@ const STAMP = Date.now();
 function argValue(name: string): string | undefined {
   const prefix = `--${name}=`;
   return process.argv.find((arg) => arg.startsWith(prefix))?.slice(prefix.length);
+}
+
+function required(argName: string, envName: string): string {
+  const value = argValue(argName) ?? process.env[envName];
+  if (value?.trim()) return value.trim();
+  throw new Error(`Missing --${argName}=... (or ${envName} in the environment).`);
 }
 
 function section(title: string): void {
@@ -136,6 +147,13 @@ function report(label: string, payload: BrokerPayload): void {
 }
 
 async function main(): Promise<void> {
+  const ACCOUNT_ID = resolveAccountId();
+  const PAGE_ID = resolvePageId();
+  const PIXEL_ID = resolvePixelId();
+  const IG_MEDIA_ID = resolveIgMediaId();
+  const IG_USER_ID = resolveIgUserId();
+  const LANDING_PAGE = resolveLandingPage();
+
   const broker = createAdsBrokerFromConfig(parseBrokerConfigFromEnv());
   const client = new MetaClient(loadConfig());
 

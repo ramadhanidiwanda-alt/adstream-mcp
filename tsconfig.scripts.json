@@ -1,0 +1,20 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // Checking only; the build still emits from tsconfig.json.
+    "noEmit": true,
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false,
+    // scripts/ sits outside src, so the emit-oriented rootDir cannot apply here.
+    "rootDir": ".",
+    "types": ["node"]
+  },
+  // Must be restated: `exclude` is inherited, and the root config excludes
+  // "tests" — a stale inherited exclude is how a config ends up checking nothing
+  // while still exiting 0.
+  "exclude": ["node_modules", "dist", ".worktrees", ".claude/worktrees"],
+  // Separate from tsconfig.test.json so scripts/ can be gated in CI right away:
+  // it is clean today, whereas tests/ still carries a backlog of type errors.
+  "include": ["src/**/*", "scripts/**/*"]
+}
