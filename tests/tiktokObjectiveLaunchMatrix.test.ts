@@ -35,6 +35,29 @@ describe('TikTok objective launch matrix', () => {
     expect(spec.requiredInputs).toContain('promotionType');
   });
 
+  it('resolves TRAFFIC with an explicit non-default optimizationGoal', () => {
+    const spec = resolveTikTokObjectiveLaunchSpec({
+      objectiveType: 'TRAFFIC',
+      optimizationGoal: 'LANDING_PAGE_VIEW',
+    });
+    expect(spec.key).toBe('traffic');
+    expect(spec.optimizationGoal).toBe('LANDING_PAGE_VIEW');
+  });
+
+  it('resolves VIDEO_VIEWS to its default optimization goal', () => {
+    const spec = resolveTikTokObjectiveLaunchSpec({ objectiveType: 'VIDEO_VIEWS' });
+    expect(spec.key).toBe('video_views');
+    expect(spec.defaultOptimizationGoal).toBe('VIDEO_VIEW');
+    expect(spec.optimizationGoal).toBe('VIDEO_VIEW');
+  });
+
+  it('resolves ENGAGEMENT to its default optimization goal', () => {
+    const spec = resolveTikTokObjectiveLaunchSpec({ objectiveType: 'ENGAGEMENT' });
+    expect(spec.key).toBe('engagement');
+    expect(spec.defaultOptimizationGoal).toBe('ENGAGED_VIEW');
+    expect(spec.optimizationGoal).toBe('ENGAGED_VIEW');
+  });
+
   it('resolves WEB_CONVERSIONS requiring pixelId and optimizationEvent', () => {
     const spec = resolveTikTokObjectiveLaunchSpec({ objectiveType: 'WEB_CONVERSIONS' });
     expect(spec.requiredInputs).toContain('pixelId');
@@ -78,5 +101,39 @@ describe('TikTok objective launch matrix', () => {
   it('buildTikTokObjectiveFields throws MISSING_OBJECTIVE_FIELD when required field absent', () => {
     const spec = resolveTikTokObjectiveLaunchSpec({ objectiveType: 'APP_PROMOTION' });
     expect(() => buildTikTokObjectiveFields(spec, {})).toThrow(TikTokObjectiveLaunchValidationError);
+  });
+
+  it('buildTikTokObjectiveFields returns adgroup-level pixel fields for WEB_CONVERSIONS', () => {
+    const spec = resolveTikTokObjectiveLaunchSpec({ objectiveType: 'WEB_CONVERSIONS' });
+    const fields = buildTikTokObjectiveFields(spec, {
+      pixelId: 'pixel_1',
+      optimizationEvent: 'COMPLETE_PAYMENT',
+    });
+    expect(fields.adgroup).toEqual({ pixel_id: 'pixel_1', optimization_event: 'COMPLETE_PAYMENT' });
+  });
+
+  it('buildTikTokObjectiveFields returns creative-level page_id for LEAD_GENERATION', () => {
+    const spec = resolveTikTokObjectiveLaunchSpec({ objectiveType: 'LEAD_GENERATION' });
+    const fields = buildTikTokObjectiveFields(spec, { instantFormPageId: 'page_1' });
+    expect(fields.creative).toEqual({ page_id: 'page_1' });
+  });
+
+  it('buildTikTokObjectiveFields returns catalog fields for PRODUCT_SALES, omitting optional store fields', () => {
+    const spec = resolveTikTokObjectiveLaunchSpec({ objectiveType: 'PRODUCT_SALES' });
+    const fields = buildTikTokObjectiveFields(spec, {
+      catalogId: 'catalog_1',
+      itemGroupIds: ['item_1', 'item_2'],
+    });
+    expect(fields.adgroup).toEqual({ catalog_id: 'catalog_1' });
+    expect(fields.adgroup).not.toHaveProperty('store_id');
+    expect(fields.adgroup).not.toHaveProperty('product_source');
+    expect(fields.creative).toEqual({ item_group_ids: ['item_1', 'item_2'] });
+  });
+
+  it('buildTikTokObjectiveFields returns empty adgroup and creative for a base objective like REACH', () => {
+    const spec = resolveTikTokObjectiveLaunchSpec({ objectiveType: 'REACH' });
+    const fields = buildTikTokObjectiveFields(spec, {});
+    expect(fields.adgroup).toEqual({});
+    expect(fields.creative).toEqual({});
   });
 });

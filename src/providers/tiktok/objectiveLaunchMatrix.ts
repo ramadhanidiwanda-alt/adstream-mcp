@@ -39,6 +39,7 @@ export interface TikTokObjectiveLaunchSpec {
     | 'product_sales';
   objectiveType: TikTokObjective;
   defaultOptimizationGoal: string;
+  optimizationGoal: string;
   allowedOptimizationGoals: readonly string[];
   billingEvent: string;
   requiredInputs: readonly string[];
@@ -66,7 +67,7 @@ export interface TikTokObjectiveFieldSet {
   creative: Record<string, unknown>;
 }
 
-interface MatrixRow extends TikTokObjectiveLaunchSpec {}
+type MatrixRow = Omit<TikTokObjectiveLaunchSpec, 'optimizationGoal'>;
 
 const BASE_REQUIRED_INPUTS = [
   'advertiserId',
@@ -168,7 +169,7 @@ export function resolveTikTokObjectiveLaunchSpec(
     );
   }
 
-  return row;
+  return { ...row, optimizationGoal };
 }
 
 export function buildTikTokObjectiveFields(
