@@ -4,9 +4,9 @@ import { parseActionValue } from '../utils/parseActions.js';
 export function analyzeCampaignPerformance(insights: CampaignInsight[]): CampaignAnalysis[] {
   return insights.map((insight) => {
     const spend = parseFloat(insight.spend) || 0;
-    const ctr = parseFloat(insight.ctr) || 0;
-    const cpc = parseFloat(insight.cpc) || 0;
-    const cpm = parseFloat(insight.cpm) || 0;
+    const ctr = parseFloat(insight.ctr ?? '') || 0;
+    const cpc = parseFloat(insight.cpc ?? '') || 0;
+    const cpm = parseFloat(insight.cpm ?? '') || 0;
 
     const purchases = parseActionValue(insight.actions, 'purchase');
     const leads = parseActionValue(insight.actions, 'lead');

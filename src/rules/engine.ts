@@ -15,12 +15,12 @@ export class RuleEngine {
     const metricMap: Record<string, () => number> = {
       spend: () => parseFloat(insight.spend) || 0,
       impressions: () => parseFloat(insight.impressions) || 0,
-      reach: () => parseFloat(insight.reach) || 0,
+      reach: () => parseFloat(insight.reach ?? '') || 0,
       clicks: () => parseFloat(insight.clicks) || 0,
-      inline_link_clicks: () => parseFloat(insight.inline_link_clicks) || 0,
-      ctr: () => parseFloat(insight.ctr) || 0,
-      cpc: () => parseFloat(insight.cpc) || 0,
-      cpm: () => parseFloat(insight.cpm) || 0,
+      inline_link_clicks: () => parseFloat(insight.inline_link_clicks ?? '') || 0,
+      ctr: () => parseFloat(insight.ctr ?? '') || 0,
+      cpc: () => parseFloat(insight.cpc ?? '') || 0,
+      cpm: () => parseFloat(insight.cpm ?? '') || 0,
     };
 
     const getter = metricMap[metric];
@@ -34,10 +34,7 @@ export class RuleEngine {
   /**
    * Evaluate a single condition
    */
-  private evaluateCondition(
-    insight: CampaignInsight,
-    condition: Condition
-  ): MatchedCondition {
+  private evaluateCondition(insight: CampaignInsight, condition: Condition): MatchedCondition {
     const actualValue = this.getMetricValue(insight, condition.metric);
     let matched = false;
 
@@ -109,18 +106,13 @@ export class RuleEngine {
    * Apply multiple rules to a single campaign insight
    */
   applyRules(insight: CampaignInsight, rules: Rule[]): RuleResult[] {
-    return rules
-      .map((rule) => this.evaluateRule(insight, rule))
-      .filter((result) => result.matched);
+    return rules.map((rule) => this.evaluateRule(insight, rule)).filter((result) => result.matched);
   }
 
   /**
    * Apply rules to multiple campaign insights
    */
-  applyRulesToInsights(
-    insights: CampaignInsight[],
-    rules: Rule[]
-  ): RuleEvaluationResult[] {
+  applyRulesToInsights(insights: CampaignInsight[], rules: Rule[]): RuleEvaluationResult[] {
     return insights.map((insight) => {
       const triggeredRules = this.applyRules(insight, rules);
 
@@ -128,12 +120,8 @@ export class RuleEngine {
       const recommendedActions: string[] = [];
 
       if (triggeredRules.length > 0) {
-        const hasHighPriority = triggeredRules.some(
-          (r) => r.rule.priority === 'high'
-        );
-        const hasMediumPriority = triggeredRules.some(
-          (r) => r.rule.priority === 'medium'
-        );
+        const hasHighPriority = triggeredRules.some((r) => r.rule.priority === 'high');
+        const hasMediumPriority = triggeredRules.some((r) => r.rule.priority === 'medium');
 
         if (hasHighPriority) {
           overallStatus = 'warning';
@@ -143,9 +131,7 @@ export class RuleEngine {
 
         triggeredRules.forEach((result) => {
           const priorityLabel = result.rule.priority.toUpperCase();
-          recommendedActions.push(
-            `[${priorityLabel}] ${result.rule.action}`
-          );
+          recommendedActions.push(`[${priorityLabel}] ${result.rule.action}`);
         });
       }
 
