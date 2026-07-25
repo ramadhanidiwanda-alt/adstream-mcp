@@ -63,6 +63,7 @@ import {
 import type {
   CreateTikTokAdOptions,
   TikTokAdStatusOptions,
+  CreativeMaterial,
 } from '../../tools/tiktok/createTikTokAd.js';
 import {
   createGmvMaxCampaign,
@@ -537,6 +538,13 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
         frequency: params.frequency as number | undefined,
         identityType: params.identityType as string | undefined,
         identityId: params.identityId as string | undefined,
+        appId: params.appId as string | undefined,
+        promotionType: params.promotionType as 'APP_INSTALL' | 'APP_RETARGETING' | undefined,
+        pixelId: params.pixelId as string | undefined,
+        optimizationEvent: params.optimizationEvent as string | undefined,
+        catalogId: params.catalogId as string | undefined,
+        storeId: params.storeId as string | undefined,
+        productSource: params.productSource as string | undefined,
       });
       return {
         ok: true, provider: 'tiktok',
@@ -607,7 +615,7 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
         adName: String(params.name ?? ''),
         creatives: creatives.map((c: Record<string, unknown>) => ({
           creative_name: String(c.creative_name ?? ''),
-          creative_material: c.creative_material as { video_id?: string; image_id?: string; title: string; call_to_action: string; landing_page_url: string },
+          creative_material: c.creative_material as CreativeMaterial,
           creative_type: c.creative_type as string | undefined,
           ad_format: c.ad_format as string | undefined,
           identity_id: c.identity_id as string | undefined,
