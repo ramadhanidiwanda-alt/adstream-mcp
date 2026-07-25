@@ -3,7 +3,10 @@ import { createGmvMaxCampaign } from '../src/tools/tiktok/createTikTokGmvMax.js'
 import type { TikTokApiClient } from '../src/tiktokClient.js';
 
 function stubClient(): TikTokApiClient {
-  return { post: vi.fn().mockResolvedValue({ campaign_id: 'c_1' }), get: vi.fn() } as unknown as TikTokApiClient;
+  return {
+    post: vi.fn().mockResolvedValue({ campaign_id: 'c_1' }),
+    get: vi.fn(),
+  } as unknown as TikTokApiClient;
 }
 
 describe('createGmvMaxCampaign shopping_ads_type', () => {
