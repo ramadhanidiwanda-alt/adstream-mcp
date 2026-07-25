@@ -18,11 +18,15 @@ jobs:
 
       - run: npm ci
 
-      # Covers src and scripts. tests/ is checked by `npm run typecheck:tests`,
-      # which is not gated yet: it still reports a backlog of type errors that
-      # accumulated while nothing checked that directory at all.
+      # typecheck covers src and scripts; typecheck:tests adds tests/ on top of
+      # src. Both are gated: the tests/ backlog that built up while nothing
+      # checked that directory is cleared, and keeping it gated is what stops it
+      # coming back.
       - name: Type check
         run: npm run typecheck
+
+      - name: Type check tests
+        run: npm run typecheck:tests
 
       - name: Build package entrypoint
         run: npm run build

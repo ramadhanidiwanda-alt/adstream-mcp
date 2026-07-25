@@ -17,11 +17,17 @@ import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
 const dotenvSafe = require('dotenv-safe') as {
-  config: (options?: { allowEmptyValues?: boolean; example?: string; path?: string }) => { error?: Error };
+  config: (options?: { allowEmptyValues?: boolean; example?: string; path?: string }) => {
+    error?: Error;
+  };
 };
 
 function loadEnv() {
-  const result = dotenvSafe.config({ allowEmptyValues: false, example: '.env.example', path: '.env' });
+  const result = dotenvSafe.config({
+    allowEmptyValues: false,
+    example: '.env.example',
+    path: '.env',
+  });
   if (result.error) throw result.error;
 }
 
@@ -43,6 +49,16 @@ function safeError(error: unknown): string {
 
 function redactUrl(url: string): string {
   return url.replace(/access_token=[^&]+/gi, 'access_token=[REDACTED]');
+}
+
+/**
+ * The parts of a Graph API response body this probe reads. `Response.json()`
+ * resolves to an untyped value, so the drills below need a stated shape; every
+ * field is optional because an error body carries no `data` and vice versa.
+ */
+interface MetaResponseBody {
+  error?: { type?: string; code?: number; message?: string; fbtrace_id?: string };
+  data?: unknown;
 }
 
 interface ProbeResult {
@@ -135,20 +151,30 @@ async function probeMetaApi(accessToken: string, apiVersion: string): Promise<vo
   // ─── Summary ───
   console.log('\n━━━ Summary ━━━');
   console.log(`   Probe A (adaccounts): ${probeA.ok ? '✅' : '❌'} (status ${probeA.status})`);
-  console.log(`   Probe B (account metadata): ${probeB.ok ? '✅' : '❌'} (status ${probeB.status})`);
+  console.log(
+    `   Probe B (account metadata): ${probeB.ok ? '✅' : '❌'} (status ${probeB.status})`
+  );
   console.log(`   Probe B2 (numeric ID): ${probeB2.ok ? '✅' : '❌'} (status ${probeB2.status})`);
   console.log(`   Probe C (campaigns): ${probeC.ok ? '✅' : '❌'} (status ${probeC.status})`);
-  console.log(`   Probe D (insights last_7d): ${probeD.ok ? '✅' : '❌'} (status ${probeD.status})`);
-  console.log(`   Probe D2 (insights time_range): ${probeD2.ok ? '✅' : '❌'} (status ${probeD2.status})`);
+  console.log(
+    `   Probe D (insights last_7d): ${probeD.ok ? '✅' : '❌'} (status ${probeD.status})`
+  );
+  console.log(
+    `   Probe D2 (insights time_range): ${probeD2.ok ? '✅' : '❌'} (status ${probeD2.status})`
+  );
   console.log(`   Probe E (permissions): ${probeE.ok ? '✅' : '❌'} (status ${probeE.status})`);
 
   // Diagnose
   console.log('\n━━━ Diagnosis ━━━');
   if (!probeA.ok) {
-    console.log('   ⚠️  Token cannot list ad accounts — likely missing ads_read permission or token invalid');
+    console.log(
+      '   ⚠️  Token cannot list ad accounts — likely missing ads_read permission or token invalid'
+    );
   } else if (!probeB.ok && !probeB2.ok) {
     console.log('   ⚠️  Token can list accounts but cannot access target account metadata');
-    console.log('   → Check: Is the user associated with this token granted access to act_1417353822551653?');
+    console.log(
+      '   → Check: Is the user associated with this token granted access to act_1417353822551653?'
+    );
   } else if (!probeC.ok) {
     console.log('   ⚠️  Account metadata accessible but campaigns edge failed');
     console.log('   → Check: Does the account have any campaigns? Is ads_read scope granted?');
@@ -157,7 +183,9 @@ async function probeMetaApi(accessToken: string, apiVersion: string): Promise<vo
     console.log('   → Check: Insights API may require specific permissions or date ranges');
   } else if (probeD.ok || probeD2.ok) {
     console.log('   ✅ All probes passed — Meta API access is working');
-    console.log('   → If AdsBroker still fails, the issue is in the adapter/broker code, not permissions');
+    console.log(
+      '   → If AdsBroker still fails, the issue is in the adapter/broker code, not permissions'
+    );
   }
 }
 
@@ -177,7 +205,7 @@ async function safeFetch(
 
   try {
     const response = await fetch(url.toString());
-    const data = await response.json();
+    const data = (await response.json()) as MetaResponseBody | null;
 
     if (!response.ok) {
       const metaError = data?.error;
@@ -203,7 +231,7 @@ async function safeFetch(
         error: {
           type: data.error.type,
           code: data.error.code,
-          message: data.error.message,
+          message: data.error.message ?? `HTTP ${response.status} with an error body`,
           fbtrace_id: data.error.fbtrace_id,
         },
       };
@@ -255,7 +283,7 @@ async function main(): Promise<void> {
   // Step 1: Resolve credential from Cuan Insight
   console.log('━━━ Step 1: Resolve credential from Cuan Insight ━━━');
   const { createCuanInsightCredentialClient } = await import('../src/broker/cuanInsightClient.js');
-  const { parseBrokerConfigFromEnv } = await import("../src/broker/config.js");
+  const { parseBrokerConfigFromEnv } = await import('../src/broker/config.js');
 
   const config = parseBrokerConfigFromEnv();
   console.log(`   Broker mode: ${config.mode}`);
