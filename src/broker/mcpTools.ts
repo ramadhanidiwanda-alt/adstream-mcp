@@ -232,7 +232,7 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
   {
     name: 'ads_check_launch_readiness',
     description:
-      'Read-only Meta v25 launch checklist. Resolves one of the six ODAX objectives into a canonical workflow, required inputs, and setup spec; it does not perform writes.',
+      'Read-only launch checklist for Meta or TikTok (provider param). For Meta, resolves one of the six ODAX objectives into a canonical workflow, required inputs, and setup spec; for TikTok, resolves an objective_type via tiktokObjectiveType into its required launch fields. Does not perform writes.',
     inputSchema: createLaunchReadinessInputSchema(),
   },
   {
@@ -332,13 +332,13 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
   {
     name: 'ads_create_campaign',
     description:
-      'Create a Meta ad campaign with a specified objective. Dry-run by default. Set dryRun=false and confirmed=true to execute. Campaign is created PAUSED by default.',
+      'Create a Meta or TikTok ad campaign (provider param) with a specified objective — objective for Meta ODAX, objectiveType for TikTok. Dry-run by default. Set dryRun=false and confirmed=true to execute. Campaign is created PAUSED by default.',
     inputSchema: createCreateCampaignInputSchema(),
   },
   {
     name: 'ads_create_adset',
     description:
-      'Create a Meta ad set under an existing campaign. Dry-run by default. Set dryRun=false and confirmed=true to execute. Ad set is created PAUSED by default.',
+      'Create a Meta ad set or TikTok ad group (provider param) under an existing campaign. Dry-run by default. Set dryRun=false and confirmed=true to execute. Ad set is created PAUSED by default.',
     inputSchema: createCreateAdSetInputSchema(),
   },
   {
@@ -350,7 +350,7 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
   {
     name: 'ads_create_ad',
     description:
-      'Create a Meta ad by linking an existing ad set to an existing creative. Dry-run by default. Set dryRun=false and confirmed=true to execute. Ad is created PAUSED by default.',
+      'Create a Meta or TikTok ad (provider param). Meta: links an existing ad set to an existing creative via creativeId. TikTok: creates inline creatives on an existing ad group via creatives. Dry-run by default. Set dryRun=false and confirmed=true to execute. Ad is created PAUSED by default.',
     inputSchema: createCreateAdInputSchema(),
   },
   {
@@ -439,13 +439,13 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
   {
     name: 'ads_upload_image',
     description:
-      'Upload a local image file to the Meta Ads Image Library. Returns image_hash for use in creative creation. Supported formats: .jpg, .jpeg, .png. Max file size: 30 MB.',
+      'Upload a local image file to the ad account image library. Meta: returns image_hash, .jpg/.jpeg/.png, max 30 MB. TikTok: returns image_id (returned in the same image_hash field), .jpg/.jpeg/.png, max 30 MB.',
     inputSchema: createUploadInputSchema(['filePath']),
   },
   {
     name: 'ads_upload_video',
     description:
-      'Upload a local video file to the Meta Ads Video Library. Returns video_id for use in creative creation. Supported formats: .mp4, .mov, .avi, .wmv. Max file size: 1 GB. Video processing is async.',
+      'Upload a local video file to the ad account video library. Meta: returns video_id, .mp4/.mov/.avi/.wmv, max 1 GB, async processing. TikTok: returns video_id, .mp4/.mov, max 1 GB.',
     inputSchema: createUploadInputSchema(['filePath']),
   },
   {
@@ -559,7 +559,7 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
     name: 'tiktok_gmv_max_create_campaign',
     description:
       'Create a TikTok GMV Max campaign for Shop sellers. Requires store_ids, objective_type, campaign_name, and budget.',
-    inputSchema: createAdsInputSchema([]),
+    inputSchema: createGmvMaxCampaignInputSchema(),
   },
   {
     name: 'tiktok_gmv_max_update_campaign',
@@ -776,11 +776,18 @@ function callBrokerMethod(
       return broker.listAccounts(request);
     case 'ads_list_campaigns':
       return broker.listCampaigns(request);
-    case 'ads_check_launch_readiness':
-      return broker.checkLaunchReadiness({
-        ...request,
-        params: { ...request.params, writesEnabled: areAdsWriteToolsEnabled() },
-      });
+    case 'ads_check_launch_readiness': {
+      const provider = request.provider ?? 'meta';
+      const readinessParams =
+        provider === 'tiktok'
+          ? {
+              ...request.params,
+              objectiveType: request.params.tiktokObjectiveType ?? request.params.objectiveType,
+              writesEnabled: areAdsWriteToolsEnabled(),
+            }
+          : { ...request.params, writesEnabled: areAdsWriteToolsEnabled() };
+      return broker.checkLaunchReadiness({ ...request, params: readinessParams });
+    }
     case 'ads_get_performance':
       return callCanonicalPerformanceTool(broker, request);
     case 'ads_get_creatives':
@@ -1361,6 +1368,47 @@ function createWriteInputSchema(required: string[]) {
   };
 }
 
+function createGmvMaxCampaignInputSchema() {
+  const schema = createAdsInputSchema([]);
+  return {
+    type: 'object',
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      campaignName: { type: 'string', description: 'GMV Max campaign name.' },
+      objectiveType: {
+        type: 'string',
+        description: 'TikTok objective_type for the GMV Max campaign, e.g. PRODUCT_SALES.',
+      },
+      storeIds: { type: 'array', items: { type: 'string' }, description: 'TikTok Shop store IDs.' },
+      budget: { type: 'number', description: 'Campaign budget.' },
+      budgetMode: { type: 'string', description: 'Budget mode, e.g. BUDGET_MODE_DAY.' },
+      shoppingAdsType: {
+        type: 'string',
+        enum: ['PRODUCT', 'LIVE'],
+        description:
+          'PRODUCT for catalog-driven GMV Max, LIVE for livestream GMV Max. Required to pick the correct extra fields below.',
+      },
+      productSpecificType: {
+        type: 'string',
+        description: 'shopping_ads_type=PRODUCT only, e.g. ALL.',
+      },
+      itemGroupIds: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'shopping_ads_type=PRODUCT only — product item_group_ids.',
+      },
+      identityList: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'shopping_ads_type=LIVE only — the LIVE source identity.',
+      },
+      dryRun: { type: 'boolean', description: 'Defaults to true. Set false only after preview.' },
+      confirmed: { type: 'boolean', description: 'Must be true to execute after preview.' },
+    },
+    required: ['accountId', 'campaignName', 'objectiveType', 'storeIds', 'shoppingAdsType'],
+  };
+}
+
 function createUploadInputSchema(required: string[]) {
   const schema = createAdsInputSchema([]);
 
@@ -1481,7 +1529,23 @@ function createCreateCampaignInputSchema() {
       objective: {
         type: 'string',
         enum: [...META_ODAX_OBJECTIVES],
-        description: 'Meta ODAX campaign objective.',
+        description:
+          'Meta ODAX campaign objective. Meta-only and optional when provider is tiktok — use `objectiveType` instead.',
+      },
+      objectiveType: {
+        type: 'string',
+        enum: [
+          'REACH',
+          'TRAFFIC',
+          'VIDEO_VIEWS',
+          'ENGAGEMENT',
+          'LEAD_GENERATION',
+          'APP_PROMOTION',
+          'WEB_CONVERSIONS',
+          'PRODUCT_SALES',
+        ],
+        description:
+          'TikTok objective_type. Use this instead of `objective` when provider is tiktok — objective is Meta-only.',
       },
       status: {
         type: 'string',
@@ -1533,7 +1597,7 @@ function createCreateCampaignInputSchema() {
         description: 'Must be true to execute after preview.',
       },
     },
-    required: ['accountId', 'name', 'objective'],
+    required: ['accountId', 'name'],
   };
 }
 
@@ -1598,40 +1662,13 @@ function createCreateAdSetInputSchema() {
       },
       billingEvent: {
         type: 'string',
-        enum: [
-          'IMPRESSIONS',
-          'LINK_CLICKS',
-          'PAGE_LIKES',
-          'POST_ENGAGEMENT',
-          'VIDEO_VIEWS',
-          'LEADS',
-          'APP_INSTALLS',
-          'REACH',
-          'VALUE',
-          'LANDING_PAGE_VIEWS',
-          'OFFSITE_CONVERSIONS',
-        ],
-        description: 'Billing event. Defaults to IMPRESSIONS.',
+        description:
+          'Billing event. Meta values: IMPRESSIONS (default), LINK_CLICKS, PAGE_LIKES, POST_ENGAGEMENT, VIDEO_VIEWS, LEADS, APP_INSTALLS, REACH, VALUE, LANDING_PAGE_VIEWS, OFFSITE_CONVERSIONS. TikTok values: CPC, CPM.',
       },
       optimizationGoal: {
         type: 'string',
-        enum: [
-          'NONE',
-          'APP_INSTALLS',
-          'CONVERSATIONS',
-          'ENGAGED_USERS',
-          'IMPRESSIONS',
-          'LANDING_PAGE_VIEWS',
-          'LEAD_GENERATION',
-          'LINK_CLICKS',
-          'OFFSITE_CONVERSIONS',
-          'PAGE_LIKES',
-          'POST_ENGAGEMENT',
-          'REACH',
-          'THRUPLAY',
-          'VALUE',
-        ],
-        description: 'Optimization goal. Required when conversionLocation is omitted.',
+        description:
+          'Optimization goal. Meta values: NONE, APP_INSTALLS, CONVERSATIONS, ENGAGED_USERS, IMPRESSIONS, LANDING_PAGE_VIEWS, LEAD_GENERATION, LINK_CLICKS, OFFSITE_CONVERSIONS, PAGE_LIKES, POST_ENGAGEMENT, REACH, THRUPLAY, VALUE (required when conversionLocation is omitted). TikTok values are objective-specific, e.g. CLICK, LANDING_PAGE_VIEW, VIDEO_VIEW, ENGAGED_VIEW, FOLLOWERS, CONVERT, IN_APP_EVENT, REACH, LEAD_GENERATION, APP_INSTALLS, VALUE — see the TikTok objective launch matrix for the authoritative list per objective.',
       },
       conversionLocation: {
         type: 'string',
@@ -1650,6 +1687,40 @@ function createCreateAdSetInputSchema() {
       objectStoreUrl: { type: 'string', description: 'App store URL for app promotion.' },
       productSetId: { type: 'string', description: 'Meta product set ID for catalog sales.' },
       customEventType: { type: 'string', description: 'Optional Meta conversion event type.' },
+      bidType: {
+        type: 'string',
+        description: 'TikTok bid type, e.g. BID_TYPE_NO_BID, BID_TYPE_CUSTOM.',
+      },
+      bidPrice: { type: 'number', description: 'TikTok bid price for the ad group.' },
+      placementType: {
+        type: 'string',
+        enum: ['PLACEMENT_TYPE_AUTO', 'PLACEMENT_TYPE_NORMAL'],
+        description: 'TikTok placement type.',
+      },
+      identityType: { type: 'string', description: 'TikTok identity type (e.g. CUSTOMIZED_USER).' },
+      identityId: { type: 'string', description: 'TikTok identity ID shown as the ad account.' },
+      appId: {
+        type: 'string',
+        description: "TikTok App ID for APP_PROMOTION. Distinct from Meta's applicationId.",
+      },
+      promotionType: {
+        type: 'string',
+        enum: ['APP_INSTALL', 'APP_RETARGETING'],
+        description: 'TikTok APP_PROMOTION sub-type.',
+      },
+      optimizationEvent: {
+        type: 'string',
+        description: 'TikTok conversion event to optimize for (WEB_CONVERSIONS objective).',
+      },
+      catalogId: {
+        type: 'string',
+        description: 'Catalog ID. Meta: used with productSetId. TikTok: PRODUCT_SALES objective.',
+      },
+      storeId: { type: 'string', description: 'TikTok Shop store ID (PRODUCT_SALES objective).' },
+      productSource: {
+        type: 'string',
+        description: 'TikTok product source, e.g. CATALOG (PRODUCT_SALES objective).',
+      },
       bidStrategy: {
         type: 'string',
         description: 'Bid strategy (e.g. LOWEST_COST_WITHOUT_CAP).',
@@ -2113,7 +2184,17 @@ function createCreateAdInputSchema() {
       ...(schema.properties as Record<string, unknown>),
       name: { type: 'string', description: 'Ad name.' },
       adSetId: { type: 'string', description: 'The ad set ID to place the ad under.' },
-      creativeId: { type: 'string', description: 'The creative ID to use for this ad.' },
+      creativeId: {
+        type: 'string',
+        description:
+          'Meta: the creative ID to use for this ad. Not used for TikTok — use creatives instead.',
+      },
+      creatives: {
+        type: 'array',
+        description:
+          'TikTok: inline creative objects, e.g. [{ creative_name, creative_material: { title, call_to_action, landing_page_url, video_id|image_id, page_id, product_specific_type, item_group_ids, sku_ids } }]. Not used for Meta.',
+        items: { type: 'object' },
+      },
       status: {
         type: 'string',
         enum: ['ACTIVE', 'PAUSED'],
@@ -2141,7 +2222,7 @@ function createCreateAdInputSchema() {
       dryRun: { type: 'boolean', description: 'Defaults to true. Set false only after preview.' },
       confirmed: { type: 'boolean', description: 'Must be true to execute after preview.' },
     },
-    required: ['accountId', 'name', 'adSetId', 'creativeId'],
+    required: ['accountId', 'name', 'adSetId'],
   };
 }
 
@@ -2645,6 +2726,51 @@ function createLaunchReadinessInputSchema() {
         description: 'Optional intended creative format to validate against the resolved workflow.',
       },
       apiVersion: { type: 'string', description: 'Meta Marketing API version, defaults to v25.0.' },
+      tiktokObjectiveType: {
+        type: 'string',
+        enum: [
+          'REACH',
+          'TRAFFIC',
+          'VIDEO_VIEWS',
+          'ENGAGEMENT',
+          'LEAD_GENERATION',
+          'APP_PROMOTION',
+          'WEB_CONVERSIONS',
+          'PRODUCT_SALES',
+        ],
+        description: 'TikTok objective for the readiness check. Ignored for provider=meta.',
+      },
+      advertiserId: {
+        type: 'string',
+        description: 'TikTok advertiser ID for the readiness check.',
+      },
+      campaignName: { type: 'string', description: 'Campaign name (TikTok readiness check).' },
+      adgroupName: { type: 'string', description: 'Ad group name (TikTok readiness check).' },
+      identityId: { type: 'string', description: 'TikTok identity ID (TikTok readiness check).' },
+      identityType: {
+        type: 'string',
+        description: 'TikTok identity type (TikTok readiness check).',
+      },
+      callToAction: { type: 'string', description: 'Call to action (TikTok readiness check).' },
+      appId: { type: 'string', description: 'TikTok App ID (APP_PROMOTION readiness check).' },
+      promotionType: {
+        type: 'string',
+        enum: ['APP_INSTALL', 'APP_RETARGETING'],
+        description: 'APP_INSTALL or APP_RETARGETING (TikTok readiness check).',
+      },
+      optimizationEvent: {
+        type: 'string',
+        description: 'Conversion event (TikTok WEB_CONVERSIONS readiness check).',
+      },
+      instantFormPageId: {
+        type: 'string',
+        description: 'Instant Form page_id (TikTok LEAD_GENERATION readiness check).',
+      },
+      itemGroupIds: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'Product item_group_ids (TikTok PRODUCT_SALES readiness check).',
+      },
       productOrOffer: { type: 'string', description: 'Product or offer being promoted.' },
       pageId: { type: 'string', description: 'Meta Page ID.' },
       pixelId: { type: 'string', description: 'Meta Pixel ID for conversion workflows.' },

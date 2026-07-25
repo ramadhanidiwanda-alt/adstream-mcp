@@ -15,6 +15,12 @@ export interface CreativeMaterial {
   click_tracking_url?: string;
   impression_tracking_url?: string;
   playlist_id?: string;
+  /** LEAD_GENERATION objective — TikTok Instant Form page ID. Confidence: not fully confirmed against live sandbox. */
+  page_id?: string;
+  /** PRODUCT_SALES objective — catalog creative targeting */
+  product_specific_type?: string;
+  item_group_ids?: string[];
+  sku_ids?: string[];
 }
 
 export interface AdCreative {
@@ -125,6 +131,18 @@ function normalizeCreative(c: AdCreative): Record<string, unknown> {
   }
   if (c.creative_material.playlist_id) {
     (creative.creative_material as Record<string, unknown>).playlist_id = c.creative_material.playlist_id;
+  }
+  if (c.creative_material.page_id) {
+    (creative.creative_material as Record<string, unknown>).page_id = c.creative_material.page_id;
+  }
+  if (c.creative_material.product_specific_type) {
+    (creative.creative_material as Record<string, unknown>).product_specific_type = c.creative_material.product_specific_type;
+  }
+  if (c.creative_material.item_group_ids) {
+    (creative.creative_material as Record<string, unknown>).item_group_ids = c.creative_material.item_group_ids;
+  }
+  if (c.creative_material.sku_ids) {
+    (creative.creative_material as Record<string, unknown>).sku_ids = c.creative_material.sku_ids;
   }
   if (c.creative_type) creative.creative_type = c.creative_type;
   if (c.ad_format) creative.ad_format = c.ad_format;

@@ -14,6 +14,13 @@ export interface CreateGmvMaxCampaignOptions {
   scheduleEndTime?: string;
   bidType?: string;
   operationStatus?: string;
+  /** Distinguishes Product GMV Max from LIVE GMV Max. */
+  shoppingAdsType?: 'PRODUCT' | 'LIVE';
+  /** PRODUCT shopping_ads_type only. */
+  productSpecificType?: string;
+  itemGroupIds?: string[];
+  /** LIVE shopping_ads_type only. */
+  identityList?: string[];
 }
 
 export interface UpdateGmvMaxCampaignOptions {
@@ -92,6 +99,14 @@ export async function createGmvMaxCampaign(
   if (options.scheduleStartTime) body.schedule_start_time = options.scheduleStartTime;
   if (options.scheduleEndTime) body.schedule_end_time = options.scheduleEndTime;
   if (options.bidType) body.bid_type = options.bidType;
+  if (options.shoppingAdsType) body.shopping_ads_type = options.shoppingAdsType;
+
+  if (options.shoppingAdsType === 'LIVE') {
+    if (options.identityList) body.identity_list = options.identityList;
+  } else if (options.shoppingAdsType === 'PRODUCT') {
+    if (options.productSpecificType) body.product_specific_type = options.productSpecificType;
+    if (options.itemGroupIds) body.item_group_ids = options.itemGroupIds;
+  }
 
   return client.post<GmvMaxCampaignResult>('/campaign/gmv_max/create/', body);
 }
@@ -186,10 +201,12 @@ export async function getGmvMaxCampaignInfo(
   client: TikTokApiClient,
   options: { advertiserId: string; campaignIds: string[] }
 ): Promise<GmvMaxCampaignResult[]> {
-  return client.get<{ list: GmvMaxCampaignResult[] }>('/campaign/gmv_max/info/', {
-    advertiser_id: options.advertiserId,
-    campaign_ids: JSON.stringify(options.campaignIds),
-  }).then(r => r.list ?? []);
+  return client
+    .get<{ list: GmvMaxCampaignResult[] }>('/campaign/gmv_max/info/', {
+      advertiser_id: options.advertiserId,
+      campaign_ids: JSON.stringify(options.campaignIds),
+    })
+    .then((r) => r.list ?? []);
 }
 
 /**

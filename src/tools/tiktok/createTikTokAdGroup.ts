@@ -47,6 +47,16 @@ export interface CreateTikTokAdGroupOptions {
   dayparting?: string;
   identityType?: string;
   identityId?: string;
+  /** APP_PROMOTION objective */
+  appId?: string;
+  promotionType?: 'APP_INSTALL' | 'APP_RETARGETING';
+  /** WEB_CONVERSIONS objective */
+  pixelId?: string;
+  optimizationEvent?: string;
+  /** PRODUCT_SALES objective */
+  catalogId?: string;
+  storeId?: string;
+  productSource?: string;
 }
 
 export interface TikTokAdGroupResult {
@@ -106,6 +116,13 @@ export async function createTikTokAdGroup(
   if (options.dayparting) body.dayparting = options.dayparting;
   if (options.identityType) body.identity_type = options.identityType;
   if (options.identityId) body.identity_id = options.identityId;
+  if (options.appId) body.app_id = options.appId;
+  if (options.promotionType) body.promotion_type = options.promotionType;
+  if (options.pixelId) body.pixel_id = options.pixelId;
+  if (options.optimizationEvent) body.optimization_event = options.optimizationEvent;
+  if (options.catalogId) body.catalog_id = options.catalogId;
+  if (options.storeId) body.store_id = options.storeId;
+  if (options.productSource) body.product_source = options.productSource;
 
   return client.post<TikTokAdGroupResult>('/adgroup/create/', body);
 }

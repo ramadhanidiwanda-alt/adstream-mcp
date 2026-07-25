@@ -63,6 +63,7 @@ import {
 import type {
   CreateTikTokAdOptions,
   TikTokAdStatusOptions,
+  CreativeMaterial,
 } from '../../tools/tiktok/createTikTokAd.js';
 import {
   createGmvMaxCampaign,
@@ -90,6 +91,16 @@ import type {
   CreateSmartPlusCampaignOptions,
   CreateSmartPlusAdGroupOptions,
 } from '../../tools/tiktok/createTikTokSmartPlus.js';
+import { checkTikTokLaunchReadiness } from '../../tools/checkTikTokLaunchReadiness.js';
+import { uploadTikTokImage, uploadTikTokVideo } from '../../tools/tiktok/uploadTikTokMedia.js';
+import type { TikTokObjective } from './objectiveLaunchMatrix.js';
+// The AdsProviderAdapter interface's optional checkLaunchReadiness method is declared against
+// Meta's LaunchReadinessResult shape (see broker/types.ts). TikTok's readiness result
+// (TikTokLaunchReadinessResult, from checkTikTokLaunchReadiness.js) has a different,
+// TikTok-specific shape, so — following the same pattern already used elsewhere in this file for
+// provider-shaped payloads (see getVideoSource, getAdCreativeMapping, etc.) — we cast to the
+// interface-declared type at the boundary rather than widening the shared interface.
+import type { LaunchReadinessResult } from '../../tools/checkLaunchReadiness.js';
 
 export interface TikTokAdsAdapterMockData {
   accounts?: unknown[];
@@ -537,6 +548,13 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
         frequency: params.frequency as number | undefined,
         identityType: params.identityType as string | undefined,
         identityId: params.identityId as string | undefined,
+        appId: params.appId as string | undefined,
+        promotionType: params.promotionType as 'APP_INSTALL' | 'APP_RETARGETING' | undefined,
+        pixelId: params.pixelId as string | undefined,
+        optimizationEvent: params.optimizationEvent as string | undefined,
+        catalogId: params.catalogId as string | undefined,
+        storeId: params.storeId as string | undefined,
+        productSource: params.productSource as string | undefined,
       });
       return {
         ok: true, provider: 'tiktok',
@@ -607,7 +625,7 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
         adName: String(params.name ?? ''),
         creatives: creatives.map((c: Record<string, unknown>) => ({
           creative_name: String(c.creative_name ?? ''),
-          creative_material: c.creative_material as { video_id?: string; image_id?: string; title: string; call_to_action: string; landing_page_url: string },
+          creative_material: c.creative_material as CreativeMaterial,
           creative_type: c.creative_type as string | undefined,
           ad_format: c.ad_format as string | undefined,
           identity_id: c.identity_id as string | undefined,
@@ -772,6 +790,14 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
         scheduleType: params.scheduleType as string | undefined,
         scheduleStartTime: params.scheduleStartTime as string | undefined,
         operationStatus: String(params.operationStatus ?? 'ENABLE'),
+        shoppingAdsType: params.shoppingAdsType as 'PRODUCT' | 'LIVE' | undefined,
+        productSpecificType: params.productSpecificType as string | undefined,
+        itemGroupIds: Array.isArray(params.itemGroupIds)
+          ? params.itemGroupIds.map(String)
+          : undefined,
+        identityList: Array.isArray(params.identityList)
+          ? params.identityList.map(String)
+          : undefined,
       });
       return { ok: true, provider: 'tiktok', data: { operation: 'create_ecommerce_campaign_bundle', status: 'executed', executed: true, preview: { campaign: {}, adSet: {}, creative: {}, ad: {} }, warnings: [], ids: { campaignId: result.campaign_id }, responses: { campaign: result as unknown as Record<string, unknown> } } };
     } catch (error) {
@@ -941,16 +967,118 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
     }
   }
 
-  async uploadImage(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<ImageUploadResult>> {
-    return this.writeNotImplemented();
+  async uploadImage(request: AdsBrokerRequest): Promise<AdsBrokerResponse<ImageUploadResult>> {
+    if (!this.client) return this.writeNotImplemented();
+    const filePath = String(request.params.filePath ?? '');
+    const advertiserId = String(request.accountId ?? request.credentials?.accountId ?? '');
+    try {
+      const result = await uploadTikTokImage(this.client, { advertiserId, filePath });
+      if (result.status === 'failed') {
+        return {
+          ok: false,
+          provider: 'tiktok',
+          errors: [
+            {
+              provider: 'tiktok',
+              code: 'UPLOAD_FAILED',
+              message: result.error ?? 'TikTok image upload failed',
+            },
+          ],
+        };
+      }
+      return {
+        ok: true,
+        provider: 'tiktok',
+        data: {
+          operation: 'upload_image',
+          status: 'executed',
+          image_hash: result.image_id,
+          url: result.image_url,
+          filename: result.filename,
+        },
+      };
+    } catch (error) {
+      return this.errorResponse(error);
+    }
   }
 
-  async uploadVideo(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<VideoUploadResult>> {
-    return this.writeNotImplemented();
+  async uploadVideo(request: AdsBrokerRequest): Promise<AdsBrokerResponse<VideoUploadResult>> {
+    if (!this.client) return this.writeNotImplemented();
+    const filePath = String(request.params.filePath ?? '');
+    const advertiserId = String(request.accountId ?? request.credentials?.accountId ?? '');
+    try {
+      const result = await uploadTikTokVideo(this.client, { advertiserId, filePath });
+      if (result.status === 'failed') {
+        return {
+          ok: false,
+          provider: 'tiktok',
+          errors: [
+            {
+              provider: 'tiktok',
+              code: 'UPLOAD_FAILED',
+              message: result.error ?? 'TikTok video upload failed',
+            },
+          ],
+        };
+      }
+      return {
+        ok: true,
+        provider: 'tiktok',
+        data: {
+          operation: 'upload_video',
+          status: 'executed',
+          video_id: result.video_id,
+          title: result.filename,
+        },
+      };
+    } catch (error) {
+      return this.errorResponse(error);
+    }
   }
 
   async getAccountInfo(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<AccountInfoResult>> {
     return this.writeNotImplemented();
+  }
+
+  async checkLaunchReadiness(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<LaunchReadinessResult>> {
+    const params = request.params;
+    try {
+      const result = checkTikTokLaunchReadiness({
+        objectiveType: String(params.objectiveType ?? 'REACH') as TikTokObjective,
+        optimizationGoal: params.optimizationGoal as string | undefined,
+        advertiserId: (params.advertiserId as string | undefined) ?? request.accountId,
+        campaignName: params.campaignName as string | undefined,
+        dailyBudget: params.dailyBudget as number | undefined,
+        adgroupName: params.adgroupName as string | undefined,
+        identityId: params.identityId as string | undefined,
+        identityType: params.identityType as string | undefined,
+        videoId: params.videoId as string | undefined,
+        imageId: params.imageId as string | undefined,
+        imageFilePath: params.imageFilePath as string | undefined,
+        videoFilePath: params.videoFilePath as string | undefined,
+        landingPageUrl: params.landingPageUrl as string | undefined,
+        callToAction: params.callToAction as string | undefined,
+        appId: params.appId as string | undefined,
+        promotionType: params.promotionType as string | undefined,
+        pixelId: params.pixelId as string | undefined,
+        optimizationEvent: params.optimizationEvent as string | undefined,
+        instantFormPageId: params.instantFormPageId as string | undefined,
+        catalogId: params.catalogId as string | undefined,
+        storeId: params.storeId as string | undefined,
+        productSource: params.productSource as string | undefined,
+        itemGroupIds: Array.isArray(params.itemGroupIds) ? params.itemGroupIds.map(String) : undefined,
+        writesEnabled: params.writesEnabled as boolean | undefined,
+      });
+      return {
+        ok: true,
+        provider: 'tiktok',
+        data: result,
+      } as unknown as AdsBrokerResponse<LaunchReadinessResult>;
+    } catch (error) {
+      return this.errorResponse(error);
+    }
   }
 
   async listAdImages(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdImageResult[]>> {
