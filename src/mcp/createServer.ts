@@ -168,6 +168,42 @@ const launchReadinessInputSchema = {
     .optional()
     .describe('Optional intended creative format to validate against the resolved workflow.'),
   apiVersion: z.string().optional().describe('Meta Marketing API version, defaults to v25.0.'),
+  tiktokObjectiveType: z
+    .enum([
+      'REACH',
+      'TRAFFIC',
+      'VIDEO_VIEWS',
+      'ENGAGEMENT',
+      'LEAD_GENERATION',
+      'APP_PROMOTION',
+      'WEB_CONVERSIONS',
+      'PRODUCT_SALES',
+    ])
+    .optional()
+    .describe('TikTok objective for the readiness check. Ignored for provider=meta.'),
+  advertiserId: z.string().optional().describe('TikTok advertiser ID for the readiness check.'),
+  campaignName: z.string().optional().describe('Campaign name (TikTok readiness check).'),
+  adgroupName: z.string().optional().describe('Ad group name (TikTok readiness check).'),
+  identityId: z.string().optional().describe('TikTok identity ID (TikTok readiness check).'),
+  identityType: z.string().optional().describe('TikTok identity type (TikTok readiness check).'),
+  callToAction: z.string().optional().describe('Call to action (TikTok readiness check).'),
+  appId: z.string().optional().describe('TikTok App ID (APP_PROMOTION readiness check).'),
+  promotionType: z
+    .string()
+    .optional()
+    .describe('APP_INSTALL or APP_RETARGETING (TikTok readiness check).'),
+  optimizationEvent: z
+    .string()
+    .optional()
+    .describe('Conversion event (TikTok WEB_CONVERSIONS readiness check).'),
+  instantFormPageId: z
+    .string()
+    .optional()
+    .describe('Instant Form page_id (TikTok LEAD_GENERATION readiness check).'),
+  itemGroupIds: z
+    .array(z.string())
+    .optional()
+    .describe('Product item_group_ids (TikTok PRODUCT_SALES readiness check).'),
   productOrOffer: z.string().optional().describe('Product or offer being promoted.'),
   pageId: z.string().optional().describe('Meta Page ID.'),
   pixelId: z.string().optional().describe('Meta Pixel ID for conversion workflows.'),
@@ -277,6 +313,21 @@ const createCampaignInputSchema = {
       'standard untuk iklan Meta biasa; collaborative_ads untuk katalog retailer yang sudah dibagikan.'
     ),
   objective: z.enum(META_ODAX_OBJECTIVES).describe('Meta ODAX campaign objective.'),
+  objectiveType: z
+    .enum([
+      'REACH',
+      'TRAFFIC',
+      'VIDEO_VIEWS',
+      'ENGAGEMENT',
+      'LEAD_GENERATION',
+      'APP_PROMOTION',
+      'WEB_CONVERSIONS',
+      'PRODUCT_SALES',
+    ])
+    .optional()
+    .describe(
+      'TikTok objective_type. Use this instead of `objective` when provider is tiktok — objective is Meta-only.'
+    ),
   status: z.enum(['ACTIVE', 'PAUSED']).optional().describe('Campaign status. Defaults to PAUSED.'),
   specialAdCategories: z.array(z.string()).optional().describe('Meta special ad categories.'),
   buyType: z.enum(['AUCTION', 'RESERVED']).optional().describe('Buying type. Defaults to AUCTION.'),
@@ -397,6 +448,38 @@ const createAdSetInputSchema = {
   objectStoreUrl: z.string().optional().describe('App store URL for app promotion.'),
   productSetId: z.string().optional().describe('Meta product set ID for catalog sales.'),
   customEventType: z.string().optional().describe('Optional Meta conversion event type.'),
+  bidType: z
+    .string()
+    .optional()
+    .describe('TikTok bid type, e.g. BID_TYPE_NO_BID, BID_TYPE_CUSTOM.'),
+  bidPrice: z.number().optional().describe('TikTok bid price for the ad group.'),
+  placementType: z
+    .enum(['PLACEMENT_TYPE_AUTO', 'PLACEMENT_TYPE_NORMAL'])
+    .optional()
+    .describe('TikTok placement type.'),
+  identityType: z.string().optional().describe('TikTok identity type (e.g. CUSTOMIZED_USER).'),
+  identityId: z.string().optional().describe('TikTok identity ID shown as the ad account.'),
+  appId: z
+    .string()
+    .optional()
+    .describe("TikTok App ID for APP_PROMOTION. Distinct from Meta's applicationId."),
+  promotionType: z
+    .enum(['APP_INSTALL', 'APP_RETARGETING'])
+    .optional()
+    .describe('TikTok APP_PROMOTION sub-type.'),
+  optimizationEvent: z
+    .string()
+    .optional()
+    .describe('TikTok conversion event to optimize for (WEB_CONVERSIONS objective).'),
+  catalogId: z
+    .string()
+    .optional()
+    .describe('Catalog ID. Meta: used with productSetId. TikTok: PRODUCT_SALES objective.'),
+  storeId: z.string().optional().describe('TikTok Shop store ID (PRODUCT_SALES objective).'),
+  productSource: z
+    .string()
+    .optional()
+    .describe('TikTok product source, e.g. CATALOG (PRODUCT_SALES objective).'),
   bidStrategy: z
     .string()
     .optional()
@@ -681,7 +764,16 @@ const createAdInputSchema = {
   accountId: z.string().describe('Provider account id. Required for ad creation.'),
   name: z.string().describe('Ad name.'),
   adSetId: z.string().describe('The ad set ID to place the ad under.'),
-  creativeId: z.string().describe('The creative ID to use for this ad.'),
+  creativeId: z
+    .string()
+    .optional()
+    .describe('Meta: the creative ID to use for this ad. Not used for TikTok — use creatives instead.'),
+  creatives: z
+    .array(z.record(z.unknown()))
+    .optional()
+    .describe(
+      'TikTok: inline creative objects, e.g. [{ creative_name, creative_material: { title, call_to_action, landing_page_url, video_id|image_id, page_id, product_specific_type, item_group_ids, sku_ids } }]. Not used for Meta.'
+    ),
   status: z.enum(['ACTIVE', 'PAUSED']).optional().describe('Ad status. Defaults to PAUSED.'),
   dedupeByName: z
     .boolean()
