@@ -334,3 +334,15 @@ describe('TikTokAdsAdapter', () => {
     expect(typeof adapter.listCampaigns).toBe('function');
   });
 });
+
+describe('TikTokAdsAdapter.checkLaunchReadiness', () => {
+  it('reports missing base fields for an empty REACH request', async () => {
+    const adapter = new TikTokAdsAdapter();
+    const response = await adapter.checkLaunchReadiness({ params: { objectiveType: 'REACH' } });
+    expect(response.ok).toBe(true);
+    if (response.ok) {
+      expect(response.data.ready).toBe(false);
+      expect(response.data.missing).toContain('campaignName');
+    }
+  });
+});
