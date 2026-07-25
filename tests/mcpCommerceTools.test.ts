@@ -12,15 +12,19 @@ function parseToolResponse(response: Awaited<ReturnType<typeof handleCommerceMcp
 
 describe('commerce MCP tools', () => {
   it('exposes commerce_get_performance as normalized data tool', () => {
-    expect(COMMERCE_MCP_TOOL_DEFINITIONS.map((tool) => tool.name)).toContain('commerce_get_performance');
-    expect(COMMERCE_MCP_TOOL_DEFINITIONS[0]?.description).toContain('normalized commerce performance data');
+    expect(COMMERCE_MCP_TOOL_DEFINITIONS.map((tool) => tool.name)).toContain(
+      'commerce_get_performance'
+    );
+    expect(COMMERCE_MCP_TOOL_DEFINITIONS[0]?.description).toContain(
+      'normalized commerce performance data'
+    );
   });
 
   it('returns normalized TikTok GMV Max records and totals without narrative recommendations', async () => {
     let capturedOptions: Record<string, unknown> | undefined;
     const fetcher: CommercePerformanceFetcher = async (options) => {
       capturedOptions = options as unknown as Record<string, unknown>;
-      return {
+      const result: GmvMaxReportResult = {
         list: [
           {
             dimensions: {
@@ -54,19 +58,26 @@ describe('commerce MCP tools', () => {
           total_number: 2,
           total_page: 1,
         },
-      } satisfies GmvMaxReportResult;
+      };
+      return result;
     };
 
-    const response = parseToolResponse(await handleCommerceMcpToolCall('commerce_get_performance', {
-      provider: 'tiktok_gmv',
-      accountId: 'advertiser_1',
-      storeIds: ['store_1'],
-      since: '2026-05-01',
-      until: '2026-05-07',
-      dimensions: ['store_id', 'product_id'],
-      metrics: ['gmv', 'orders', 'units_sold', 'spend'],
-      params: { pageSize: 100 },
-    }, { fetchGmvMaxReport: fetcher }));
+    const response = parseToolResponse(
+      await handleCommerceMcpToolCall(
+        'commerce_get_performance',
+        {
+          provider: 'tiktok_gmv',
+          accountId: 'advertiser_1',
+          storeIds: ['store_1'],
+          since: '2026-05-01',
+          until: '2026-05-07',
+          dimensions: ['store_id', 'product_id'],
+          metrics: ['gmv', 'orders', 'units_sold', 'spend'],
+          params: { pageSize: 100 },
+        },
+        { fetchGmvMaxReport: fetcher }
+      )
+    );
 
     expect(capturedOptions).toMatchObject({
       advertiserId: 'advertiser_1',
@@ -110,32 +121,52 @@ describe('commerce MCP tools', () => {
   });
 
   it('returns a safe validation error for unsupported commerce providers', async () => {
-    const response = parseToolResponse(await handleCommerceMcpToolCall('commerce_get_performance', {
-      provider: 'shopee',
-      accountId: 'seller_1',
-      since: '2026-05-01',
-      until: '2026-05-07',
-    }, {
-      fetchGmvMaxReport: async () => ({ list: [], page_info: { page: 1, page_size: 100, total_number: 0, total_page: 0 } }),
-    }));
+    const response = parseToolResponse(
+      await handleCommerceMcpToolCall(
+        'commerce_get_performance',
+        {
+          provider: 'shopee',
+          accountId: 'seller_1',
+          since: '2026-05-01',
+          until: '2026-05-07',
+        },
+        {
+          fetchGmvMaxReport: async () => ({
+            list: [],
+            page_info: { page: 1, page_size: 100, total_number: 0, total_page: 0 },
+          }),
+        }
+      )
+    );
 
     expect(response.ok).toBe(false);
-    expect(response.errors).toEqual([{ code: 'UNSUPPORTED_COMMERCE_PROVIDER', message: 'Only provider "tiktok_gmv" is supported for commerce_get_performance today.' }]);
+    expect(response.errors).toEqual([
+      {
+        code: 'UNSUPPORTED_COMMERCE_PROVIDER',
+        message: 'Only provider "tiktok_gmv" is supported for commerce_get_performance today.',
+      },
+    ]);
   });
 
   it('returns structured warnings for empty GMV Max rows', async () => {
-    const response = parseToolResponse(await handleCommerceMcpToolCall('commerce_get_performance', {
-      provider: 'tiktok_gmv',
-      accountId: 'advertiser_1',
-      storeIds: ['store_1', 'store_2'],
-      since: '2026-05-01',
-      until: '2026-05-07',
-    }, {
-      fetchGmvMaxReport: async () => ({
-        list: [],
-        page_info: { page: 1, page_size: 100, total_number: 0, total_page: 0 },
-      }),
-    }));
+    const response = parseToolResponse(
+      await handleCommerceMcpToolCall(
+        'commerce_get_performance',
+        {
+          provider: 'tiktok_gmv',
+          accountId: 'advertiser_1',
+          storeIds: ['store_1', 'store_2'],
+          since: '2026-05-01',
+          until: '2026-05-07',
+        },
+        {
+          fetchGmvMaxReport: async () => ({
+            list: [],
+            page_info: { page: 1, page_size: 100, total_number: 0, total_page: 0 },
+          }),
+        }
+      )
+    );
 
     expect(response.ok).toBe(true);
     expect(response.data).toMatchObject({
@@ -152,22 +183,28 @@ describe('commerce MCP tools', () => {
 
   it('uses cursor as next GMV Max page and returns opaque nextCursor', async () => {
     let capturedOptions: Record<string, unknown> | undefined;
-    const response = parseToolResponse(await handleCommerceMcpToolCall('commerce_get_performance', {
-      provider: 'tiktok_gmv',
-      accountId: 'advertiser_1',
-      storeIds: ['store_1'],
-      since: '2026-05-01',
-      until: '2026-05-07',
-      cursor: '2',
-    }, {
-      fetchGmvMaxReport: async (options) => {
-        capturedOptions = options as unknown as Record<string, unknown>;
-        return {
-          list: [],
-          page_info: { page: 2, page_size: 100, total_number: 250, total_page: 3 },
-        };
-      },
-    }));
+    const response = parseToolResponse(
+      await handleCommerceMcpToolCall(
+        'commerce_get_performance',
+        {
+          provider: 'tiktok_gmv',
+          accountId: 'advertiser_1',
+          storeIds: ['store_1'],
+          since: '2026-05-01',
+          until: '2026-05-07',
+          cursor: '2',
+        },
+        {
+          fetchGmvMaxReport: async (options) => {
+            capturedOptions = options as unknown as Record<string, unknown>;
+            return {
+              list: [],
+              page_info: { page: 2, page_size: 100, total_number: 250, total_page: 3 },
+            };
+          },
+        }
+      )
+    );
 
     expect(capturedOptions).toMatchObject({ page: 2 });
     expect(response.data).toMatchObject({ paging: { nextCursor: '3' } });

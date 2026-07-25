@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { GoogleAdsAdapter, GoogleAdsRestClient, type GoogleAdsApiClient } from '../src/providers/google/GoogleAdsAdapter.js';
+import {
+  GoogleAdsAdapter,
+  GoogleAdsRestClient,
+  type GoogleAdsApiClient,
+} from '../src/providers/google/GoogleAdsAdapter.js';
 
-function createClientStub(rows: unknown[] = []): GoogleAdsApiClient & { calls: Array<{ customerId: string; query: string }> } {
+function createClientStub(
+  rows: unknown[] = []
+): GoogleAdsApiClient & { calls: Array<{ customerId: string; query: string }> } {
   const calls: Array<{ customerId: string; query: string }> = [];
   return {
     calls,
@@ -38,7 +44,9 @@ describe('GoogleAdsAdapter', () => {
       fetchFn: async (url, init) => {
         capturedUrl = String(url);
         capturedInit = init;
-        return new Response(JSON.stringify([{ results: [{ customer: { id: '123' } }] }]), { status: 200 });
+        return new Response(JSON.stringify([{ results: [{ customer: { id: '123' } }] }]), {
+          status: 200,
+        });
       },
     });
 
@@ -58,7 +66,7 @@ describe('GoogleAdsAdapter', () => {
     const client = createClientStub();
     const adapter = new GoogleAdsAdapter({ client });
 
-    const response = await adapter.listAccounts({ params: {} });
+    const response = await adapter.listAccounts();
 
     expect(response.ok).toBe(true);
     expect(response.data).toEqual([{ resourceName: 'customers/1234567890' }]);
@@ -68,8 +76,22 @@ describe('GoogleAdsAdapter', () => {
     const client = createClientStub([
       {
         customer: { id: '1234567890', descriptiveName: 'Main Account', currencyCode: 'USD' },
-        campaign: { id: '111', name: 'Campaign', status: 'ENABLED', advertisingChannelType: 'SEARCH' },
-        metrics: { costMicros: '10000000', impressions: '1000', clicks: '25', ctr: 0.025, averageCpc: '400000', averageCpm: '10000000', conversions: 5, conversionsValue: 50 },
+        campaign: {
+          id: '111',
+          name: 'Campaign',
+          status: 'ENABLED',
+          advertisingChannelType: 'SEARCH',
+        },
+        metrics: {
+          costMicros: '10000000',
+          impressions: '1000',
+          clicks: '25',
+          ctr: 0.025,
+          averageCpc: '400000',
+          averageCpm: '10000000',
+          conversions: 5,
+          conversionsValue: 50,
+        },
       },
     ]);
     const adapter = new GoogleAdsAdapter({ client });
@@ -86,7 +108,11 @@ describe('GoogleAdsAdapter', () => {
     expect(client.calls[0]?.customerId).toBe('1234567890');
     expect(client.calls[0]?.query).toContain('FROM campaign');
     expect(client.calls[0]?.query).toContain("segments.date BETWEEN '2026-05-01' AND '2026-05-07'");
-    expect(response.data?.[0]).toMatchObject({ provider: 'google', level: 'campaign', delivery: { spend: 10 } });
+    expect(response.data?.[0]).toMatchObject({
+      provider: 'google',
+      level: 'campaign',
+      delivery: { spend: 10 },
+    });
     expect(response.meta).toMatchObject({ nextCursor: null });
   });
 

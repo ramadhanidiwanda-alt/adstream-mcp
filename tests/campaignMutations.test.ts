@@ -1,6 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { previewCampaignMutation, executeCampaignMutation } from '../src/tools/campaignMutations.js';
+import {
+  previewCampaignMutation,
+  executeCampaignMutation,
+} from '../src/tools/campaignMutations.js';
 import type { MetaClient } from '../src/metaClient.js';
+import type { MutationOperation } from '../src/types.js';
 
 function createMockClient(override?: Partial<MetaClient>): MetaClient {
   return {

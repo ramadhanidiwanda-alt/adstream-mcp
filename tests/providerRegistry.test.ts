@@ -3,17 +3,12 @@ import { ProviderRegistry } from '../src/broker/providerRegistry.js';
 import { MetaAdsAdapter } from '../src/providers/meta/MetaAdsAdapter.js';
 import { GoogleAdsAdapter } from '../src/providers/google/GoogleAdsAdapter.js';
 import type { AdsProviderAdapter } from '../src/broker/types.js';
+import { providerAdapterStub } from './support/adapter.js';
 
 function createTikTokStub(): AdsProviderAdapter {
   const response = async () => ({ ok: false as const, provider: 'tiktok' as const });
-  return {
-    id: 'tiktok',
+  return providerAdapterStub('tiktok', {
     displayName: 'TikTok Ads',
-    capabilities: {
-      providers: ['tiktok'],
-      categories: ['accounts'],
-      operations: ['read'],
-    },
     listAccounts: response,
     listCampaigns: response,
     getAccountPerformance: response,
@@ -23,7 +18,7 @@ function createTikTokStub(): AdsProviderAdapter {
     getCreativePerformance: response,
     getPlacementPerformance: response,
     getChangeHistory: response,
-  };
+  });
 }
 
 describe('ProviderRegistry', () => {
@@ -46,7 +41,9 @@ describe('ProviderRegistry', () => {
     const registry = new ProviderRegistry();
     registry.register(new MetaAdsAdapter());
 
-    expect(() => registry.register(new MetaAdsAdapter())).toThrow('Provider adapter already registered: meta');
+    expect(() => registry.register(new MetaAdsAdapter())).toThrow(
+      'Provider adapter already registered: meta'
+    );
   });
 
   it('retrieves registered MetaAdsAdapter', () => {
