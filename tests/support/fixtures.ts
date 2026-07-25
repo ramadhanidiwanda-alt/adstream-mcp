@@ -8,6 +8,7 @@
  * the fields it actually cares about.
  */
 import type { HttpMcpConfig } from '../../src/mcp/http.js';
+import type { MetaConfig } from '../../src/types.js';
 
 /**
  * A complete `HttpMcpConfig`.
@@ -25,6 +26,21 @@ export function httpMcpConfig(overrides: Partial<HttpMcpConfig> = {}): HttpMcpCo
     transport: 'http',
     authCodeTtlSeconds: 300,
     accessTokenTtlSeconds: 86400,
+    ...overrides,
+  };
+}
+
+/**
+ * A complete `MetaConfig`.
+ *
+ * `loadConfig` always produces both `accessToken` and `apiVersion` (the latter
+ * defaulting to `v25.0`), so a config carrying only `adAccountId` never reaches
+ * `MetaClient` or `createMetaAdsMcpServer` in production.
+ */
+export function metaConfig(overrides: Partial<MetaConfig> = {}): MetaConfig {
+  return {
+    accessToken: 'test-meta-access-token',
+    apiVersion: 'v25.0',
     ...overrides,
   };
 }
