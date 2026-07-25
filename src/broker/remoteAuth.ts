@@ -72,9 +72,7 @@ export type RemoteMcpAuthParseResult =
  * @param headers - HTTP headers from remote MCP request
  * @returns Parse result with context or error
  */
-export function parseRemoteMcpAuthHeaders(
-  headers: RemoteMcpAuthHeaders
-): RemoteMcpAuthParseResult {
+export function parseRemoteMcpAuthHeaders(headers: RemoteMcpAuthHeaders): RemoteMcpAuthParseResult {
   // Check for Authorization header
   if (!headers.authorization || headers.authorization.trim() === '') {
     return {
@@ -154,7 +152,9 @@ export function buildCuanInsightCredentialRequestFromRemoteContext(
   context: RemoteMcpRequestContext,
   accountId?: string,
   params?: Record<string, unknown>
-): { ok: true; request: CuanInsightCredentialResolveRequest } | { ok: false; error: { code: RemoteMcpAuthErrorCode; message: string } } {
+):
+  | { ok: true; request: CuanInsightCredentialResolveRequest }
+  | { ok: false; error: { code: RemoteMcpAuthErrorCode; message: string } } {
   // Validate provider
   if (!isAdsProviderId(provider)) {
     return {
@@ -184,7 +184,6 @@ export function buildCuanInsightCredentialRequestFromRemoteContext(
  */
 export function isRemoteMcpAuthErrorCode(value: unknown): value is RemoteMcpAuthErrorCode {
   return (
-    typeof value === 'string' &&
-    (REMOTE_MCP_AUTH_ERROR_CODES as readonly string[]).includes(value)
+    typeof value === 'string' && (REMOTE_MCP_AUTH_ERROR_CODES as readonly string[]).includes(value)
   );
 }

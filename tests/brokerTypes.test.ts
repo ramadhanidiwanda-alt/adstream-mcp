@@ -68,12 +68,27 @@ describe('Ads MCP Broker rich types and contracts', () => {
       source: 'test' as const,
     };
 
-    expect(allowWritePermissionPolicy.canWrite(credential, { provider: 'meta', accountId: 'act_123', params: {} }))
-      .toBe(true);
-    expect(allowWritePermissionPolicy.canWrite(credential, { provider: 'meta', accountId: 'act_999', params: {} }))
-      .toBe(false);
-    expect(allowWritePermissionPolicy.canWrite(credential, { provider: 'tiktok', accountId: 'act_123', params: {} }))
-      .toBe(false);
+    expect(
+      allowWritePermissionPolicy.canWrite(credential, {
+        provider: 'meta',
+        accountId: 'act_123',
+        params: {},
+      })
+    ).toBe(true);
+    expect(
+      allowWritePermissionPolicy.canWrite(credential, {
+        provider: 'meta',
+        accountId: 'act_999',
+        params: {},
+      })
+    ).toBe(false);
+    expect(
+      allowWritePermissionPolicy.canWrite(credential, {
+        provider: 'tiktok',
+        accountId: 'act_123',
+        params: {},
+      })
+    ).toBe(false);
     expect(allowWritePermissionPolicy.requireConfirmation(credential)).toBe(true);
   });
 
@@ -86,10 +101,18 @@ describe('Ads MCP Broker rich types and contracts', () => {
       source: 'test' as const,
     };
 
-    expect(credentialAllowsRequestProvider(credential, { provider: 'meta', params: {} })).toBe(true);
-    expect(credentialAllowsRequestProvider(credential, { provider: 'tiktok', params: {} })).toBe(false);
-    expect(credentialAllowsRequestAccount(credential, { accountId: 'act_123', params: {} })).toBe(true);
-    expect(credentialAllowsRequestAccount(credential, { accountId: 'act_999', params: {} })).toBe(false);
+    expect(credentialAllowsRequestProvider(credential, { provider: 'meta', params: {} })).toBe(
+      true
+    );
+    expect(credentialAllowsRequestProvider(credential, { provider: 'tiktok', params: {} })).toBe(
+      false
+    );
+    expect(credentialAllowsRequestAccount(credential, { accountId: 'act_123', params: {} })).toBe(
+      true
+    );
+    expect(credentialAllowsRequestAccount(credential, { accountId: 'act_999', params: {} })).toBe(
+      false
+    );
     expect(credentialHasAnyScope(credential, ['ads.read'])).toBe(true);
     expect(credentialHasAnyScope(credential, ['ads.write'])).toBe(false);
   });

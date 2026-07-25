@@ -74,7 +74,8 @@ export interface CredentialResolverOptions {
 }
 
 const REDACTED = '[REDACTED]';
-const TOKEN_KEY_PATTERN = /(access[_-]?token|authorization|bearer|appsecret[_-]?proof|token|secret|connection[_-]?key)/i;
+const TOKEN_KEY_PATTERN =
+  /(access[_-]?token|authorization|bearer|appsecret[_-]?proof|token|secret|connection[_-]?key)/i;
 const LONG_TOKEN_PATTERN = /\b[A-Za-z0-9._~+/=-]{16,}\b/g;
 // snake_case identifiers (e.g. applink_treatment, omnichannel_link_spec): all
 // lowercase words joined by underscores, of a reasonable length.
@@ -151,11 +152,12 @@ export class EnvCredentialProvider implements CredentialProvider {
       return unsupportedProviderResult();
     }
 
-    const credential = request.provider === 'meta'
-      ? this.resolveMeta(request)
-      : request.provider === 'tiktok'
-        ? this.resolveTikTok(request)
-        : this.resolveGoogle(request);
+    const credential =
+      request.provider === 'meta'
+        ? this.resolveMeta(request)
+        : request.provider === 'tiktok'
+          ? this.resolveTikTok(request)
+          : this.resolveGoogle(request);
 
     if (!credential.accessToken) {
       return {
@@ -217,10 +219,7 @@ export class CuanInsightCredentialProvider implements CredentialProvider {
   private readonly connectionKey?: string;
   private readonly authMode?: 'mcp_token' | 'connection_key';
 
-  constructor(
-    client?: CuanInsightCredentialClient,
-    options?: CuanInsightProviderOptions
-  ) {
+  constructor(client?: CuanInsightCredentialClient, options?: CuanInsightProviderOptions) {
     this.client = client;
     this.callerToken = options?.callerToken;
     this.workspaceId = options?.workspaceId;
@@ -270,45 +269,50 @@ export class CuanInsightCredentialProvider implements CredentialProvider {
 
       // ── Temp debug: credential resolver request ──
       if (process.env.MCP_OAUTH_DEBUG === 'true') {
-        console.log('[TOOL_DEBUG] credential.resolve.request', JSON.stringify({
-          provider,
-          is_oauth_token: isOAuthTokenMode,
-          has_connection_key: !!request.connectionKey,
-          has_connection_key_id: !!request.oauthAuthContext?.connectionKeyId,
-          has_token_hash: !!resolveRequest.tokenHash,
-          has_auth_type: !!resolveRequest.authType,
-          auth_type: resolveRequest.authType ?? 'none',
-        }));
+        console.log(
+          '[TOOL_DEBUG] credential.resolve.request',
+          JSON.stringify({
+            provider,
+            is_oauth_token: isOAuthTokenMode,
+            has_connection_key: !!request.connectionKey,
+            has_connection_key_id: !!request.oauthAuthContext?.connectionKeyId,
+            has_token_hash: !!resolveRequest.tokenHash,
+            has_auth_type: !!resolveRequest.authType,
+            auth_type: resolveRequest.authType ?? 'none',
+          })
+        );
       }
 
       const response = await this.client.resolve(resolveRequest);
 
       // ── Temp debug: credential resolver response ──
       if (process.env.MCP_OAUTH_DEBUG === 'true') {
-        console.log('[TOOL_DEBUG] credential.resolve.response', JSON.stringify({
-          ok: response.ok,
-          has_provider_token: !!response.providerToken,
-          error_code: response.error?.code ?? null,
-          has_identity: !!response.identity,
-        }));
+        console.log(
+          '[TOOL_DEBUG] credential.resolve.response',
+          JSON.stringify({
+            ok: response.ok,
+            has_provider_token: !!response.providerToken,
+            error_code: response.error?.code ?? null,
+            has_identity: !!response.identity,
+          })
+        );
       }
 
-      return mapCuanInsightResponseToCredentialResult(
-        response,
-        provider,
-        request
-      );
+      return mapCuanInsightResponseToCredentialResult(response, provider, request);
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Cuan Insight credential resolution failed';
 
       // ── Temp debug: credential resolver exception ──
       if (process.env.MCP_OAUTH_DEBUG === 'true') {
-        console.log('[TOOL_DEBUG] credential.resolve.exception', JSON.stringify({
-          error_message: message,
-          error_name: error instanceof Error ? error.name : typeof error,
-          has_stack: error instanceof Error && !!error.stack,
-        }));
+        console.log(
+          '[TOOL_DEBUG] credential.resolve.exception',
+          JSON.stringify({
+            error_message: message,
+            error_name: error instanceof Error ? error.name : typeof error,
+            has_stack: error instanceof Error && !!error.stack,
+          })
+        );
       }
 
       return {
@@ -331,10 +335,10 @@ function mapCuanInsightResponseToCredentialResult(
   request: CredentialResolveRequest
 ): CredentialResolveResult {
   if (!response.ok) {
-    const errorCode = response.error?.code &&
-      isCuanInsightCredentialErrorCode(response.error?.code)
-      ? (response.error!.code as CuanInsightCredentialErrorCode)
-      : SAFE_CUAN_INSIGHT_ERROR_CODE;
+    const errorCode =
+      response.error?.code && isCuanInsightCredentialErrorCode(response.error?.code)
+        ? (response.error!.code as CuanInsightCredentialErrorCode)
+        : SAFE_CUAN_INSIGHT_ERROR_CODE;
 
     const errorMessage = redactErrorMessage(
       response.error?.message ?? 'Cuan Insight credential resolution failed'
@@ -437,9 +441,7 @@ function isExpiredIsoTimestamp(value: string | undefined): boolean {
   return Number.isFinite(timestamp) && timestamp <= Date.now();
 }
 
-function buildSafeMeta(
-  response: CuanInsightCredentialResolveResponse
-): Record<string, unknown> {
+function buildSafeMeta(response: CuanInsightCredentialResolveResponse): Record<string, unknown> {
   const meta: Record<string, unknown> = {};
 
   if (response.identity) {

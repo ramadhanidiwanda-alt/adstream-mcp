@@ -17,7 +17,10 @@ export function normalizeGmvMaxRows(
   return rows.map((row) => normalizeGmvMaxRow(row, options));
 }
 
-function normalizeGmvMaxRow(row: GmvMaxReportRow, options: NormalizeGmvMaxRowsOptions): CommerceRecord {
+function normalizeGmvMaxRow(
+  row: GmvMaxReportRow,
+  options: NormalizeGmvMaxRowsOptions
+): CommerceRecord {
   const gmv = toNumber(row.metrics.gmv ?? row.metrics.gross_revenue ?? row.metrics.revenue);
   const orders = toNumber(row.metrics.orders ?? row.metrics.order_count ?? row.metrics.purchases);
   const unitsSold = optionalNumber(row.metrics.units_sold ?? row.metrics.item_sold_count);
@@ -47,7 +50,8 @@ function normalizeGmvMaxRow(row: GmvMaxReportRow, options: NormalizeGmvMaxRowsOp
 
   if (unitsSold !== undefined) record.metrics.units_sold = unitsSold;
   if (adSpend !== undefined) record.metrics.ad_spend = adSpend;
-  if (adSpend !== undefined && adSpend > 0) record.metrics.roas_commerce = roundMetric(gmv / adSpend);
+  if (adSpend !== undefined && adSpend > 0)
+    record.metrics.roas_commerce = roundMetric(gmv / adSpend);
   if (orders > 0) record.metrics.aov = roundMetric(gmv / orders);
 
   if (!record.product?.id && !record.product?.name) {

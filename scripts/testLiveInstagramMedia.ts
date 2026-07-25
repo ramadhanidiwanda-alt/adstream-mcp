@@ -84,6 +84,6 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error(redact(error instanceof Error ? error.stack ?? error.message : String(error)));
+  console.error(redact(error instanceof Error ? (error.stack ?? error.message) : String(error)));
   process.exit(1);
 });

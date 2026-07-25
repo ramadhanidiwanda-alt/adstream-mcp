@@ -121,7 +121,10 @@ function validateVideoFile(filePath: string): VideoValidationResult {
 
   const ext = filePath.toLowerCase().slice(filePath.lastIndexOf('.'));
   if (!ALLOWED_VIDEO_EXTENSIONS.has(ext)) {
-    return { error: `Unsupported file extension: ${ext}. Allowed: .mp4, .mov, .avi, .wmv`, warning: null };
+    return {
+      error: `Unsupported file extension: ${ext}. Allowed: .mp4, .mov, .avi, .wmv`,
+      warning: null,
+    };
   }
 
   let warning: string | null = null;

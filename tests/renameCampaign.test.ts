@@ -37,16 +37,16 @@ describe('renameCampaign', () => {
   });
 
   it('should reject empty name', async () => {
-    await expect(
-      renameCampaign(client, '120248446250030168', '')
-    ).rejects.toThrow('Campaign name cannot be empty');
+    await expect(renameCampaign(client, '120248446250030168', '')).rejects.toThrow(
+      'Campaign name cannot be empty'
+    );
   });
 
   it('should propagate Meta API errors', async () => {
     (client.metaPost as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('API error'));
 
-    await expect(
-      renameCampaign(client, '120248446250030168', 'New Name')
-    ).rejects.toThrow('API error');
+    await expect(renameCampaign(client, '120248446250030168', 'New Name')).rejects.toThrow(
+      'API error'
+    );
   });
 });

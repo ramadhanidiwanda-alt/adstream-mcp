@@ -1,7 +1,10 @@
 import type { MetaClient } from '../metaClient.js';
 import type { StructuredMutationError } from '../types.js';
 import { assertBudgetIncreaseWithinLimit } from './budgetSafetyGuard.js';
-import { formatMetaWriteError, formatStructuredMetaWriteError } from '../utils/formatMetaWriteError.js';
+import {
+  formatMetaWriteError,
+  formatStructuredMetaWriteError,
+} from '../utils/formatMetaWriteError.js';
 
 export interface UpdateCampaignOptions {
   campaignId: string;
@@ -80,12 +83,14 @@ export async function updateCampaign(
     return {
       ...baseResult,
       status: 'failed',
-      error: 'deleteConfirmed=true is required when status="DELETED" — deletion is irreversible via the API.',
+      error:
+        'deleteConfirmed=true is required when status="DELETED" — deletion is irreversible via the API.',
       structuredError: {
         code: 'DELETE_CONFIRMATION_REQUIRED',
         message: 'Explicit delete confirmation is required.',
         provider: 'meta',
-        actionableFix: 'Set deleteConfirmed=true after reviewing the dry-run preview. Note status="ARCHIVED" is not a safer alternative — Meta treats it as equally permanent (neither reverts via the API).',
+        actionableFix:
+          'Set deleteConfirmed=true after reviewing the dry-run preview. Note status="ARCHIVED" is not a safer alternative — Meta treats it as equally permanent (neither reverts via the API).',
       },
     };
   }
@@ -93,8 +98,7 @@ export async function updateCampaign(
   if (options.adsetBudgets !== undefined) {
     const invalidEntry = options.adsetBudgets.find(
       (entry) =>
-        !entry.adsetId ||
-        (entry.dailyBudget === undefined) === (entry.lifetimeBudget === undefined)
+        !entry.adsetId || (entry.dailyBudget === undefined) === (entry.lifetimeBudget === undefined)
     );
     if (options.adsetBudgets.length === 0 || invalidEntry) {
       return {
@@ -171,7 +175,8 @@ function buildUpdateCampaignPayload(options: UpdateCampaignOptions): Record<stri
   if (options.lifetimeBudget !== undefined) payload.lifetime_budget = options.lifetimeBudget;
   if (options.spendCap !== undefined) payload.spend_cap = options.spendCap;
   if (options.bidStrategy !== undefined) payload.bid_strategy = options.bidStrategy;
-  if (options.specialAdCategories !== undefined) payload.special_ad_categories = options.specialAdCategories;
+  if (options.specialAdCategories !== undefined)
+    payload.special_ad_categories = options.specialAdCategories;
   if (options.startTime !== undefined) payload.start_time = options.startTime;
   if (options.stopTime !== undefined) payload.stop_time = options.stopTime;
   if (options.adsetBudgets !== undefined) {

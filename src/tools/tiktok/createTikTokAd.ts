@@ -121,25 +121,31 @@ function normalizeCreative(c: AdCreative): Record<string, unknown> {
     (creative.creative_material as Record<string, unknown>).deeplink = c.creative_material.deeplink;
   }
   if (c.creative_material.open_type) {
-    (creative.creative_material as Record<string, unknown>).open_type = c.creative_material.open_type;
+    (creative.creative_material as Record<string, unknown>).open_type =
+      c.creative_material.open_type;
   }
   if (c.creative_material.click_tracking_url) {
-    (creative.creative_material as Record<string, unknown>).click_tracking_url = c.creative_material.click_tracking_url;
+    (creative.creative_material as Record<string, unknown>).click_tracking_url =
+      c.creative_material.click_tracking_url;
   }
   if (c.creative_material.impression_tracking_url) {
-    (creative.creative_material as Record<string, unknown>).impression_tracking_url = c.creative_material.impression_tracking_url;
+    (creative.creative_material as Record<string, unknown>).impression_tracking_url =
+      c.creative_material.impression_tracking_url;
   }
   if (c.creative_material.playlist_id) {
-    (creative.creative_material as Record<string, unknown>).playlist_id = c.creative_material.playlist_id;
+    (creative.creative_material as Record<string, unknown>).playlist_id =
+      c.creative_material.playlist_id;
   }
   if (c.creative_material.page_id) {
     (creative.creative_material as Record<string, unknown>).page_id = c.creative_material.page_id;
   }
   if (c.creative_material.product_specific_type) {
-    (creative.creative_material as Record<string, unknown>).product_specific_type = c.creative_material.product_specific_type;
+    (creative.creative_material as Record<string, unknown>).product_specific_type =
+      c.creative_material.product_specific_type;
   }
   if (c.creative_material.item_group_ids) {
-    (creative.creative_material as Record<string, unknown>).item_group_ids = c.creative_material.item_group_ids;
+    (creative.creative_material as Record<string, unknown>).item_group_ids =
+      c.creative_material.item_group_ids;
   }
   if (c.creative_material.sku_ids) {
     (creative.creative_material as Record<string, unknown>).sku_ids = c.creative_material.sku_ids;

@@ -42,10 +42,9 @@ export async function getAdPreview(
   // Meta expects creative ID without act_ prefix
   const cleanCreativeId = creativeId.replace(/^act_/, '');
 
-  const response = await client.metaGet<AdPreviewsResponse>(
-    `/${cleanCreativeId}/previews`,
-    { ad_format: adFormat }
-  );
+  const response = await client.metaGet<AdPreviewsResponse>(`/${cleanCreativeId}/previews`, {
+    ad_format: adFormat,
+  });
 
   return (response.data ?? []).map((item) => ({
     preview_url: item.preview_url ?? '',

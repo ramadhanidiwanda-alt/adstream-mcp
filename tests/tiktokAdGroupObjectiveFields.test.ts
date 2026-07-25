@@ -3,7 +3,10 @@ import { createTikTokAdGroup } from '../src/tools/tiktok/createTikTokAdGroup.js'
 import type { TikTokApiClient } from '../src/tiktokClient.js';
 
 function stubClient(): TikTokApiClient {
-  return { post: vi.fn().mockResolvedValue({ adgroup_id: 'ag_1' }), get: vi.fn() } as unknown as TikTokApiClient;
+  return {
+    post: vi.fn().mockResolvedValue({ adgroup_id: 'ag_1' }),
+    get: vi.fn(),
+  } as unknown as TikTokApiClient;
 }
 
 describe('createTikTokAdGroup objective-specific fields', () => {
@@ -73,7 +76,11 @@ describe('createTikTokAdGroup objective-specific fields', () => {
 
     expect(client.post).toHaveBeenCalledWith(
       '/adgroup/create/',
-      expect.objectContaining({ catalog_id: 'cat_1', store_id: 'store_1', product_source: 'CATALOG' })
+      expect.objectContaining({
+        catalog_id: 'cat_1',
+        store_id: 'store_1',
+        product_source: 'CATALOG',
+      })
     );
   });
 

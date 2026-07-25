@@ -30,7 +30,10 @@ export async function listWhatsAppPhoneNumbers(
   const limit = options.limit ?? 100;
   const response = await client.metaGet<{ data: MetaPhoneEntry[] }>(
     `/${options.wabaId}/phone_numbers`,
-    { fields: 'id,display_phone_number,verified_name,quality_rating,code_verification_status', limit }
+    {
+      fields: 'id,display_phone_number,verified_name,quality_rating,code_verification_status',
+      limit,
+    }
   );
 
   return (response.data || [])

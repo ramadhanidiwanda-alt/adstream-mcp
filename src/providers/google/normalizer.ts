@@ -50,7 +50,10 @@ export interface NormalizeGoogleAdsRowOptions {
   includeRaw?: boolean;
 }
 
-export function normalizeGoogleAdsRow(row: GoogleAdsRow, options: NormalizeGoogleAdsRowOptions): AdsMetricRecord {
+export function normalizeGoogleAdsRow(
+  row: GoogleAdsRow,
+  options: NormalizeGoogleAdsRowOptions
+): AdsMetricRecord {
   const metrics = row.metrics ?? {};
   const spend = microsToUnit(metrics.costMicros);
   const conversionValue = optionalNumber(metrics.conversionsValue);
@@ -101,7 +104,10 @@ export function normalizeGoogleAdsRow(row: GoogleAdsRow, options: NormalizeGoogl
   return record;
 }
 
-export function normalizeGoogleAdsRows(rows: GoogleAdsRow[], options: NormalizeGoogleAdsRowOptions): AdsMetricRecord[] {
+export function normalizeGoogleAdsRows(
+  rows: GoogleAdsRow[],
+  options: NormalizeGoogleAdsRowOptions
+): AdsMetricRecord[] {
   return rows.map((row) => normalizeGoogleAdsRow(row, options));
 }
 

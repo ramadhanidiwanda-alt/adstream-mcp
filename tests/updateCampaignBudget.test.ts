@@ -45,15 +45,15 @@ describe('updateCampaignBudget', () => {
     // Requesting 200000 should fail
     (client.metaPost as ReturnType<typeof vi.fn>).mockResolvedValue({ success: true });
 
-    await expect(
-      updateCampaignBudget(client, '120248446250030168', 200000)
-    ).rejects.toThrow('Budget increase exceeds safety limit');
+    await expect(updateCampaignBudget(client, '120248446250030168', 200000)).rejects.toThrow(
+      'Budget increase exceeds safety limit'
+    );
   });
 
   it('should reject zero or negative budget', async () => {
-    await expect(
-      updateCampaignBudget(client, '120248446250030168', 0)
-    ).rejects.toThrow('Invalid budget');
+    await expect(updateCampaignBudget(client, '120248446250030168', 0)).rejects.toThrow(
+      'Invalid budget'
+    );
   });
 
   it('should accept custom maxBudgetIncrease', async () => {
@@ -79,8 +79,8 @@ describe('updateCampaignBudget', () => {
   it('should propagate Meta API errors', async () => {
     (client.metaPost as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('API error'));
 
-    await expect(
-      updateCampaignBudget(client, '120248446250030168', 75000)
-    ).rejects.toThrow('API error');
+    await expect(updateCampaignBudget(client, '120248446250030168', 75000)).rejects.toThrow(
+      'API error'
+    );
   });
 });

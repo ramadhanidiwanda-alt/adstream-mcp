@@ -3,7 +3,11 @@ import { getTikTokReport, type TikTokDataLevel, type TikTokReportRow } from './g
 
 export type TikTokLocationBreakdown = 'country' | 'province' | 'city';
 
-export const TIKTOK_LOCATION_BREAKDOWNS: TikTokLocationBreakdown[] = ['country', 'province', 'city'];
+export const TIKTOK_LOCATION_BREAKDOWNS: TikTokLocationBreakdown[] = [
+  'country',
+  'province',
+  'city',
+];
 
 const DIMENSION_MAP: Record<TikTokLocationBreakdown, string> = {
   country: 'country_code',

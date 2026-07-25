@@ -77,15 +77,21 @@ export class GoogleAdsAdapter implements AdsProviderAdapter {
     return this.queryRows(request, 'campaign', buildListCampaignsQuery());
   }
 
-  async getAccountPerformance(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMetricRecord[]>> {
+  async getAccountPerformance(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<AdsMetricRecord[]>> {
     return this.getPerformance(request, 'account');
   }
 
-  async getCampaignPerformance(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMetricRecord[]>> {
+  async getCampaignPerformance(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<AdsMetricRecord[]>> {
     return this.getPerformance(request, 'campaign');
   }
 
-  async getAdsetOrAdgroupPerformance(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMetricRecord[]>> {
+  async getAdsetOrAdgroupPerformance(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<AdsMetricRecord[]>> {
     return this.getPerformance(request, 'adgroup');
   }
 
@@ -106,23 +112,49 @@ export class GoogleAdsAdapter implements AdsProviderAdapter {
   }
 
   async getVideoSource(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<VideoSourceResult>> {
-    return Promise.resolve(this.notImplemented('Google video source is not implemented yet') as unknown as AdsBrokerResponse<VideoSourceResult>);
+    return Promise.resolve(
+      this.notImplemented(
+        'Google video source is not implemented yet'
+      ) as unknown as AdsBrokerResponse<VideoSourceResult>
+    );
   }
 
-  async getAdCreativeMapping(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdCreativeMappingResult[]>> {
-    return Promise.resolve(this.notImplemented('Google ad→creative mapping is not implemented yet') as unknown as AdsBrokerResponse<AdCreativeMappingResult[]>);
+  async getAdCreativeMapping(
+    _request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<AdCreativeMappingResult[]>> {
+    return Promise.resolve(
+      this.notImplemented(
+        'Google ad→creative mapping is not implemented yet'
+      ) as unknown as AdsBrokerResponse<AdCreativeMappingResult[]>
+    );
   }
 
-  async getAdDestinations(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdDestinationResult[]>> {
-    return Promise.resolve(this.notImplemented('Google ad destinations are not implemented yet') as unknown as AdsBrokerResponse<AdDestinationResult[]>);
+  async getAdDestinations(
+    _request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<AdDestinationResult[]>> {
+    return Promise.resolve(
+      this.notImplemented(
+        'Google ad destinations are not implemented yet'
+      ) as unknown as AdsBrokerResponse<AdDestinationResult[]>
+    );
   }
 
-  async readAdCreativeFull(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdCreativeFullResult>> {
-    return Promise.resolve(this.notImplemented('Google readAdCreativeFull is not implemented yet') as unknown as AdsBrokerResponse<AdCreativeFullResult>);
+  async readAdCreativeFull(
+    _request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<AdCreativeFullResult>> {
+    return Promise.resolve(
+      this.notImplemented(
+        'Google readAdCreativeFull is not implemented yet'
+      ) as unknown as AdsBrokerResponse<AdCreativeFullResult>
+    );
   }
 
   async readAdSetFull(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdSetFullResult>> {
-    return Promise.resolve(this.notImplemented('Google readAdSetFull is not implemented yet') as unknown as AdsBrokerResponse<AdSetFullResult>);
+    return Promise.resolve(
+      this.notImplemented(
+        'Google readAdSetFull is not implemented yet'
+      ) as unknown as AdsBrokerResponse<AdSetFullResult>
+    );
   }
 
   async pauseAd(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>> {
@@ -142,7 +174,11 @@ export class GoogleAdsAdapter implements AdsProviderAdapter {
   }
 
   async cloneAdSet(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<CloneAdSetResult>> {
-    return Promise.resolve(this.notImplemented('Google cloneAdSet is not implemented yet') as unknown as AdsBrokerResponse<CloneAdSetResult>);
+    return Promise.resolve(
+      this.notImplemented(
+        'Google cloneAdSet is not implemented yet'
+      ) as unknown as AdsBrokerResponse<CloneAdSetResult>
+    );
   }
 
   async pauseCampaign(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>> {
@@ -153,7 +189,9 @@ export class GoogleAdsAdapter implements AdsProviderAdapter {
     return this.writeNotImplemented();
   }
 
-  async updateCampaignBudget(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>> {
+  async updateCampaignBudget(
+    _request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<AdsMutationResult>> {
     return this.writeNotImplemented();
   }
 
@@ -161,7 +199,9 @@ export class GoogleAdsAdapter implements AdsProviderAdapter {
     return this.writeNotImplemented();
   }
 
-  async createEcommerceCampaignBundle(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<EcommerceCampaignBundleResult>> {
+  async createEcommerceCampaignBundle(
+    _request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<EcommerceCampaignBundleResult>> {
     return this.notImplemented('Google Ads ecommerce launch bundle is not implemented yet');
   }
 
@@ -178,15 +218,27 @@ export class GoogleAdsAdapter implements AdsProviderAdapter {
   }
 
   async listAdImages(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdImageResult[]>> {
-    return Promise.resolve(this.notImplemented('Google Ads image library is not implemented yet') as unknown as AdsBrokerResponse<AdImageResult[]>);
+    return Promise.resolve(
+      this.notImplemented(
+        'Google Ads image library is not implemented yet'
+      ) as unknown as AdsBrokerResponse<AdImageResult[]>
+    );
   }
 
   async listAdVideos(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdVideoResult[]>> {
-    return Promise.resolve(this.notImplemented('Google Ads video library is not implemented yet') as unknown as AdsBrokerResponse<AdVideoResult[]>);
+    return Promise.resolve(
+      this.notImplemented(
+        'Google Ads video library is not implemented yet'
+      ) as unknown as AdsBrokerResponse<AdVideoResult[]>
+    );
   }
 
   async getAdPreview(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdPreviewResult[]>> {
-    return Promise.resolve(this.notImplemented('Google Ads ad preview is not implemented yet') as unknown as AdsBrokerResponse<AdPreviewResult[]>);
+    return Promise.resolve(
+      this.notImplemented(
+        'Google Ads ad preview is not implemented yet'
+      ) as unknown as AdsBrokerResponse<AdPreviewResult[]>
+    );
   }
 
   private async getPerformance(
@@ -199,7 +251,10 @@ export class GoogleAdsAdapter implements AdsProviderAdapter {
     if (!client) return this.notImplemented();
 
     try {
-      const rows = await client.search(validation.accountId, buildPerformanceQuery(level, validation));
+      const rows = await client.search(
+        validation.accountId,
+        buildPerformanceQuery(level, validation)
+      );
       return {
         ok: true,
         provider: 'google',
@@ -226,7 +281,13 @@ export class GoogleAdsAdapter implements AdsProviderAdapter {
       return {
         ok: false,
         provider: 'google',
-        errors: [{ provider: 'google', code: 'MISSING_ACCOUNT_ID', message: 'accountId is required for Google Ads requests' }],
+        errors: [
+          {
+            provider: 'google',
+            code: 'MISSING_ACCOUNT_ID',
+            message: 'accountId is required for Google Ads requests',
+          },
+        ],
       };
     }
     const client = this.getClient(request);
@@ -240,7 +301,9 @@ export class GoogleAdsAdapter implements AdsProviderAdapter {
     }
   }
 
-  private validatePerformanceRequest(request: AdsBrokerRequest):
+  private validatePerformanceRequest(
+    request: AdsBrokerRequest
+  ):
     | { ok: true; accountId: string; since: string; until: string }
     | { ok: false; response: AdsBrokerResponse<never> } {
     const accountId = request.accountId ?? request.credentials?.accountId;
@@ -269,22 +332,26 @@ export class GoogleAdsAdapter implements AdsProviderAdapter {
     if (this.options.clientFactory) return this.options.clientFactory(request);
 
     const accessToken = request.credentials?.accessToken;
-    const developerToken = typeof request.params.developerToken === 'string'
-      ? request.params.developerToken
-      : process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
+    const developerToken =
+      typeof request.params.developerToken === 'string'
+        ? request.params.developerToken
+        : process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
     if (!accessToken || !developerToken) return undefined;
 
     return new GoogleAdsRestClient({
       accessToken,
       developerToken,
       apiVersion: request.credentials?.apiVersion ?? process.env.GOOGLE_ADS_API_VERSION,
-      loginCustomerId: typeof request.params.loginCustomerId === 'string'
-        ? request.params.loginCustomerId
-        : process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID,
+      loginCustomerId:
+        typeof request.params.loginCustomerId === 'string'
+          ? request.params.loginCustomerId
+          : process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID,
     });
   }
 
-  private notImplemented(message = 'Google Ads adapter requires a client to be configured'): AdsBrokerResponse<never> {
+  private notImplemented(
+    message = 'Google Ads adapter requires a client to be configured'
+  ): AdsBrokerResponse<never> {
     return {
       ok: false,
       provider: 'google',
@@ -296,11 +363,19 @@ export class GoogleAdsAdapter implements AdsProviderAdapter {
     return {
       ok: false,
       provider: 'google',
-      errors: [{ provider: 'google', code: 'WRITE_NOT_IMPLEMENTED', message: 'Google Ads write operations are not implemented yet' }],
+      errors: [
+        {
+          provider: 'google',
+          code: 'WRITE_NOT_IMPLEMENTED',
+          message: 'Google Ads write operations are not implemented yet',
+        },
+      ],
     };
   }
 
-  async createCampaign(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<CreateCampaignResult>> {
+  async createCampaign(
+    _request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<CreateCampaignResult>> {
     return this.writeNotImplemented() as unknown as AdsBrokerResponse<CreateCampaignResult>;
   }
 
@@ -308,7 +383,9 @@ export class GoogleAdsAdapter implements AdsProviderAdapter {
     return this.writeNotImplemented() as unknown as AdsBrokerResponse<CreateAdSetResult>;
   }
 
-  async createAdCreative(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<CreateAdCreativeResult>> {
+  async createAdCreative(
+    _request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<CreateAdCreativeResult>> {
     return this.writeNotImplemented() as unknown as AdsBrokerResponse<CreateAdCreativeResult>;
   }
 
@@ -332,11 +409,15 @@ export class GoogleAdsAdapter implements AdsProviderAdapter {
     return this.writeNotImplemented() as unknown as AdsBrokerResponse<UpdateAdResult>;
   }
 
-  async updateCampaign(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<UpdateCampaignResult>> {
+  async updateCampaign(
+    _request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<UpdateCampaignResult>> {
     return this.writeNotImplemented() as unknown as AdsBrokerResponse<UpdateCampaignResult>;
   }
 
-  async getTargetingOptions(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<GetTargetingOptionsResult>> {
+  async getTargetingOptions(
+    _request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<GetTargetingOptionsResult>> {
     return this.writeNotImplemented() as unknown as AdsBrokerResponse<GetTargetingOptionsResult>;
   }
 
@@ -373,9 +454,12 @@ export class GoogleAdsRestClient implements GoogleAdsApiClient {
   }
 
   async listAccessibleCustomers(): Promise<unknown[]> {
-    const response = await this.request<{ resourceNames?: string[] }>('/customers:listAccessibleCustomers', {
-      method: 'GET',
-    });
+    const response = await this.request<{ resourceNames?: string[] }>(
+      '/customers:listAccessibleCustomers',
+      {
+        method: 'GET',
+      }
+    );
     return (response.resourceNames ?? []).map((resourceName) => ({ resourceName }));
   }
 
@@ -410,7 +494,10 @@ export class GoogleAdsRestClient implements GoogleAdsApiClient {
   }
 }
 
-function buildPerformanceQuery(level: GoogleReadLevel, range: { since: string; until: string }): string {
+function buildPerformanceQuery(
+  level: GoogleReadLevel,
+  range: { since: string; until: string }
+): string {
   const fields = [
     'customer.id',
     'customer.descriptive_name',
@@ -425,8 +512,15 @@ function buildPerformanceQuery(level: GoogleReadLevel, range: { since: string; u
     'metrics.conversions_value',
   ];
 
-  if (level !== 'account') fields.push('campaign.id', 'campaign.name', 'campaign.status', 'campaign.advertising_channel_type');
-  if (level === 'adgroup' || level === 'ad') fields.push('ad_group.id', 'ad_group.name', 'ad_group.status');
+  if (level !== 'account')
+    fields.push(
+      'campaign.id',
+      'campaign.name',
+      'campaign.status',
+      'campaign.advertising_channel_type'
+    );
+  if (level === 'adgroup' || level === 'ad')
+    fields.push('ad_group.id', 'ad_group.name', 'ad_group.status');
   if (level === 'ad') fields.push('ad_group_ad.ad.id', 'ad_group_ad.ad.name', 'ad_group_ad.status');
 
   return `SELECT ${fields.join(', ')} FROM ${resourceForLevel(level)} WHERE segments.date BETWEEN '${range.since}' AND '${range.until}'`;

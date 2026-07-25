@@ -130,7 +130,9 @@ describe('getTikTokAdvertisers', () => {
 describe('TikTokAdsAdapter with real client', () => {
   it('uses real API client for listAccounts', async () => {
     const clientStub = {
-      get: async () => ({ list: [{ advertiser_id: '123', advertiser_name: 'Test', status: 'ACTIVE' }] }),
+      get: async () => ({
+        list: [{ advertiser_id: '123', advertiser_name: 'Test', status: 'ACTIVE' }],
+      }),
     } as unknown as TikTokApiClient;
 
     const adapter = new TikTokAdsAdapter({ client: clientStub });
@@ -171,7 +173,13 @@ describe('TikTokAdsAdapter with real client', () => {
     const adapter = new TikTokAdsAdapter({
       mockData: {
         campaigns: [
-          { campaign_id: 'cmp_1', campaign_name: 'Test', spend: '50', impressions: '500', clicks: '25' },
+          {
+            campaign_id: 'cmp_1',
+            campaign_name: 'Test',
+            spend: '50',
+            impressions: '500',
+            clicks: '25',
+          },
         ],
       },
     });
@@ -182,7 +190,12 @@ describe('TikTokAdsAdapter with real client', () => {
       since: '2026-06-01',
       until: '2026-06-14',
       params: {},
-      credentials: { provider: 'tiktok', accessToken: 'secret', accountId: 'advertiser_1', source: 'test' },
+      credentials: {
+        provider: 'tiktok',
+        accessToken: 'secret',
+        accountId: 'advertiser_1',
+        source: 'test',
+      },
     });
 
     expect(response.ok).toBe(true);

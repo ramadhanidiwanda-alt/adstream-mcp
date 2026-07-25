@@ -19,9 +19,8 @@ export function createDefaultCredentialResolver(): CredentialResolver {
 }
 
 export function createDefaultAdsBroker(): AdsBroker {
-  const permissionPolicy = process.env.ADSTREAM_ENABLE_WRITES === 'true'
-    ? allowWritePermissionPolicy
-    : undefined;
+  const permissionPolicy =
+    process.env.ADSTREAM_ENABLE_WRITES === 'true' ? allowWritePermissionPolicy : undefined;
 
   return new AdsBroker({
     providerRegistry: createDefaultProviderRegistry(),
@@ -54,9 +53,7 @@ import { CuanInsightCredentialProvider } from './credentials.js';
  * @param config - Remote broker configuration
  * @returns CredentialResolver configured for remote mode
  */
-export function createRemoteCredentialResolver(
-  config: RemoteBrokerConfig
-): CredentialResolver {
+export function createRemoteCredentialResolver(config: RemoteBrokerConfig): CredentialResolver {
   // Build client config with auth mode support
   const clientConfig = {
     baseUrl: config.cuanInsightBaseUrl,
@@ -124,9 +121,7 @@ export function createRemoteAdsBroker(config: RemoteBrokerConfig): AdsBroker {
 export function createAdsBrokerFromConfig(config: BrokerConfig): AdsBroker {
   if (config.mode === 'remote') {
     if (!config.cuanInsight) {
-      throw new Error(
-        'Remote mode requires cuanInsight configuration'
-      );
+      throw new Error('Remote mode requires cuanInsight configuration');
     }
     return createRemoteAdsBroker(config.cuanInsight);
   }

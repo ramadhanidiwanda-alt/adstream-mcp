@@ -34,16 +34,21 @@ export async function listAdVideos(
 ): Promise<AdVideoResult[]> {
   const adAccountId = normalizeAccountId(options.adAccountId);
 
-  const fields = ['id', 'title', 'source', 'status', 'file_size', 'created_time', 'thumbnails{uri}'];
+  const fields = [
+    'id',
+    'title',
+    'source',
+    'status',
+    'file_size',
+    'created_time',
+    'thumbnails{uri}',
+  ];
 
-  const response = await client.metaGet<AdVideosResponse>(
-    `/act_${adAccountId}/advideos`,
-    {
-      fields: fields.join(','),
-      limit: options.limit ?? 25,
-      after: options.cursor,
-    }
-  );
+  const response = await client.metaGet<AdVideosResponse>(`/act_${adAccountId}/advideos`, {
+    fields: fields.join(','),
+    limit: options.limit ?? 25,
+    after: options.cursor,
+  });
 
   return (response.data ?? []).map((item) => ({
     id: item.id,

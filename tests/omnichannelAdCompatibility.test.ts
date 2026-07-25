@@ -17,12 +17,18 @@ const omnichannelAdSet = {
 
 const compliantCreative = {
   applink_treatment: 'automatic',
-  omnichannel_link_spec: { web: { url: 'https://s.shopee.co.id/x' }, app: { application_id: '957549474255294' } },
+  omnichannel_link_spec: {
+    web: { url: 'https://s.shopee.co.id/x' },
+    app: { application_id: '957549474255294' },
+  },
   object_story_spec: {
     link_data: {
       call_to_action: {
         type: 'BOOK_TRAVEL',
-        value: { application: '957549474255294', object_store_urls: ['http://play.google.com/store/apps/details?id=com.shopee.id'] },
+        value: {
+          application: '957549474255294',
+          object_store_urls: ['http://play.google.com/store/apps/details?id=com.shopee.id'],
+        },
       },
     },
   },
@@ -82,9 +88,11 @@ describe('evaluateOmnichannelCompatibility', () => {
 describe('getOmnichannelCompatibilityError', () => {
   function client(adSet: unknown, creative: unknown): MetaClient {
     return {
-      metaGetObject: vi.fn().mockImplementation(async (path: string) =>
-        path.includes('adset') || path === '/as_1' ? adSet : creative
-      ),
+      metaGetObject: vi
+        .fn()
+        .mockImplementation(async (path: string) =>
+          path.includes('adset') || path === '/as_1' ? adSet : creative
+        ),
     } as unknown as MetaClient;
   }
 

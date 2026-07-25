@@ -10,7 +10,8 @@ export type CommerceMcpToolName = (typeof COMMERCE_MCP_TOOL_NAMES)[number];
 export const COMMERCE_MCP_TOOL_DEFINITIONS = [
   {
     name: 'commerce_get_performance',
-    description: 'Fetch normalized commerce performance data for AI analysis without narrative recommendations.',
+    description:
+      'Fetch normalized commerce performance data for AI analysis without narrative recommendations.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -44,16 +45,19 @@ export const COMMERCE_MCP_TOOL_DEFINITIONS = [
         metrics: {
           type: 'array',
           items: { type: 'string' },
-          description: 'Provider metrics to request. Defaults to gmv, orders, units_sold, and spend.',
+          description:
+            'Provider metrics to request. Defaults to gmv, orders, units_sold, and spend.',
         },
         params: {
           type: 'object',
-        description: 'Optional provider-safe parameters such as page, pageSize, filtering, and sorting.',
-      },
-      cursor: {
-        type: 'string',
-        description: 'Opaque pagination cursor. For TikTok GMV Max this maps to the next page number.',
-      },
+          description:
+            'Optional provider-safe parameters such as page, pageSize, filtering, and sorting.',
+        },
+        cursor: {
+          type: 'string',
+          description:
+            'Opaque pagination cursor. For TikTok GMV Max this maps to the next page number.',
+        },
       },
       required: ['provider', 'accountId', 'storeIds', 'since', 'until'],
     },
@@ -102,7 +106,9 @@ export interface CommerceMcpResponse<TData = CommercePerformanceData> {
   errors?: Array<{ code?: string; message: string }>;
 }
 
-export type CommercePerformanceFetcher = (options: GmvMaxReportOptions) => Promise<GmvMaxReportResult>;
+export type CommercePerformanceFetcher = (
+  options: GmvMaxReportOptions
+) => Promise<GmvMaxReportResult>;
 
 export interface CommerceToolDependencies {
   fetchGmvMaxReport?: CommercePerformanceFetcher;
@@ -126,7 +132,9 @@ export async function handleCommerceMcpToolCall(
 ): Promise<{ content: Array<{ type: 'text'; text: string }>; isError?: boolean }> {
   try {
     const response = await callCommerceTool(name, args, dependencies);
-    const safeResponse = stripRawFromResponse(redactTokenLikeValues(response)) as CommerceMcpResponse;
+    const safeResponse = stripRawFromResponse(
+      redactTokenLikeValues(response)
+    ) as CommerceMcpResponse;
 
     return {
       content: [{ type: 'text', text: JSON.stringify(safeResponse, null, 2) }],
@@ -137,7 +145,10 @@ export async function handleCommerceMcpToolCall(
   }
 }
 
-export function safeCommerceMcpError(error: unknown): { content: Array<{ type: 'text'; text: string }>; isError: true } {
+export function safeCommerceMcpError(error: unknown): {
+  content: Array<{ type: 'text'; text: string }>;
+  isError: true;
+} {
   const message = error instanceof Error ? error.message : String(error);
   const safeMessage = redactErrorMessage(message);
 
@@ -183,7 +194,9 @@ async function getCommercePerformance(
     return {
       ok: false,
       provider: 'tiktok_gmv',
-      errors: [{ code: 'MISSING_COMMERCE_FETCHER', message: 'TikTok GMV Max client is not configured.' }],
+      errors: [
+        { code: 'MISSING_COMMERCE_FETCHER', message: 'TikTok GMV Max client is not configured.' },
+      ],
     };
   }
 
@@ -196,11 +209,17 @@ async function getCommercePerformance(
     endDate: request.value.until,
     page: parseNumber(request.value.params.page) ?? parseNumber(request.value.params.cursor),
     pageSize: parseNumber(request.value.params.pageSize),
-    filtering: isPlainObject(request.value.params.filtering) ? request.value.params.filtering : undefined,
-    sortField: typeof request.value.params.sortField === 'string' ? request.value.params.sortField : undefined,
-    sortType: request.value.params.sortType === 'ASC' || request.value.params.sortType === 'DESC'
-      ? request.value.params.sortType
+    filtering: isPlainObject(request.value.params.filtering)
+      ? request.value.params.filtering
       : undefined,
+    sortField:
+      typeof request.value.params.sortField === 'string'
+        ? request.value.params.sortField
+        : undefined,
+    sortType:
+      request.value.params.sortType === 'ASC' || request.value.params.sortType === 'DESC'
+        ? request.value.params.sortType
+        : undefined,
   });
 
   const records = normalizeGmvMaxRows(report.list, {
@@ -239,17 +258,28 @@ async function getCommercePerformance(
         metrics: ['gmv', 'orders', 'units_sold', 'spend', 'roas_commerce', 'aov'],
         source: 'tiktok_gmv_max',
       },
-      unsupportedMetrics: request.value.metrics.filter((metric) => !SUPPORTED_COMMERCE_METRICS.has(metric)),
+      unsupportedMetrics: request.value.metrics.filter(
+        (metric) => !SUPPORTED_COMMERCE_METRICS.has(metric)
+      ),
     },
   };
 }
 
-function getCommerceNextCursor(pageInfo: GmvMaxReportResult['page_info'] | undefined): string | null {
+function getCommerceNextCursor(
+  pageInfo: GmvMaxReportResult['page_info'] | undefined
+): string | null {
   if (!pageInfo || pageInfo.page >= pageInfo.total_page) return null;
   return String(pageInfo.page + 1);
 }
 
-const SUPPORTED_COMMERCE_METRICS = new Set(['gmv', 'orders', 'units_sold', 'spend', 'roas_commerce', 'aov']);
+const SUPPORTED_COMMERCE_METRICS = new Set([
+  'gmv',
+  'orders',
+  'units_sold',
+  'spend',
+  'roas_commerce',
+  'aov',
+]);
 
 function buildCommerceWarnings(records: CommerceRecord[]): string[] {
   if (records.length === 0) {
@@ -259,7 +289,9 @@ function buildCommerceWarnings(records: CommerceRecord[]): string[] {
   return [];
 }
 
-function parseCommercePerformanceRequest(args: Record<string, unknown>):
+function parseCommercePerformanceRequest(
+  args: Record<string, unknown>
+):
   | { ok: true; value: CommercePerformanceRequest }
   | { ok: false; error: { code: string; message: string } } {
   if (args.provider !== 'tiktok_gmv') {
@@ -276,12 +308,21 @@ function parseCommercePerformanceRequest(args: Record<string, unknown>):
     return { ok: false, error: { code: 'MISSING_ACCOUNT_ID', message: 'accountId is required.' } };
   }
 
-  if (!Array.isArray(args.storeIds) || !args.storeIds.every((storeId) => typeof storeId === 'string')) {
-    return { ok: false, error: { code: 'MISSING_STORE_IDS', message: 'storeIds must be an array of strings.' } };
+  if (
+    !Array.isArray(args.storeIds) ||
+    !args.storeIds.every((storeId) => typeof storeId === 'string')
+  ) {
+    return {
+      ok: false,
+      error: { code: 'MISSING_STORE_IDS', message: 'storeIds must be an array of strings.' },
+    };
   }
 
   if (typeof args.since !== 'string' || typeof args.until !== 'string') {
-    return { ok: false, error: { code: 'MISSING_DATE_RANGE', message: 'since and until are required.' } };
+    return {
+      ok: false,
+      error: { code: 'MISSING_DATE_RANGE', message: 'since and until are required.' },
+    };
   }
 
   const params = isPlainObject(args.params) ? { ...args.params } : {};
@@ -319,11 +360,17 @@ function calculateCommerceTotals(records: CommerceRecord[]): CommerceMetrics {
   return totals;
 }
 
-function sum(records: CommerceRecord[], getValue: (record: CommerceRecord) => number | undefined): number {
+function sum(
+  records: CommerceRecord[],
+  getValue: (record: CommerceRecord) => number | undefined
+): number {
   return records.reduce((total, record) => total + (getValue(record) ?? 0), 0);
 }
 
-function sumOptional(records: CommerceRecord[], getValue: (record: CommerceRecord) => number | undefined): number | undefined {
+function sumOptional(
+  records: CommerceRecord[],
+  getValue: (record: CommerceRecord) => number | undefined
+): number | undefined {
   const values = records.map(getValue).filter((value): value is number => value !== undefined);
   if (values.length === 0) return undefined;
   return values.reduce((total, value) => total + value, 0);

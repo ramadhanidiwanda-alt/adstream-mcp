@@ -84,7 +84,11 @@ describe('updateCampaign', () => {
 
     expect(r.status).toBe('failed');
     expect(r.error).toContain('Budget increase exceeds safety limit');
-    expect(mockMetaGet).toHaveBeenCalledWith('/cmp789', { fields: 'spend_cap,name' }, { maxRetries: 3 });
+    expect(mockMetaGet).toHaveBeenCalledWith(
+      '/cmp789',
+      { fields: 'spend_cap,name' },
+      { maxRetries: 3 }
+    );
   });
 
   it('builds specialAdCategories and schedule fields', async () => {
@@ -105,7 +109,11 @@ describe('updateCampaign', () => {
 
   it('returns failed on API error', async () => {
     mockMetaPost.mockRejectedValueOnce(new Error('update error'));
-    const r = await updateCampaign(mockClient, { ...baseOpts, name: 'Fail' }, { dryRun: false, confirmed: true });
+    const r = await updateCampaign(
+      mockClient,
+      { ...baseOpts, name: 'Fail' },
+      { dryRun: false, confirmed: true }
+    );
     expect(r.status).toBe('failed');
   });
 

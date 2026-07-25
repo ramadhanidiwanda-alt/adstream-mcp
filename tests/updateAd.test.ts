@@ -80,7 +80,11 @@ describe('updateAd', () => {
 
   it('returns failed on API error', async () => {
     mockMetaPost.mockRejectedValueOnce(new Error('update error'));
-    const r = await updateAd(mockClient, { ...baseOpts, name: 'Fail' }, { dryRun: false, confirmed: true });
+    const r = await updateAd(
+      mockClient,
+      { ...baseOpts, name: 'Fail' },
+      { dryRun: false, confirmed: true }
+    );
     expect(r.status).toBe('failed');
   });
 });

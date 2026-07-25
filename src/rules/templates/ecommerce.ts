@@ -34,9 +34,7 @@ export const ecommerceRules: Rule[] = [
     id: 'ecom-expensive-conversions',
     name: 'Expensive Conversions',
     description: 'Cost per conversion is too high for profitability',
-    conditions: [
-      { metric: 'cpc', operator: '>', value: 50000 },
-    ],
+    conditions: [{ metric: 'cpc', operator: '>', value: 50000 }],
     logic: 'AND',
     action: 'Optimize targeting, test new audiences, or improve ad creative',
     priority: 'high',
@@ -73,9 +71,7 @@ export const ecommerceRules: Rule[] = [
     id: 'ecom-low-spend-testing',
     name: 'Low Spend Testing Phase',
     description: 'Campaign in testing phase with low spend',
-    conditions: [
-      { metric: 'spend', operator: '<', value: 10000 },
-    ],
+    conditions: [{ metric: 'spend', operator: '<', value: 10000 }],
     logic: 'AND',
     action: 'Continue testing, gather more data before making decisions',
     priority: 'low',

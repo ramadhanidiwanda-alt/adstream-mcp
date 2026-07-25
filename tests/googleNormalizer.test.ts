@@ -14,17 +14,25 @@ const baseMetrics = {
 
 describe('normalizeGoogleAdsRow', () => {
   it('normalizes campaign GAQL rows into AdsMetricRecord', () => {
-    const record = normalizeGoogleAdsRow({
-      customer: { id: '1234567890', descriptiveName: 'Main Account', currencyCode: 'IDR' },
-      campaign: { id: '111', name: 'Search Campaign', status: 'ENABLED', advertisingChannelType: 'SEARCH' },
-      metrics: baseMetrics,
-      segments: { date: '2026-05-01' },
-    }, {
-      level: 'campaign',
-      accountId: '1234567890',
-      since: '2026-05-01',
-      until: '2026-05-07',
-    });
+    const record = normalizeGoogleAdsRow(
+      {
+        customer: { id: '1234567890', descriptiveName: 'Main Account', currencyCode: 'IDR' },
+        campaign: {
+          id: '111',
+          name: 'Search Campaign',
+          status: 'ENABLED',
+          advertisingChannelType: 'SEARCH',
+        },
+        metrics: baseMetrics,
+        segments: { date: '2026-05-01' },
+      },
+      {
+        level: 'campaign',
+        accountId: '1234567890',
+        since: '2026-05-01',
+        until: '2026-05-07',
+      }
+    );
 
     expect(record).toMatchObject({
       provider: 'google',
@@ -60,18 +68,21 @@ describe('normalizeGoogleAdsRow', () => {
   });
 
   it('maps ad group and ad identities', () => {
-    const record = normalizeGoogleAdsRow({
-      customer: { id: '1234567890' },
-      campaign: { id: '111', name: 'Campaign' },
-      adGroup: { id: '222', name: 'Ad Group', status: 'ENABLED' },
-      adGroupAd: { ad: { id: '333', name: 'Responsive Search Ad' }, status: 'ENABLED' },
-      metrics: baseMetrics,
-    }, {
-      level: 'ad',
-      accountId: '1234567890',
-      since: '2026-05-01',
-      until: '2026-05-07',
-    });
+    const record = normalizeGoogleAdsRow(
+      {
+        customer: { id: '1234567890' },
+        campaign: { id: '111', name: 'Campaign' },
+        adGroup: { id: '222', name: 'Ad Group', status: 'ENABLED' },
+        adGroupAd: { ad: { id: '333', name: 'Responsive Search Ad' }, status: 'ENABLED' },
+        metrics: baseMetrics,
+      },
+      {
+        level: 'ad',
+        accountId: '1234567890',
+        since: '2026-05-01',
+        until: '2026-05-07',
+      }
+    );
 
     expect(record.identity).toMatchObject({
       campaign_id: '111',

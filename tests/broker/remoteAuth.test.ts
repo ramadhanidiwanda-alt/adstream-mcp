@@ -277,12 +277,8 @@ describe('buildCuanInsightCredentialRequestFromRemoteContext', () => {
     }
   });
 
-
   it('should build request without account ID', () => {
-    const result = buildCuanInsightCredentialRequestFromRemoteContext(
-      'meta',
-      validContext
-    );
+    const result = buildCuanInsightCredentialRequestFromRemoteContext('meta', validContext);
 
     expect(result.ok).toBe(true);
     if (result.ok) {

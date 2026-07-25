@@ -6,7 +6,12 @@ import {
 } from '../utils/formatMetaWriteError.js';
 import { normalizeAccountPath } from '../utils/normalizeAccountId.js';
 
-export type CloneUiAdStatus = 'dry_run' | 'pending_confirmation' | 'executed' | 'failed' | 'deduped';
+export type CloneUiAdStatus =
+  | 'dry_run'
+  | 'pending_confirmation'
+  | 'executed'
+  | 'failed'
+  | 'deduped';
 export type CloneUiAdAdStatus = 'ACTIVE' | 'PAUSED';
 
 export interface CloneUiAdOptions {

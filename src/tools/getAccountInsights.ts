@@ -49,7 +49,10 @@ export async function getAccountInsights(
     pageDelay,
   };
 
-  const response = await client.metaGet<{ data: AccountInsight[]; paging?: { cursors?: { after?: string } } }>(
+  const response = await client.metaGet<{
+    data: AccountInsight[];
+    paging?: { cursors?: { after?: string } };
+  }>(
     `/act_${adAccountId}/insights`,
     {
       level: 'account',

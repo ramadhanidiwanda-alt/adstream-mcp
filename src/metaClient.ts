@@ -37,12 +37,7 @@ export class MetaClient {
     params: Record<string, any> = {},
     options: MetaGetOptions = {}
   ): Promise<T> {
-    const {
-      paginate = false,
-      maxPages = 10,
-      pageDelay = 200,
-      maxRetries = 3,
-    } = options;
+    const { paginate = false, maxPages = 10, pageDelay = 200, maxRetries = 3 } = options;
 
     // Non-paginated: original behavior, fully backward compatible
     if (!paginate) {
@@ -60,11 +55,7 @@ export class MetaClient {
         currentParams = { ...currentParams, after: cursor };
       }
 
-      const result = await this.fetchSinglePageRaw<T>(
-        path,
-        currentParams,
-        maxRetries
-      );
+      const result = await this.fetchSinglePageRaw<T>(path, currentParams, maxRetries);
 
       if (result.data.length > 0) {
         allData.push(...result.data);
@@ -175,10 +166,7 @@ export class MetaClient {
         const body = new URLSearchParams();
         for (const [key, value] of Object.entries(params)) {
           if (value !== undefined && value !== null) {
-            body.append(
-              key,
-              typeof value === 'object' ? JSON.stringify(value) : String(value)
-            );
+            body.append(key, typeof value === 'object' ? JSON.stringify(value) : String(value));
           }
         }
 
@@ -376,7 +364,6 @@ export class MetaClient {
         };
 
         return result;
-
       } catch (error) {
         // If it's already a MetaApiError (non-429), rethrow immediately
         if (error instanceof MetaApiError) {

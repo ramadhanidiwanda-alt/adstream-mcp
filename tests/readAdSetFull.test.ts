@@ -1,10 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { MetaClient } from '../src/metaClient.js';
-import {
-  readAdSetFull,
-  listAdSetsFull,
-  ADSET_FULL_FIELDS,
-} from '../src/tools/readAdSetFull.js';
+import { readAdSetFull, listAdSetsFull, ADSET_FULL_FIELDS } from '../src/tools/readAdSetFull.js';
 
 describe('readAdSetFull', () => {
   it('merges field batches into one ad set object', async () => {
@@ -23,7 +19,10 @@ describe('readAdSetFull', () => {
             };
           }
           if (fields.includes('optimization_goal')) {
-            return { bid_strategy: 'LOWEST_COST_WITHOUT_CAP', optimization_goal: 'OFFSITE_CONVERSIONS' };
+            return {
+              bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+              optimization_goal: 'OFFSITE_CONVERSIONS',
+            };
           }
           return { id: 'as_1', name: 'Test Ad Set', status: 'PAUSED', campaign_id: 'c_1' };
         }),
@@ -93,14 +92,16 @@ describe('listAdSetsFull', () => {
       ],
       paging: { cursors: { after: 'CURSOR123' } },
     });
-    const client = { metaGet, metaGetObject: vi.fn(), metaPost: vi.fn(), metaDelete: vi.fn() } as unknown as MetaClient;
+    const client = {
+      metaGet,
+      metaGetObject: vi.fn(),
+      metaPost: vi.fn(),
+      metaDelete: vi.fn(),
+    } as unknown as MetaClient;
 
     const result = await listAdSetsFull(client, { campaignId: 'c_1', limit: 25 });
 
-    expect(metaGet).toHaveBeenCalledWith(
-      '/c_1/adsets',
-      expect.objectContaining({ limit: 25 })
-    );
+    expect(metaGet).toHaveBeenCalledWith('/c_1/adsets', expect.objectContaining({ limit: 25 }));
     expect(result.adsets.length).toBe(2);
     expect(result.adsets[0].id).toBe('as_1');
     expect(result.nextCursor).toBe('CURSOR123');
@@ -109,7 +110,12 @@ describe('listAdSetsFull', () => {
 
   it('lists ad sets under an account, normalizing the act_ prefix and passing cursor', async () => {
     const metaGet = vi.fn().mockResolvedValue({ data: [{ id: 'as_9', name: 'Acct Set' }] });
-    const client = { metaGet, metaGetObject: vi.fn(), metaPost: vi.fn(), metaDelete: vi.fn() } as unknown as MetaClient;
+    const client = {
+      metaGet,
+      metaGetObject: vi.fn(),
+      metaPost: vi.fn(),
+      metaDelete: vi.fn(),
+    } as unknown as MetaClient;
 
     const result = await listAdSetsFull(client, {
       accountId: 'act_662014947775593',
@@ -130,7 +136,12 @@ describe('listAdSetsFull', () => {
       .fn()
       .mockRejectedValueOnce(new Error('(#100) Tried accessing nonexisting field'))
       .mockResolvedValueOnce({ data: [{ id: 'as_1', name: 'Set A', targeting: { age_min: 18 } }] });
-    const client = { metaGet, metaGetObject: vi.fn(), metaPost: vi.fn(), metaDelete: vi.fn() } as unknown as MetaClient;
+    const client = {
+      metaGet,
+      metaGetObject: vi.fn(),
+      metaPost: vi.fn(),
+      metaDelete: vi.fn(),
+    } as unknown as MetaClient;
 
     const result = await listAdSetsFull(client, { campaignId: 'c_1', limit: 25 });
 

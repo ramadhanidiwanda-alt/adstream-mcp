@@ -1,6 +1,9 @@
 import type { MetaClient } from '../metaClient.js';
 import type { StructuredMutationError } from '../types.js';
-import { formatMetaWriteError, formatStructuredMetaWriteError } from '../utils/formatMetaWriteError.js';
+import {
+  formatMetaWriteError,
+  formatStructuredMetaWriteError,
+} from '../utils/formatMetaWriteError.js';
 
 export interface ArchiveAdOptions {
   adId: string;
@@ -60,7 +63,11 @@ export async function archiveAd(
   }
 
   try {
-    const response = await client.metaPost<Record<string, unknown>>(`/${adId}`, preview, maxRetries);
+    const response = await client.metaPost<Record<string, unknown>>(
+      `/${adId}`,
+      preview,
+      maxRetries
+    );
 
     return {
       ...baseResult,

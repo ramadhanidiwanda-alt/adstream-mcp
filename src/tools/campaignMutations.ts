@@ -66,9 +66,7 @@ export async function previewCampaignMutation(
   // Build "after" state
   entry.after = {
     ...entry.before,
-    ...Object.fromEntries(
-      Object.entries(fieldsChanged).map(([key, val]) => [key, val.new])
-    ),
+    ...Object.fromEntries(Object.entries(fieldsChanged).map(([key, val]) => [key, val.new])),
   };
 
   return entry;

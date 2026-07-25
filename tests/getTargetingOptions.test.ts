@@ -12,13 +12,30 @@ describe('getTargetingOptions', () => {
 
   it('returns targeting options on success', async () => {
     mockMetaGet.mockResolvedValueOnce({
-      data: [{ id: '1', name: 'Online Shopping', type: 'interests', path: ['Shopping'], audience_size_lower_bound: 1000000, audience_size_upper_bound: 5000000 }],
+      data: [
+        {
+          id: '1',
+          name: 'Online Shopping',
+          type: 'interests',
+          path: ['Shopping'],
+          audience_size_lower_bound: 1000000,
+          audience_size_upper_bound: 5000000,
+        },
+      ],
     });
-    const r = await getTargetingOptions(mockClient, { adAccountId: 'act_123', type: 'interests', query: 'shopping' });
+    const r = await getTargetingOptions(mockClient, {
+      adAccountId: 'act_123',
+      type: 'interests',
+      query: 'shopping',
+    });
     expect(r.operation).toBe('get_targeting_options');
     expect(r.data).toHaveLength(1);
     expect(r.data[0].name).toBe('Online Shopping');
-    expect(mockMetaGet).toHaveBeenCalledWith('/search', { type: 'adinterest', limit: 25, q: 'shopping' });
+    expect(mockMetaGet).toHaveBeenCalledWith('/search', {
+      type: 'adinterest',
+      limit: 25,
+      q: 'shopping',
+    });
   });
 
   it('propagates API errors instead of silently returning empty data', async () => {
@@ -63,9 +80,9 @@ describe('getTargetingOptions', () => {
   it.each(['relationship_statuses', 'education_statuses', 'college_years'] as const)(
     'rejects %s with a clear explanation instead of querying Meta with a bogus type',
     async (type) => {
-      await expect(getTargetingOptions(mockClient, { adAccountId: 'act_123', type })).rejects.toThrow(
-        /not searchable/i
-      );
+      await expect(
+        getTargetingOptions(mockClient, { adAccountId: 'act_123', type })
+      ).rejects.toThrow(/not searchable/i);
       expect(mockMetaGet).not.toHaveBeenCalled();
     }
   );

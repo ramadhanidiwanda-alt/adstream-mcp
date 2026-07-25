@@ -80,10 +80,7 @@ describe('SupabaseOAuthStore — refresh tokens', () => {
         }
         if (method === 'GET') {
           const byHash = parsed.searchParams.get('token_hash');
-          if (
-            persistedRow &&
-            byHash === `eq.${persistedRow.token_hash as string}`
-          ) {
+          if (persistedRow && byHash === `eq.${persistedRow.token_hash as string}`) {
             return {
               ok: true,
               status: 200,

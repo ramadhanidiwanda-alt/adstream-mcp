@@ -68,11 +68,7 @@ describe('cloneUiAd', () => {
         source_creative_id: 'creative_1',
       },
     });
-    expect(mockMetaGetObject).toHaveBeenCalledWith(
-      '/ad_source_1',
-      { fields: 'creative{id}' },
-      3
-    );
+    expect(mockMetaGetObject).toHaveBeenCalledWith('/ad_source_1', { fields: 'creative{id}' }, 3);
     expect(mockMetaPost).toHaveBeenCalledWith(
       '/act_123/ads',
       {

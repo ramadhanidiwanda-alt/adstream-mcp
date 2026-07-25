@@ -69,7 +69,8 @@ export async function getAccountInfo(
     timezone_name: raw.timezone_name,
     timezone_offset: raw.timezone_offset_hours_utc,
     account_status: raw.account_status,
-    account_status_label: ACCOUNT_STATUS_LABELS[raw.account_status] ?? `UNKNOWN_${raw.account_status}`,
+    account_status_label:
+      ACCOUNT_STATUS_LABELS[raw.account_status] ?? `UNKNOWN_${raw.account_status}`,
     balance: raw.balance,
     amount_spent: raw.amount_spent,
     spending_limit: raw.spend_cap ?? null,

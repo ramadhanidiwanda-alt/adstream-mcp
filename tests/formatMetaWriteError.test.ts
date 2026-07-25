@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { formatMetaWriteError, formatStructuredMetaWriteError } from '../src/utils/formatMetaWriteError.js';
+import {
+  formatMetaWriteError,
+  formatStructuredMetaWriteError,
+} from '../src/utils/formatMetaWriteError.js';
 import { MetaApiError } from '../src/utils/metaError.js';
 
 describe('formatMetaWriteError', () => {
@@ -73,7 +76,8 @@ describe('formatMetaWriteError', () => {
     expect(formatStructuredMetaWriteError(new Error('network down'))).toMatchObject({
       code: 'INTERNAL_ERROR',
       message: 'network down',
-      actionableFix: 'Retry the request. If the issue persists, inspect server logs without exposing credentials.',
+      actionableFix:
+        'Retry the request. If the issue persists, inspect server logs without exposing credentials.',
     });
   });
 
@@ -114,8 +118,7 @@ describe('formatMetaWriteError', () => {
 
   it('removes signed asset URLs from write errors', () => {
     const signature = 'task8_asset_signature_123456789';
-    const signedUrl =
-      `https://cdn.example.test/private/creative.jpg?X-Amz-Signature=${signature}&expires=60`;
+    const signedUrl = `https://cdn.example.test/private/creative.jpg?X-Amz-Signature=${signature}&expires=60`;
 
     const formatted = formatMetaWriteError(new Error(`Creative fetch failed: ${signedUrl}`));
 

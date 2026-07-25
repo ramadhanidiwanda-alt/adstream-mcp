@@ -6,11 +6,7 @@ import {
   formatStructuredMetaWriteError,
 } from '../utils/formatMetaWriteError.js';
 
-export type CloneAdSetStatus =
-  | 'dry_run'
-  | 'pending_confirmation'
-  | 'executed'
-  | 'failed';
+export type CloneAdSetStatus = 'dry_run' | 'pending_confirmation' | 'executed' | 'failed';
 
 export interface CloneAdSetOptions {
   adAccountId: string;
@@ -168,7 +164,11 @@ export async function cloneAdSet(
     );
 
     if (!response.id || typeof response.id !== 'string') {
-      return { ...baseResult, status: 'failed', error: 'Meta did not return an id for cloned ad set' };
+      return {
+        ...baseResult,
+        status: 'failed',
+        error: 'Meta did not return an id for cloned ad set',
+      };
     }
 
     return {

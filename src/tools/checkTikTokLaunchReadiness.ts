@@ -127,7 +127,12 @@ function requireInput(
       ? value.trim().length > 0
       : value !== undefined && value !== null;
   if (!ready) missing.add(key);
-  checks.push({ key, label: labelForMissing(key), status: ready ? 'ready' : 'missing', help: questionForMissing(key) });
+  checks.push({
+    key,
+    label: labelForMissing(key),
+    status: ready ? 'ready' : 'missing',
+    help: questionForMissing(key),
+  });
 }
 
 function inputValue(key: string, options: TikTokLaunchReadinessOptions): unknown {

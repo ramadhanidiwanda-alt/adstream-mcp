@@ -45,9 +45,9 @@ describe('listInstagramMedia', () => {
 
   it('throws when igUserId is blank', async () => {
     const mockMetaGet = vi.fn();
-    await expect(
-      listInstagramMedia(makeClient(mockMetaGet), { igUserId: '  ' })
-    ).rejects.toThrow(/igUserId wajib diisi/);
+    await expect(listInstagramMedia(makeClient(mockMetaGet), { igUserId: '  ' })).rejects.toThrow(
+      /igUserId wajib diisi/
+    );
     expect(mockMetaGet).not.toHaveBeenCalled();
   });
 

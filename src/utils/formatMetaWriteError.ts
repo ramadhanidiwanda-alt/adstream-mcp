@@ -2,7 +2,8 @@ import { MetaApiError } from './metaError.js';
 import type { StructuredMutationError } from '../types.js';
 import { redactErrorMessage } from '../broker/credentials.js';
 
-const SIGNED_URL_PATTERN = /https?:\/\/[^\s"'<>]*[?&](?:x-amz-signature|signature|sig|access_token|token)=[^\s"'<>]*/gi;
+const SIGNED_URL_PATTERN =
+  /https?:\/\/[^\s"'<>]*[?&](?:x-amz-signature|signature|sig|access_token|token)=[^\s"'<>]*/gi;
 
 /**
  * Build a descriptive error message from a Meta write failure.
@@ -41,7 +42,8 @@ export function formatStructuredMetaWriteError(error: unknown): StructuredMutati
   return {
     code: 'INTERNAL_ERROR',
     message: formatMetaWriteError(error),
-    actionableFix: 'Retry the request. If the issue persists, inspect server logs without exposing credentials.',
+    actionableFix:
+      'Retry the request. If the issue persists, inspect server logs without exposing credentials.',
   };
 }
 
@@ -68,13 +70,20 @@ function getActionableFix(error: MetaApiError, message: string): string {
   if (hasApplicationCapabilityError(error)) {
     return 'This Meta app or token is not enabled for this API capability. Verify the app’s Marketing API access and request the required Meta capability; changing the MCP payload alone cannot bypass this restriction.';
   }
-  if (error.code === 190) return 'Reconnect the provider account and ensure the token is not expired.';
-  if (error.code === 200 || error.code === 10) return 'Reconnect the account with the required Meta Ads permission and verify account access.';
-  if (text.includes('page')) return 'Verify the Page ID or identity is accessible to the connected ad account.';
-  if (text.includes('budget')) return 'Check budget units, campaign budget settings, and provider budget constraints.';
-  if (text.includes('bid')) return 'Check bid strategy compatibility and required bid amount or bid constraints.';
-  if (text.includes('duplicate')) return 'Use a unique name or retry with an idempotency/deduplication key when supported.';
-  if (error.code === 4 || error.code === 17 || error.code === 613) return 'Retry later or reduce request rate for this provider account.';
+  if (error.code === 190)
+    return 'Reconnect the provider account and ensure the token is not expired.';
+  if (error.code === 200 || error.code === 10)
+    return 'Reconnect the account with the required Meta Ads permission and verify account access.';
+  if (text.includes('page'))
+    return 'Verify the Page ID or identity is accessible to the connected ad account.';
+  if (text.includes('budget'))
+    return 'Check budget units, campaign budget settings, and provider budget constraints.';
+  if (text.includes('bid'))
+    return 'Check bid strategy compatibility and required bid amount or bid constraints.';
+  if (text.includes('duplicate'))
+    return 'Use a unique name or retry with an idempotency/deduplication key when supported.';
+  if (error.code === 4 || error.code === 17 || error.code === 613)
+    return 'Retry later or reduce request rate for this provider account.';
   return 'Review the provider error details, fix the highlighted input, and retry the dry-run before executing.';
 }
 

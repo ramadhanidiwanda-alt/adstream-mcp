@@ -63,7 +63,9 @@ describe('listWhatsAppAccounts', () => {
       // /me/businesses
       .mockResolvedValueOnce({ data: [{ id: 'bus_789' }] })
       // owned_whatsapp_business_accounts for bus_789
-      .mockResolvedValueOnce({ data: [{ id: 'waba_333', name: 'Auto WABA', owner_business: { id: 'bus_789' } }] })
+      .mockResolvedValueOnce({
+        data: [{ id: 'waba_333', name: 'Auto WABA', owner_business: { id: 'bus_789' } }],
+      })
       // client_whatsapp_business_accounts for bus_789
       .mockResolvedValueOnce({ data: [] });
 
@@ -77,9 +79,7 @@ describe('listWhatsAppAccounts', () => {
   });
 
   it('handles empty responses', async () => {
-    mockMetaGet
-      .mockResolvedValueOnce({ data: [] })
-      .mockResolvedValueOnce({ data: [] });
+    mockMetaGet.mockResolvedValueOnce({ data: [] }).mockResolvedValueOnce({ data: [] });
 
     const result = await listWhatsAppAccounts(mockClient, { businessId: 'bus_empty' });
     expect(result).toHaveLength(0);
