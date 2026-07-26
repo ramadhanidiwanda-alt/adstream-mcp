@@ -26,7 +26,25 @@ import {
 
 export type CreativeStatus = 'ACTIVE' | 'PAUSED' | 'DELETED';
 
-export type CreativeDestinationType = 'WEB' | 'WHATSAPP' | 'MESSENGER' | 'INSTAGRAM_DIRECT' | 'APP';
+/**
+ * Creative-level destination hint. Mirrors the messaging values of Meta's ad set
+ * destination_type, including the multi-destination combinations, so a click-to-message
+ * creative can name the same destination its ad set uses. Engagement destinations
+ * (ON_POST, ON_VIDEO, ...) are deliberately absent: this field steers the creative's CTA,
+ * it is not the ad set field.
+ *
+ * https://developers.facebook.com/docs/marketing-api/adset/destination_type/
+ */
+export type CreativeDestinationType =
+  | 'WEB'
+  | 'WHATSAPP'
+  | 'MESSENGER'
+  | 'INSTAGRAM_DIRECT'
+  | 'APP'
+  | 'MESSAGING_INSTAGRAM_DIRECT_MESSENGER'
+  | 'MESSAGING_INSTAGRAM_DIRECT_MESSENGER_WHATSAPP'
+  | 'MESSAGING_INSTAGRAM_DIRECT_WHATSAPP'
+  | 'MESSAGING_MESSENGER_WHATSAPP';
 
 export interface CreateAdCreativeOptions {
   adAccountId: string;

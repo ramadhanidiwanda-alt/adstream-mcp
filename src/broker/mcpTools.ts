@@ -1,3 +1,4 @@
+import { AD_PREVIEW_FORMATS } from '../tools/getAdPreview.js';
 import type { AdsBroker } from './AdsBroker.js';
 import type {
   AdsBrokerRequest,
@@ -433,7 +434,7 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
   {
     name: 'ads_get_ad_creative_mapping',
     description:
-      'Get the creative_id for each ad in an account. Calls GET /act_{id}/ads?fields=id,name,creative{{id}}. Use this to link ad performance data (from ads_get_ad_performance) with creative assets (from ads_get_creative_performance). Accepts optional adIds[] param to filter specific ads.',
+      "Get the creative_id for each ad in an account. Calls GET /act_{id}/ads?fields=id,name,creative{{id}} — or the nested /{campaign_id}/ads or /{adset_id}/ads edge when scoped, since Meta does not support scoping the account-level /ads edge via filtering. Use this to link ad performance data (from ads_get_ad_performance) with creative assets (from ads_get_creative_performance). Optional params: adIds[] (filter specific ads), campaignId, adSetId (each a string or string[] — these DO scope the result; without one you get the account's most recent ads), filtering (raw Meta filtering rules), limit, cursor.",
     inputSchema: createAdsInputSchema([]),
   },
   {
@@ -469,7 +470,7 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
   {
     name: 'ads_get_ad_preview',
     description:
-      'Get a preview URL for a Meta ad creative in a specific ad format. Returns preview URL, platform, and ad format. Calls GET /{creative_id}/previews. Required params: creativeId, adFormat (enum: DESKTOP_FEED, MOBILE_FEED, INSTAGRAM_FEED, INSTAGRAM_EXPLORE, INSTAGRAM_REELS, INSTAGRAM_STORIES, FACEBOOK_STORIES, MESSENGER_INBOX, MARKETPLACE, REWARDS_PLATFORM, FACEBOOK_REELS).',
+      "Get a preview URL for a Meta ad creative in a specific ad format. Returns preview URL, platform, and ad format. Calls GET /{creative_id}/previews. Required params: creativeId, adFormat. adFormat uses Meta's own ad_format enum (e.g. DESKTOP_FEED_STANDARD, MOBILE_FEED_STANDARD, INSTAGRAM_STANDARD, INSTAGRAM_STORY, INSTAGRAM_REELS, FACEBOOK_STORY_MOBILE, MESSENGER_MOBILE_INBOX_MEDIA, MARKETPLACE_MOBILE, WATCH_FEED_HOME) — the short spellings such as INSTAGRAM_FEED or INSTAGRAM_STORIES are not valid and are rejected with the corrected name.",
     inputSchema: createPreviewInputSchema(),
   },
   {
@@ -1447,19 +1448,7 @@ function createPreviewInputSchema() {
       },
       adFormat: {
         type: 'string',
-        enum: [
-          'DESKTOP_FEED',
-          'MOBILE_FEED',
-          'INSTAGRAM_FEED',
-          'INSTAGRAM_EXPLORE',
-          'INSTAGRAM_REELS',
-          'INSTAGRAM_STORIES',
-          'FACEBOOK_STORIES',
-          'MESSENGER_INBOX',
-          'MARKETPLACE',
-          'REWARDS_PLATFORM',
-          'FACEBOOK_REELS',
-        ],
+        enum: [...AD_PREVIEW_FORMATS],
         description: 'The ad format/platform to preview on.',
       },
     },
@@ -2341,6 +2330,12 @@ function createCloneAdSetInputSchema() {
       dailyBudget: { type: 'number', description: 'Override daily budget (minor units).' },
       lifetimeBudget: { type: 'number', description: 'Override lifetime budget (minor units).' },
       optimizationGoal: { type: 'string', description: 'Override optimization goal.' },
+      attributionSpec: {
+        type: ['array', 'null'],
+        items: { type: 'object', additionalProperties: true },
+        description:
+          'Override attribution_spec pada klon, memakai bentuk Meta: [{ "event_type": "CLICK_THROUGH", "window_days": 1 }]. Tanpa ini, attribution_spec sumber disalin apa adanya — dan sumber berjendela 7 hari yang diklon ke optimizationGoal CONVERSATIONS ditolak Meta (subcode 1885423), karena optimasi messaging hanya mendukung jendela 1 hari. Kirim null atau [] untuk membuang attribution_spec warisan sumber sepenuhnya.',
+      },
       dryRun: { type: 'boolean', description: 'Defaults to true. Set false only after preview.' },
       confirmed: { type: 'boolean', description: 'Must be true to execute after preview.' },
     },

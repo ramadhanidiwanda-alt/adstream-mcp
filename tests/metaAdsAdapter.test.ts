@@ -3450,6 +3450,129 @@ describe('MetaAdsAdapter', () => {
     expect(received?.startTime).toBe('2026-07-20T01:00:00+0700');
   });
 
+  it('forwards an attributionSpec override to the clone tool', async () => {
+    let received: Record<string, unknown> | undefined;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        cloneAdSet: async (_client, options) => {
+          received = options as unknown as Record<string, unknown>;
+          return {
+            operation: 'clone_adset',
+            status: 'dry_run',
+            executed: false,
+            sourceAdSetId: 'as_src',
+            preview: {},
+          };
+        },
+      },
+    });
+
+    const response = await adapter.cloneAdSet({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {
+        sourceAdSetId: 'as_src',
+        optimizationGoal: 'CONVERSATIONS',
+        attributionSpec: [{ event_type: 'CLICK_THROUGH', window_days: 1 }],
+      },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    } as never);
+
+    expect(response.ok).toBe(true);
+    expect(received?.attributionSpec).toEqual([{ event_type: 'CLICK_THROUGH', window_days: 1 }]);
+  });
+
+  it('passes a null attributionSpec through so the inherited window can be dropped', async () => {
+    let received: Record<string, unknown> | undefined;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        cloneAdSet: async (_client, options) => {
+          received = options as unknown as Record<string, unknown>;
+          return {
+            operation: 'clone_adset',
+            status: 'dry_run',
+            executed: false,
+            sourceAdSetId: 'as_src',
+            preview: {},
+          };
+        },
+      },
+    });
+
+    await adapter.cloneAdSet({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: { sourceAdSetId: 'as_src', attributionSpec: null },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    } as never);
+
+    expect(received?.attributionSpec).toBeNull();
+  });
+
+  it('rejects the raw attribution_spec spelling on cloneAdSet instead of ignoring it', async () => {
+    const cloneAdSet = vi.fn();
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: { cloneAdSet },
+    });
+
+    const response = await adapter.cloneAdSet({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {
+        sourceAdSetId: 'as_src',
+        attribution_spec: [{ event_type: 'CLICK_THROUGH', window_days: 1 }],
+      },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    } as never);
+
+    expect(response.ok).toBe(false);
+    expect(response.errors?.[0]?.message).toMatch(/attributionSpec/);
+    expect(cloneAdSet).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    'MESSAGING_INSTAGRAM_DIRECT_MESSENGER',
+    'MESSAGING_INSTAGRAM_DIRECT_MESSENGER_WHATSAPP',
+    'MESSAGING_INSTAGRAM_DIRECT_WHATSAPP',
+    'MESSAGING_MESSENGER_WHATSAPP',
+  ])('accepts the %s multi-destination creative destinationType', async (destinationType) => {
+    let received: CreateAdCreativeOptions | undefined;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        createAdCreative: async (_client, options) => {
+          received = options;
+          return {
+            operation: 'create_adcreative',
+            status: 'dry_run',
+            executed: false,
+            preview: {},
+          };
+        },
+      },
+    });
+
+    const response = await adapter.createAdCreative({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {
+        name: 'multi destination',
+        pageId: 'page-1',
+        link: 'https://example.com',
+        message: 'Chat kami',
+        callToActionType: 'MESSAGE_PAGE',
+        destinationType,
+      },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    });
+
+    expect(response.ok).toBe(true);
+    expect(received?.destinationType).toBe(destinationType);
+  });
+
   it('errors when cloneAdSet has no sourceAdSetId', async () => {
     const adapter = new MetaAdsAdapter({
       clientFactory: (config) => ({ config }) as never,

@@ -2074,6 +2074,18 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
     }
 
     try {
+      // The raw Graph spelling would otherwise be ignored, leaving the caller to
+      // believe their attribution override applied when the source's window was
+      // copied verbatim.
+      if (
+        request.params.attribution_spec !== undefined &&
+        request.params.attributionSpec === undefined
+      ) {
+        throw new Error(
+          'attribution_spec tidak dikenali dan TIDAK dikirim ke Meta. Pakai attributionSpec (camelCase).'
+        );
+      }
+
       const client = this.createClient(context.credential);
       const result = await this.tools.cloneAdSet(
         client,
@@ -2100,6 +2112,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
             typeof request.params.optimizationGoal === 'string'
               ? request.params.optimizationGoal
               : undefined,
+          attributionSpec: parseAttributionSpec(request.params.attributionSpec),
         },
         {
           dryRun: request.params.dryRun !== false,
@@ -3583,6 +3596,23 @@ function assertKnownParams(
   );
 }
 
+/**
+ * attribution_spec override for a clone. Accepts Meta's own array shape; null and []
+ * both mean "drop the source's attribution_spec". The raw `attribution_spec` spelling
+ * is named explicitly rather than accepted, so a caller who reaches for it learns the
+ * right key instead of watching their override disappear.
+ */
+function parseAttributionSpec(value: unknown): Array<Record<string, unknown>> | null | undefined {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+  if (!Array.isArray(value)) {
+    throw new Error(
+      'attributionSpec harus berupa array attribution_spec Meta, mis. [{ event_type: "CLICK_THROUGH", window_days: 1 }], atau null untuk membuang attribution_spec bawaan sumber.'
+    );
+  }
+  return value.map((entry, index) => requireRecord(entry, `attributionSpec[${index}]`));
+}
+
 function parseIdParam(value: unknown): string | string[] | undefined {
   if (typeof value === 'string') return value;
   if (Array.isArray(value) && value.every((item) => typeof item === 'string')) return value;
@@ -3627,6 +3657,10 @@ const CREATIVE_DESTINATION_TYPES: readonly CreativeDestinationType[] = [
   'MESSENGER',
   'INSTAGRAM_DIRECT',
   'APP',
+  'MESSAGING_INSTAGRAM_DIRECT_MESSENGER',
+  'MESSAGING_INSTAGRAM_DIRECT_MESSENGER_WHATSAPP',
+  'MESSAGING_INSTAGRAM_DIRECT_WHATSAPP',
+  'MESSAGING_MESSENGER_WHATSAPP',
 ];
 
 /**

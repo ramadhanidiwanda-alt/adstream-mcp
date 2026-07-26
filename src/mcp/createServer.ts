@@ -2,6 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { RequestHandlerExtra } from '@modelcontextprotocol/sdk/shared/protocol.js';
 import type { ServerRequest, ServerNotification } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
+import { AD_PREVIEW_FORMATS } from '../tools/getAdPreview.js';
 import {
   MetaClient,
   loadConfig,
@@ -878,6 +879,13 @@ const cloneAdSetInputSchema = {
   dailyBudget: z.number().optional().describe('Override daily budget (minor units).'),
   lifetimeBudget: z.number().optional().describe('Override lifetime budget (minor units).'),
   optimizationGoal: z.string().optional().describe('Override optimization goal.'),
+  attributionSpec: z
+    .array(z.record(z.unknown()))
+    .nullable()
+    .optional()
+    .describe(
+      'Override attribution_spec pada klon, memakai bentuk Meta: [{ "event_type": "CLICK_THROUGH", "window_days": 1 }]. Tanpa ini, attribution_spec sumber disalin apa adanya — dan sumber berjendela 7 hari yang diklon ke optimizationGoal CONVERSATIONS ditolak Meta (subcode 1885423), karena optimasi messaging hanya mendukung jendela 1 hari. Kirim null atau [] untuk membuang attribution_spec warisan sumber sepenuhnya.'
+    ),
   dryRun: z.boolean().optional().describe('Defaults to true. Set false only after preview.'),
   confirmed: z.boolean().optional().describe('Must be true to execute after preview.'),
 };
@@ -1179,21 +1187,7 @@ export function createMetaAdsMcpServer(options: CreateMetaAdsMcpServerOptions = 
       inputSchema = {
         ...adsBaseInputSchema,
         creativeId: z.string().describe('The creative ID to generate a preview for.'),
-        adFormat: z
-          .enum([
-            'DESKTOP_FEED',
-            'MOBILE_FEED',
-            'INSTAGRAM_FEED',
-            'INSTAGRAM_EXPLORE',
-            'INSTAGRAM_REELS',
-            'INSTAGRAM_STORIES',
-            'FACEBOOK_STORIES',
-            'MESSENGER_INBOX',
-            'MARKETPLACE',
-            'REWARDS_PLATFORM',
-            'FACEBOOK_REELS',
-          ])
-          .describe('The ad format/platform to preview on.'),
+        adFormat: z.enum(AD_PREVIEW_FORMATS).describe('The ad format/platform to preview on.'),
       };
     } else if (hasSince) {
       inputSchema = sinceUntilInputSchema;

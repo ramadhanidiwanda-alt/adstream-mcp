@@ -52,12 +52,14 @@ export async function updateAd(
   const { dryRun = true, confirmed = false, maxRetries = 3 } = execOptions;
 
   const preview = buildUpdateAdPayload(options);
+  // success means "the call did what was asked, no error" — a dry-run that produced a
+  // preview did. It used to report false here, which reads as a failed update.
   const baseResult: UpdateAdResult = {
     operation: 'update_ad',
     status: 'dry_run',
     executed: false,
     preview,
-    success: false,
+    success: true,
   };
 
   if (dryRun) return baseResult;
@@ -66,6 +68,7 @@ export async function updateAd(
     return {
       ...baseResult,
       status: 'pending_confirmation',
+      success: false,
       error: 'Explicit confirmation is required after reviewing the dry-run preview.',
     };
   }

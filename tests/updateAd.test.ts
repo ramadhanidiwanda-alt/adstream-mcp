@@ -20,6 +20,10 @@ describe('updateAd', () => {
     const r = await updateAd(mockClient, { ...baseOpts, name: 'New Ad Name' });
     expect(r.status).toBe('dry_run');
     expect(r.preview.name).toBe('New Ad Name');
+    // A dry-run that produced a preview did what was asked. Reporting success: false
+    // here read as a failed update.
+    expect(r.success).toBe(true);
+    expect(r.executed).toBe(false);
     expect(mockMetaPost).not.toHaveBeenCalled();
   });
 
@@ -31,6 +35,8 @@ describe('updateAd', () => {
   it('returns pending_confirmation when not confirmed', async () => {
     const r = await updateAd(mockClient, baseOpts, { dryRun: false, confirmed: false });
     expect(r.status).toBe('pending_confirmation');
+    // Unlike a dry-run, this is a refusal — nothing was asked for and granted.
+    expect(r.success).toBe(false);
     expect(mockMetaPost).not.toHaveBeenCalled();
   });
 
