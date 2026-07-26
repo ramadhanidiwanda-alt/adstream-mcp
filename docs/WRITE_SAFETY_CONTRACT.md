@@ -17,7 +17,9 @@ Full campaign creation lifecycle with pre-flight validation:
 |------|--------|------------|------|
 | `ads_create_campaign` | Campaign | None (campaign-level params validated at schema) | — |
 | `ads_create_adset` | Ad Set | Campaign fetch (CBO conflict, bid strategy requirement, `targeting_automation`) | — |
-| `ads_create_adcreative` | Creative | None (page/link/media validated at Meta) | ✅ `destinationType`, `pageWelcomeMessage`, `whatsappPhoneNumberId` |
+| `ads_create_adcreative` | Creative | None (page/link/media validated at Meta) | ✅ `destinationType`, `pageWelcomeMessage`, `welcomeMessageTemplateName`, `whatsappWelcomeMessageSequenceId` |
+| `ads_create_welcome_message_template` | Creative template | Local schema validation only; no Meta write | ✅ local reusable Messenger/Instagram welcome message |
+| `ads_list_welcome_message_templates` | Creative template | Read-only local store | ✅ local reusable Messenger/Instagram welcome message |
 | `ads_create_ad` | Ad | None (adset + creative existence validated at Meta) | — |
 | `ads_upload_image` | Media | File existence, type (jpg/png), size (< 30MB) | — |
 | `ads_upload_video` | Media | File existence, type, size (< 1GB) | — |

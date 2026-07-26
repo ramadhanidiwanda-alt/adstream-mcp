@@ -39,6 +39,7 @@ Treat the MCP tools as the machine layer and this skill as the media-buyer assis
    - Page: `ads_list_pages`
    - Pixel: `ads_list_pixels`
    - WhatsApp: `ads_list_whatsapp_accounts`, then `ads_list_whatsapp_phone_numbers`
+   - Welcome messages: `ads_list_welcome_message_templates`, or create one with `ads_create_welcome_message_template` if the user wants a reusable Messenger/Instagram greeting
    - CPAS: `ads_list_catalogs`, then `ads_list_product_sets`
    - Existing media: `ads_list_adimages`, `ads_list_advideos`
 6. Run dry-run preview.
@@ -106,7 +107,23 @@ When you need fine-grained control (e.g., reuse an existing creative, use a spec
 6. Show summary of all created entities
 7. User can later activate by setting status to ACTIVE via update tools
 
-### Path C — CPAS / Collaborative Ads
+### Path C — Existing Instagram Post/Reel to Instagram Direct
+
+Use this when the user wants CTX, Instagram DM, Click-to-Instagram-Direct, or to boost an existing Instagram post/Reel into Direct messaging.
+
+1. Discover or confirm the Page, Instagram user ID, existing Instagram media ID, campaign/ad set, and welcome message.
+2. If the welcome message should be reused later, call `ads_create_welcome_message_template` first, then pass `welcomeMessageTemplateName` to `ads_create_adcreative`. Otherwise pass `creativeSpec.pageWelcomeMessage` inline.
+3. Create or dry-run `ads_create_adcreative` with `creativeFormat: "existing_post"` and:
+   - `instagramUserId` at top level
+   - `creativeSpec.sourceInstagramMediaId` for the existing post/Reel
+   - `creativeSpec.callToAction: "INSTAGRAM_MESSAGE"`
+   - `creativeSpec.appDestination: "INSTAGRAM_DIRECT"`
+   - `creativeSpec.destinationUrl: "https://www.instagram.com/"`
+   - either `welcomeMessageTemplateName` or `creativeSpec.pageWelcomeMessage`
+4. Do not upload or re-upload the existing post/Reel. The Graph payload must reference the original media via `source_instagram_media_id`.
+5. Keep the ad set destination aligned with Instagram Direct messaging; `ads_create_ad` will reject mismatched messaging destinations unless the caller explicitly bypasses the check.
+
+### Path D — CPAS / Collaborative Ads
 
 Use this when the user asks for CPAS, catalog sales, retailer catalog, product set, Shopee/Tokopedia-style collaborative catalog, or shared catalog ads.
 

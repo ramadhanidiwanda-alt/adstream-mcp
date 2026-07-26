@@ -21,6 +21,7 @@ Use this section when a marketer asks to create a new Meta campaign. They can de
 | Awareness | Facebook Page, negara target, budget harian, gambar/video, teks utama, dan kategori iklan khusus bila relevan | Kampanye Awareness untuk menjangkau orang atau menambah impressions; tanpa URL tujuan atau Pixel. |
 | Traffic ke website | Page, URL tujuan, negara, budget, gambar/video, teks utama, headline, dan kategori khusus | Kampanye Traffic ke website dengan optimasi kunjungan halaman atau klik tautan. |
 | Engagement existing post | Page, postingan yang sudah ada, negara, budget, dan kategori khusus | Kampanye Engagement yang memakai post tersebut dan mengoptimalkan interaksi post. |
+| Instagram Direct existing post | Page, Instagram user, existing Instagram post/Reel, welcome message, negara, budget, dan kategori khusus | Kampanye messaging yang memakai post/Reel yang sudah ada dan mengarahkan CTA ke Instagram Direct. |
 | Video engagement | Page, video yang sudah ada, negara, budget, teks utama, dan kategori khusus | Kampanye Engagement yang mengoptimalkan penayangan video berkualitas (ThruPlay). |
 | Leads ke website | Page, Pixel, URL tujuan, negara, budget, gambar/video, teks utama, headline, dan kategori khusus | Kampanye Leads ke website dengan optimasi konversi lead dari Pixel. |
 | Leads dengan Instant Form | Page, Instant Form yang sudah dipublikasikan, negara, budget, gambar/video, teks utama, headline, dan kategori khusus | Kampanye Leads dengan formulir instan milik Page tersebut. |
@@ -40,7 +41,16 @@ Semua struktur dibuat PAUSED. Saya akan meminta persetujuan terpisah sebelum men
 6. Read-back hanya mengaudit respons API dan objek yang dapat dibaca. Jangan mengklaim campaign sudah tervalidasi live, sudah delivery, atau akan perform.
 7. Minta persetujuan kedua yang secara eksplisit menyebut campaign, ad set, dan ad yang akan diaktifkan. Setelah itu saja, aktifkan parent ke child: `ads_resume_campaign` → `ads_resume_adset` → `ads_resume_ad`, lalu baca ulang statusnya.
 
-Messaging, Calls, Quality Leads, optimasi app-event/value yang lebih luas, dan varian Advantage+ tambahan adalah roadmap items. Jangan menyebutnya tersedia atau memetakannya diam-diam ke workflow yang ada.
+Messaging di luar workflow yang sudah didukung, Calls, Quality Leads, optimasi app-event/value yang lebih luas, dan varian Advantage+ tambahan adalah roadmap items. Jangan menyebutnya tersedia atau memetakannya diam-diam ke workflow yang ada.
+
+### Instagram Direct existing-post creative notes
+
+When the workflow is Click-to-Instagram-Direct from an existing Instagram post or Reel:
+
+- Use `ads_create_adcreative` with `creativeFormat: "existing_post"` and keep the original media in `creativeSpec.sourceInstagramMediaId`; never upload a replacement video/image for this path.
+- Use `creativeSpec.callToAction: "INSTAGRAM_MESSAGE"`, `creativeSpec.appDestination: "INSTAGRAM_DIRECT"`, and `creativeSpec.destinationUrl: "https://www.instagram.com/"`. Meta requires both `call_to_action.value.app_destination` and `call_to_action.value.link`.
+- For the greeting, pass either inline `creativeSpec.pageWelcomeMessage` or a reusable `welcomeMessageTemplateName` created with `ads_create_welcome_message_template`.
+- If the ad set is not an Instagram Direct messaging destination, stop and fix the ad set/creative alignment before creating the ad.
 
 ## Intent Discovery Gate
 
@@ -294,6 +304,8 @@ Write operations may be available through broker/MCP tools, depending on the con
 | `ads_create_adset` | Ad Set | Campaign fetch (CBO, bid strategy, targeting_automation) |
 | `ads_create_adcreative` | Creative | Page/link/media validated at Meta |
 | `ads_create_ad` | Ad | Adset + creative validated at Meta |
+| `ads_create_welcome_message_template` | Welcome message | Local schema validation; no Meta write |
+| `ads_list_welcome_message_templates` | Welcome message | Read-only local store |
 | `ads_upload_image` | Image | File type/size validation |
 | `ads_upload_video` | Video | File type/size validation |
 | `ads_pause_campaign` | Campaign | None (safe) |
