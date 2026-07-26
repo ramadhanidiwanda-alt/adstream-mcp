@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { MetaAdsAdapter } from '../src/providers/meta/MetaAdsAdapter.js';
 import { META_LAUNCH_WORKFLOWS } from '../src/tools/checkLaunchReadiness.js';
 import { MetaApiError } from '../src/utils/metaError.js';
@@ -1978,6 +1978,152 @@ describe('MetaAdsAdapter', () => {
       expect(receivedOptions).not.toHaveProperty('creativeSpec');
     }
   );
+
+  // The 2026-07-26 CTX incident in one assertion: creativeSpec used to pick the
+  // fields it knew and drop the rest without a word, so a dry-run looked clean while
+  // the field the caller cared about never reached Meta. Every format must refuse.
+  it.each(canonicalCreativeCases)(
+    'refuses an unmapped creativeSpec field on $creativeFormat instead of dropping it',
+    async ({ creativeFormat, creativeSpec }) => {
+      const createAdCreative = vi.fn();
+      const adapter = new MetaAdsAdapter({
+        clientFactory: (config) => ({ config }) as never,
+        tools: { createAdCreative },
+      });
+
+      const response = await adapter.createAdCreative({
+        provider: 'meta',
+        accountId: 'act_123',
+        params: {
+          name: `${creativeFormat} creative`,
+          ...(creativeFormat === 'existing_post' ? {} : { pageId: 'page-1' }),
+          creativeFormat,
+          creativeSpec: { ...creativeSpec, totallyUnmappedField: 'dropped silently today' },
+        },
+        credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+      });
+
+      expect(response.ok).toBe(false);
+      expect(response.errors?.[0]?.message).toMatch(/totallyUnmappedField/);
+      expect(createAdCreative).not.toHaveBeenCalled();
+    }
+  );
+
+  it('names the owning format when a creativeSpec field belongs to a different one', async () => {
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: { createAdCreative: vi.fn() },
+    });
+
+    const response = await adapter.createAdCreative({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {
+        name: 'wrong-format field',
+        pageId: 'page-1',
+        creativeFormat: 'single_image',
+        creativeSpec: {
+          imageHash: 'image-1',
+          primaryText: 'Copy',
+          sourceInstagramMediaId: '18170919886430243',
+        },
+      },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    });
+
+    expect(response.ok).toBe(false);
+    expect(response.errors?.[0]?.message).toMatch(/sourceInstagramMediaId.*existing_post/s);
+  });
+
+  it('maps raw Graph spellings in creativeSpec back to the typed field', async () => {
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: { createAdCreative: vi.fn() },
+    });
+
+    const response = await adapter.createAdCreative({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {
+        name: 'raw graph spelling',
+        creativeFormat: 'existing_post',
+        creativeSpec: {
+          source_instagram_media_id: '18170919886430243',
+          app_destination: 'INSTAGRAM_DIRECT',
+          page_welcome_message: { type: 'VISUAL_EDITOR' },
+        },
+      },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    });
+
+    expect(response.ok).toBe(false);
+    expect(response.errors?.[0]?.message).toMatch(/app_destination → creativeSpec\.appDestination/);
+    expect(response.errors?.[0]?.message).toMatch(
+      /page_welcome_message → creativeSpec\.pageWelcomeMessage/
+    );
+  });
+
+  it('threads a CTX existing_post creativeSpec through parsing without losing app destination or welcome message', async () => {
+    const pageWelcomeMessage = {
+      type: 'VISUAL_EDITOR',
+      version: 2,
+      landing_screen_type: 'welcome_message',
+      media_type: 'text',
+      text_format: {
+        customer_action_type: 'ice_breakers',
+        message: {
+          text: 'Halo!',
+          ice_breakers: [{ title: 'Cek harga', response: 'Produk mana?' }],
+        },
+      },
+    };
+    let receivedOptions: CreateAdCreativeOptions | undefined;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        createAdCreative: async (_client, options) => {
+          receivedOptions = options;
+          return {
+            operation: 'create_adcreative',
+            status: 'dry_run',
+            executed: false,
+            preview: {},
+          };
+        },
+      },
+    });
+
+    const response = await adapter.createAdCreative({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {
+        name: 'CTX creative',
+        instagramUserId: '17841421517309865',
+        creativeFormat: 'existing_post',
+        creativeSpec: {
+          sourceInstagramMediaId: '18170919886430243',
+          callToAction: 'INSTAGRAM_MESSAGE',
+          appDestination: 'INSTAGRAM_DIRECT',
+          pageWelcomeMessage,
+        },
+      },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    });
+
+    expect(response.ok).toBe(true);
+    expect(receivedOptions?.creative).toEqual({
+      creativeFormat: 'existing_post',
+      creativeSpec: {
+        objectStoryId: undefined,
+        sourceInstagramMediaId: '18170919886430243',
+        destinationUrl: undefined,
+        callToAction: 'INSTAGRAM_MESSAGE',
+        appDestination: 'INSTAGRAM_DIRECT',
+        pageWelcomeMessage,
+        applinkTreatment: undefined,
+      },
+    });
+  });
 
   it('passes the standard app spec through to canonical App Promotion creative building', async () => {
     let receivedOptions: Record<string, unknown> | undefined;

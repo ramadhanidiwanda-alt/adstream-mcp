@@ -28,11 +28,9 @@ describe('upload account id normalization', () => {
   });
 
   it('uploadImage does not double-prefix an accountId that already has act_', async () => {
-    const metaUploadMultipart = vi
-      .fn()
-      .mockResolvedValue({
-        images: { 'poster.png': { hash: 'hash-1', url: 'https://example.com' } },
-      });
+    const metaUploadMultipart = vi.fn().mockResolvedValue({
+      images: { 'poster.png': { hash: 'hash-1', url: 'https://example.com' } },
+    });
     const client = { metaUploadMultipart } as unknown as MetaClient;
 
     await uploadImage(client, { adAccountId: 'act_2086409658377471', filePath: imagePath });
@@ -47,11 +45,9 @@ describe('upload account id normalization', () => {
   });
 
   it('uploadImage prepends act_ when given a bare numeric accountId', async () => {
-    const metaUploadMultipart = vi
-      .fn()
-      .mockResolvedValue({
-        images: { 'poster.png': { hash: 'hash-1', url: 'https://example.com' } },
-      });
+    const metaUploadMultipart = vi.fn().mockResolvedValue({
+      images: { 'poster.png': { hash: 'hash-1', url: 'https://example.com' } },
+    });
     const client = { metaUploadMultipart } as unknown as MetaClient;
 
     await uploadImage(client, { adAccountId: '2086409658377471', filePath: imagePath });

@@ -35,10 +35,26 @@ export interface MetaAssetMessageExtension {
   type: string;
 }
 
+/**
+ * Meta's page_welcome_message. The VISUAL_EDITOR form Ads Manager writes is a JSON
+ * object (type/version/landing_screen_type/media_type/text_format with ice_breakers);
+ * older Click-to-WhatsApp flows pass a plain greeting string. Both are accepted and
+ * forwarded as-is — metaClient.metaPost JSON-stringifies object values before
+ * form-encoding, so an object survives the wire unchanged.
+ */
+export type MetaPageWelcomeMessage = string | Record<string, unknown>;
+
+/**
+ * call_to_action.value.app_destination for messaging CTAs. Per Meta's Click to
+ * Instagram docs the value needs ONLY app_destination — adding a `link` alongside it
+ * is what produces a live ad whose CTA button does nothing.
+ */
+export type MetaAppDestination = 'INSTAGRAM_DIRECT' | 'MESSENGER' | 'WHATSAPP';
+
 export interface MetaSingleImageCreativeSpec extends MetaCreativeCopy {
   imageHash: string;
   leadFormId?: string;
-  pageWelcomeMessage?: string;
+  pageWelcomeMessage?: MetaPageWelcomeMessage;
   applinkTreatment?: MetaApplinkTreatment;
 }
 
@@ -52,7 +68,7 @@ export interface MetaVideoCreativeSpec extends MetaCreativeCopy {
    * the video's own default picture when neither thumbnail field is supplied.
    */
   thumbnailImageUrl?: string;
-  pageWelcomeMessage?: string;
+  pageWelcomeMessage?: MetaPageWelcomeMessage;
   applinkTreatment?: MetaApplinkTreatment;
 }
 
@@ -110,7 +126,7 @@ export interface MetaPlacementImageCreativeSpec extends MetaCreativeCopy {
   verticalImageHash: string;
   headline: string;
   destinationUrl: string;
-  pageWelcomeMessage?: string;
+  pageWelcomeMessage?: MetaPageWelcomeMessage;
   messageExtensions?: MetaAssetMessageExtension[];
 }
 
@@ -119,7 +135,7 @@ export interface MetaPlacementCustomizedCtwaCreativeSpec extends MetaCreativeCop
   verticalImageHash: string;
   headline: string;
   destinationUrl: string;
-  pageWelcomeMessage?: string;
+  pageWelcomeMessage?: MetaPageWelcomeMessage;
 }
 
 export interface MetaExistingPostCreativeSpec {
@@ -142,6 +158,11 @@ export interface MetaExistingPostCreativeSpec {
    * omnichannel_link_spec.web.url for CPAS/omnichannel ad sets. Rejected when neither
    * is present, since nothing would carry it.
    *
+   * NOT used by messaging CTAs (INSTAGRAM_MESSAGE, MESSAGE_PAGE, WHATSAPP_MESSAGE),
+   * whose value carries app_destination instead. Supplying both is rejected: a
+   * messaging call_to_action that carries value.link renders a button that does
+   * nothing when the ad goes live.
+   *
    * On the collaborativeAppSpec path this cannot retroactively fix object_store_urls
    * missing from the referenced post's own call_to_action — that was fixed when the
    * post was first published. Prefer creativeFormat 'video' directly for CPAS
@@ -158,6 +179,20 @@ export interface MetaExistingPostCreativeSpec {
    * passed through and Meta decides.
    */
   callToAction?: string;
+  /**
+   * Messaging destination for a click-to-message CTA, emitted as
+   * call_to_action.value.app_destination. Requires callToAction (there is nowhere
+   * else to put it) and excludes destinationUrl.
+   */
+  appDestination?: MetaAppDestination;
+  /**
+   * Welcome message shown after the messaging CTA is tapped. Emitted at the ROOT of
+   * the creative, not inside object_story_spec — that is where Meta stores it for
+   * existing-post creatives, confirmed by reading a creative built in Ads Manager,
+   * which has no object_story_spec at all. Requires a messaging callToAction;
+   * without one Meta would never surface it.
+   */
+  pageWelcomeMessage?: MetaPageWelcomeMessage;
   applinkTreatment?: MetaApplinkTreatment;
 }
 

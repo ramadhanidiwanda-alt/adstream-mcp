@@ -29,15 +29,18 @@ import type {
   Campaign,
   CampaignInsight,
   MetaAdsMode,
+  MetaAppDestination,
   MetaApplinkTreatment,
   MetaCollaborativeAppSpec,
   MetaCollaborativeCatalogContext,
   MetaConfig,
   MetaCreativeFormat,
+  MetaPageWelcomeMessage,
   MetaStandardAppSpec,
   MetaCreativeSpec,
   PlacementPerformanceReport,
 } from '../../types.js';
+import { META_CREATIVE_FORMATS } from '../../types.js';
 import {
   META_CONVERSION_LOCATIONS,
   META_ODAX_OBJECTIVES,
@@ -3760,10 +3763,133 @@ function parseStandardAppSpec(value: unknown): MetaStandardAppSpec | undefined {
   };
 }
 
+/**
+ * Every field each creativeFormat actually reads, mirroring the specs in types.ts.
+ * parseMetaCreativeSpec picks fields by name, so anything missing from these sets
+ * used to vanish between a clean dry-run and the Graph API call — which is how a
+ * Click-to-Instagram ad shipped with a dead button on 2026-07-26. Keep in sync with
+ * the corresponding interface whenever a field is added.
+ */
+const COMMON_CREATIVE_COPY_FIELDS = [
+  'primaryText',
+  'headline',
+  'description',
+  'callToAction',
+  'destinationUrl',
+] as const;
+
+const CREATIVE_SPEC_FIELDS: Record<MetaCreativeFormat, ReadonlySet<string>> = {
+  single_image: new Set([
+    ...COMMON_CREATIVE_COPY_FIELDS,
+    'imageHash',
+    'leadFormId',
+    'pageWelcomeMessage',
+    'applinkTreatment',
+  ]),
+  video: new Set([
+    ...COMMON_CREATIVE_COPY_FIELDS,
+    'videoId',
+    'leadFormId',
+    'thumbnailImageHash',
+    'thumbnailImageUrl',
+    'pageWelcomeMessage',
+    'applinkTreatment',
+  ]),
+  carousel: new Set([...COMMON_CREATIVE_COPY_FIELDS, 'cards']),
+  catalog: new Set([
+    ...COMMON_CREATIVE_COPY_FIELDS,
+    'productSetId',
+    'templateUrl',
+    'fallbackImageHash',
+  ]),
+  collection: new Set([
+    ...COMMON_CREATIVE_COPY_FIELDS,
+    'instantExperienceId',
+    'coverImageHash',
+    'coverVideoId',
+    'productSetId',
+  ]),
+  flexible: new Set([
+    ...COMMON_CREATIVE_COPY_FIELDS,
+    'primaryTexts',
+    'imageHashes',
+    'videoIds',
+    'headlines',
+    'descriptions',
+    'messageExtensions',
+  ]),
+  placement_image: new Set([
+    ...COMMON_CREATIVE_COPY_FIELDS,
+    'feedImageHash',
+    'verticalImageHash',
+    'pageWelcomeMessage',
+    'messageExtensions',
+  ]),
+  placement_customized_ctwa: new Set([
+    ...COMMON_CREATIVE_COPY_FIELDS,
+    'feedImageHash',
+    'verticalImageHash',
+    'pageWelcomeMessage',
+  ]),
+  existing_post: new Set([
+    'objectStoryId',
+    'sourceInstagramMediaId',
+    'destinationUrl',
+    'callToAction',
+    'appDestination',
+    'pageWelcomeMessage',
+    'applinkTreatment',
+  ]),
+};
+
+/** Raw Graph API spellings callers reach for, mapped back to the typed field. */
+const CREATIVE_SPEC_FIELD_HINTS: Record<string, string> = {
+  app_destination: 'creativeSpec.appDestination',
+  page_welcome_message: 'creativeSpec.pageWelcomeMessage',
+  source_instagram_media_id: 'creativeSpec.sourceInstagramMediaId',
+  object_story_id: 'creativeSpec.objectStoryId',
+  image_hash: 'creativeSpec.imageHash',
+  video_id: 'creativeSpec.videoId',
+  product_set_id: 'creativeSpec.productSetId',
+  lead_gen_form_id: 'creativeSpec.leadFormId',
+  call_to_action: 'creativeSpec.callToAction',
+  call_to_action_type: 'creativeSpec.callToAction',
+  link: 'creativeSpec.destinationUrl',
+  message: 'creativeSpec.primaryText',
+  title: 'creativeSpec.headline',
+  applink_treatment: 'creativeSpec.applinkTreatment',
+};
+
+function assertKnownCreativeSpecFields(
+  format: MetaCreativeFormat,
+  spec: Record<string, unknown>
+): void {
+  const allowed = CREATIVE_SPEC_FIELDS[format];
+  const unknown = Object.keys(spec).filter((key) => !allowed.has(key));
+  if (unknown.length === 0) return;
+
+  const detail = unknown
+    .map((key) => {
+      const hint = CREATIVE_SPEC_FIELD_HINTS[key];
+      if (hint) return `${key} → ${hint}`;
+      const owners = META_CREATIVE_FORMATS.filter((candidate) =>
+        CREATIVE_SPEC_FIELDS[candidate].has(key)
+      );
+      return owners.length > 0 ? `${key} (hanya untuk creativeFormat ${owners.join(', ')})` : key;
+    })
+    .join('; ');
+
+  throw new Error(
+    `Field berikut tidak dikenali pada creativeSpec untuk creativeFormat ${format} dan TIDAK dikirim ke Meta: ${detail}. creativeSpec bukan passthrough mentah ke Graph API — pakai field bertipe yang sesuai, atau hapus field ini.`
+  );
+}
+
 function parseMetaCreativeSpec(
   format: MetaCreativeFormat,
   spec: Record<string, unknown>
 ): MetaCreativeSpec {
+  assertKnownCreativeSpecFields(format, spec);
+
   switch (format) {
     case 'single_image':
       return {
@@ -3951,6 +4077,14 @@ function parseMetaCreativeSpec(
           ),
           destinationUrl: optionalString(spec.destinationUrl, 'creativeSpec.destinationUrl'),
           callToAction: optionalString(spec.callToAction, 'creativeSpec.callToAction'),
+          appDestination: optionalAppDestination(
+            spec.appDestination,
+            'creativeSpec.appDestination'
+          ),
+          pageWelcomeMessage: optionalPageWelcomeMessage(
+            spec.pageWelcomeMessage,
+            'creativeSpec.pageWelcomeMessage'
+          ),
           applinkTreatment: optionalApplinkTreatment(
             spec.applinkTreatment,
             'creativeSpec.applinkTreatment'
@@ -3980,6 +4114,43 @@ function requireString(value: unknown, path: string): string {
 function optionalString(value: unknown, path: string): string | undefined {
   if (value === undefined) return undefined;
   return requireString(value, path);
+}
+
+const APP_DESTINATIONS: readonly MetaAppDestination[] = [
+  'INSTAGRAM_DIRECT',
+  'MESSENGER',
+  'WHATSAPP',
+];
+
+/**
+ * Unlike CTA types (a free string — Meta owns that enum and it is long), the
+ * app_destination enum is short, documented, and closed. A typo here produces a
+ * button that silently does nothing, so reject rather than forward.
+ */
+function optionalAppDestination(value: unknown, path: string): MetaAppDestination | undefined {
+  if (value === undefined) return undefined;
+  const normalized = requireString(value, path);
+  if (!APP_DESTINATIONS.includes(normalized as MetaAppDestination)) {
+    throw new Error(`${path} harus salah satu dari: ${APP_DESTINATIONS.join(', ')}.`);
+  }
+  return normalized as MetaAppDestination;
+}
+
+/**
+ * page_welcome_message is a JSON object in Meta's VISUAL_EDITOR form; the legacy
+ * Click-to-WhatsApp path passes a plain greeting string. Accept both, reject anything
+ * else — a number or array here would be dropped by Meta with no useful error.
+ */
+function optionalPageWelcomeMessage(
+  value: unknown,
+  path: string
+): MetaPageWelcomeMessage | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value === 'string') return requireString(value, path);
+  if (isRecord(value)) return value;
+  throw new Error(
+    `${path} harus berupa string atau object page_welcome_message (mis. { type: 'VISUAL_EDITOR', ... }).`
+  );
 }
 
 function optionalApplinkTreatment(value: unknown, path: string): MetaApplinkTreatment | undefined {
