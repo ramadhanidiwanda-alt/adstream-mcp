@@ -140,14 +140,17 @@ For a supported Meta v25 launch, use `ads_check_launch_readiness` before any wri
 Follow this handoff exactly:
 
 1. Run `ads_check_launch_readiness`; ask the marketer only for its missing inputs and discover the required assets.
-2. Dry-run all four creation tools in this order: `ads_create_campaign`, `ads_create_adset`, `ads_create_adcreative`, then `ads_create_ad`.
-3. Show one plain-language marketer summary: objective, audience/country, budget, destination or form, creative, and the fact that the campaign, ad set, and ad will remain PAUSED.
-4. Ask for one explicit confirmation to create the structure. Do not treat approval to create as approval to spend.
-5. After confirmation, execute creation in the same order. Keep every campaign, ad set, and ad PAUSED.
-6. Read the result back: use `ads_list_campaigns`, `ads_read_adset_full`, and `ads_read_creative_full`; report the returned IDs and any mismatch or missing object. If any step fails, report every ID created so far and stop rather than trying to infer or repair the remainder.
-7. Explain that read-back is an API audit of the created objects, not live-delivery or performance validation.
-8. Ask for a **separate** activation confirmation naming the campaign, ad set, and ad IDs.
-9. Only after that second approval, resume in parent-to-child order: `ads_resume_campaign`, `ads_resume_adset`, then `ads_resume_ad`. Read back the statuses and report them.
+2. If the creative uses a reusable Messenger/Instagram greeting, list or create it with `ads_list_welcome_message_templates` / `ads_create_welcome_message_template` before the creative dry-run. This local template store expands to `pageWelcomeMessage`; it is not a Meta-saved template.
+3. Dry-run all four creation tools in this order: `ads_create_campaign`, `ads_create_adset`, `ads_create_adcreative`, then `ads_create_ad`.
+4. Show one plain-language marketer summary: objective, audience/country, budget, destination or form, creative, and the fact that the campaign, ad set, and ad will remain PAUSED.
+5. Ask for one explicit confirmation to create the structure. Do not treat approval to create as approval to spend.
+6. After confirmation, execute creation in the same order. Keep every campaign, ad set, and ad PAUSED.
+7. Read the result back: use `ads_list_campaigns`, `ads_read_adset_full`, and `ads_read_creative_full`; report the returned IDs and any mismatch or missing object. If any step fails, report every ID created so far and stop rather than trying to infer or repair the remainder.
+8. Explain that read-back is an API audit of the created objects, not live-delivery or performance validation.
+9. Ask for a **separate** activation confirmation naming the campaign, ad set, and ad IDs.
+10. Only after that second approval, resume in parent-to-child order: `ads_resume_campaign`, `ads_resume_adset`, then `ads_resume_ad`. Read back the statuses and report them.
+
+For existing Instagram post/Reel to Instagram Direct, `ads_create_adcreative` must keep `creativeFormat: "existing_post"` and `creativeSpec.sourceInstagramMediaId`; do not upload the post again. The CTA must include `creativeSpec.callToAction: "INSTAGRAM_MESSAGE"`, `creativeSpec.appDestination: "INSTAGRAM_DIRECT"`, and `creativeSpec.destinationUrl: "https://www.instagram.com/"` so Meta receives both `app_destination` and `link`.
 
 Never recommend a resume tool as part of creation confirmation or before read-back has completed.
 

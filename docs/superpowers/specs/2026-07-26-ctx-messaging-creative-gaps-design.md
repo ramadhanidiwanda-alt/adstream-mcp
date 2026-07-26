@@ -3,15 +3,22 @@
 Tanggal: 2026-07-26
 Branch: `fix/ctx-messaging-creative-gaps`
 
+> Update 2026-07-26: validasi real Meta setelah implementasi awal membuktikan
+> `existing_post` + `INSTAGRAM_MESSAGE` + `INSTAGRAM_DIRECT` tetap membutuhkan
+> `call_to_action.value.link`. Bagian lama dokumen ini yang mengatakan
+> `destinationUrl` tidak dipakai untuk CTA messaging sudah tersupersede untuk kasus
+> Instagram Direct existing-post; payload yang diterima Meta memuat `app_destination`
+> dan `link` sekaligus.
+
 ## Latar
 
 Sebuah iklan Click-to-Instagram-Direct (CTX) dibuat lewat connector ini untuk akun
 `act_2326988574277142`. Dry-run hijau, `verification.status === 'verified'`, tetapi
 iklan tayang dengan tombol CTA mati dan tanpa welcome message. Penyebabnya: jalur
 `existing_post` menerima `appDestination` dan `pageWelcomeMessage`, lalu membuang
-keduanya tanpa error, sementara validasinya justru mewajibkan `destinationUrl` —
-bentuk `call_to_action.value.link` yang persis membuat tombol messaging tidak
-berfungsi.
+keduanya tanpa error. Perbaikan awal terlalu jauh menolak `destinationUrl` bersama
+`appDestination`; validasi real Meta kemudian menunjukkan `link` justru wajib untuk
+Instagram Direct existing-post agar CTA aktif.
 
 Kegagalan tidak terdeteksi oleh tool mana pun. Yang menemukannya adalah manusia yang
 membuka Ads Manager.
@@ -35,10 +42,18 @@ akan mulai gagal di dry-run. Itu tujuannya.
 Bentuk wajib CTX:
 
 ```json
-"call_to_action": { "type": "INSTAGRAM_MESSAGE", "value": { "app_destination": "INSTAGRAM_DIRECT" } }
+"call_to_action": {
+  "type": "INSTAGRAM_MESSAGE",
+  "value": {
+    "app_destination": "INSTAGRAM_DIRECT",
+    "link": "https://www.instagram.com/"
+  }
+}
 ```
 
-`value` hanya butuh `app_destination`; **tidak ada** `link`.
+Untuk existing-post Instagram Direct, `value` butuh `app_destination` dan `link`.
+`appDestination` tanpa `destinationUrl` menghasilkan error Meta subcode 2061015
+("Kolom link wajib").
 
 `page_welcome_message` adalah objek JSON (VISUAL_EDITOR), bukan string. Untuk creative
 berbasis existing post, Meta menyimpan `call_to_action` dan `page_welcome_message` di
@@ -76,17 +91,19 @@ const MESSAGING_CTA_TYPES = new Set(['INSTAGRAM_MESSAGE', 'MESSAGE_PAGE', 'WHATS
 
 `cta()` menerima parameter `appDestination`:
 
-- `appDestination` terisi → `{ type, value: { app_destination } }`, tanpa `link`.
-- `appDestination` + `destinationUrl` terisi bersamaan → **error**. Itu tepat bentuk
-  yang membuat tombol mati; menerima keduanya berarti mengulang bug hari ini.
+- `appDestination` terisi pada `existing_post` Instagram Direct → `{ type, value: {
+  app_destination, link } }`; `destinationUrl` wajib dan biasanya
+  `https://www.instagram.com/`.
+- `appDestination` + `destinationUrl` tetap tidak dilonggarkan global. Kombinasi itu
+  hanya valid pada CTA messaging existing-post yang memang membutuhkan link.
 - CTA messaging tanpa `appDestination` → `{ type }` saja. Ini memperluas perilaku yang
   sudah ada untuk `WHATSAPP_MESSAGE` ke `INSTAGRAM_MESSAGE` dan `MESSAGE_PAGE`.
 - CTA non-messaging → perilaku lama (`value.link` wajib).
 
 `buildExistingPost()`:
 
-- `destinationUrl` **tidak lagi wajib** untuk CTA messaging (Bug 2). Untuk CTA
-  non-messaging tetap wajib, tidak berubah.
+- `destinationUrl` wajib untuk `existing_post` + `INSTAGRAM_MESSAGE` +
+  `INSTAGRAM_DIRECT`; untuk CTA non-messaging tetap wajib, tidak berubah.
 - `page_welcome_message` ditulis ke **akar payload**, bukan `object_story_spec`.
 - Guard baru, dua-duanya melempar error:
   - `pageWelcomeMessage` tanpa CTA messaging → tidak akan dipakai Meta, jadi tolak.
@@ -119,7 +136,8 @@ sisanya tanpa sepatah kata pun.
 `appDestination` dan `pageWelcomeMessage` didokumentasikan pada `creativeSpec`
 existing_post di **dua** permukaan: JSON Schema `src/broker/mcpTools.ts` dan Zod
 `src/mcp/createServer.ts`. Deskripsi memuat contoh bentuk CTX yang benar dan menyatakan
-`destinationUrl` tidak dipakai untuk CTA messaging.
+`destinationUrl` wajib untuk CTX Instagram Direct existing-post agar Graph payload
+memuat `value.link`.
 
 ---
 
@@ -240,9 +258,9 @@ click-to-message.
   `messagingDestination` yang menentukan `resolvedSpec.destinationType`.
   `resolveMetaObjectiveLaunchSpec` menerimanya sebagai field opsional pada request.
 - `requiredInputsByCreativeFormat.existing_post` menghilangkan `creativeAsset` /
-  `primaryText` / `headline` (post sudah membawa materinya sendiri) dan **tidak**
-  mewajibkan `destinationUrl` — berbeda dari baris website, karena CTA messaging tidak
-  memakainya.
+  `primaryText` / `headline` (post sudah membawa materinya sendiri). Untuk CTX
+  Instagram Direct, `destinationUrl` tetap dibutuhkan agar CTA Graph payload punya
+  `value.link`.
 - Preset `engagement_messaging` memuat `ads_clone_ui_ad` dan `ads_list_instagram_media`
   di `recommendedTools`. `ads_clone_ui_ad` adalah satu-satunya jalur yang berhasil pada
   insiden ini karena menyalin ad buatan UI tanpa menimpa creative, sehingga setup
@@ -264,17 +282,19 @@ click-to-message.
 
 ## Verifikasi
 
-Semua pengujian memakai mock client dan dry-run. **Tidak ada write ke akun Meta klien**
-— `act_2326988574277142` sedang menjalankan campaign aktif.
+Pengujian utama memakai mock client dan dry-run. Setelah izin eksplisit, validasi
+real Meta dilakukan hanya untuk membuat satu ad creative di akun
+`act_2326988574277142`; tidak ada campaign/ad set/ad yang diaktifkan dan tidak ada
+upload ulang media.
 
 1. Dry-run CTX pada jalur `existing_post` menghasilkan payload dengan
-   `call_to_action.value.app_destination` dan `page_welcome_message` utuh, dan tanpa
-   `call_to_action.value.link`.
+   `call_to_action.value.app_destination`, `call_to_action.value.link`, dan
+   `page_welcome_message` utuh.
 2. Test table-driven yang menyuntikkan satu key asing ke `creativeSpec` untuk
    **kesembilan** format dan gagal bila error tidak dilempar. Ini test yang secara
    langsung menangkap kelas bug hari ini.
-3. `destinationUrl` tidak lagi wajib untuk CTA messaging; tetap wajib untuk
-   non-messaging.
+3. `destinationUrl` wajib untuk `existing_post` Instagram Direct messaging dan tetap
+   wajib untuk non-messaging; kombinasi lain tetap dijaga oleh compatibility rules.
 4. Cross-check destination: `INSTAGRAM_DIRECT` + `MESSAGE_PAGE` ditolak,
    `INSTAGRAM_DIRECT` + `INSTAGRAM_MESSAGE` lolos.
 5. `attributionSpec` menimpa nilai sumber; `null` menghapusnya; `undefined` menyalin.

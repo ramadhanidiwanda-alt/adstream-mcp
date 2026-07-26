@@ -19,9 +19,17 @@ dropped before the Graph API call. Full account in
   as `page_welcome_message` at the creative root (where Ads Manager stores it for
   existing-post creatives). `pageWelcomeMessage` accepts Meta's VISUAL_EDITOR object,
   not just a string.
-- **`ads_create_adcreative`** — messaging CTAs (`INSTAGRAM_MESSAGE`, `MESSAGE_PAGE`,
-  `WHATSAPP_MESSAGE`) on `existing_post` no longer require `destinationUrl`; supplying
-  it alongside them is rejected, since `value.link` is what disables the button.
+- **`ads_create_adcreative`** — `existing_post` Instagram Direct messaging accepts
+  `creativeSpec.appDestination` and `creativeSpec.destinationUrl` together, sending
+  `call_to_action.value.app_destination` and `call_to_action.value.link`. Meta rejects
+  this path with subcode 2061015 when the link is absent, so `destinationUrl` remains
+  required for this specific combination.
+- **`ads_create_adcreative`** — `welcomeMessageTemplateName` expands a saved local
+  welcome message template into `creativeSpec.pageWelcomeMessage` before the creative
+  payload is built.
+- **`ads_create_welcome_message_template`** and
+  **`ads_list_welcome_message_templates`** — local reusable welcome-message template
+  tools for Messenger/Instagram creatives.
 - **`ads_create_ad`** — rejects a click-to-message ad set paired with a CTA for a
   different inbox, covering the four `MESSAGING_*` combinations and
   `value.app_destination`. Bypass with `skipMessagingDestinationCheck`.
