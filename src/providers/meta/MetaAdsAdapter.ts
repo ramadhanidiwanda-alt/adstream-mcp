@@ -1824,6 +1824,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
           dedupeByName: request.params.dedupeByName === true,
           skipOmnichannelCheck: request.params.skipOmnichannelCheck === true,
           skipPlacementCompatibilityCheck: request.params.skipPlacementCompatibilityCheck === true,
+          skipMessagingDestinationCheck: request.params.skipMessagingDestinationCheck === true,
           externalReference:
             typeof request.params.externalReference === 'string'
               ? request.params.externalReference

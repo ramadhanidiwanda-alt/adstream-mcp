@@ -2223,6 +2223,11 @@ function createCreateAdInputSchema() {
         description:
           'Skip the local placement compatibility pre-flight check. Use only for reviewed CTWA placement-customized creatives that intentionally avoid Dynamic Creative.',
       },
+      skipMessagingDestinationCheck: {
+        type: 'boolean',
+        description:
+          'Skip the messaging destination/CTA cross-check. Only set if the mapping misfires; a click-to-message ad set (INSTAGRAM_DIRECT, MESSENGER, WHATSAPP, MESSAGING_*) normally needs a creative whose CTA opens the same inbox.',
+      },
       externalReference: {
         type: 'string',
         description: 'Caller-provided reference for duplicate prevention and audit correlation.',
