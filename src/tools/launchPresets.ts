@@ -64,6 +64,28 @@ const PRESETS: Record<MetaLaunchWorkflow, LaunchPresetDefinition> = {
     recommendedTools: [...CREATE_TOOLS, 'ads_list_pages'],
     safetyNotes: ['Use an existing object_story_id; do not invent post IDs.'],
   },
+  engagement_messaging: {
+    label: 'Click-to-Message (Instagram Direct / Messenger / WhatsApp)',
+    mode: 'standard',
+    objective: 'OUTCOME_ENGAGEMENT',
+    conversionLocation: 'MESSAGING',
+    recommendedTools: [
+      ...CREATE_TOOLS,
+      // The only path that produced a working CTX ad on 2026-07-26: it copies an ad
+      // built in Ads Manager without overriding the creative, so UI-only setup
+      // (welcome message, messaging CTA) survives intact. Prefer it when an equivalent
+      // ad already exists.
+      'ads_clone_ui_ad',
+      'ads_clone_adset',
+      'ads_list_instagram_media',
+      'ads_list_pages',
+    ],
+    safetyNotes: [
+      'optimizationGoal CONVERSATIONS hanya menerima jendela atribusi 1 hari; saat mengklon ad set, isi attributionSpec [{ event_type: "CLICK_THROUGH", window_days: 1 }] atau Meta menolak dengan subcode 1885423.',
+      'CTA creative harus cocok dengan destination_type ad set (INSTAGRAM_DIRECT ↔ INSTAGRAM_MESSAGE, MESSENGER ↔ MESSAGE_PAGE, WHATSAPP ↔ WHATSAPP_MESSAGE); pasangan yang salah tetap diterima Meta tetapi tombolnya membuka tujuan yang keliru.',
+      'Welcome message dikirim lewat creativeSpec.pageWelcomeMessage sebagai objek VISUAL_EDITOR, dan hanya tampil bersama CTA messaging.',
+    ],
+  },
   engagement_video: {
     label: 'Video Engagement',
     mode: 'standard',
@@ -129,7 +151,9 @@ export const LEGACY_WORKFLOW_ALIASES = {
 } as const;
 
 const DEPRECATED_WORKFLOW_ALIASES = {
-  whatsapp_sales: 'sales_website',
+  // Was pointed at sales_website, which has no messaging destination at all. A
+  // click-to-WhatsApp launch belongs on the messaging row.
+  whatsapp_sales: 'engagement_messaging',
   creative_testing: 'sales_website',
 } as const;
 
@@ -162,6 +186,13 @@ export function inferLaunchWorkflow(intent: string): MetaLaunchWorkflow {
   const text = intent.toLowerCase();
   if (/(awareness|brand baru|jangkauan|reach)/i.test(text)) return 'awareness';
   if (/(traffic|kunjungan|visit)/i.test(text)) return 'traffic_website';
+  if (
+    /(click.?to.?(message|whatsapp|instagram)|ctwa|ctx|\bdm\b|direct message|kirim pesan|chat|whatsapp|messenger|instagram direct)/i.test(
+      text
+    )
+  ) {
+    return 'engagement_messaging';
+  }
   if (/(boost|postingan|existing post|post existing)/i.test(text)) return 'engagement_post';
   if (/(video|thruplay|tonton)/i.test(text)) return 'engagement_video';
   if (/(instant form|lead form|form leads)/i.test(text)) return 'leads_instant_form';

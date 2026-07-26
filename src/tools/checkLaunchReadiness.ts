@@ -2,6 +2,7 @@ import type { MetaCreativeFormat } from '../types.js';
 import {
   resolveMetaObjectiveLaunchSpec,
   type MetaConversionLocation,
+  type MetaMessagingDestination,
   type MetaOdaxObjective,
 } from '../providers/meta/objectiveLaunchMatrix.js';
 import { getLaunchPreset, getWorkflowDeprecationWarning } from './launchPresets.js';
@@ -11,6 +12,7 @@ export type MetaLaunchWorkflow =
   | 'traffic_website'
   | 'engagement_post'
   | 'engagement_video'
+  | 'engagement_messaging'
   | 'leads_website'
   | 'leads_instant_form'
   | 'app_installs'
@@ -22,6 +24,7 @@ export const META_LAUNCH_WORKFLOWS = [
   'traffic_website',
   'engagement_post',
   'engagement_video',
+  'engagement_messaging',
   'leads_website',
   'leads_instant_form',
   'app_installs',
@@ -50,6 +53,8 @@ export interface LaunchReadinessOptions {
   optimizationGoal?: string;
   creativeFormat?: MetaCreativeFormat;
   apiVersion?: string;
+  /** Which inbox a click-to-message launch opens. Required for the messaging workflow. */
+  messagingDestination?: MetaMessagingDestination;
   productOrOffer?: string;
   pageId?: string;
   pixelId?: string;
@@ -142,6 +147,7 @@ export function checkLaunchReadiness(options: LaunchReadinessOptions): LaunchRea
     optimizationGoal: options.optimizationGoal,
     creativeFormat: options.creativeFormat,
     apiVersion: options.apiVersion,
+    messagingDestination: options.messagingDestination,
   });
   const workflow = resolvedSpec.key;
   const missing = new Set<string>();
@@ -153,6 +159,14 @@ export function checkLaunchReadiness(options: LaunchReadinessOptions): LaunchRea
   }
   const deprecationWarning = getWorkflowDeprecationWarning(options.workflow);
   if (deprecationWarning) warnings.push(deprecationWarning);
+  if (
+    resolvedSpec.key === 'engagement_messaging' &&
+    resolvedSpec.optimizationGoal === 'CONVERSATIONS'
+  ) {
+    warnings.push(
+      'optimizationGoal CONVERSATIONS hanya menerima jendela atribusi 1 hari. Saat mengklon ad set, isi attributionSpec [{ event_type: "CLICK_THROUGH", window_days: 1 }] — attribution_spec sumber yang lebih panjang ditolak Meta dengan subcode 1885423.'
+    );
+  }
   if (resolvedSpec.key === 'app_installs') {
     warnings.push(
       'SDK/MMP dan setup app-event tidak dapat dibuktikan oleh connector; verifikasi keduanya di Meta Events Manager sebelum execute.'
@@ -239,6 +253,7 @@ function labelForMissing(key: string): string {
     existingPostId: 'Existing post',
     videoId: 'Video',
     leadFormId: 'Instant Form',
+    messagingDestination: 'Tujuan pesan',
     applicationId: 'Application ID',
     objectStoreUrl: 'Store URL',
     businessId: 'Business ID',
@@ -262,6 +277,8 @@ function questionForMissing(key: string): string {
     existingPostId: 'Postingan existing mana yang mau dipakai?',
     videoId: 'Video Meta mana yang mau dipakai?',
     leadFormId: 'Instant Form mana yang mau dipakai?',
+    messagingDestination:
+      'Pesan masuk ke mana: INSTAGRAM_DIRECT, MESSENGER, WHATSAPP, atau kombinasi MESSAGING_* (mis. MESSAGING_INSTAGRAM_DIRECT_WHATSAPP)?',
     applicationId: 'Application ID mana yang mau dipromosikan?',
     objectStoreUrl: 'Store URL aplikasi mana yang mau dipakai?',
     businessId: 'Business Manager mana yang memiliki catalog?',

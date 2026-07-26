@@ -28,7 +28,40 @@ export const META_CONVERSION_LOCATIONS = [
   'INSTANT_FORM',
   'APP',
   'CATALOG',
+  /**
+   * Click-to-message: the ad opens a conversation in Instagram Direct, Messenger or
+   * WhatsApp instead of sending the user anywhere. Which inbox is chosen by
+   * messagingDestination, since one row cannot carry all five destination_type values.
+   */
+  'MESSAGING',
 ] as const;
+
+/**
+ * Ad set destination_type values a messaging launch can use, from
+ * https://developers.facebook.com/docs/marketing-api/adset/destination_type/
+ */
+export const META_MESSAGING_DESTINATIONS = [
+  'INSTAGRAM_DIRECT',
+  'MESSENGER',
+  'WHATSAPP',
+  'MESSAGING_INSTAGRAM_DIRECT_MESSENGER',
+  'MESSAGING_INSTAGRAM_DIRECT_MESSENGER_WHATSAPP',
+  'MESSAGING_INSTAGRAM_DIRECT_WHATSAPP',
+  'MESSAGING_MESSENGER_WHATSAPP',
+] as const;
+
+export type MetaMessagingDestination = (typeof META_MESSAGING_DESTINATIONS)[number];
+
+/** The CTA each messaging destination pairs with. Multi-destination rows lead with Instagram. */
+const MESSAGING_DESTINATION_DEFAULT_CTA: Readonly<Record<MetaMessagingDestination, string>> = {
+  INSTAGRAM_DIRECT: 'INSTAGRAM_MESSAGE',
+  MESSENGER: 'MESSAGE_PAGE',
+  WHATSAPP: 'WHATSAPP_MESSAGE',
+  MESSAGING_INSTAGRAM_DIRECT_MESSENGER: 'INSTAGRAM_MESSAGE',
+  MESSAGING_INSTAGRAM_DIRECT_MESSENGER_WHATSAPP: 'INSTAGRAM_MESSAGE',
+  MESSAGING_INSTAGRAM_DIRECT_WHATSAPP: 'INSTAGRAM_MESSAGE',
+  MESSAGING_MESSENGER_WHATSAPP: 'MESSAGE_PAGE',
+};
 
 export type MetaConversionLocation = (typeof META_CONVERSION_LOCATIONS)[number];
 export type MetaPromotedObjectKind =
@@ -56,6 +89,7 @@ export interface MetaObjectiveLaunchSpec {
     | 'engagement_video'
     | 'leads_website'
     | 'leads_instant_form'
+    | 'engagement_messaging'
     | 'app_installs'
     | 'sales_website'
     | 'sales_catalog';
@@ -80,6 +114,11 @@ export interface MetaObjectiveLaunchRequest {
   optimizationGoal?: string;
   creativeFormat?: MetaCreativeFormat;
   apiVersion?: string;
+  /**
+   * Which inbox a MESSAGING launch opens. Resolves the row's destinationType and
+   * defaultCallToAction; ignored by every other conversion location.
+   */
+  messagingDestination?: MetaMessagingDestination;
 }
 
 export interface MetaObjectiveLaunchInput {
@@ -231,6 +270,49 @@ const MATRIX: Record<MetaObjectiveLaunchSpec['key'], MetaObjectiveLaunchMatrixRo
       'specialAdCategories',
     ],
     supportedCreativeFormats: ['video'],
+    minApiMajor: 23,
+    maxApiMajor: 25,
+  },
+  /**
+   * Click-to-message (CTX / CTWA). Before this row existed, a click-to-message launch
+   * resolved to engagement_post with destinationType ON_POST — boosting likes and
+   * comments, not opening a conversation.
+   *
+   * An existing post carries its own media and copy, and a messaging CTA carries no
+   * link, so this row asks for neither creativeAsset/primaryText/headline nor
+   * destinationUrl. messagingDestination decides which inbox opens.
+   */
+  engagement_messaging: {
+    key: 'engagement_messaging',
+    objective: 'OUTCOME_ENGAGEMENT',
+    conversionLocation: 'MESSAGING',
+    defaultGoal: 'CONVERSATIONS',
+    allowedGoals: ['CONVERSATIONS', 'LINK_CLICKS', 'IMPRESSIONS'],
+    billingEvent: 'IMPRESSIONS',
+    // Replaced with the resolved messagingDestination; there is no single default.
+    destinationType: undefined,
+    destinationMode: 'NONE',
+    promotedObjectKind: 'page',
+    requiredInputs: [
+      'pageId',
+      'messagingDestination',
+      'dailyBudget',
+      'countries',
+      'creativeAsset',
+      'primaryText',
+      'specialAdCategories',
+    ],
+    supportedCreativeFormats: ['existing_post', 'single_image', 'video'],
+    requiredInputsByCreativeFormat: {
+      existing_post: [
+        'pageId',
+        'messagingDestination',
+        'existingPostId',
+        'dailyBudget',
+        'countries',
+        'specialAdCategories',
+      ],
+    },
     minApiMajor: 23,
     maxApiMajor: 25,
   },
@@ -438,8 +520,29 @@ export function resolveMetaObjectiveLaunchSpec(
       ? undefined
       : requiredInputsByCreativeFormat?.[request.creativeFormat];
 
+  // A messaging row has no single destination_type — the caller's chosen inbox is what
+  // makes the resolved spec actionable, and it also picks the matching CTA.
+  const messagingDestination =
+    row.conversionLocation === 'MESSAGING' ? request.messagingDestination : undefined;
+  if (
+    messagingDestination !== undefined &&
+    !META_MESSAGING_DESTINATIONS.includes(messagingDestination)
+  ) {
+    throw new MetaObjectiveLaunchValidationError(
+      'INVALID_OBJECTIVE_DESTINATION_COMBINATION',
+      `${messagingDestination} is not a supported messaging destination.`,
+      `Use one of: ${META_MESSAGING_DESTINATIONS.join(', ')}.`
+    );
+  }
+
   return {
     ...spec,
+    ...(messagingDestination
+      ? {
+          destinationType: messagingDestination,
+          defaultCallToAction: MESSAGING_DESTINATION_DEFAULT_CTA[messagingDestination],
+        }
+      : {}),
     requiredInputs: formatRequiredInputs ?? spec.requiredInputs,
     allowedOptimizationGoals: allowedGoals,
     optimizationGoal,

@@ -45,6 +45,7 @@ import {
   META_CONVERSION_LOCATIONS,
   META_ODAX_OBJECTIVES,
   type MetaConversionLocation,
+  type MetaMessagingDestination,
   type MetaOdaxObjective,
 } from './objectiveLaunchMatrix.js';
 import type { MutationResult } from '../../types.js';
@@ -2995,6 +2996,9 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
           | MetaCreativeFormat
           | undefined,
         apiVersion: optionalPlainString(request.params.apiVersion),
+        messagingDestination: optionalPlainString(request.params.messagingDestination) as
+          | MetaMessagingDestination
+          | undefined,
         productOrOffer: optionalPlainString(request.params.productOrOffer),
         pageId: optionalPlainString(request.params.pageId),
         pixelId: optionalPlainString(request.params.pixelId),

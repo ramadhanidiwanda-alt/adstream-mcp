@@ -228,5 +228,104 @@ describe('launch presets', () => {
     expect(inferLaunchWorkflow('buat campaign awareness untuk brand baru')).toBe('awareness');
     expect(inferLaunchWorkflow('boost postingan existing')).toBe('engagement_post');
     expect(inferLaunchWorkflow('jualan ke website')).toBe('sales_website');
+    expect(inferLaunchWorkflow('iklan click to instagram direct message')).toBe(
+      'engagement_messaging'
+    );
+    expect(inferLaunchWorkflow('bikin CTWA biar orang chat whatsapp')).toBe('engagement_messaging');
+  });
+
+  // Before this workflow existed, OUTCOME_ENGAGEMENT only reached engagement_post, so a
+  // click-to-message launch was steered to destinationType ON_POST — boosting likes
+  // instead of opening a conversation.
+  it.each([
+    { messagingDestination: 'INSTAGRAM_DIRECT', callToAction: 'INSTAGRAM_MESSAGE' },
+    { messagingDestination: 'MESSENGER', callToAction: 'MESSAGE_PAGE' },
+    { messagingDestination: 'WHATSAPP', callToAction: 'WHATSAPP_MESSAGE' },
+    {
+      messagingDestination: 'MESSAGING_INSTAGRAM_DIRECT_WHATSAPP',
+      callToAction: 'INSTAGRAM_MESSAGE',
+    },
+  ] as const)(
+    'resolves $messagingDestination to its own destination type and CTA',
+    ({ messagingDestination, callToAction }) => {
+      const result = checkLaunchReadiness({
+        workflow: 'engagement_messaging',
+        creativeFormat: 'existing_post',
+        messagingDestination,
+        pageId: 'page-1',
+        existingPostId: 'page-1_post-1',
+        dailyBudget: 100000,
+        countries: ['ID'],
+        specialAdCategories: [],
+        writesEnabled: true,
+      });
+
+      expect(result).toMatchObject({
+        ready: true,
+        missing: [],
+        workflow: 'engagement_messaging',
+        resolvedSpec: {
+          objective: 'OUTCOME_ENGAGEMENT',
+          conversionLocation: 'MESSAGING',
+          optimizationGoal: 'CONVERSATIONS',
+          destinationType: messagingDestination,
+          defaultCallToAction: callToAction,
+        },
+      });
+    }
+  );
+
+  it('asks which inbox a click-to-message launch should open', () => {
+    const result = checkLaunchReadiness({
+      workflow: 'engagement_messaging',
+      creativeFormat: 'existing_post',
+      pageId: 'page-1',
+      existingPostId: 'page-1_post-1',
+      dailyBudget: 100000,
+      countries: ['ID'],
+      specialAdCategories: [],
+      writesEnabled: true,
+    });
+
+    expect(result.ready).toBe(false);
+    expect(result.missing).toContain('messagingDestination');
+  });
+
+  // An existing post carries its own media and copy, and a messaging CTA carries no
+  // link, so neither creativeAsset nor destinationUrl belongs on this path.
+  it('does not ask for a destination URL or creative asset on a messaging existing_post launch', () => {
+    const result = checkLaunchReadiness({
+      workflow: 'engagement_messaging',
+      creativeFormat: 'existing_post',
+      messagingDestination: 'INSTAGRAM_DIRECT',
+      pageId: 'page-1',
+      existingPostId: 'page-1_post-1',
+      dailyBudget: 100000,
+      countries: ['ID'],
+      specialAdCategories: [],
+      writesEnabled: true,
+    });
+
+    expect(result.missing).not.toContain('destinationUrl');
+    expect(result.missing).not.toContain('creativeAsset');
+  });
+
+  it('warns that CONVERSATIONS needs a one-day attribution window', () => {
+    const result = checkLaunchReadiness({
+      workflow: 'engagement_messaging',
+      messagingDestination: 'INSTAGRAM_DIRECT',
+    });
+
+    expect(result.warnings.join(' ')).toMatch(/1 hari|window_days/i);
+  });
+
+  it('recommends the UI-clone path for click-to-message launches', () => {
+    expect(getLaunchPreset('engagement_messaging').recommendedTools).toContain('ads_clone_ui_ad');
+  });
+
+  it('points the whatsapp_sales alias at the messaging workflow, not website sales', () => {
+    expect(getLaunchPreset('whatsapp_sales')).toMatchObject({
+      workflow: 'engagement_messaging',
+    });
   });
 });

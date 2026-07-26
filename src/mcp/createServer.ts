@@ -39,6 +39,7 @@ import type { LocationBreakdown } from '../index.js';
 import { META_CREATIVE_FORMATS } from '../types.js';
 import {
   META_CONVERSION_LOCATIONS,
+  META_MESSAGING_DESTINATIONS,
   META_ODAX_OBJECTIVES,
 } from '../providers/meta/objectiveLaunchMatrix.js';
 import { META_LAUNCH_WORKFLOW_INPUT_VALUES } from '../tools/checkLaunchReadiness.js';
@@ -169,6 +170,12 @@ const launchReadinessInputSchema = {
     .optional()
     .describe('Optional intended creative format to validate against the resolved workflow.'),
   apiVersion: z.string().optional().describe('Meta Marketing API version, defaults to v25.0.'),
+  messagingDestination: z
+    .enum(META_MESSAGING_DESTINATIONS)
+    .optional()
+    .describe(
+      'Inbox tujuan untuk workflow engagement_messaging (click-to-message). Menentukan destination_type ad set dan CTA creative yang cocok: INSTAGRAM_DIRECT ↔ INSTAGRAM_MESSAGE, MESSENGER ↔ MESSAGE_PAGE, WHATSAPP ↔ WHATSAPP_MESSAGE. Wajib diisi untuk workflow itu; diabaikan untuk conversion location lain.'
+    ),
   tiktokObjectiveType: z
     .enum([
       'REACH',
