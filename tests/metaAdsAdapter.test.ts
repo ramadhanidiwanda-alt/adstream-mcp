@@ -1,4 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { MetaAdsAdapter } from '../src/providers/meta/MetaAdsAdapter.js';
 import { META_LAUNCH_WORKFLOWS } from '../src/tools/checkLaunchReadiness.js';
 import { MetaApiError } from '../src/utils/metaError.js';
@@ -7,6 +10,37 @@ import type { CreateAdSetResult } from '../src/tools/createAdSet.js';
 import type { CreateAdCreativeOptions } from '../src/tools/createAdCreative.js';
 import type { AdsBrokerRequest, CredentialContext } from '../src/broker/types.js';
 import { adInsight, campaignInsight } from './support/fixtures.js';
+
+async function withWelcomeTemplateStore<T>(
+  templates: Array<{ name: string; pageWelcomeMessage: unknown }>,
+  fn: () => Promise<T>
+): Promise<T> {
+  const previous = process.env.ADSTREAM_WELCOME_MESSAGE_TEMPLATE_STORE;
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'adstream-adapter-templates-'));
+  const storePath = path.join(tempDir, 'templates.json');
+  process.env.ADSTREAM_WELCOME_MESSAGE_TEMPLATE_STORE = storePath;
+  fs.writeFileSync(
+    storePath,
+    JSON.stringify({
+      templates: templates.map((template) => ({
+        ...template,
+        createdAt: '2026-07-26T00:00:00.000Z',
+        updatedAt: '2026-07-26T00:00:00.000Z',
+      })),
+    })
+  );
+
+  try {
+    return await fn();
+  } finally {
+    if (previous === undefined) {
+      delete process.env.ADSTREAM_WELCOME_MESSAGE_TEMPLATE_STORE;
+    } else {
+      process.env.ADSTREAM_WELCOME_MESSAGE_TEMPLATE_STORE = previous;
+    }
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+}
 
 describe('MetaAdsAdapter', () => {
   it('implements required adapter contract shape', () => {
@@ -2184,6 +2218,97 @@ describe('MetaAdsAdapter', () => {
         applinkTreatment: undefined,
       },
     });
+  });
+
+  it('expands welcomeMessageTemplateName into creativeSpec.pageWelcomeMessage', async () => {
+    const pageWelcomeMessage = {
+      type: 'VISUAL_EDITOR',
+      version: 2,
+      text_format: {
+        message: {
+          text: 'Payday welcome',
+          ice_breakers: [{ title: 'Cek promo', response: 'Mau produk apa?' }],
+        },
+      },
+    };
+    let receivedOptions: CreateAdCreativeOptions | undefined;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        createAdCreative: async (_client, options) => {
+          receivedOptions = options;
+          return {
+            operation: 'create_adcreative',
+            status: 'dry_run',
+            executed: false,
+            preview: {},
+          };
+        },
+      },
+    });
+
+    await withWelcomeTemplateStore([{ name: 'payday-dm', pageWelcomeMessage }], async () => {
+      const response = await adapter.createAdCreative({
+        provider: 'meta',
+        accountId: 'act_123',
+        params: {
+          name: 'CTX creative',
+          instagramUserId: '17841421517309865',
+          creativeFormat: 'existing_post',
+          welcomeMessageTemplateName: 'payday-dm',
+          creativeSpec: {
+            sourceInstagramMediaId: '18170919886430243',
+            callToAction: 'INSTAGRAM_MESSAGE',
+            appDestination: 'INSTAGRAM_DIRECT',
+            destinationUrl: 'https://www.instagram.com/',
+          },
+        },
+        credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+      });
+
+      expect(response.ok).toBe(true);
+    });
+
+    expect(receivedOptions?.creative).toMatchObject({
+      creativeFormat: 'existing_post',
+      creativeSpec: {
+        sourceInstagramMediaId: '18170919886430243',
+        pageWelcomeMessage,
+      },
+    });
+  });
+
+  it('rejects welcomeMessageTemplateName when creativeSpec already has pageWelcomeMessage', async () => {
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: { createAdCreative: vi.fn() },
+    });
+
+    await withWelcomeTemplateStore(
+      [{ name: 'payday-dm', pageWelcomeMessage: 'Halo dari template' }],
+      async () => {
+        const response = await adapter.createAdCreative({
+          provider: 'meta',
+          accountId: 'act_123',
+          params: {
+            name: 'CTX creative',
+            creativeFormat: 'existing_post',
+            welcomeMessageTemplateName: 'payday-dm',
+            creativeSpec: {
+              sourceInstagramMediaId: '18170919886430243',
+              callToAction: 'INSTAGRAM_MESSAGE',
+              appDestination: 'INSTAGRAM_DIRECT',
+              destinationUrl: 'https://www.instagram.com/',
+              pageWelcomeMessage: 'Inline halo',
+            },
+          },
+          credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+        });
+
+        expect(response.ok).toBe(false);
+        expect(response.errors?.[0]?.message).toMatch(/welcomeMessageTemplateName/i);
+      }
+    );
   });
 
   it('passes the standard app spec through to canonical App Promotion creative building', async () => {

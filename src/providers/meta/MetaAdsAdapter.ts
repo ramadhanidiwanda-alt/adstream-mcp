@@ -59,6 +59,7 @@ import { createCampaign as createCampaignTool } from '../../tools/createCampaign
 import { createAdSet as createAdSetTool } from '../../tools/createAdSet.js';
 import { createAdCreative as createAdCreativeTool } from '../../tools/createAdCreative.js';
 import type { CreativeDestinationType } from '../../tools/createAdCreative.js';
+import { getWelcomeMessageTemplate } from '../../tools/welcomeMessageTemplates.js';
 import { createAd as createAdTool } from '../../tools/createAd.js';
 import { cloneUiAd as cloneUiAdTool } from '../../tools/cloneUiAd.js';
 import { archiveAd as archiveAdTool } from '../../tools/archiveAd.js';
@@ -1609,11 +1610,16 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
     let destinationType: CreativeDestinationType | undefined;
     let objective: MetaOdaxObjective | undefined;
     let conversionLocation: MetaConversionLocation | undefined;
+    let welcomeMessageTemplateName: string | undefined;
     try {
       mode = parseMetaAdsMode(request.params.mode);
       destinationType = parseCreativeDestinationType(request.params.destinationType);
       objective = parseMetaOdaxObjective(request.params.objective);
       conversionLocation = parseMetaConversionLocation(request.params.conversionLocation);
+      welcomeMessageTemplateName = optionalString(
+        request.params.welcomeMessageTemplateName,
+        'welcomeMessageTemplateName'
+      );
       collaborativeProductSetId = optionalString(
         request.params.collaborativeProductSetId,
         'collaborativeProductSetId'
@@ -1624,7 +1630,14 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
         const creativeFormat = parseMetaCreativeFormat(request.params.creativeFormat);
         creative = parseMetaCreativeSpec(
           creativeFormat,
-          requireRecord(request.params.creativeSpec, 'creativeSpec')
+          await withResolvedWelcomeMessageTemplate(
+            requireRecord(request.params.creativeSpec, 'creativeSpec'),
+            welcomeMessageTemplateName
+          )
+        );
+      } else if (welcomeMessageTemplateName) {
+        throw new Error(
+          'welcomeMessageTemplateName hanya dapat digunakan bersama creativeFormat dan creativeSpec.'
         );
       }
     } catch (error) {
@@ -3546,6 +3559,7 @@ export const CREATE_AD_CREATIVE_PARAMS = new Set([
   'videoId',
   'callToActionType',
   'urlTags',
+  'welcomeMessageTemplateName',
   'instagramUserId',
   'threadsProfileId',
   'destinationType',
@@ -4131,6 +4145,28 @@ function parseMetaCreativeSpec(
         },
       };
   }
+}
+
+async function withResolvedWelcomeMessageTemplate(
+  spec: Record<string, unknown>,
+  templateName: string | undefined
+): Promise<Record<string, unknown>> {
+  if (!templateName) return spec;
+  if (spec.pageWelcomeMessage !== undefined) {
+    throw new Error(
+      'welcomeMessageTemplateName tidak dapat digunakan bersamaan dengan creativeSpec.pageWelcomeMessage.'
+    );
+  }
+
+  const template = await getWelcomeMessageTemplate(templateName);
+  if (!template) {
+    throw new Error(`Welcome message template "${templateName}" tidak ditemukan.`);
+  }
+
+  return {
+    ...spec,
+    pageWelcomeMessage: template.pageWelcomeMessage,
+  };
 }
 
 function requireRecord(value: unknown, path: string): Record<string, unknown> {

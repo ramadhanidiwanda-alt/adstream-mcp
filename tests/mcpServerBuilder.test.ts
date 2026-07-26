@@ -416,6 +416,7 @@ describe('MCP server builder', () => {
     expect(creativeProperties).toHaveProperty('conversionLocation');
     expect(creativeProperties).toHaveProperty('creativeFormat');
     expect(creativeProperties).toHaveProperty('creativeSpec');
+    expect(creativeProperties).toHaveProperty('welcomeMessageTemplateName');
     const canonicalCreateToolNames = [
       'ads_create_campaign',
       'ads_create_adset',
@@ -426,6 +427,7 @@ describe('MCP server builder', () => {
       canonicalCreateToolNames
     );
     expect(toolNames.filter((name) => name.startsWith('ads_create_'))).toEqual([
+      'ads_create_welcome_message_template',
       ...canonicalCreateToolNames,
       'ads_create_ecommerce_campaign_bundle',
     ]);

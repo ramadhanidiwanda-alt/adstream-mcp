@@ -1,4 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import {
   ADS_MCP_TOOL_DEFINITIONS,
   getAdsMcpToolDefinitions,
@@ -174,6 +177,23 @@ function parseToolResponse(
   return JSON.parse(response.content[0].text) as AdsBrokerResponse;
 }
 
+async function withTemplateStore<T>(fn: (storePath: string) => Promise<T>): Promise<T> {
+  const previous = process.env.ADSTREAM_WELCOME_MESSAGE_TEMPLATE_STORE;
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'adstream-welcome-templates-'));
+  process.env.ADSTREAM_WELCOME_MESSAGE_TEMPLATE_STORE = path.join(tempDir, 'templates.json');
+
+  try {
+    return await fn(process.env.ADSTREAM_WELCOME_MESSAGE_TEMPLATE_STORE);
+  } finally {
+    if (previous === undefined) {
+      delete process.env.ADSTREAM_WELCOME_MESSAGE_TEMPLATE_STORE;
+    } else {
+      process.env.ADSTREAM_WELCOME_MESSAGE_TEMPLATE_STORE = previous;
+    }
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
 describe('ads MCP broker tools', () => {
   it('labels read tools as safe to read repeatedly', () => {
     expect(getAdsMcpToolAnnotations('ads_get_performance')).toMatchObject({
@@ -304,6 +324,72 @@ describe('ads MCP broker tools', () => {
     });
   });
 
+  it('exposes local welcome message template tools and creative template selection', () => {
+    const createTool = ADS_MCP_TOOL_DEFINITIONS.find(
+      ({ name }) => name === 'ads_create_welcome_message_template'
+    );
+    const listTool = ADS_MCP_TOOL_DEFINITIONS.find(
+      ({ name }) => name === 'ads_list_welcome_message_templates'
+    );
+    const creativeTool = ADS_MCP_TOOL_DEFINITIONS.find(
+      ({ name }) => name === 'ads_create_adcreative'
+    );
+    const creativeProperties = creativeTool?.inputSchema.properties as Record<string, unknown>;
+
+    expect(createTool?.inputSchema.required).toEqual(['name', 'pageWelcomeMessage']);
+    expect(listTool?.inputSchema.required).toEqual([]);
+    expect(creativeProperties.welcomeMessageTemplateName).toMatchObject({ type: 'string' });
+  });
+
+  it('creates and lists reusable welcome message templates in the local store', async () => {
+    const broker = createBrokerStub();
+    const previousWrites = process.env.ADSTREAM_ENABLE_WRITES;
+
+    await withTemplateStore(async () => {
+      try {
+        process.env.ADSTREAM_ENABLE_WRITES = 'true';
+        const pageWelcomeMessage = {
+          type: 'VISUAL_EDITOR',
+          version: 2,
+          text_format: {
+            message: {
+              text: 'Payday welcome',
+              ice_breakers: [{ title: 'Cek promo', response: 'Mau produk apa?' }],
+            },
+          },
+        };
+
+        const created = parseToolResponse(
+          await handleAdsMcpToolCall(broker, 'ads_create_welcome_message_template', {
+            name: 'payday-dm',
+            pageWelcomeMessage,
+          })
+        );
+
+        expect(created.ok).toBe(true);
+        expect(created.data).toMatchObject({
+          name: 'payday-dm',
+          pageWelcomeMessage,
+        });
+
+        const listed = parseToolResponse(
+          await handleAdsMcpToolCall(broker, 'ads_list_welcome_message_templates', {})
+        );
+
+        expect(listed.ok).toBe(true);
+        expect(listed.data).toEqual([
+          expect.objectContaining({ name: 'payday-dm', pageWelcomeMessage }),
+        ]);
+      } finally {
+        if (previousWrites === undefined) {
+          delete process.env.ADSTREAM_ENABLE_WRITES;
+        } else {
+          process.env.ADSTREAM_ENABLE_WRITES = previousWrites;
+        }
+      }
+    });
+  });
+
   it('defines new ads tools without removing legacy names from expected server surface', () => {
     const adsToolNames = ADS_MCP_TOOL_DEFINITIONS.map((tool) => tool.name);
 
@@ -313,6 +399,7 @@ describe('ads MCP broker tools', () => {
       'ads_check_launch_readiness',
       'ads_get_performance',
       'ads_get_creatives',
+      'ads_list_welcome_message_templates',
       'ads_get_change_history',
       'ads_get_capabilities',
       'ads_get_account_performance',
@@ -323,6 +410,7 @@ describe('ads MCP broker tools', () => {
       'ads_get_placement_performance',
       'ads_content_matrix',
       'ads_generate_report',
+      'ads_create_welcome_message_template',
       'ads_pause_campaign',
       'ads_resume_campaign',
       'ads_update_campaign_budget',

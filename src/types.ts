@@ -45,9 +45,9 @@ export interface MetaAssetMessageExtension {
 export type MetaPageWelcomeMessage = string | Record<string, unknown>;
 
 /**
- * call_to_action.value.app_destination for messaging CTAs. Per Meta's Click to
- * Instagram docs the value needs ONLY app_destination — adding a `link` alongside it
- * is what produces a live ad whose CTA button does nothing.
+ * call_to_action.value.app_destination for messaging CTAs. Existing-post Click to
+ * Instagram Direct creatives also need call_to_action.value.link; Meta rejects
+ * app_destination-only payloads for that shape with "link required".
  */
 export type MetaAppDestination = 'INSTAGRAM_DIRECT' | 'MESSENGER' | 'WHATSAPP';
 
@@ -158,10 +158,10 @@ export interface MetaExistingPostCreativeSpec {
    * omnichannel_link_spec.web.url for CPAS/omnichannel ad sets. Rejected when neither
    * is present, since nothing would carry it.
    *
-   * NOT used by messaging CTAs (INSTAGRAM_MESSAGE, MESSAGE_PAGE, WHATSAPP_MESSAGE),
-   * whose value carries app_destination instead. Supplying both is rejected: a
-   * messaging call_to_action that carries value.link renders a button that does
-   * nothing when the ad goes live.
+   * For existing-post messaging CTAs with appDestination, this is still required
+   * and is sent alongside value.app_destination as call_to_action.value.link.
+   * Messaging CTAs without appDestination still must not receive destinationUrl,
+   * because nothing would carry it safely.
    *
    * On the collaborativeAppSpec path this cannot retroactively fix object_store_urls
    * missing from the referenced post's own call_to_action — that was fixed when the
@@ -182,7 +182,8 @@ export interface MetaExistingPostCreativeSpec {
   /**
    * Messaging destination for a click-to-message CTA, emitted as
    * call_to_action.value.app_destination. Requires callToAction (there is nowhere
-   * else to put it) and excludes destinationUrl.
+   * else to put it). On existing_post creatives, destinationUrl is also required
+   * so the CTA value includes Meta's required link.
    */
   appDestination?: MetaAppDestination;
   /**

@@ -831,10 +831,11 @@ describe('buildMetaCreativeFormatPayload', () => {
     ).toThrow(/destinationUrl.*butuh callToAction/is);
   });
 
-  // Regression for the 2026-07-26 CTX incident: appDestination and pageWelcomeMessage
-  // were accepted and then dropped, and destinationUrl was mandatory, so the creative
-  // shipped with call_to_action.value.link — a live ad whose button did nothing.
-  it('builds a Click-to-Instagram-Direct existing_post creative with app_destination and a welcome message', () => {
+  // Regression for the 2026-07-26 CTX incident: Meta accepts the existing-post
+  // Instagram messaging CTA only when the value carries both app_destination and
+  // link. appDestination alone dry-runs locally but Graph rejects it with subcode
+  // 2061015 ("link required").
+  it('builds a Click-to-Instagram-Direct existing_post creative with app_destination, link, and a welcome message', () => {
     const pageWelcomeMessage = {
       type: 'VISUAL_EDITOR',
       version: 2,
@@ -859,6 +860,7 @@ describe('buildMetaCreativeFormatPayload', () => {
           sourceInstagramMediaId: '18170919886430243',
           callToAction: 'INSTAGRAM_MESSAGE',
           appDestination: 'INSTAGRAM_DIRECT',
+          destinationUrl: 'https://www.instagram.com/',
           pageWelcomeMessage,
         },
       })
@@ -867,7 +869,10 @@ describe('buildMetaCreativeFormatPayload', () => {
       instagram_user_id: '17841421517309865',
       call_to_action: {
         type: 'INSTAGRAM_MESSAGE',
-        value: { app_destination: 'INSTAGRAM_DIRECT' },
+        value: {
+          app_destination: 'INSTAGRAM_DIRECT',
+          link: 'https://www.instagram.com/',
+        },
       },
       page_welcome_message: pageWelcomeMessage,
     });
@@ -884,15 +889,23 @@ describe('buildMetaCreativeFormatPayload', () => {
         sourceInstagramMediaId: '18170919886430243',
         callToAction: 'INSTAGRAM_MESSAGE',
         appDestination: 'INSTAGRAM_DIRECT',
+        destinationUrl: 'https://www.instagram.com/',
         pageWelcomeMessage: 'Halo!',
       },
     });
 
     expect(payload.object_story_spec).toBeUndefined();
+    expect(payload.call_to_action).toEqual({
+      type: 'INSTAGRAM_MESSAGE',
+      value: {
+        app_destination: 'INSTAGRAM_DIRECT',
+        link: 'https://www.instagram.com/',
+      },
+    });
     expect(payload.page_welcome_message).toBe('Halo!');
   });
 
-  it('does not require destinationUrl for a messaging call to action on an existing_post creative', () => {
+  it('does not require destinationUrl for a messaging call to action without appDestination on an existing_post creative', () => {
     for (const callToAction of ['INSTAGRAM_MESSAGE', 'MESSAGE_PAGE', 'WHATSAPP_MESSAGE']) {
       expect(
         buildMetaCreativeFormatPayload({
@@ -908,8 +921,22 @@ describe('buildMetaCreativeFormatPayload', () => {
     }
   });
 
-  // value.link alongside a messaging CTA is exactly the dead-button shape.
-  it('rejects destinationUrl combined with appDestination on an existing_post creative', () => {
+  it('rejects a messaging destinationUrl that would be silently dropped without appDestination', () => {
+    expect(() =>
+      buildMetaCreativeFormatPayload({
+        mode: 'standard',
+        pageId: 'page-1',
+        creativeFormat: 'existing_post',
+        creativeSpec: {
+          sourceInstagramMediaId: '18170919886430243',
+          callToAction: 'INSTAGRAM_MESSAGE',
+          destinationUrl: 'https://www.instagram.com/',
+        },
+      })
+    ).toThrow(/destinationUrl.*appDestination/is);
+  });
+
+  it('requires destinationUrl when appDestination is set on an existing_post messaging creative', () => {
     expect(() =>
       buildMetaCreativeFormatPayload({
         mode: 'standard',
@@ -919,10 +946,9 @@ describe('buildMetaCreativeFormatPayload', () => {
           sourceInstagramMediaId: '18170919886430243',
           callToAction: 'INSTAGRAM_MESSAGE',
           appDestination: 'INSTAGRAM_DIRECT',
-          destinationUrl: 'https://www.instagram.com/',
         },
       })
-    ).toThrow(/destinationUrl tidak dipakai oleh callToAction messaging/i);
+    ).toThrow(/destinationUrl.*appDestination/is);
   });
 
   it('rejects appDestination without a callToAction on an existing_post creative', () => {

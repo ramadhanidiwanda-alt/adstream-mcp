@@ -83,9 +83,9 @@ function optionalWelcomeMessage(
 }
 
 /**
- * Click-to-message CTAs. Their call_to_action carries app_destination (or nothing at
- * all), never value.link: a messaging CTA whose value is a link renders a live button
- * that does nothing. See Meta's Click to Instagram / Click to WhatsApp docs.
+ * Click-to-message CTAs usually carry app_destination (or nothing at all). Existing
+ * Instagram posts are a narrower Graph API exception: Meta requires both
+ * app_destination and link for an INSTAGRAM_MESSAGE CTA.
  */
 const MESSAGING_CTA_TYPES: ReadonlySet<string> = new Set([
   'INSTAGRAM_MESSAGE',
@@ -103,12 +103,14 @@ function cta(
   collaborativeAppSpec?: MetaCollaborativeAppSpec,
   leadFormId?: string,
   standardAppSpec?: MetaStandardAppSpec,
-  appDestination?: string
+  appDestination?: string,
+  allowDestinationWithAppDestination = false
 ): Record<string, unknown> {
   const normalizedType = type?.trim() || 'LEARN_MORE';
 
   if (appDestination) {
-    if (destinationUrl?.trim()) {
+    const normalizedDestinationUrl = destinationUrl?.trim();
+    if (normalizedDestinationUrl && !allowDestinationWithAppDestination) {
       throw new Error(
         'appDestination dan destinationUrl tidak dapat digunakan bersamaan. CTA messaging hanya membawa call_to_action.value.app_destination; menambahkan value.link membuat tombol CTA mati saat iklan tayang.'
       );
@@ -118,9 +120,13 @@ function cta(
         `appDestination hanya berlaku untuk callToAction messaging (${[...MESSAGING_CTA_TYPES].join(', ')}), bukan ${normalizedType}.`
       );
     }
+    const value: Record<string, unknown> = {
+      app_destination: required(appDestination, 'appDestination'),
+    };
+    if (normalizedDestinationUrl) value.link = normalizedDestinationUrl;
     return {
       type: normalizedType,
-      value: { app_destination: required(appDestination, 'appDestination') },
+      value,
     };
   }
 
@@ -508,13 +514,21 @@ function buildExistingPost(
     // call_to_action carrying value.link is accepted and stored — that is the shape
     // Ads Manager itself writes for a boosted Instagram post.
     //
-    // A messaging CTA carries app_destination (or nothing) instead of a link. Nothing
-    // else on an existing_post creative would carry destinationUrl, so combining the
-    // two is rejected rather than silently dropped — that drop is what shipped a CTX
-    // ad with a dead button on 2026-07-26.
-    if (isMessaging && creativeSpec.destinationUrl !== undefined && !input.collaborativeAppSpec) {
+    // Without appDestination, cta() would intentionally omit value.link for messaging
+    // CTAs. Reject that shape so a caller does not think the URL will be sent.
+    if (
+      isMessaging &&
+      creativeSpec.destinationUrl !== undefined &&
+      !appDestination &&
+      !input.collaborativeAppSpec
+    ) {
       throw new Error(
-        `destinationUrl tidak dipakai oleh callToAction messaging (${callToAction}) pada existing_post — CTA-nya membawa call_to_action.value.app_destination, bukan value.link. Hapus destinationUrl, dan isi appDestination bila perlu menentukan tujuan pesannya.`
+        `destinationUrl pada callToAction messaging (${callToAction}) untuk existing_post hanya valid bersama appDestination, agar terkirim sebagai call_to_action.value.link dan value.app_destination.`
+      );
+    }
+    if (isMessaging && appDestination && !creativeSpec.destinationUrl?.trim()) {
+      throw new Error(
+        `destinationUrl wajib diisi bersama appDestination pada callToAction messaging (${callToAction}) untuk existing_post; Meta Graph membutuhkan call_to_action.value.link.`
       );
     }
 
@@ -529,7 +543,8 @@ function buildExistingPost(
       input.collaborativeAppSpec,
       undefined,
       undefined,
-      appDestination
+      appDestination,
+      true
     );
   } else if (creativeSpec.destinationUrl !== undefined && !input.collaborativeAppSpec) {
     // Nothing would carry the URL, so say so instead of dropping it.
