@@ -1380,5 +1380,19 @@ describe('ads MCP broker tools', () => {
       const request = toAdsBrokerRequest({ provider: 'meta' });
       expect(request.connectionKey).toBeUndefined();
     });
+
+    // Scoping args are reached for at the top level as often as inside params. Both
+    // have to arrive, or a filter is dropped between the tool call and the adapter.
+    it('toAdsBrokerRequest hoists top-level scoping args into params', () => {
+      const request = toAdsBrokerRequest({
+        provider: 'meta',
+        accountId: 'act_123',
+        adSetId: 'as_1',
+        campaignId: 'cmp_1',
+      });
+
+      expect(request.accountId).toBe('act_123');
+      expect(request.params).toMatchObject({ adSetId: 'as_1', campaignId: 'cmp_1' });
+    });
   });
 });

@@ -752,6 +752,67 @@ describe('MetaAdsAdapter', () => {
     }
   });
 
+  // ads_get_ad_creative_mapping documented only adIds[], so nobody knew adSetId was
+  // available; asking for one ad set and receiving the account's most recent ads led to
+  // a wrong conclusion about what an ad set contained. Lock the scoping in end to end.
+  it.each([
+    { label: 'adSetId', field: 'adSetId' },
+    { label: 'adsetId alias', field: 'adsetId' },
+  ])('scopes ad→creative mapping to the ad set edge when given $label', async ({ field }) => {
+    const capturedPaths: string[] = [];
+    const adapter = new MetaAdsAdapter({
+      clientFactory: () =>
+        ({
+          metaGet: async (path: string) => {
+            capturedPaths.push(path);
+            return { data: [], paging: {} };
+          },
+        }) as never,
+    });
+
+    const response = await adapter.getAdCreativeMapping({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: { [field]: 'as_1' },
+      credentials: {
+        provider: 'meta',
+        accessToken: 'secret-token',
+        accountId: 'act_123',
+        source: 'test',
+      },
+    });
+
+    expect(response.ok).toBe(true);
+    expect(capturedPaths).toEqual(['/as_1/ads']);
+  });
+
+  it('scopes ad→creative mapping to the campaign edge when given campaignId', async () => {
+    const capturedPaths: string[] = [];
+    const adapter = new MetaAdsAdapter({
+      clientFactory: () =>
+        ({
+          metaGet: async (path: string) => {
+            capturedPaths.push(path);
+            return { data: [], paging: {} };
+          },
+        }) as never,
+    });
+
+    await adapter.getAdCreativeMapping({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: { campaignId: 'cmp_1' },
+      credentials: {
+        provider: 'meta',
+        accessToken: 'secret-token',
+        accountId: 'act_123',
+        source: 'test',
+      },
+    });
+
+    expect(capturedPaths).toEqual(['/cmp_1/ads']);
+  });
+
   it('fetches Meta creative assets and maps them to creative records', async () => {
     let capturedPath: string | undefined;
     let capturedParams: Record<string, unknown> | undefined;
