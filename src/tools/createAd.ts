@@ -6,6 +6,7 @@ import {
   formatStructuredMetaWriteError,
 } from '../utils/formatMetaWriteError.js';
 import { getOmnichannelCompatibilityError } from '../providers/meta/omnichannelAdCompatibility.js';
+import { getMessagingDestinationCompatibilityError } from '../providers/meta/messagingDestinationCompatibility.js';
 
 export type AdStatus = 'ACTIVE' | 'PAUSED';
 
@@ -26,6 +27,8 @@ export interface CreateAdOptions {
    * Use for CTWA placement customization paths that intentionally do not rely on Dynamic Creative.
    */
   skipPlacementCompatibilityCheck?: boolean;
+  /** Skip the messaging destination/CTA cross-check (use only if the mapping misfires). */
+  skipMessagingDestinationCheck?: boolean;
 }
 
 export type CreateAdStatus = 'dry_run' | 'pending_confirmation' | 'executed' | 'failed' | 'deduped';
@@ -66,11 +69,19 @@ export async function createAd(
   if (options.externalReference) {
     preview.external_reference = options.externalReference;
   }
-  const warnings = options.skipPlacementCompatibilityCheck
-    ? [
-        'Placement compatibility pre-flight skipped by request. Continue only after reviewing the creative payload and Meta preview.',
-      ]
-    : undefined;
+  const skipWarnings = [
+    ...(options.skipPlacementCompatibilityCheck
+      ? [
+          'Placement compatibility pre-flight skipped by request. Continue only after reviewing the creative payload and Meta preview.',
+        ]
+      : []),
+    ...(options.skipMessagingDestinationCheck
+      ? [
+          'Messaging destination/CTA cross-check skipped by request. Confirm in Ads Manager that the CTA button opens the intended inbox before activating.',
+        ]
+      : []),
+  ];
+  const warnings = skipWarnings.length > 0 ? skipWarnings : undefined;
   const baseResult: CreateAdResult = {
     operation: 'create_ad',
     status: 'dry_run',
@@ -90,6 +101,25 @@ export async function createAd(
     );
     if (omnichannelError) {
       return { ...baseResult, status: 'failed', executed: false, error: omnichannelError };
+    }
+  }
+
+  // Pre-flight: a click-to-message ad set needs a creative whose CTA opens the same
+  // inbox. Meta accepts the mismatch and the ad runs with a button pointing elsewhere.
+  if (!options.skipMessagingDestinationCheck) {
+    const messagingDestinationError = await getMessagingDestinationCompatibilityError(
+      client,
+      options.adSetId,
+      options.creativeId,
+      maxRetries
+    );
+    if (messagingDestinationError) {
+      return {
+        ...baseResult,
+        status: 'failed',
+        executed: false,
+        error: messagingDestinationError,
+      };
     }
   }
 

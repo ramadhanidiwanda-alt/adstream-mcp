@@ -43,11 +43,9 @@ describe('social account discovery tools', () => {
   it('lists Threads profiles connected to managed Pages', async () => {
     const client = {
       metaGet: vi.fn().mockResolvedValue({ data: [{ id: 'page_1', name: 'Page One' }] }),
-      metaGetObject: vi
-        .fn()
-        .mockResolvedValue({
-          threads_profile: { id: 'threads_1', username: 'brandone', name: 'Brand One' },
-        }),
+      metaGetObject: vi.fn().mockResolvedValue({
+        threads_profile: { id: 'threads_1', username: 'brandone', name: 'Brand One' },
+      }),
     } as unknown as MetaClient;
 
     const profiles = await listThreadsProfiles(client);

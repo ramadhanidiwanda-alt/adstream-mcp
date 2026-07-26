@@ -44,6 +44,34 @@ describe('buildCloneAdSetPayload', () => {
     expect(payload.end_time).toBe('2026-07-27T23:59:00+0700');
   });
 
+  // Cloning a 7-day-click source to optimizationGoal CONVERSATIONS is rejected by Meta
+  // (subcode 1885423) because messaging optimization only supports a 1-day window, and
+  // there was no way to override the inherited spec.
+  it('overrides the inherited attribution_spec', () => {
+    const payload = buildCloneAdSetPayload(source, {
+      adAccountId: 'act_1',
+      sourceAdSetId: 'as_src',
+      optimizationGoal: 'CONVERSATIONS',
+      attributionSpec: [{ event_type: 'CLICK_THROUGH', window_days: 1 }],
+    });
+
+    expect(payload.attribution_spec).toEqual([{ event_type: 'CLICK_THROUGH', window_days: 1 }]);
+    expect(payload.optimization_goal).toBe('CONVERSATIONS');
+  });
+
+  it.each([{ attributionSpec: null }, { attributionSpec: [] }])(
+    'drops the inherited attribution_spec when given $attributionSpec',
+    ({ attributionSpec }) => {
+      const payload = buildCloneAdSetPayload(source, {
+        adAccountId: 'act_1',
+        sourceAdSetId: 'as_src',
+        attributionSpec,
+      });
+
+      expect(payload).not.toHaveProperty('attribution_spec');
+    }
+  );
+
   it('keeps age_range (writable, tied to targeting_automation.advantage_audience) and custom audiences', () => {
     const payload = buildCloneAdSetPayload(source, {
       adAccountId: 'act_1',

@@ -29,19 +29,23 @@ import type {
   Campaign,
   CampaignInsight,
   MetaAdsMode,
+  MetaAppDestination,
   MetaApplinkTreatment,
   MetaCollaborativeAppSpec,
   MetaCollaborativeCatalogContext,
   MetaConfig,
   MetaCreativeFormat,
+  MetaPageWelcomeMessage,
   MetaStandardAppSpec,
   MetaCreativeSpec,
   PlacementPerformanceReport,
 } from '../../types.js';
+import { META_CREATIVE_FORMATS } from '../../types.js';
 import {
   META_CONVERSION_LOCATIONS,
   META_ODAX_OBJECTIVES,
   type MetaConversionLocation,
+  type MetaMessagingDestination,
   type MetaOdaxObjective,
 } from './objectiveLaunchMatrix.js';
 import type { MutationResult } from '../../types.js';
@@ -55,6 +59,7 @@ import { createCampaign as createCampaignTool } from '../../tools/createCampaign
 import { createAdSet as createAdSetTool } from '../../tools/createAdSet.js';
 import { createAdCreative as createAdCreativeTool } from '../../tools/createAdCreative.js';
 import type { CreativeDestinationType } from '../../tools/createAdCreative.js';
+import { getWelcomeMessageTemplate } from '../../tools/welcomeMessageTemplates.js';
 import { createAd as createAdTool } from '../../tools/createAd.js';
 import { cloneUiAd as cloneUiAdTool } from '../../tools/cloneUiAd.js';
 import { archiveAd as archiveAdTool } from '../../tools/archiveAd.js';
@@ -1605,11 +1610,16 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
     let destinationType: CreativeDestinationType | undefined;
     let objective: MetaOdaxObjective | undefined;
     let conversionLocation: MetaConversionLocation | undefined;
+    let welcomeMessageTemplateName: string | undefined;
     try {
       mode = parseMetaAdsMode(request.params.mode);
       destinationType = parseCreativeDestinationType(request.params.destinationType);
       objective = parseMetaOdaxObjective(request.params.objective);
       conversionLocation = parseMetaConversionLocation(request.params.conversionLocation);
+      welcomeMessageTemplateName = optionalString(
+        request.params.welcomeMessageTemplateName,
+        'welcomeMessageTemplateName'
+      );
       collaborativeProductSetId = optionalString(
         request.params.collaborativeProductSetId,
         'collaborativeProductSetId'
@@ -1620,7 +1630,14 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
         const creativeFormat = parseMetaCreativeFormat(request.params.creativeFormat);
         creative = parseMetaCreativeSpec(
           creativeFormat,
-          requireRecord(request.params.creativeSpec, 'creativeSpec')
+          await withResolvedWelcomeMessageTemplate(
+            requireRecord(request.params.creativeSpec, 'creativeSpec'),
+            welcomeMessageTemplateName
+          )
+        );
+      } else if (welcomeMessageTemplateName) {
+        throw new Error(
+          'welcomeMessageTemplateName hanya dapat digunakan bersama creativeFormat dan creativeSpec.'
         );
       }
     } catch (error) {
@@ -1821,6 +1838,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
           dedupeByName: request.params.dedupeByName === true,
           skipOmnichannelCheck: request.params.skipOmnichannelCheck === true,
           skipPlacementCompatibilityCheck: request.params.skipPlacementCompatibilityCheck === true,
+          skipMessagingDestinationCheck: request.params.skipMessagingDestinationCheck === true,
           externalReference:
             typeof request.params.externalReference === 'string'
               ? request.params.externalReference
@@ -2070,6 +2088,18 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
     }
 
     try {
+      // The raw Graph spelling would otherwise be ignored, leaving the caller to
+      // believe their attribution override applied when the source's window was
+      // copied verbatim.
+      if (
+        request.params.attribution_spec !== undefined &&
+        request.params.attributionSpec === undefined
+      ) {
+        throw new Error(
+          'attribution_spec tidak dikenali dan TIDAK dikirim ke Meta. Pakai attributionSpec (camelCase).'
+        );
+      }
+
       const client = this.createClient(context.credential);
       const result = await this.tools.cloneAdSet(
         client,
@@ -2096,6 +2126,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
             typeof request.params.optimizationGoal === 'string'
               ? request.params.optimizationGoal
               : undefined,
+          attributionSpec: parseAttributionSpec(request.params.attributionSpec),
         },
         {
           dryRun: request.params.dryRun !== false,
@@ -2978,6 +3009,9 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
           | MetaCreativeFormat
           | undefined,
         apiVersion: optionalPlainString(request.params.apiVersion),
+        messagingDestination: optionalPlainString(request.params.messagingDestination) as
+          | MetaMessagingDestination
+          | undefined,
         productOrOffer: optionalPlainString(request.params.productOrOffer),
         pageId: optionalPlainString(request.params.pageId),
         pixelId: optionalPlainString(request.params.pixelId),
@@ -3525,6 +3559,7 @@ export const CREATE_AD_CREATIVE_PARAMS = new Set([
   'videoId',
   'callToActionType',
   'urlTags',
+  'welcomeMessageTemplateName',
   'instagramUserId',
   'threadsProfileId',
   'destinationType',
@@ -3579,6 +3614,23 @@ function assertKnownParams(
   );
 }
 
+/**
+ * attribution_spec override for a clone. Accepts Meta's own array shape; null and []
+ * both mean "drop the source's attribution_spec". The raw `attribution_spec` spelling
+ * is named explicitly rather than accepted, so a caller who reaches for it learns the
+ * right key instead of watching their override disappear.
+ */
+function parseAttributionSpec(value: unknown): Array<Record<string, unknown>> | null | undefined {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+  if (!Array.isArray(value)) {
+    throw new Error(
+      'attributionSpec harus berupa array attribution_spec Meta, mis. [{ event_type: "CLICK_THROUGH", window_days: 1 }], atau null untuk membuang attribution_spec bawaan sumber.'
+    );
+  }
+  return value.map((entry, index) => requireRecord(entry, `attributionSpec[${index}]`));
+}
+
 function parseIdParam(value: unknown): string | string[] | undefined {
   if (typeof value === 'string') return value;
   if (Array.isArray(value) && value.every((item) => typeof item === 'string')) return value;
@@ -3623,6 +3675,10 @@ const CREATIVE_DESTINATION_TYPES: readonly CreativeDestinationType[] = [
   'MESSENGER',
   'INSTAGRAM_DIRECT',
   'APP',
+  'MESSAGING_INSTAGRAM_DIRECT_MESSENGER',
+  'MESSAGING_INSTAGRAM_DIRECT_MESSENGER_WHATSAPP',
+  'MESSAGING_INSTAGRAM_DIRECT_WHATSAPP',
+  'MESSAGING_MESSENGER_WHATSAPP',
 ];
 
 /**
@@ -3760,10 +3816,133 @@ function parseStandardAppSpec(value: unknown): MetaStandardAppSpec | undefined {
   };
 }
 
+/**
+ * Every field each creativeFormat actually reads, mirroring the specs in types.ts.
+ * parseMetaCreativeSpec picks fields by name, so anything missing from these sets
+ * used to vanish between a clean dry-run and the Graph API call — which is how a
+ * Click-to-Instagram ad shipped with a dead button on 2026-07-26. Keep in sync with
+ * the corresponding interface whenever a field is added.
+ */
+const COMMON_CREATIVE_COPY_FIELDS = [
+  'primaryText',
+  'headline',
+  'description',
+  'callToAction',
+  'destinationUrl',
+] as const;
+
+const CREATIVE_SPEC_FIELDS: Record<MetaCreativeFormat, ReadonlySet<string>> = {
+  single_image: new Set([
+    ...COMMON_CREATIVE_COPY_FIELDS,
+    'imageHash',
+    'leadFormId',
+    'pageWelcomeMessage',
+    'applinkTreatment',
+  ]),
+  video: new Set([
+    ...COMMON_CREATIVE_COPY_FIELDS,
+    'videoId',
+    'leadFormId',
+    'thumbnailImageHash',
+    'thumbnailImageUrl',
+    'pageWelcomeMessage',
+    'applinkTreatment',
+  ]),
+  carousel: new Set([...COMMON_CREATIVE_COPY_FIELDS, 'cards']),
+  catalog: new Set([
+    ...COMMON_CREATIVE_COPY_FIELDS,
+    'productSetId',
+    'templateUrl',
+    'fallbackImageHash',
+  ]),
+  collection: new Set([
+    ...COMMON_CREATIVE_COPY_FIELDS,
+    'instantExperienceId',
+    'coverImageHash',
+    'coverVideoId',
+    'productSetId',
+  ]),
+  flexible: new Set([
+    ...COMMON_CREATIVE_COPY_FIELDS,
+    'primaryTexts',
+    'imageHashes',
+    'videoIds',
+    'headlines',
+    'descriptions',
+    'messageExtensions',
+  ]),
+  placement_image: new Set([
+    ...COMMON_CREATIVE_COPY_FIELDS,
+    'feedImageHash',
+    'verticalImageHash',
+    'pageWelcomeMessage',
+    'messageExtensions',
+  ]),
+  placement_customized_ctwa: new Set([
+    ...COMMON_CREATIVE_COPY_FIELDS,
+    'feedImageHash',
+    'verticalImageHash',
+    'pageWelcomeMessage',
+  ]),
+  existing_post: new Set([
+    'objectStoryId',
+    'sourceInstagramMediaId',
+    'destinationUrl',
+    'callToAction',
+    'appDestination',
+    'pageWelcomeMessage',
+    'applinkTreatment',
+  ]),
+};
+
+/** Raw Graph API spellings callers reach for, mapped back to the typed field. */
+const CREATIVE_SPEC_FIELD_HINTS: Record<string, string> = {
+  app_destination: 'creativeSpec.appDestination',
+  page_welcome_message: 'creativeSpec.pageWelcomeMessage',
+  source_instagram_media_id: 'creativeSpec.sourceInstagramMediaId',
+  object_story_id: 'creativeSpec.objectStoryId',
+  image_hash: 'creativeSpec.imageHash',
+  video_id: 'creativeSpec.videoId',
+  product_set_id: 'creativeSpec.productSetId',
+  lead_gen_form_id: 'creativeSpec.leadFormId',
+  call_to_action: 'creativeSpec.callToAction',
+  call_to_action_type: 'creativeSpec.callToAction',
+  link: 'creativeSpec.destinationUrl',
+  message: 'creativeSpec.primaryText',
+  title: 'creativeSpec.headline',
+  applink_treatment: 'creativeSpec.applinkTreatment',
+};
+
+function assertKnownCreativeSpecFields(
+  format: MetaCreativeFormat,
+  spec: Record<string, unknown>
+): void {
+  const allowed = CREATIVE_SPEC_FIELDS[format];
+  const unknown = Object.keys(spec).filter((key) => !allowed.has(key));
+  if (unknown.length === 0) return;
+
+  const detail = unknown
+    .map((key) => {
+      const hint = CREATIVE_SPEC_FIELD_HINTS[key];
+      if (hint) return `${key} → ${hint}`;
+      const owners = META_CREATIVE_FORMATS.filter((candidate) =>
+        CREATIVE_SPEC_FIELDS[candidate].has(key)
+      );
+      return owners.length > 0 ? `${key} (hanya untuk creativeFormat ${owners.join(', ')})` : key;
+    })
+    .join('; ');
+
+  throw new Error(
+    `Field berikut tidak dikenali pada creativeSpec untuk creativeFormat ${format} dan TIDAK dikirim ke Meta: ${detail}. creativeSpec bukan passthrough mentah ke Graph API — pakai field bertipe yang sesuai, atau hapus field ini.`
+  );
+}
+
 function parseMetaCreativeSpec(
   format: MetaCreativeFormat,
   spec: Record<string, unknown>
 ): MetaCreativeSpec {
+  assertKnownCreativeSpecFields(format, spec);
+
   switch (format) {
     case 'single_image':
       return {
@@ -3951,6 +4130,14 @@ function parseMetaCreativeSpec(
           ),
           destinationUrl: optionalString(spec.destinationUrl, 'creativeSpec.destinationUrl'),
           callToAction: optionalString(spec.callToAction, 'creativeSpec.callToAction'),
+          appDestination: optionalAppDestination(
+            spec.appDestination,
+            'creativeSpec.appDestination'
+          ),
+          pageWelcomeMessage: optionalPageWelcomeMessage(
+            spec.pageWelcomeMessage,
+            'creativeSpec.pageWelcomeMessage'
+          ),
           applinkTreatment: optionalApplinkTreatment(
             spec.applinkTreatment,
             'creativeSpec.applinkTreatment'
@@ -3958,6 +4145,28 @@ function parseMetaCreativeSpec(
         },
       };
   }
+}
+
+async function withResolvedWelcomeMessageTemplate(
+  spec: Record<string, unknown>,
+  templateName: string | undefined
+): Promise<Record<string, unknown>> {
+  if (!templateName) return spec;
+  if (spec.pageWelcomeMessage !== undefined) {
+    throw new Error(
+      'welcomeMessageTemplateName tidak dapat digunakan bersamaan dengan creativeSpec.pageWelcomeMessage.'
+    );
+  }
+
+  const template = await getWelcomeMessageTemplate(templateName);
+  if (!template) {
+    throw new Error(`Welcome message template "${templateName}" tidak ditemukan.`);
+  }
+
+  return {
+    ...spec,
+    pageWelcomeMessage: template.pageWelcomeMessage,
+  };
 }
 
 function requireRecord(value: unknown, path: string): Record<string, unknown> {
@@ -3980,6 +4189,43 @@ function requireString(value: unknown, path: string): string {
 function optionalString(value: unknown, path: string): string | undefined {
   if (value === undefined) return undefined;
   return requireString(value, path);
+}
+
+const APP_DESTINATIONS: readonly MetaAppDestination[] = [
+  'INSTAGRAM_DIRECT',
+  'MESSENGER',
+  'WHATSAPP',
+];
+
+/**
+ * Unlike CTA types (a free string — Meta owns that enum and it is long), the
+ * app_destination enum is short, documented, and closed. A typo here produces a
+ * button that silently does nothing, so reject rather than forward.
+ */
+function optionalAppDestination(value: unknown, path: string): MetaAppDestination | undefined {
+  if (value === undefined) return undefined;
+  const normalized = requireString(value, path);
+  if (!APP_DESTINATIONS.includes(normalized as MetaAppDestination)) {
+    throw new Error(`${path} harus salah satu dari: ${APP_DESTINATIONS.join(', ')}.`);
+  }
+  return normalized as MetaAppDestination;
+}
+
+/**
+ * page_welcome_message is a JSON object in Meta's VISUAL_EDITOR form; the legacy
+ * Click-to-WhatsApp path passes a plain greeting string. Accept both, reject anything
+ * else — a number or array here would be dropped by Meta with no useful error.
+ */
+function optionalPageWelcomeMessage(
+  value: unknown,
+  path: string
+): MetaPageWelcomeMessage | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value === 'string') return requireString(value, path);
+  if (isRecord(value)) return value;
+  throw new Error(
+    `${path} harus berupa string atau object page_welcome_message (mis. { type: 'VISUAL_EDITOR', ... }).`
+  );
 }
 
 function optionalApplinkTreatment(value: unknown, path: string): MetaApplinkTreatment | undefined {

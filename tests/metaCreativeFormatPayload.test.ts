@@ -831,6 +831,156 @@ describe('buildMetaCreativeFormatPayload', () => {
     ).toThrow(/destinationUrl.*butuh callToAction/is);
   });
 
+  // Regression for the 2026-07-26 CTX incident: Meta accepts the existing-post
+  // Instagram messaging CTA only when the value carries both app_destination and
+  // link. appDestination alone dry-runs locally but Graph rejects it with subcode
+  // 2061015 ("link required").
+  it('builds a Click-to-Instagram-Direct existing_post creative with app_destination, link, and a welcome message', () => {
+    const pageWelcomeMessage = {
+      type: 'VISUAL_EDITOR',
+      version: 2,
+      landing_screen_type: 'welcome_message',
+      media_type: 'text',
+      text_format: {
+        customer_action_type: 'ice_breakers',
+        message: {
+          text: 'Halo! Ada yang bisa kami bantu?',
+          ice_breakers: [{ title: 'Cek harga', response: 'Produk mana yang kamu minati?' }],
+        },
+      },
+    };
+
+    expect(
+      buildMetaCreativeFormatPayload({
+        mode: 'standard',
+        pageId: '100338525395228',
+        instagramUserId: '17841421517309865',
+        creativeFormat: 'existing_post',
+        creativeSpec: {
+          sourceInstagramMediaId: '18170919886430243',
+          callToAction: 'INSTAGRAM_MESSAGE',
+          appDestination: 'INSTAGRAM_DIRECT',
+          destinationUrl: 'https://www.instagram.com/',
+          pageWelcomeMessage,
+        },
+      })
+    ).toEqual({
+      source_instagram_media_id: '18170919886430243',
+      instagram_user_id: '17841421517309865',
+      call_to_action: {
+        type: 'INSTAGRAM_MESSAGE',
+        value: {
+          app_destination: 'INSTAGRAM_DIRECT',
+          link: 'https://www.instagram.com/',
+        },
+      },
+      page_welcome_message: pageWelcomeMessage,
+    });
+  });
+
+  // Ads Manager stores both at the creative root for existing-post creatives — the
+  // creative it writes has no object_story_spec at all.
+  it('keeps the CTX call_to_action and page_welcome_message at the creative root', () => {
+    const payload = buildMetaCreativeFormatPayload({
+      mode: 'standard',
+      pageId: '100338525395228',
+      creativeFormat: 'existing_post',
+      creativeSpec: {
+        sourceInstagramMediaId: '18170919886430243',
+        callToAction: 'INSTAGRAM_MESSAGE',
+        appDestination: 'INSTAGRAM_DIRECT',
+        destinationUrl: 'https://www.instagram.com/',
+        pageWelcomeMessage: 'Halo!',
+      },
+    });
+
+    expect(payload.object_story_spec).toBeUndefined();
+    expect(payload.call_to_action).toEqual({
+      type: 'INSTAGRAM_MESSAGE',
+      value: {
+        app_destination: 'INSTAGRAM_DIRECT',
+        link: 'https://www.instagram.com/',
+      },
+    });
+    expect(payload.page_welcome_message).toBe('Halo!');
+  });
+
+  it('does not require destinationUrl for a messaging call to action without appDestination on an existing_post creative', () => {
+    for (const callToAction of ['INSTAGRAM_MESSAGE', 'MESSAGE_PAGE', 'WHATSAPP_MESSAGE']) {
+      expect(
+        buildMetaCreativeFormatPayload({
+          mode: 'standard',
+          pageId: 'page-1',
+          creativeFormat: 'existing_post',
+          creativeSpec: { objectStoryId: 'page-1_post-1', callToAction },
+        })
+      ).toEqual({
+        object_story_id: 'page-1_post-1',
+        call_to_action: { type: callToAction },
+      });
+    }
+  });
+
+  it('rejects a messaging destinationUrl that would be silently dropped without appDestination', () => {
+    expect(() =>
+      buildMetaCreativeFormatPayload({
+        mode: 'standard',
+        pageId: 'page-1',
+        creativeFormat: 'existing_post',
+        creativeSpec: {
+          sourceInstagramMediaId: '18170919886430243',
+          callToAction: 'INSTAGRAM_MESSAGE',
+          destinationUrl: 'https://www.instagram.com/',
+        },
+      })
+    ).toThrow(/destinationUrl.*appDestination/is);
+  });
+
+  it('requires destinationUrl when appDestination is set on an existing_post messaging creative', () => {
+    expect(() =>
+      buildMetaCreativeFormatPayload({
+        mode: 'standard',
+        pageId: 'page-1',
+        creativeFormat: 'existing_post',
+        creativeSpec: {
+          sourceInstagramMediaId: '18170919886430243',
+          callToAction: 'INSTAGRAM_MESSAGE',
+          appDestination: 'INSTAGRAM_DIRECT',
+        },
+      })
+    ).toThrow(/destinationUrl.*appDestination/is);
+  });
+
+  it('rejects appDestination without a callToAction on an existing_post creative', () => {
+    expect(() =>
+      buildMetaCreativeFormatPayload({
+        mode: 'standard',
+        pageId: 'page-1',
+        creativeFormat: 'existing_post',
+        creativeSpec: {
+          sourceInstagramMediaId: '18170919886430243',
+          appDestination: 'INSTAGRAM_DIRECT',
+        },
+      })
+    ).toThrow(/appDestination.*callToAction/is);
+  });
+
+  it('rejects pageWelcomeMessage without a messaging callToAction on an existing_post creative', () => {
+    expect(() =>
+      buildMetaCreativeFormatPayload({
+        mode: 'standard',
+        pageId: 'page-1',
+        creativeFormat: 'existing_post',
+        creativeSpec: {
+          objectStoryId: 'page-1_post-1',
+          callToAction: 'LEARN_MORE',
+          destinationUrl: 'https://example.com/cta',
+          pageWelcomeMessage: 'Halo!',
+        },
+      })
+    ).toThrow(/pageWelcomeMessage/i);
+  });
+
   it('rejects an existing_post creative missing both objectStoryId and sourceInstagramMediaId', () => {
     expect(() =>
       buildMetaCreativeFormatPayload({

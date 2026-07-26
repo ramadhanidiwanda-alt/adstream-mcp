@@ -5,6 +5,50 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed — Click-to-message creative integrity
+
+A Click-to-Instagram-Direct ad shipped with a dead CTA button and no welcome
+message while the dry-run stayed green, because fields the tool accepted were
+dropped before the Graph API call. Full account in
+`docs/superpowers/specs/2026-07-26-ctx-messaging-creative-gaps-design.md`.
+
+- **`ads_create_adcreative`** — `creativeSpec.appDestination` now becomes
+  `call_to_action.value.app_destination`, and `creativeSpec.pageWelcomeMessage` is sent
+  as `page_welcome_message` at the creative root (where Ads Manager stores it for
+  existing-post creatives). `pageWelcomeMessage` accepts Meta's VISUAL_EDITOR object,
+  not just a string.
+- **`ads_create_adcreative`** — messaging CTAs (`INSTAGRAM_MESSAGE`, `MESSAGE_PAGE`,
+  `WHATSAPP_MESSAGE`) on `existing_post` no longer require `destinationUrl`; supplying
+  it alongside them is rejected, since `value.link` is what disables the button.
+- **`ads_create_ad`** — rejects a click-to-message ad set paired with a CTA for a
+  different inbox, covering the four `MESSAGING_*` combinations and
+  `value.app_destination`. Bypass with `skipMessagingDestinationCheck`.
+- **`ads_clone_adset`** — new `attributionSpec` parameter overrides the source's
+  `attribution_spec`; `null` or `[]` drops it. Cloning a 7-day-click source to
+  `optimization_goal: CONVERSATIONS` was previously impossible (Meta subcode 1885423).
+- **`ads_get_ad_preview`** — `adFormat` now uses Meta's real `ad_format` enum. All ten
+  previously offered values were misspelled and rejected by Meta; the old names are
+  rejected with their correct replacements.
+- **`ads_update_ad`** — a dry-run reports `success: true` instead of `false`.
+
+### Changed
+
+- **Breaking for malformed input:** `creativeSpec` rejects fields it does not map, for
+  all nine creative formats, naming the typed field for raw Graph spellings. Previously
+  these were dropped silently, so a clean dry-run did not mean a complete payload.
+- **`ads_create_adcreative`** — `destinationType` gains Meta's four `MESSAGING_*`
+  multi-destination values.
+- **`ads_check_launch_readiness`** — new `engagement_messaging` workflow for CTX/CTWA
+  (`MESSAGING` conversion location, `CONVERSATIONS`, new `messagingDestination` input),
+  recommending `ads_clone_ui_ad` and warning that `CONVERSATIONS` requires a 1-day
+  attribution window. The `whatsapp_sales` alias now resolves here instead of
+  `sales_website`.
+- **`ads_get_ad_creative_mapping`** — description now documents the `campaignId`,
+  `adSetId`, `filtering`, `limit` and `cursor` parameters, which already worked but were
+  undiscoverable. Scoping is covered by regression tests.
+
 ## [0.6.0] - 2026-07-06
 
 ### Added — Canonical MCP Connector API

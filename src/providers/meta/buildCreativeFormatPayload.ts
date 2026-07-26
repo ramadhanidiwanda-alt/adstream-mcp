@@ -1,5 +1,6 @@
 import type {
   MetaAdsMode,
+  MetaPageWelcomeMessage,
   MetaApplinkTreatment,
   MetaCollaborativeAppSpec,
   MetaCreativeSpec,
@@ -68,14 +69,67 @@ function optional(value: string | undefined, label: string): string | undefined 
   return required(value, label);
 }
 
+/**
+ * page_welcome_message is either the VISUAL_EDITOR JSON object Ads Manager writes or
+ * a plain greeting string (the older Click-to-WhatsApp shape). Objects pass through
+ * untouched — metaClient JSON-stringifies them at post time.
+ */
+function optionalWelcomeMessage(
+  value: MetaPageWelcomeMessage | undefined,
+  label: string
+): MetaPageWelcomeMessage | undefined {
+  if (value === undefined || typeof value !== 'string') return value;
+  return required(value, label);
+}
+
+/**
+ * Click-to-message CTAs usually carry app_destination (or nothing at all). Existing
+ * Instagram posts are a narrower Graph API exception: Meta requires both
+ * app_destination and link for an INSTAGRAM_MESSAGE CTA.
+ */
+const MESSAGING_CTA_TYPES: ReadonlySet<string> = new Set([
+  'INSTAGRAM_MESSAGE',
+  'MESSAGE_PAGE',
+  'WHATSAPP_MESSAGE',
+]);
+
+export function isMessagingCallToAction(type: string | undefined): boolean {
+  return type !== undefined && MESSAGING_CTA_TYPES.has(type.trim());
+}
+
 function cta(
   type: string | undefined,
   destinationUrl?: string,
   collaborativeAppSpec?: MetaCollaborativeAppSpec,
   leadFormId?: string,
-  standardAppSpec?: MetaStandardAppSpec
+  standardAppSpec?: MetaStandardAppSpec,
+  appDestination?: string,
+  allowDestinationWithAppDestination = false
 ): Record<string, unknown> {
   const normalizedType = type?.trim() || 'LEARN_MORE';
+
+  if (appDestination) {
+    const normalizedDestinationUrl = destinationUrl?.trim();
+    if (normalizedDestinationUrl && !allowDestinationWithAppDestination) {
+      throw new Error(
+        'appDestination dan destinationUrl tidak dapat digunakan bersamaan. CTA messaging hanya membawa call_to_action.value.app_destination; menambahkan value.link membuat tombol CTA mati saat iklan tayang.'
+      );
+    }
+    if (!isMessagingCallToAction(normalizedType)) {
+      throw new Error(
+        `appDestination hanya berlaku untuk callToAction messaging (${[...MESSAGING_CTA_TYPES].join(', ')}), bukan ${normalizedType}.`
+      );
+    }
+    const value: Record<string, unknown> = {
+      app_destination: required(appDestination, 'appDestination'),
+    };
+    if (normalizedDestinationUrl) value.link = normalizedDestinationUrl;
+    return {
+      type: normalizedType,
+      value,
+    };
+  }
+
   if (leadFormId) {
     if (destinationUrl) {
       throw new Error('leadFormId dan destinationUrl tidak dapat digunakan bersamaan.');
@@ -85,10 +139,13 @@ function cta(
       value: { lead_gen_form_id: required(leadFormId, 'leadFormId') },
     };
   }
-  if (standardAppSpec && normalizedType === 'WHATSAPP_MESSAGE') {
-    throw new Error('WHATSAPP_MESSAGE tidak kompatibel dengan standardAppSpec.');
+  if (standardAppSpec && isMessagingCallToAction(normalizedType)) {
+    throw new Error(`${normalizedType} tidak kompatibel dengan standardAppSpec.`);
   }
-  if (normalizedType === 'WHATSAPP_MESSAGE' && !collaborativeAppSpec) {
+  // Messaging CTAs carry no value.link. This has always been true for
+  // WHATSAPP_MESSAGE; INSTAGRAM_MESSAGE and MESSAGE_PAGE behave identically and
+  // used to be forced into the link shape, which is what produced a dead button.
+  if (isMessagingCallToAction(normalizedType) && !collaborativeAppSpec) {
     return { type: normalizedType };
   }
 
@@ -201,7 +258,10 @@ function buildSingleImage(
   };
   const headline = optional(creativeSpec.headline, 'headline');
   const description = optional(creativeSpec.description, 'description');
-  const pageWelcomeMessage = optional(creativeSpec.pageWelcomeMessage, 'pageWelcomeMessage');
+  const pageWelcomeMessage = optionalWelcomeMessage(
+    creativeSpec.pageWelcomeMessage,
+    'pageWelcomeMessage'
+  );
 
   if (headline) linkData.name = headline;
   if (description) linkData.description = description;
@@ -295,7 +355,10 @@ function buildVideo(
     ),
   };
   const headline = optional(creativeSpec.headline, 'headline');
-  const pageWelcomeMessage = optional(creativeSpec.pageWelcomeMessage, 'pageWelcomeMessage');
+  const pageWelcomeMessage = optionalWelcomeMessage(
+    creativeSpec.pageWelcomeMessage,
+    'pageWelcomeMessage'
+  );
 
   // Meta requires exactly one of image_hash / image_url on video_data.
   // Prefer an explicit hash; fall back to a URL (e.g. the video's own
@@ -435,6 +498,14 @@ function buildExistingPost(
       };
 
   const callToAction = optional(creativeSpec.callToAction, 'callToAction');
+  const appDestination = optional(creativeSpec.appDestination, 'appDestination');
+  const isMessaging = isMessagingCallToAction(callToAction);
+
+  if (appDestination && !callToAction) {
+    throw new Error(
+      'appDestination pada existing_post butuh callToAction messaging (mis. INSTAGRAM_MESSAGE). Tanpa callToAction tidak ada call_to_action yang bisa membawanya.'
+    );
+  }
 
   if (callToAction) {
     // TOP-LEVEL call_to_action, never object_story_spec. Verified live against
@@ -442,16 +513,56 @@ function buildExistingPost(
     // (#100) "Ambiguous Promoted Object" [subcode 1487929], while a top-level
     // call_to_action carrying value.link is accepted and stored — that is the shape
     // Ads Manager itself writes for a boosted Instagram post.
+    //
+    // Without appDestination, cta() would intentionally omit value.link for messaging
+    // CTAs. Reject that shape so a caller does not think the URL will be sent.
+    if (
+      isMessaging &&
+      creativeSpec.destinationUrl !== undefined &&
+      !appDestination &&
+      !input.collaborativeAppSpec
+    ) {
+      throw new Error(
+        `destinationUrl pada callToAction messaging (${callToAction}) untuk existing_post hanya valid bersama appDestination, agar terkirim sebagai call_to_action.value.link dan value.app_destination.`
+      );
+    }
+    if (isMessaging && appDestination && !creativeSpec.destinationUrl?.trim()) {
+      throw new Error(
+        `destinationUrl wajib diisi bersama appDestination pada callToAction messaging (${callToAction}) untuk existing_post; Meta Graph membutuhkan call_to_action.value.link.`
+      );
+    }
+
     payload.call_to_action = cta(
       callToAction,
-      required(creativeSpec.destinationUrl, 'destinationUrl untuk existing_post ber-callToAction'),
-      input.collaborativeAppSpec
+      isMessaging
+        ? creativeSpec.destinationUrl
+        : required(
+            creativeSpec.destinationUrl,
+            'destinationUrl untuk existing_post ber-callToAction'
+          ),
+      input.collaborativeAppSpec,
+      undefined,
+      undefined,
+      appDestination,
+      true
     );
   } else if (creativeSpec.destinationUrl !== undefined && !input.collaborativeAppSpec) {
     // Nothing would carry the URL, so say so instead of dropping it.
     throw new Error(
       'destinationUrl pada existing_post butuh callToAction (agar terkirim sebagai call_to_action.value.link) atau collaborativeAppSpec (untuk omnichannel_link_spec). Tanpa salah satunya, destinationUrl tidak dipakai sama sekali.'
     );
+  }
+
+  // Root-level page_welcome_message, matching what Ads Manager writes for an
+  // existing-post creative (that creative has no object_story_spec at all). Meta only
+  // surfaces it behind a messaging CTA, so anywhere else it would be inert.
+  if (creativeSpec.pageWelcomeMessage !== undefined) {
+    if (!isMessaging) {
+      throw new Error(
+        'pageWelcomeMessage pada existing_post hanya berlaku untuk callToAction messaging (INSTAGRAM_MESSAGE, MESSAGE_PAGE, WHATSAPP_MESSAGE). Dengan CTA lain Meta tidak pernah menampilkannya.'
+      );
+    }
+    payload.page_welcome_message = creativeSpec.pageWelcomeMessage;
   }
 
   if (!input.collaborativeAppSpec) return payload;
@@ -786,7 +897,10 @@ function buildPlacementImage(
   const headline = required(creativeSpec.headline, 'headline');
   const destinationUrl = required(creativeSpec.destinationUrl, 'destinationUrl');
   const callToAction = creativeSpec.callToAction?.trim() || 'LEARN_MORE';
-  const pageWelcomeMessage = optional(creativeSpec.pageWelcomeMessage, 'pageWelcomeMessage');
+  const pageWelcomeMessage = optionalWelcomeMessage(
+    creativeSpec.pageWelcomeMessage,
+    'pageWelcomeMessage'
+  );
   const description = optional(creativeSpec.description, 'description');
   const isClickToMessage = callToAction === 'WHATSAPP_MESSAGE';
 
@@ -866,7 +980,10 @@ function buildPlacementCustomizedCtwa(
     call_to_action: cta('WHATSAPP_MESSAGE', destinationUrl, input.collaborativeAppSpec),
   };
   const description = optional(creativeSpec.description, 'description');
-  const pageWelcomeMessage = optional(creativeSpec.pageWelcomeMessage, 'pageWelcomeMessage');
+  const pageWelcomeMessage = optionalWelcomeMessage(
+    creativeSpec.pageWelcomeMessage,
+    'pageWelcomeMessage'
+  );
 
   if (description) linkData.description = description;
   if (pageWelcomeMessage) linkData.page_welcome_message = pageWelcomeMessage;

@@ -203,6 +203,104 @@ describe('createAd', () => {
     expect(mockMetaPost).not.toHaveBeenCalled();
   });
 
+  // An INSTAGRAM_DIRECT ad set paired with a MESSAGE_PAGE creative (the Messenger CTA)
+  // was accepted without complaint on 2026-07-26. One cross-check prevents the class.
+  const messagingMismatches: Array<{ destinationType: string; ctaType: string }> = [
+    { destinationType: 'INSTAGRAM_DIRECT', ctaType: 'MESSAGE_PAGE' },
+    { destinationType: 'MESSENGER', ctaType: 'INSTAGRAM_MESSAGE' },
+    { destinationType: 'WHATSAPP', ctaType: 'INSTAGRAM_MESSAGE' },
+    { destinationType: 'MESSAGING_MESSENGER_WHATSAPP', ctaType: 'INSTAGRAM_MESSAGE' },
+    { destinationType: 'INSTAGRAM_DIRECT', ctaType: 'LEARN_MORE' },
+  ];
+
+  it.each(messagingMismatches)(
+    'blocks at dry-run when a $destinationType ad set gets a $ctaType creative',
+    async ({ destinationType, ctaType }) => {
+      mockMetaGetObject.mockImplementation(async (path: string) =>
+        path === '/as456'
+          ? { destination_type: destinationType, is_dynamic_creative: false }
+          : { call_to_action: { type: ctaType } }
+      );
+
+      const r = await createAd(mockClient, baseOpts);
+
+      expect(r.status).toBe('failed');
+      expect(r.error).toContain(destinationType);
+      expect(r.error).toContain(ctaType);
+      expect(mockMetaPost).not.toHaveBeenCalled();
+    }
+  );
+
+  const messagingMatches: Array<{ destinationType: string; ctaType: string }> = [
+    { destinationType: 'INSTAGRAM_DIRECT', ctaType: 'INSTAGRAM_MESSAGE' },
+    { destinationType: 'MESSENGER', ctaType: 'MESSAGE_PAGE' },
+    { destinationType: 'WHATSAPP', ctaType: 'WHATSAPP_MESSAGE' },
+    { destinationType: 'MESSAGING_INSTAGRAM_DIRECT_MESSENGER', ctaType: 'INSTAGRAM_MESSAGE' },
+    { destinationType: 'MESSAGING_INSTAGRAM_DIRECT_MESSENGER', ctaType: 'MESSAGE_PAGE' },
+    {
+      destinationType: 'MESSAGING_INSTAGRAM_DIRECT_MESSENGER_WHATSAPP',
+      ctaType: 'WHATSAPP_MESSAGE',
+    },
+  ];
+
+  it.each(messagingMatches)(
+    'allows a $destinationType ad set paired with a $ctaType creative',
+    async ({ destinationType, ctaType }) => {
+      mockMetaGetObject.mockImplementation(async (path: string) =>
+        path === '/as456'
+          ? { destination_type: destinationType, is_dynamic_creative: false }
+          : { call_to_action: { type: ctaType } }
+      );
+
+      const r = await createAd(mockClient, baseOpts);
+
+      expect(r.status).toBe('dry_run');
+    }
+  );
+
+  it('blocks at dry-run when app_destination contradicts the ad set destination', async () => {
+    mockMetaGetObject.mockImplementation(async (path: string) =>
+      path === '/as456'
+        ? { destination_type: 'INSTAGRAM_DIRECT', is_dynamic_creative: false }
+        : {
+            call_to_action: {
+              type: 'INSTAGRAM_MESSAGE',
+              value: { app_destination: 'WHATSAPP' },
+            },
+          }
+    );
+
+    const r = await createAd(mockClient, baseOpts);
+
+    expect(r.status).toBe('failed');
+    expect(r.error).toMatch(/app_destination/i);
+  });
+
+  it('leaves non-messaging ad sets to Meta', async () => {
+    mockMetaGetObject.mockImplementation(async (path: string) =>
+      path === '/as456'
+        ? { destination_type: 'WEBSITE', is_dynamic_creative: false }
+        : { call_to_action: { type: 'INSTAGRAM_MESSAGE' } }
+    );
+
+    const r = await createAd(mockClient, baseOpts);
+
+    expect(r.status).toBe('dry_run');
+  });
+
+  it('skips the messaging cross-check when asked', async () => {
+    mockMetaGetObject.mockImplementation(async (path: string) =>
+      path === '/as456'
+        ? { destination_type: 'INSTAGRAM_DIRECT', is_dynamic_creative: false }
+        : { call_to_action: { type: 'MESSAGE_PAGE' } }
+    );
+
+    const r = await createAd(mockClient, { ...baseOpts, skipMessagingDestinationCheck: true });
+
+    expect(r.status).toBe('dry_run');
+    expect(r.warnings?.join(' ')).toMatch(/messaging/i);
+  });
+
   it('returns failed on error', async () => {
     const token = 'task8_create_ad_secret_123456789';
     mockMetaPost.mockRejectedValueOnce(

@@ -640,6 +640,52 @@ describe('createAdCreative', () => {
     });
   });
 
+  it('previews an existing Instagram messaging post without re-uploading the media', async () => {
+    const pageWelcomeMessage = {
+      type: 'VISUAL_EDITOR',
+      version: 2,
+      text_format: {
+        message: {
+          text: 'Halo! Ada yang bisa kami bantu?',
+          ice_breakers: [{ title: 'Cek harga', response: 'Produk mana yang kamu minati?' }],
+        },
+      },
+    };
+
+    const result = await createAdCreative(mockClient, {
+      adAccountId: 'act_426223085194693',
+      name: 'IG Reel DM 01',
+      instagramUserId: '17841421517309865',
+      creative: {
+        creativeFormat: 'existing_post',
+        creativeSpec: {
+          sourceInstagramMediaId: '18170919886430243',
+          callToAction: 'INSTAGRAM_MESSAGE',
+          appDestination: 'INSTAGRAM_DIRECT',
+          destinationUrl: 'https://www.instagram.com/',
+          pageWelcomeMessage,
+        },
+      },
+    });
+
+    expect(mockMetaPost).not.toHaveBeenCalled();
+    expect(result.status).toBe('dry_run');
+    expect(result.preview).toEqual({
+      name: 'IG Reel DM 01',
+      source_instagram_media_id: '18170919886430243',
+      instagram_user_id: '17841421517309865',
+      call_to_action: {
+        type: 'INSTAGRAM_MESSAGE',
+        value: {
+          app_destination: 'INSTAGRAM_DIRECT',
+          link: 'https://www.instagram.com/',
+        },
+      },
+      page_welcome_message: pageWelcomeMessage,
+    });
+    expect(result.preview.object_story_spec).toBeUndefined();
+  });
+
   it.each([
     { objective: 'OUTCOME_SALES' as const, callToAction: 'SHOP_NOW' },
     { objective: 'OUTCOME_TRAFFIC' as const, callToAction: 'LEARN_MORE' },

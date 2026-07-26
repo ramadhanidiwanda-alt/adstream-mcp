@@ -24,6 +24,19 @@ export interface CloneAdSetOptions {
   dailyBudget?: number;
   lifetimeBudget?: number;
   optimizationGoal?: string;
+  /**
+   * Replaces the source ad set's attribution_spec. Meta's own shape, e.g.
+   * [{ event_type: 'CLICK_THROUGH', window_days: 1 }].
+   *
+   * Without this the source's window is copied verbatim, which makes some clones
+   * impossible to create: a source with a 7-day click window cloned to
+   * optimization_goal CONVERSATIONS is rejected by Meta with subcode 1885423, since
+   * messaging optimization only supports a 1-day window.
+   *
+   * Pass null or [] to drop the inherited attribution_spec entirely and let Meta
+   * apply its default. Omit to keep copying the source.
+   */
+  attributionSpec?: Array<Record<string, unknown>> | null;
 }
 
 export interface CloneAdSetResult {
@@ -96,7 +109,16 @@ export function buildCloneAdSetPayload(
   const targeting = cleanTargeting(source.targeting);
   if (targeting) payload.targeting = targeting;
   if (source.promoted_object) payload.promoted_object = source.promoted_object;
-  if (source.attribution_spec) payload.attribution_spec = source.attribution_spec;
+  // An explicit override wins, including the empty forms — null/[] mean "drop the
+  // source's window", which is the only way out when the source's attribution is
+  // incompatible with the clone's optimization goal.
+  if (options.attributionSpec !== undefined) {
+    if (options.attributionSpec !== null && options.attributionSpec.length > 0) {
+      payload.attribution_spec = options.attributionSpec;
+    }
+  } else if (source.attribution_spec) {
+    payload.attribution_spec = source.attribution_spec;
+  }
   if (source.destination_type && source.destination_type !== 'UNDEFINED') {
     payload.destination_type = source.destination_type;
   }

@@ -59,6 +59,11 @@ export type {
 } from './tools/createAdSet.js';
 
 export { createAdCreative } from './tools/createAdCreative.js';
+export {
+  createWelcomeMessageTemplate,
+  listWelcomeMessageTemplates,
+  getWelcomeMessageTemplate,
+} from './tools/welcomeMessageTemplates.js';
 export type {
   CreateAdCreativeOptions,
   CreateAdCreativeResult,

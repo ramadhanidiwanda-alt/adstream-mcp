@@ -1,4 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { MetaAdsAdapter } from '../src/providers/meta/MetaAdsAdapter.js';
 import { META_LAUNCH_WORKFLOWS } from '../src/tools/checkLaunchReadiness.js';
 import { MetaApiError } from '../src/utils/metaError.js';
@@ -7,6 +10,37 @@ import type { CreateAdSetResult } from '../src/tools/createAdSet.js';
 import type { CreateAdCreativeOptions } from '../src/tools/createAdCreative.js';
 import type { AdsBrokerRequest, CredentialContext } from '../src/broker/types.js';
 import { adInsight, campaignInsight } from './support/fixtures.js';
+
+async function withWelcomeTemplateStore<T>(
+  templates: Array<{ name: string; pageWelcomeMessage: unknown }>,
+  fn: () => Promise<T>
+): Promise<T> {
+  const previous = process.env.ADSTREAM_WELCOME_MESSAGE_TEMPLATE_STORE;
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'adstream-adapter-templates-'));
+  const storePath = path.join(tempDir, 'templates.json');
+  process.env.ADSTREAM_WELCOME_MESSAGE_TEMPLATE_STORE = storePath;
+  fs.writeFileSync(
+    storePath,
+    JSON.stringify({
+      templates: templates.map((template) => ({
+        ...template,
+        createdAt: '2026-07-26T00:00:00.000Z',
+        updatedAt: '2026-07-26T00:00:00.000Z',
+      })),
+    })
+  );
+
+  try {
+    return await fn();
+  } finally {
+    if (previous === undefined) {
+      delete process.env.ADSTREAM_WELCOME_MESSAGE_TEMPLATE_STORE;
+    } else {
+      process.env.ADSTREAM_WELCOME_MESSAGE_TEMPLATE_STORE = previous;
+    }
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+}
 
 describe('MetaAdsAdapter', () => {
   it('implements required adapter contract shape', () => {
@@ -750,6 +784,67 @@ describe('MetaAdsAdapter', () => {
         value: 100,
       });
     }
+  });
+
+  // ads_get_ad_creative_mapping documented only adIds[], so nobody knew adSetId was
+  // available; asking for one ad set and receiving the account's most recent ads led to
+  // a wrong conclusion about what an ad set contained. Lock the scoping in end to end.
+  it.each([
+    { label: 'adSetId', field: 'adSetId' },
+    { label: 'adsetId alias', field: 'adsetId' },
+  ])('scopes ad→creative mapping to the ad set edge when given $label', async ({ field }) => {
+    const capturedPaths: string[] = [];
+    const adapter = new MetaAdsAdapter({
+      clientFactory: () =>
+        ({
+          metaGet: async (path: string) => {
+            capturedPaths.push(path);
+            return { data: [], paging: {} };
+          },
+        }) as never,
+    });
+
+    const response = await adapter.getAdCreativeMapping({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: { [field]: 'as_1' },
+      credentials: {
+        provider: 'meta',
+        accessToken: 'secret-token',
+        accountId: 'act_123',
+        source: 'test',
+      },
+    });
+
+    expect(response.ok).toBe(true);
+    expect(capturedPaths).toEqual(['/as_1/ads']);
+  });
+
+  it('scopes ad→creative mapping to the campaign edge when given campaignId', async () => {
+    const capturedPaths: string[] = [];
+    const adapter = new MetaAdsAdapter({
+      clientFactory: () =>
+        ({
+          metaGet: async (path: string) => {
+            capturedPaths.push(path);
+            return { data: [], paging: {} };
+          },
+        }) as never,
+    });
+
+    await adapter.getAdCreativeMapping({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: { campaignId: 'cmp_1' },
+      credentials: {
+        provider: 'meta',
+        accessToken: 'secret-token',
+        accountId: 'act_123',
+        source: 'test',
+      },
+    });
+
+    expect(capturedPaths).toEqual(['/cmp_1/ads']);
   });
 
   it('fetches Meta creative assets and maps them to creative records', async () => {
@@ -1978,6 +2073,243 @@ describe('MetaAdsAdapter', () => {
       expect(receivedOptions).not.toHaveProperty('creativeSpec');
     }
   );
+
+  // The 2026-07-26 CTX incident in one assertion: creativeSpec used to pick the
+  // fields it knew and drop the rest without a word, so a dry-run looked clean while
+  // the field the caller cared about never reached Meta. Every format must refuse.
+  it.each(canonicalCreativeCases)(
+    'refuses an unmapped creativeSpec field on $creativeFormat instead of dropping it',
+    async ({ creativeFormat, creativeSpec }) => {
+      const createAdCreative = vi.fn();
+      const adapter = new MetaAdsAdapter({
+        clientFactory: (config) => ({ config }) as never,
+        tools: { createAdCreative },
+      });
+
+      const response = await adapter.createAdCreative({
+        provider: 'meta',
+        accountId: 'act_123',
+        params: {
+          name: `${creativeFormat} creative`,
+          ...(creativeFormat === 'existing_post' ? {} : { pageId: 'page-1' }),
+          creativeFormat,
+          creativeSpec: { ...creativeSpec, totallyUnmappedField: 'dropped silently today' },
+        },
+        credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+      });
+
+      expect(response.ok).toBe(false);
+      expect(response.errors?.[0]?.message).toMatch(/totallyUnmappedField/);
+      expect(createAdCreative).not.toHaveBeenCalled();
+    }
+  );
+
+  it('names the owning format when a creativeSpec field belongs to a different one', async () => {
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: { createAdCreative: vi.fn() },
+    });
+
+    const response = await adapter.createAdCreative({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {
+        name: 'wrong-format field',
+        pageId: 'page-1',
+        creativeFormat: 'single_image',
+        creativeSpec: {
+          imageHash: 'image-1',
+          primaryText: 'Copy',
+          sourceInstagramMediaId: '18170919886430243',
+        },
+      },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    });
+
+    expect(response.ok).toBe(false);
+    expect(response.errors?.[0]?.message).toMatch(/sourceInstagramMediaId.*existing_post/s);
+  });
+
+  it('maps raw Graph spellings in creativeSpec back to the typed field', async () => {
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: { createAdCreative: vi.fn() },
+    });
+
+    const response = await adapter.createAdCreative({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {
+        name: 'raw graph spelling',
+        creativeFormat: 'existing_post',
+        creativeSpec: {
+          source_instagram_media_id: '18170919886430243',
+          app_destination: 'INSTAGRAM_DIRECT',
+          page_welcome_message: { type: 'VISUAL_EDITOR' },
+        },
+      },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    });
+
+    expect(response.ok).toBe(false);
+    expect(response.errors?.[0]?.message).toMatch(/app_destination → creativeSpec\.appDestination/);
+    expect(response.errors?.[0]?.message).toMatch(
+      /page_welcome_message → creativeSpec\.pageWelcomeMessage/
+    );
+  });
+
+  it('threads a CTX existing_post creativeSpec through parsing without losing app destination or welcome message', async () => {
+    const pageWelcomeMessage = {
+      type: 'VISUAL_EDITOR',
+      version: 2,
+      landing_screen_type: 'welcome_message',
+      media_type: 'text',
+      text_format: {
+        customer_action_type: 'ice_breakers',
+        message: {
+          text: 'Halo!',
+          ice_breakers: [{ title: 'Cek harga', response: 'Produk mana?' }],
+        },
+      },
+    };
+    let receivedOptions: CreateAdCreativeOptions | undefined;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        createAdCreative: async (_client, options) => {
+          receivedOptions = options;
+          return {
+            operation: 'create_adcreative',
+            status: 'dry_run',
+            executed: false,
+            preview: {},
+          };
+        },
+      },
+    });
+
+    const response = await adapter.createAdCreative({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {
+        name: 'CTX creative',
+        instagramUserId: '17841421517309865',
+        creativeFormat: 'existing_post',
+        creativeSpec: {
+          sourceInstagramMediaId: '18170919886430243',
+          callToAction: 'INSTAGRAM_MESSAGE',
+          appDestination: 'INSTAGRAM_DIRECT',
+          pageWelcomeMessage,
+        },
+      },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    });
+
+    expect(response.ok).toBe(true);
+    expect(receivedOptions?.creative).toEqual({
+      creativeFormat: 'existing_post',
+      creativeSpec: {
+        objectStoryId: undefined,
+        sourceInstagramMediaId: '18170919886430243',
+        destinationUrl: undefined,
+        callToAction: 'INSTAGRAM_MESSAGE',
+        appDestination: 'INSTAGRAM_DIRECT',
+        pageWelcomeMessage,
+        applinkTreatment: undefined,
+      },
+    });
+  });
+
+  it('expands welcomeMessageTemplateName into creativeSpec.pageWelcomeMessage', async () => {
+    const pageWelcomeMessage = {
+      type: 'VISUAL_EDITOR',
+      version: 2,
+      text_format: {
+        message: {
+          text: 'Payday welcome',
+          ice_breakers: [{ title: 'Cek promo', response: 'Mau produk apa?' }],
+        },
+      },
+    };
+    let receivedOptions: CreateAdCreativeOptions | undefined;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        createAdCreative: async (_client, options) => {
+          receivedOptions = options;
+          return {
+            operation: 'create_adcreative',
+            status: 'dry_run',
+            executed: false,
+            preview: {},
+          };
+        },
+      },
+    });
+
+    await withWelcomeTemplateStore([{ name: 'payday-dm', pageWelcomeMessage }], async () => {
+      const response = await adapter.createAdCreative({
+        provider: 'meta',
+        accountId: 'act_123',
+        params: {
+          name: 'CTX creative',
+          instagramUserId: '17841421517309865',
+          creativeFormat: 'existing_post',
+          welcomeMessageTemplateName: 'payday-dm',
+          creativeSpec: {
+            sourceInstagramMediaId: '18170919886430243',
+            callToAction: 'INSTAGRAM_MESSAGE',
+            appDestination: 'INSTAGRAM_DIRECT',
+            destinationUrl: 'https://www.instagram.com/',
+          },
+        },
+        credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+      });
+
+      expect(response.ok).toBe(true);
+    });
+
+    expect(receivedOptions?.creative).toMatchObject({
+      creativeFormat: 'existing_post',
+      creativeSpec: {
+        sourceInstagramMediaId: '18170919886430243',
+        pageWelcomeMessage,
+      },
+    });
+  });
+
+  it('rejects welcomeMessageTemplateName when creativeSpec already has pageWelcomeMessage', async () => {
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: { createAdCreative: vi.fn() },
+    });
+
+    await withWelcomeTemplateStore(
+      [{ name: 'payday-dm', pageWelcomeMessage: 'Halo dari template' }],
+      async () => {
+        const response = await adapter.createAdCreative({
+          provider: 'meta',
+          accountId: 'act_123',
+          params: {
+            name: 'CTX creative',
+            creativeFormat: 'existing_post',
+            welcomeMessageTemplateName: 'payday-dm',
+            creativeSpec: {
+              sourceInstagramMediaId: '18170919886430243',
+              callToAction: 'INSTAGRAM_MESSAGE',
+              appDestination: 'INSTAGRAM_DIRECT',
+              destinationUrl: 'https://www.instagram.com/',
+              pageWelcomeMessage: 'Inline halo',
+            },
+          },
+          credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+        });
+
+        expect(response.ok).toBe(false);
+        expect(response.errors?.[0]?.message).toMatch(/welcomeMessageTemplateName/i);
+      }
+    );
+  });
 
   it('passes the standard app spec through to canonical App Promotion creative building', async () => {
     let receivedOptions: Record<string, unknown> | undefined;
@@ -3302,6 +3634,129 @@ describe('MetaAdsAdapter', () => {
     expect(received?.sourceAdSetId).toBe('as_src');
     expect(received?.name).toBe('Clone');
     expect(received?.startTime).toBe('2026-07-20T01:00:00+0700');
+  });
+
+  it('forwards an attributionSpec override to the clone tool', async () => {
+    let received: Record<string, unknown> | undefined;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        cloneAdSet: async (_client, options) => {
+          received = options as unknown as Record<string, unknown>;
+          return {
+            operation: 'clone_adset',
+            status: 'dry_run',
+            executed: false,
+            sourceAdSetId: 'as_src',
+            preview: {},
+          };
+        },
+      },
+    });
+
+    const response = await adapter.cloneAdSet({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {
+        sourceAdSetId: 'as_src',
+        optimizationGoal: 'CONVERSATIONS',
+        attributionSpec: [{ event_type: 'CLICK_THROUGH', window_days: 1 }],
+      },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    } as never);
+
+    expect(response.ok).toBe(true);
+    expect(received?.attributionSpec).toEqual([{ event_type: 'CLICK_THROUGH', window_days: 1 }]);
+  });
+
+  it('passes a null attributionSpec through so the inherited window can be dropped', async () => {
+    let received: Record<string, unknown> | undefined;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        cloneAdSet: async (_client, options) => {
+          received = options as unknown as Record<string, unknown>;
+          return {
+            operation: 'clone_adset',
+            status: 'dry_run',
+            executed: false,
+            sourceAdSetId: 'as_src',
+            preview: {},
+          };
+        },
+      },
+    });
+
+    await adapter.cloneAdSet({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: { sourceAdSetId: 'as_src', attributionSpec: null },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    } as never);
+
+    expect(received?.attributionSpec).toBeNull();
+  });
+
+  it('rejects the raw attribution_spec spelling on cloneAdSet instead of ignoring it', async () => {
+    const cloneAdSet = vi.fn();
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: { cloneAdSet },
+    });
+
+    const response = await adapter.cloneAdSet({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {
+        sourceAdSetId: 'as_src',
+        attribution_spec: [{ event_type: 'CLICK_THROUGH', window_days: 1 }],
+      },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    } as never);
+
+    expect(response.ok).toBe(false);
+    expect(response.errors?.[0]?.message).toMatch(/attributionSpec/);
+    expect(cloneAdSet).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    'MESSAGING_INSTAGRAM_DIRECT_MESSENGER',
+    'MESSAGING_INSTAGRAM_DIRECT_MESSENGER_WHATSAPP',
+    'MESSAGING_INSTAGRAM_DIRECT_WHATSAPP',
+    'MESSAGING_MESSENGER_WHATSAPP',
+  ])('accepts the %s multi-destination creative destinationType', async (destinationType) => {
+    let received: CreateAdCreativeOptions | undefined;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        createAdCreative: async (_client, options) => {
+          received = options;
+          return {
+            operation: 'create_adcreative',
+            status: 'dry_run',
+            executed: false,
+            preview: {},
+          };
+        },
+      },
+    });
+
+    const response = await adapter.createAdCreative({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {
+        name: 'multi destination',
+        pageId: 'page-1',
+        link: 'https://example.com',
+        message: 'Chat kami',
+        callToActionType: 'MESSAGE_PAGE',
+        destinationType,
+      },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    });
+
+    expect(response.ok).toBe(true);
+    expect(received?.destinationType).toBe(destinationType);
   });
 
   it('errors when cloneAdSet has no sourceAdSetId', async () => {
