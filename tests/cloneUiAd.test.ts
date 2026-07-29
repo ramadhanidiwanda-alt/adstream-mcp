@@ -88,7 +88,10 @@ describe('cloneUiAd', () => {
       trackingSpecs,
     });
 
-    expect(result.preview.create_payload.tracking_specs).toBe(trackingSpecs);
+    const preview = result.preview as {
+      create_payload: { tracking_specs?: unknown };
+    };
+    expect(preview.create_payload.tracking_specs).toBe(trackingSpecs);
   });
 
   it('executes a paused clone when confirmed', async () => {
