@@ -790,7 +790,7 @@ export const createAdCreativeInputSchema = {
     .array(z.string())
     .optional()
     .describe(
-      'Nama fitur Advantage+ Creative enhancement yang di-disable (OPT_OUT). Contoh: ["image_auto_crop", "text_optimizations", "image_templates"]. Berlaku untuk SEMUA format creative. Jika tidak diisi, Meta mengontrol enhancement secara default.'
+      'Nama individual Advantage+ Creative feature yang di-disable (OPT_OUT). Contoh: ["image_auto_crop", "text_optimizations", "image_templates"]. standard_enhancements sudah deprecated dan media_sourcing bukan creative feature yang valid; keduanya ditolak. Untuk creative manual murni, hilangkan parameter ini agar degrees_of_freedom_spec tidak dikirim.'
     ),
   dedupeByName: z
     .boolean()

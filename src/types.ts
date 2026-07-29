@@ -392,6 +392,7 @@ export interface MetaCreativeVerificationSummary {
   hasPortraitCustomizations?: boolean;
   hasDegreesOfFreedomSpec?: boolean;
   hasMediaSourcingSpec?: boolean;
+  urlTagsStatus?: 'not_requested' | 'verified' | 'missing' | 'mismatch';
   placementImageCount?: number;
   placementRuleCount?: number;
   hasFeedPlacementRule?: boolean;

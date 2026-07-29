@@ -2250,7 +2250,7 @@ function createCreateAdCreativeInputSchema() {
         type: 'array',
         items: { type: 'string' },
         description:
-          'Nama fitur Advantage+ Creative enhancement yang di-disable (OPT_OUT). Contoh: ["image_auto_crop", "text_optimizations", "image_templates", "image_brightness_and_contrast", "image_animation", "image_background_gen", "image_uncrop", "catalog_feed_tag", "product_extensions", "standard_enhancements", "enhance_cta", "inline_comment", "pac_relaxation", "video_auto_crop", "video_filtering", "advantage_plus_creative", "site_extensions"]. Berlaku untuk SEMUA format creative (video, single_image, carousel, flexible, placement_customized_ctwa). Jika tidak diisi, Meta mengontrol enhancement secara default.',
+          'Nama individual Advantage+ Creative feature yang di-disable (OPT_OUT). Contoh: ["image_auto_crop", "text_optimizations", "image_templates", "image_brightness_and_contrast", "image_animation", "image_background_gen", "image_uncrop", "catalog_feed_tag", "product_extensions", "enhance_cta", "inline_comment", "pac_relaxation", "video_auto_crop", "video_filtering", "advantage_plus_creative", "site_extensions"]. standard_enhancements sudah deprecated dan media_sourcing bukan creative feature yang valid; keduanya ditolak. Untuk creative manual murni, hilangkan parameter ini agar degrees_of_freedom_spec tidak dikirim.',
       },
       dryRun: { type: 'boolean', description: 'Defaults to true. Set false only after preview.' },
       confirmed: { type: 'boolean', description: 'Must be true to execute after preview.' },

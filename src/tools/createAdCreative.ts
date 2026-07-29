@@ -10,7 +10,10 @@ import {
   type MetaStandardAppSpec,
   type StructuredMutationError,
 } from '../types.js';
-import { buildMetaCreativeFormatPayload } from '../providers/meta/buildCreativeFormatPayload.js';
+import {
+  assertSupportedCreativeFeatureOptOuts,
+  buildMetaCreativeFormatPayload,
+} from '../providers/meta/buildCreativeFormatPayload.js';
 import { listLeadForms } from './listLeadForms.js';
 import {
   resolveMetaObjectiveLaunchSpec,
@@ -212,11 +215,13 @@ export async function createAdCreative(
       };
     }
 
-    const verification = options.creative
+    const intendedFormat = resolveVerificationFormat(options);
+    const verification = intendedFormat
       ? await verifyCreatedCreative(
           client,
           response.id,
-          options.creative.creativeFormat,
+          intendedFormat,
+          options.urlTags,
           maxRetries
         )
       : undefined;
@@ -260,12 +265,13 @@ export async function createAdCreative(
 }
 
 const CREATIVE_READ_BACK_FIELDS =
-  'id,name,object_story_id,object_story_spec,asset_feed_spec,platform_customizations,portrait_customizations,degrees_of_freedom_spec,media_sourcing_spec,product_set_id,omnichannel_link_spec,effective_object_story_id,source_instagram_media_id';
+  'id,name,object_story_id,object_story_spec,asset_feed_spec,platform_customizations,portrait_customizations,degrees_of_freedom_spec,media_sourcing_spec,product_set_id,omnichannel_link_spec,effective_object_story_id,source_instagram_media_id,url_tags';
 
 async function verifyCreatedCreative(
   client: MetaClient,
   creativeId: string,
   intendedFormat: MetaCreativeFormat,
+  intendedUrlTags: string | undefined,
   maxRetries: number
 ): Promise<MetaCreativeVerification> {
   try {
@@ -275,9 +281,10 @@ async function verifyCreatedCreative(
       maxRetries
     );
     const matchesIntendedFormat = matchesCreativeFormat(fields, intendedFormat);
-    const summary = summarizeCreativeVerification(fields);
+    const summary = summarizeCreativeVerification(fields, intendedUrlTags);
+    const urlTagsWarning = getUrlTagsVerificationWarning(summary.urlTagsStatus);
 
-    if (matchesIntendedFormat) {
+    if (matchesIntendedFormat && !urlTagsWarning) {
       return {
         status: 'verified',
         creativeId,
@@ -294,11 +301,13 @@ async function verifyCreatedCreative(
     return {
       status: 'warning',
       creativeId,
-      effectiveFormat,
+      effectiveFormat: matchesIntendedFormat ? intendedFormat : effectiveFormat,
       summary,
-      warning: effectiveFormat
-        ? `Creative berhasil dibuat, tetapi format hasil read-back (${effectiveFormat}) tidak cocok dengan format yang diminta (${intendedFormat}).`
-        : `Creative berhasil dibuat, tetapi field read-back belum cukup untuk memverifikasi format ${intendedFormat}.`,
+      warning:
+        urlTagsWarning ??
+        (effectiveFormat
+          ? `Creative berhasil dibuat, tetapi format hasil read-back (${effectiveFormat}) tidak cocok dengan format yang diminta (${intendedFormat}).`
+          : `Creative berhasil dibuat, tetapi field read-back belum cukup untuk memverifikasi format ${intendedFormat}.`),
     };
   } catch {
     return {
@@ -311,7 +320,8 @@ async function verifyCreatedCreative(
 }
 
 function summarizeCreativeVerification(
-  fields: Record<string, unknown>
+  fields: Record<string, unknown>,
+  intendedUrlTags?: string
 ): MetaCreativeVerificationSummary {
   const storySpec = isRecord(fields.object_story_spec) ? fields.object_story_spec : undefined;
   const linkData = storySpec && isRecord(storySpec.link_data) ? storySpec.link_data : undefined;
@@ -336,10 +346,40 @@ function summarizeCreativeVerification(
     hasPortraitCustomizations: isRecord(fields.portrait_customizations),
     hasDegreesOfFreedomSpec: isRecord(fields.degrees_of_freedom_spec),
     hasMediaSourcingSpec: isRecord(fields.media_sourcing_spec),
+    urlTagsStatus: getUrlTagsVerificationStatus(fields.url_tags, intendedUrlTags),
     ...placementSummary,
     hasOmnichannelLinkSpec: isRecord(fields.omnichannel_link_spec),
     hasCanvasReference: containsCanvasUrl(linkData) || containsCanvasUrl(videoData),
   };
+}
+
+function getUrlTagsVerificationStatus(
+  readBackUrlTags: unknown,
+  intendedUrlTags: string | undefined
+): NonNullable<MetaCreativeVerificationSummary['urlTagsStatus']> {
+  if (!intendedUrlTags) return 'not_requested';
+  if (!hasNonBlankString(readBackUrlTags)) return 'missing';
+  return readBackUrlTags === intendedUrlTags ? 'verified' : 'mismatch';
+}
+
+function getUrlTagsVerificationWarning(
+  status: MetaCreativeVerificationSummary['urlTagsStatus']
+): string | undefined {
+  if (status === 'missing') {
+    return 'Creative berhasil dibuat, tetapi url_tags yang diminta tidak ditemukan pada read-back Meta.';
+  }
+  if (status === 'mismatch') {
+    return 'Creative berhasil dibuat, tetapi url_tags pada read-back Meta tidak sama dengan nilai yang diminta.';
+  }
+  return undefined;
+}
+
+function resolveVerificationFormat(
+  options: CreateAdCreativeOptions
+): MetaCreativeFormat | undefined {
+  if (options.creative) return options.creative.creativeFormat;
+  if (options.objectStorySpec && isRecord(options.objectStorySpec.video_data)) return 'video';
+  return undefined;
 }
 
 function matchesCreativeFormat(
@@ -499,6 +539,7 @@ function buildCreativePayload(options: CreateAdCreativeOptions): Record<string, 
       'Konten creative wajib diisi melalui creative, objectStorySpec, atau linkData.'
     );
   }
+  assertSupportedCreativeFeatureOptOuts(options.optOutEnhancements);
 
   const payload: Record<string, unknown> = {
     name: options.name.trim(),

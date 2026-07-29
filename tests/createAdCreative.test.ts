@@ -640,6 +640,80 @@ describe('createAdCreative', () => {
     });
   });
 
+  it('previews url_tags at the creative root for a legacy manual video', async () => {
+    const urlTags =
+      'utm_source={{site_source_name}}&utm_medium={{placement}}&utm_campaign={{campaign.name}}&utm_content={{ad.id}}';
+    const result = await createAdCreative(mockClient, {
+      adAccountId: 'act_2086409658377471',
+      name: '29/07 | Jess Luxe | VIDEO',
+      pageId: '215116488342403',
+      urlTags,
+      objectStorySpec: {
+        page_id: '215116488342403',
+        instagram_user_id: '17841463380041722',
+        video_data: {
+          video_id: '1366923638102705',
+          image_hash: 'dfb20acf31a858f76ca0ad97c20abebb',
+          title: 'Skin Booster dari Rumah',
+          message: 'Skin Booster sekarang bisa dari rumah?',
+          call_to_action: {
+            type: 'SHOP_NOW',
+            value: { link: 'https://shop.meenaindonesia.com/luxe-new-update' },
+          },
+        },
+      },
+    });
+
+    expect(result).toMatchObject({
+      status: 'dry_run',
+      preview: {
+        object_story_spec: {
+          video_data: {
+            video_id: '1366923638102705',
+          },
+        },
+        url_tags: urlTags,
+      },
+    });
+    expect(result.preview).not.toHaveProperty('asset_feed_spec');
+    expect(result.preview).not.toHaveProperty('degrees_of_freedom_spec');
+    expect(result.preview).not.toHaveProperty('media_sourcing_spec');
+  });
+
+  it.each([
+    {
+      feature: 'standard_enhancements',
+      expectedError: /standard_enhancements.*deprecated.*individual/i,
+    },
+    {
+      feature: 'media_sourcing',
+      expectedError: /media_sourcing.*bukan.*creative feature/i,
+    },
+  ])(
+    'rejects unsupported manual-video enhancement key $feature',
+    async ({ feature, expectedError }) => {
+      const result = await createAdCreative(mockClient, {
+        adAccountId: 'act_2086409658377471',
+        name: 'Manual video',
+        pageId: '215116488342403',
+        objectStorySpec: {
+          video_data: {
+            video_id: 'video-1',
+            image_hash: 'image-1',
+            message: 'Manual video',
+          },
+        },
+        optOutEnhancements: [feature],
+      });
+
+      expect(result).toMatchObject({
+        status: 'failed',
+        executed: false,
+        error: expect.stringMatching(expectedError),
+      });
+    }
+  );
+
   it('previews an existing Instagram messaging post without re-uploading the media', async () => {
     const pageWelcomeMessage = {
       type: 'VISUAL_EDITOR',
@@ -979,10 +1053,105 @@ describe('createAdCreative', () => {
       '/creative-1',
       {
         fields:
-          'id,name,object_story_id,object_story_spec,asset_feed_spec,platform_customizations,portrait_customizations,degrees_of_freedom_spec,media_sourcing_spec,product_set_id,omnichannel_link_spec,effective_object_story_id,source_instagram_media_id',
+          'id,name,object_story_id,object_story_spec,asset_feed_spec,platform_customizations,portrait_customizations,degrees_of_freedom_spec,media_sourcing_spec,product_set_id,omnichannel_link_spec,effective_object_story_id,source_instagram_media_id,url_tags',
       },
       3
     );
+  });
+
+  it('verifies exact url_tags after creating a legacy manual video', async () => {
+    const urlTags =
+      'utm_source={{site_source_name}}&utm_medium={{placement}}&utm_campaign={{campaign.name}}&utm_content={{ad.id}}';
+    mockMetaPost.mockResolvedValueOnce({ id: 'creative-manual-video' });
+    mockMetaGetObject.mockResolvedValueOnce({
+      id: 'creative-manual-video',
+      object_story_spec: {
+        video_data: {
+          video_id: 'video-1',
+          image_hash: 'image-1',
+          message: 'Manual video',
+        },
+      },
+      url_tags: urlTags,
+    });
+
+    const result = await createAdCreative(
+      mockClient,
+      {
+        adAccountId: 'act_2086409658377471',
+        name: 'Manual video with UTM',
+        pageId: '215116488342403',
+        urlTags,
+        objectStorySpec: {
+          video_data: {
+            video_id: 'video-1',
+            image_hash: 'image-1',
+            message: 'Manual video',
+          },
+        },
+      },
+      { dryRun: false, confirmed: true }
+    );
+
+    expect(result).toMatchObject({
+      status: 'executed',
+      verification: {
+        status: 'verified',
+        creativeId: 'creative-manual-video',
+        effectiveFormat: 'video',
+        summary: {
+          urlTagsStatus: 'verified',
+        },
+      },
+    });
+    expect(mockMetaGetObject).toHaveBeenCalledWith(
+      '/creative-manual-video',
+      {
+        fields: expect.stringContaining('url_tags'),
+      },
+      3
+    );
+  });
+
+  it('warns when Meta omits requested url_tags from a legacy manual video', async () => {
+    mockMetaPost.mockResolvedValueOnce({ id: 'creative-without-utm' });
+    mockMetaGetObject.mockResolvedValueOnce({
+      id: 'creative-without-utm',
+      object_story_spec: {
+        video_data: {
+          video_id: 'video-1',
+          image_hash: 'image-1',
+          message: 'Manual video',
+        },
+      },
+    });
+
+    const result = await createAdCreative(
+      mockClient,
+      {
+        adAccountId: 'act_2086409658377471',
+        name: 'Manual video missing UTM',
+        pageId: '215116488342403',
+        urlTags: 'utm_source={{site_source_name}}',
+        objectStorySpec: {
+          video_data: {
+            video_id: 'video-1',
+            image_hash: 'image-1',
+            message: 'Manual video',
+          },
+        },
+      },
+      { dryRun: false, confirmed: true }
+    );
+
+    expect(result.verification).toMatchObject({
+      status: 'warning',
+      effectiveFormat: 'video',
+      summary: {
+        urlTagsStatus: 'missing',
+      },
+      warning: expect.stringMatching(/url_tags.*tidak ditemukan/i),
+    });
   });
 
   it('verifies both placement image labels and rules after creation', async () => {
