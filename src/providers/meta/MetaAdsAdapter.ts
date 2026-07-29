@@ -43,6 +43,7 @@ import type {
 import { META_CREATIVE_FORMATS } from '../../types.js';
 import {
   META_CONVERSION_LOCATIONS,
+  META_MESSAGING_DESTINATIONS,
   META_ODAX_OBJECTIVES,
   type MetaConversionLocation,
   type MetaMessagingDestination,
@@ -1481,11 +1482,16 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
             typeof request.params.conversionLocation === 'string'
               ? (request.params.conversionLocation as MetaConversionLocation)
               : undefined,
+          messagingDestination: parseMetaMessagingDestination(request.params.messagingDestination),
           creativeFormat:
             request.params.creativeFormat === undefined
               ? undefined
               : parseMetaCreativeFormat(request.params.creativeFormat),
           pageId: typeof request.params.pageId === 'string' ? request.params.pageId : undefined,
+          whatsappPhoneNumber:
+            typeof request.params.whatsappPhoneNumber === 'string'
+              ? request.params.whatsappPhoneNumber
+              : undefined,
           pixelId: typeof request.params.pixelId === 'string' ? request.params.pixelId : undefined,
           leadFormId:
             typeof request.params.leadFormId === 'string' ? request.params.leadFormId : undefined,
@@ -1610,12 +1616,14 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
     let destinationType: CreativeDestinationType | undefined;
     let objective: MetaOdaxObjective | undefined;
     let conversionLocation: MetaConversionLocation | undefined;
+    let messagingDestination: MetaMessagingDestination | undefined;
     let welcomeMessageTemplateName: string | undefined;
     try {
       mode = parseMetaAdsMode(request.params.mode);
       destinationType = parseCreativeDestinationType(request.params.destinationType);
       objective = parseMetaOdaxObjective(request.params.objective);
       conversionLocation = parseMetaConversionLocation(request.params.conversionLocation);
+      messagingDestination = parseMetaMessagingDestination(request.params.messagingDestination);
       welcomeMessageTemplateName = optionalString(
         request.params.welcomeMessageTemplateName,
         'welcomeMessageTemplateName'
@@ -1751,6 +1759,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
           mode,
           objective,
           conversionLocation,
+          messagingDestination,
           creative,
           collaborativeProductSetId,
           collaborativeAppSpec,
@@ -1835,6 +1844,10 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
             typeof request.params.status === 'string'
               ? (request.params.status as import('../../tools/createAd.js').AdStatus)
               : undefined,
+          pixelId: typeof request.params.pixelId === 'string' ? request.params.pixelId : undefined,
+          trackingSpecs: Array.isArray(request.params.trackingSpecs)
+            ? (request.params.trackingSpecs as Record<string, unknown>[])
+            : undefined,
           dedupeByName: request.params.dedupeByName === true,
           skipOmnichannelCheck: request.params.skipOmnichannelCheck === true,
           skipPlacementCompatibilityCheck: request.params.skipPlacementCompatibilityCheck === true,
@@ -1892,6 +1905,10 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
             typeof request.params.status === 'string'
               ? (request.params.status as import('../../tools/cloneUiAd.js').CloneUiAdAdStatus)
               : undefined,
+          pixelId: typeof request.params.pixelId === 'string' ? request.params.pixelId : undefined,
+          trackingSpecs: Array.isArray(request.params.trackingSpecs)
+            ? (request.params.trackingSpecs as Record<string, unknown>[])
+            : undefined,
           dedupeByName: request.params.dedupeByName === true,
           externalReference:
             typeof request.params.externalReference === 'string'
@@ -3029,6 +3046,8 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
         videoFilePath: optionalPlainString(request.params.videoFilePath),
         creativeId: optionalPlainString(request.params.creativeId),
         existingPostId: optionalPlainString(request.params.existingPostId),
+        sourceAdId: optionalPlainString(request.params.sourceAdId),
+        whatsappPhoneNumber: optionalPlainString(request.params.whatsappPhoneNumber),
         whatsappPhoneNumberId: optionalPlainString(request.params.whatsappPhoneNumberId),
         productSetId: optionalPlainString(request.params.productSetId),
         catalogId: optionalPlainString(request.params.catalogId),
@@ -3546,6 +3565,7 @@ export const CREATE_AD_CREATIVE_PARAMS = new Set([
   'mode',
   'objective',
   'conversionLocation',
+  'messagingDestination',
   'creativeFormat',
   'creativeSpec',
   'collaborativeProductSetId',
@@ -3732,6 +3752,19 @@ function parseMetaConversionLocation(value: unknown): MetaConversionLocation | u
     );
   }
   return value as MetaConversionLocation;
+}
+
+function parseMetaMessagingDestination(value: unknown): MetaMessagingDestination | undefined {
+  if (value === undefined) return undefined;
+  if (
+    typeof value !== 'string' ||
+    !META_MESSAGING_DESTINATIONS.includes(value as MetaMessagingDestination)
+  ) {
+    throw new Error(
+      `messagingDestination harus salah satu dari: ${META_MESSAGING_DESTINATIONS.join(', ')}.`
+    );
+  }
+  return value as MetaMessagingDestination;
 }
 
 function parseMetaCreativeFormat(value: unknown): MetaCreativeFormat {

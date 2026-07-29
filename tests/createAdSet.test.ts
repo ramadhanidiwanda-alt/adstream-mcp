@@ -91,6 +91,19 @@ describe('createAdSet — bid strategy + pre-flight validation', () => {
           destination_type: 'ON_VIDEO',
         },
       },
+      {
+        objective: 'OUTCOME_SALES',
+        conversionLocation: 'MESSAGING' as const,
+        creativeFormat: 'single_image' as const,
+        optimizationGoal: undefined,
+        messagingDestination: 'WHATSAPP' as const,
+        expected: {
+          optimization_goal: 'CONVERSATIONS',
+          billing_event: 'IMPRESSIONS',
+          destination_type: 'WHATSAPP',
+          promoted_object: { page_id: 'page-1', whatsapp_phone_number: '6285156583372' },
+        },
+      },
     ])('uses the canonical $objective/$conversionLocation payload', async (testCase) => {
       const client = createMockClient({
         objective: testCase.objective,
@@ -103,6 +116,9 @@ describe('createAdSet — bid strategy + pre-flight validation', () => {
         conversionLocation: testCase.conversionLocation,
         creativeFormat: testCase.creativeFormat,
         optimizationGoal: testCase.optimizationGoal,
+        messagingDestination: testCase.messagingDestination,
+        pageId: 'page-1',
+        whatsappPhoneNumber: '6285156583372',
       });
 
       expect(result.preview).toMatchObject(testCase.expected);

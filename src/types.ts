@@ -182,8 +182,10 @@ export interface MetaExistingPostCreativeSpec {
   /**
    * Messaging destination for a click-to-message CTA, emitted as
    * call_to_action.value.app_destination. Requires callToAction (there is nowhere
-   * else to put it). On existing_post creatives, destinationUrl is also required
-   * so the CTA value includes Meta's required link.
+   * else to put it). On existing Instagram Direct posts, destinationUrl is also
+   * required so the CTA value includes Meta's required link. Existing
+   * Click-to-WhatsApp posts use app_destination WHATSAPP with Meta's canonical
+   * https://api.whatsapp.com/send link, matching Ads Manager read-back.
    */
   appDestination?: MetaAppDestination;
   /**

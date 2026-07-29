@@ -226,6 +226,18 @@ const launchReadinessInputSchema = {
   videoFilePath: z.string().optional().describe('Local video path for upload.'),
   creativeId: z.string().optional().describe('Existing creative ID.'),
   existingPostId: z.string().optional().describe('Existing object_story_id/post ID.'),
+  sourceAdId: z
+    .string()
+    .optional()
+    .describe(
+      'Optional Ads Manager-created source UI ad ID for fallback cloning when a provider creative-create path fails.'
+    ),
+  whatsappPhoneNumber: z
+    .string()
+    .optional()
+    .describe(
+      'Display WhatsApp number for CTWA ad sets, digits only in international format (e.g. 6285156583372). Sent as promoted_object.whatsapp_phone_number.'
+    ),
   whatsappPhoneNumberId: z.string().optional().describe('WhatsApp phone number ID.'),
   businessId: z.string().optional().describe('Meta Business ID for catalog discovery.'),
   catalogId: z.string().optional().describe('Meta product catalog ID.'),
@@ -460,6 +472,12 @@ const createAdSetInputSchema = {
     .optional()
     .describe('Creative format used to validate the objective launch.'),
   pageId: z.string().optional().describe('Meta Page ID for the objective launch.'),
+  whatsappPhoneNumber: z
+    .string()
+    .optional()
+    .describe(
+      'Display WhatsApp number for CTWA ad sets, digits only in international format (e.g. 6285156583372). Sent as promoted_object.whatsapp_phone_number.'
+    ),
   pixelId: z.string().optional().describe('Meta Pixel ID for website conversions.'),
   leadFormId: z.string().optional().describe('Meta instant form ID for lead generation.'),
   applicationId: z.string().optional().describe('Meta application ID for app promotion.'),
@@ -815,6 +833,18 @@ const createAdInputSchema = {
     .describe(
       'Meta: the creative ID to use for this ad. Not used for TikTok — use creatives instead.'
     ),
+  pixelId: z
+    .string()
+    .optional()
+    .describe(
+      'Meta Pixel ID to attach as ad-level tracking_specs for offsite conversion logging. Use this for Sales CTWA where the ad set carries WhatsApp destination and the ad carries pixel tracking.'
+    ),
+  trackingSpecs: z
+    .array(z.record(z.unknown()))
+    .optional()
+    .describe(
+      'Advanced Meta tracking_specs override. If omitted and pixelId is set, the tool builds [{ "action.type": ["offsite_conversion"], fb_pixel: [pixelId] }].'
+    ),
   creatives: z
     .array(z.record(z.unknown()))
     .optional()
@@ -865,6 +895,18 @@ const cloneUiAdInputSchema = {
     .string()
     .describe('The destination ad set ID. Use the source ad set for safest UI-state preservation.'),
   status: z.enum(['ACTIVE', 'PAUSED']).optional().describe('Ad status. Defaults to PAUSED.'),
+  pixelId: z
+    .string()
+    .optional()
+    .describe(
+      'Meta Pixel ID to attach as ad-level tracking_specs on the cloned ad. Useful for Sales CTWA where source_ad_id preserves UI state and the ad still logs offsite conversions.'
+    ),
+  trackingSpecs: z
+    .array(z.record(z.unknown()))
+    .optional()
+    .describe(
+      'Advanced Meta tracking_specs override. If omitted and pixelId is set, the tool builds [{ "action.type": ["offsite_conversion"], fb_pixel: [pixelId] }].'
+    ),
   dedupeByName: z
     .boolean()
     .optional()

@@ -55,9 +55,10 @@ export async function listWhatsAppAccounts(
 
   for (const businessId of businessIds) {
     // Owned WABAs
-    const owned = await client.metaGet<{ data: MetaWabaEntry[] }>(
+    const owned = await fetchWabas(
+      client,
       `/${businessId}/owned_whatsapp_business_accounts`,
-      { fields: 'id,name,currency,timezone_id,owner_business,account_status', limit }
+      limit
     );
     for (const waba of owned.data || []) {
       if (waba.id) {
@@ -74,9 +75,10 @@ export async function listWhatsAppAccounts(
     }
 
     // Client WABAs (shared by clients)
-    const clientWabas = await client.metaGet<{ data: MetaWabaEntry[] }>(
+    const clientWabas = await fetchWabas(
+      client,
       `/${businessId}/client_whatsapp_business_accounts`,
-      { fields: 'id,name,currency,timezone_id,owner_business,account_status', limit }
+      limit
     );
     for (const waba of clientWabas.data || []) {
       if (waba.id) {
@@ -94,4 +96,28 @@ export async function listWhatsAppAccounts(
   }
 
   return results;
+}
+
+async function fetchWabas(
+  client: MetaClient,
+  path: string,
+  limit: number
+): Promise<{ data: MetaWabaEntry[] }> {
+  try {
+    return await client.metaGet<{ data: MetaWabaEntry[] }>(path, {
+      fields: 'id,name,currency,timezone_id,owner_business,account_status',
+      limit,
+    });
+  } catch (error) {
+    if (!isOwnerBusinessFieldError(error)) throw error;
+    return client.metaGet<{ data: MetaWabaEntry[] }>(path, {
+      fields: 'id,name,currency,timezone_id,account_status',
+      limit,
+    });
+  }
+}
+
+function isOwnerBusinessFieldError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /nonexisting field.*owner_business|owner_business.*nonexisting field/i.test(message);
 }

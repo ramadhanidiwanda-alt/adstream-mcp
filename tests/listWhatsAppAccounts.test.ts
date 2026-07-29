@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import type { MetaClient } from '../src/metaClient.js';
 import { listWhatsAppAccounts } from '../src/tools/listWhatsAppAccounts.js';
+import { MetaApiError } from '../src/utils/metaError.js';
 
 type MetaGetMock = ReturnType<typeof vi.fn>;
 
@@ -99,5 +100,33 @@ describe('listWhatsAppAccounts', () => {
 
     const result = await listWhatsAppAccounts(mockClient, { businessId: 'bus_123' });
     expect(result).toHaveLength(0);
+  });
+
+  it('falls back when owner_business is not available on the WABA edge', async () => {
+    mockMetaGet
+      .mockRejectedValueOnce(
+        new MetaApiError({
+          message: '(#100) Tried accessing nonexisting field (owner_business)',
+          type: 'OAuthException',
+          code: 100,
+        })
+      )
+      .mockResolvedValueOnce({
+        data: [{ id: 'waba_111', name: 'My WABA', account_status: 'ACTIVE' }],
+      })
+      .mockResolvedValueOnce({ data: [] });
+
+    const result = await listWhatsAppAccounts(mockClient, { businessId: 'bus_123' });
+
+    expect(result).toEqual([
+      {
+        waba_id: 'waba_111',
+        name: 'My WABA',
+        owner_type: 'owned',
+        account_status: 'ACTIVE',
+      },
+    ]);
+    expect(mockMetaGet.mock.calls[0][1].fields).toContain('owner_business');
+    expect(mockMetaGet.mock.calls[1][1].fields).not.toContain('owner_business');
   });
 });

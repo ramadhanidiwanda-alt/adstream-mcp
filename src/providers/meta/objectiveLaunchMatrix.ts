@@ -92,6 +92,7 @@ export interface MetaObjectiveLaunchSpec {
     | 'engagement_messaging'
     | 'app_installs'
     | 'sales_website'
+    | 'sales_messaging'
     | 'sales_catalog';
   objective: MetaOdaxObjective;
   conversionLocation: MetaConversionLocation;
@@ -123,6 +124,7 @@ export interface MetaObjectiveLaunchRequest {
 
 export interface MetaObjectiveLaunchInput {
   pageId?: string;
+  whatsappPhoneNumber?: string;
   pixelId?: string;
   leadFormId?: string;
   applicationId?: string;
@@ -425,6 +427,45 @@ const MATRIX: Record<MetaObjectiveLaunchSpec['key'], MetaObjectiveLaunchMatrixRo
     minApiMajor: 23,
     maxApiMajor: 25,
   },
+  sales_messaging: {
+    key: 'sales_messaging',
+    objective: 'OUTCOME_SALES',
+    conversionLocation: 'MESSAGING',
+    defaultGoal: 'CONVERSATIONS',
+    allowedGoals: ['MESSAGING_PURCHASE_CONVERSION', 'CONVERSATIONS', 'LINK_CLICKS', 'IMPRESSIONS'],
+    billingEvent: 'IMPRESSIONS',
+    // Replaced with the resolved messagingDestination; there is no single default.
+    destinationType: undefined,
+    destinationMode: 'EXTERNAL_URL',
+    promotedObjectKind: 'page',
+    requiredInputs: [
+      'pageId',
+      'messagingDestination',
+      'whatsappPhoneNumber',
+      'pixelId',
+      'destinationUrl',
+      'dailyBudget',
+      'countries',
+      'creativeAsset',
+      'primaryText',
+      'specialAdCategories',
+    ],
+    supportedCreativeFormats: ['existing_post', 'single_image', 'video'],
+    requiredInputsByCreativeFormat: {
+      existing_post: [
+        'pageId',
+        'messagingDestination',
+        'whatsappPhoneNumber',
+        'pixelId',
+        'existingPostId',
+        'dailyBudget',
+        'countries',
+        'specialAdCategories',
+      ],
+    },
+    minApiMajor: 23,
+    maxApiMajor: 25,
+  },
   sales_catalog: {
     key: 'sales_catalog',
     objective: 'OUTCOME_SALES',
@@ -564,7 +605,12 @@ export function buildMetaPromotedObject(
         custom_event_type: input.customEventType?.trim() || 'PURCHASE',
       };
     case 'page':
-      return { page_id: requireInput(input.pageId, 'pageId') };
+      return {
+        page_id: requireInput(input.pageId, 'pageId'),
+        ...(input.whatsappPhoneNumber?.trim()
+          ? { whatsapp_phone_number: input.whatsappPhoneNumber.trim() }
+          : {}),
+      };
     case 'application':
       return {
         application_id: requireInput(input.applicationId, 'applicationId'),

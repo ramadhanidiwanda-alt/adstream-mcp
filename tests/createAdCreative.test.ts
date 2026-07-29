@@ -608,6 +608,30 @@ describe('createAdCreative', () => {
     });
   });
 
+  it('defaults a canonical Sales messaging creative to WHATSAPP_MESSAGE', async () => {
+    const result = await createAdCreative(mockClient, {
+      adAccountId: 'act_1',
+      name: 'Sales CTWA',
+      pageId: 'page-1',
+      objective: 'OUTCOME_SALES',
+      conversionLocation: 'MESSAGING',
+      messagingDestination: 'WHATSAPP',
+      creative: {
+        creativeFormat: 'single_image',
+        creativeSpec: {
+          imageHash: 'image-1',
+          primaryText: 'Chat admin untuk beli',
+          destinationUrl: 'https://wa.me/6281234567890',
+        },
+      },
+    });
+
+    expect(result.status).toBe('dry_run');
+    const storySpec = result.preview.object_story_spec as Record<string, unknown>;
+    const linkData = storySpec.link_data as Record<string, unknown>;
+    expect(linkData.call_to_action).toEqual({ type: 'WHATSAPP_MESSAGE' });
+  });
+
   // Mirrors the payload verified live against Meta v25.0 on 2026-07-24: everything
   // sits at the top level. Nesting the destination in object_story_spec makes Meta
   // reject the create with (#100) subcode 1487929 "Ambiguous Promoted Object".
@@ -684,6 +708,105 @@ describe('createAdCreative', () => {
       page_welcome_message: pageWelcomeMessage,
     });
     expect(result.preview.object_story_spec).toBeUndefined();
+  });
+
+  it('previews an existing Instagram WhatsApp Reel without CTA link', async () => {
+    const pageWelcomeMessage = {
+      type: 'VISUAL_EDITOR',
+      text_format: {
+        message: { text: 'Halo Pak Ivan, saya tertarik dengan Hurricane XCS.' },
+      },
+    };
+
+    const result = await createAdCreative(mockClient, {
+      adAccountId: 'act_426223085194693',
+      name: 'HRC01 | REELS | CTWA',
+      pageId: '330290916841848',
+      instagramUserId: '17841449623015969',
+      objective: 'OUTCOME_SALES',
+      conversionLocation: 'MESSAGING',
+      messagingDestination: 'WHATSAPP',
+      creative: {
+        creativeFormat: 'existing_post',
+        creativeSpec: {
+          sourceInstagramMediaId: '18571075747064659',
+          pageWelcomeMessage,
+        },
+      },
+    });
+
+    expect(mockMetaPost).not.toHaveBeenCalled();
+    expect(result.status).toBe('dry_run');
+    expect(result.preview).toEqual({
+      name: 'HRC01 | REELS | CTWA',
+      source_instagram_media_id: '18571075747064659',
+      instagram_user_id: '17841449623015969',
+      call_to_action: {
+        type: 'WHATSAPP_MESSAGE',
+        value: {
+          app_destination: 'WHATSAPP',
+          link: 'https://api.whatsapp.com/send',
+        },
+      },
+      page_welcome_message: pageWelcomeMessage,
+    });
+  });
+
+  it('normalizes existing Instagram WhatsApp Reel CTA links to the Ads Manager send URL', async () => {
+    const result = await createAdCreative(mockClient, {
+      adAccountId: 'act_426223085194693',
+      name: 'HRC01 | REELS | CTWA',
+      instagramUserId: '17841449623015969',
+      objective: 'OUTCOME_SALES',
+      conversionLocation: 'MESSAGING',
+      messagingDestination: 'WHATSAPP',
+      creative: {
+        creativeFormat: 'existing_post',
+        creativeSpec: {
+          sourceInstagramMediaId: '18571075747064659',
+          destinationUrl: 'https://wa.me/6285156583372',
+        },
+      },
+    });
+
+    expect(result.status).toBe('dry_run');
+    expect(result.preview).toMatchObject({
+      call_to_action: {
+        type: 'WHATSAPP_MESSAGE',
+        value: {
+          app_destination: 'WHATSAPP',
+          link: 'https://api.whatsapp.com/send',
+        },
+      },
+    });
+  });
+
+  it('keeps existing Instagram WhatsApp Reel CTA value when appDestination is supplied', async () => {
+    const result = await createAdCreative(mockClient, {
+      adAccountId: 'act_426223085194693',
+      name: 'HRC01 | REELS | CTWA',
+      instagramUserId: '17841449623015969',
+      creative: {
+        creativeFormat: 'existing_post',
+        creativeSpec: {
+          sourceInstagramMediaId: '18571075747064659',
+          callToAction: 'WHATSAPP_MESSAGE',
+          appDestination: 'WHATSAPP',
+          destinationUrl: 'https://wa.me/6285156583372',
+        },
+      },
+    });
+
+    expect(result.status).toBe('dry_run');
+    expect(result.preview).toMatchObject({
+      call_to_action: {
+        type: 'WHATSAPP_MESSAGE',
+        value: {
+          app_destination: 'WHATSAPP',
+          link: 'https://api.whatsapp.com/send',
+        },
+      },
+    });
   });
 
   it.each([

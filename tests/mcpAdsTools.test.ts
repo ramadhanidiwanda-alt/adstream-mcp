@@ -638,6 +638,18 @@ describe('ads MCP broker tools', () => {
     );
   });
 
+  it('accepts source UI ad IDs in launch readiness for optional CTWA fallback workflows', () => {
+    const readinessTool = getAdsMcpToolDefinitions({ includeWrites: false }).find(
+      (tool) => tool.name === 'ads_check_launch_readiness'
+    );
+    const properties = readinessTool?.inputSchema.properties as Record<string, unknown>;
+
+    expect(properties.sourceAdId).toMatchObject({
+      type: 'string',
+      description: expect.stringMatching(/optional.*source.*UI ad|fallback.*clone/i),
+    });
+  });
+
   it('routes canonical ads_get_performance by level without removing legacy tools', async () => {
     let receivedRequest: AdsBrokerRequest | undefined;
     const broker = {

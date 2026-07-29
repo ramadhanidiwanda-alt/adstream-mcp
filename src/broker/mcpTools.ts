@@ -1746,12 +1746,23 @@ function createCreateAdSetInputSchema() {
         enum: [...META_CONVERSION_LOCATIONS],
         description: 'Objective-aware Meta conversion location.',
       },
+      messagingDestination: {
+        type: 'string',
+        enum: [...META_MESSAGING_DESTINATIONS],
+        description:
+          'Inbox tujuan untuk conversionLocation MESSAGING. Untuk Sales CTWA, isi WHATSAPP agar ad set memakai destination_type WHATSAPP dan goal default CONVERSATIONS.',
+      },
       creativeFormat: {
         type: 'string',
         enum: [...META_CREATIVE_FORMATS],
         description: 'Creative format used to validate the objective launch.',
       },
       pageId: { type: 'string', description: 'Meta Page ID for the objective launch.' },
+      whatsappPhoneNumber: {
+        type: 'string',
+        description:
+          'Display WhatsApp number for CTWA ad sets, digits only in international format (e.g. 6285156583372). Sent as promoted_object.whatsapp_phone_number.',
+      },
       pixelId: { type: 'string', description: 'Meta Pixel ID for website conversions.' },
       leadFormId: { type: 'string', description: 'Meta instant form ID for lead generation.' },
       applicationId: { type: 'string', description: 'Meta application ID for app promotion.' },
@@ -1988,6 +1999,12 @@ function createCreateAdCreativeInputSchema() {
         type: 'string',
         enum: [...META_CONVERSION_LOCATIONS],
         description: 'Canonical conversion location. Must be paired with objective.',
+      },
+      messagingDestination: {
+        type: 'string',
+        enum: [...META_MESSAGING_DESTINATIONS],
+        description:
+          'Inbox tujuan untuk conversionLocation MESSAGING. Untuk Sales CTWA, isi WHATSAPP agar creative default ke CTA WHATSAPP_MESSAGE.',
       },
       creativeFormat: {
         type: 'string',
@@ -2273,6 +2290,17 @@ function createCreateAdInputSchema() {
         description:
           'Meta: the creative ID to use for this ad. Not used for TikTok — use creatives instead.',
       },
+      pixelId: {
+        type: 'string',
+        description:
+          'Meta Pixel ID to attach as ad-level tracking_specs for offsite conversion logging. Use this for Sales CTWA where the ad set carries WhatsApp destination and the ad carries pixel tracking.',
+      },
+      trackingSpecs: {
+        type: 'array',
+        items: { type: 'object' },
+        description:
+          'Advanced Meta tracking_specs override. If omitted and pixelId is set, the tool builds [{ "action.type": ["offsite_conversion"], fb_pixel: [pixelId] }].',
+      },
       creatives: {
         type: 'array',
         description:
@@ -2337,6 +2365,17 @@ function createCloneUiAdInputSchema() {
         type: 'string',
         enum: ['ACTIVE', 'PAUSED'],
         description: 'Ad status. Defaults to PAUSED.',
+      },
+      pixelId: {
+        type: 'string',
+        description:
+          'Meta Pixel ID to attach as ad-level tracking_specs on the cloned ad. Useful for Sales CTWA where source_ad_id preserves UI state and the ad still logs offsite conversions.',
+      },
+      trackingSpecs: {
+        type: 'array',
+        items: { type: 'object' },
+        description:
+          'Advanced Meta tracking_specs override. If omitted and pixelId is set, the tool builds [{ "action.type": ["offsite_conversion"], fb_pixel: [pixelId] }].',
       },
       dedupeByName: {
         type: 'boolean',
@@ -2926,6 +2965,16 @@ function createLaunchReadinessInputSchema() {
       videoFilePath: { type: 'string', description: 'Local video path for upload.' },
       creativeId: { type: 'string', description: 'Existing creative ID.' },
       existingPostId: { type: 'string', description: 'Existing object_story_id/post ID.' },
+      sourceAdId: {
+        type: 'string',
+        description:
+          'Optional Ads Manager-created source UI ad ID for fallback cloning when a provider creative-create path fails.',
+      },
+      whatsappPhoneNumber: {
+        type: 'string',
+        description:
+          'Display WhatsApp number for CTWA ad sets, digits only in international format (e.g. 6285156583372). Sent as promoted_object.whatsapp_phone_number.',
+      },
       whatsappPhoneNumberId: { type: 'string', description: 'WhatsApp phone number ID.' },
       businessId: { type: 'string', description: 'Meta Business ID for catalog discovery.' },
       catalogId: { type: 'string', description: 'Meta product catalog ID.' },

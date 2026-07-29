@@ -16,6 +16,8 @@ export interface CreateAdOptions {
   adSetId: string;
   creativeId: string;
   status?: AdStatus;
+  /** Meta Pixel ID to attach as ad-level offsite conversion tracking_specs. */
+  pixelId?: string;
   trackingSpecs?: Array<Record<string, unknown>>;
   adLabels?: Array<{ name: string }>;
   dedupeByName?: boolean;
@@ -269,8 +271,9 @@ function buildAdPayload(options: CreateAdOptions): Record<string, unknown> {
     status: options.status ?? 'PAUSED',
   };
 
-  if (options.trackingSpecs) {
-    payload.tracking_specs = options.trackingSpecs;
+  const trackingSpecs = options.trackingSpecs ?? buildPixelTrackingSpecs(options.pixelId);
+  if (trackingSpecs) {
+    payload.tracking_specs = trackingSpecs;
   }
 
   if (options.adLabels) {
@@ -278,6 +281,19 @@ function buildAdPayload(options: CreateAdOptions): Record<string, unknown> {
   }
 
   return payload;
+}
+
+function buildPixelTrackingSpecs(
+  pixelId: string | undefined
+): Array<Record<string, unknown>> | undefined {
+  const normalizedPixelId = pixelId?.trim();
+  if (!normalizedPixelId) return undefined;
+  return [
+    {
+      'action.type': ['offsite_conversion'],
+      fb_pixel: [normalizedPixelId],
+    },
+  ];
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

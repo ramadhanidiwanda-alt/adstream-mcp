@@ -126,6 +126,24 @@ const PRESETS: Record<MetaLaunchWorkflow, LaunchPresetDefinition> = {
     recommendedTools: [...CREATE_TOOLS, 'ads_list_pages', 'ads_list_pixels'],
     safetyNotes: ['Use dry-run preview before execute; created entities remain PAUSED.'],
   },
+  sales_messaging: {
+    label: 'Sales via Click-to-Message',
+    mode: 'standard',
+    objective: 'OUTCOME_SALES',
+    conversionLocation: 'MESSAGING',
+    recommendedTools: [
+      ...CREATE_TOOLS,
+      'ads_clone_ui_ad',
+      'ads_clone_adset',
+      'ads_list_instagram_media',
+      'ads_list_pages',
+    ],
+    safetyNotes: [
+      'Gunakan messagingDestination WHATSAPP untuk CTWA; ad set harus memakai destination_type WHATSAPP dan creative CTA WHATSAPP_MESSAGE.',
+      'Default optimizationGoal untuk Sales CTWA mengikuti Meta UI: CONVERSATIONS dengan billing_event IMPRESSIONS, promoted_object.page_id, dan promoted_object.whatsapp_phone_number.',
+      'Untuk existing-post/Reels CTWA, creative root harus mengikuti read-back Ads Manager: source_instagram_media_id, instagram_user_id, page_welcome_message, dan call_to_action WHATSAPP_MESSAGE dengan app_destination WHATSAPP serta link https://api.whatsapp.com/send.',
+    ],
+  },
   sales_catalog: {
     label: 'Sales dengan Catalog',
     mode: 'collaborative_ads',
@@ -151,9 +169,6 @@ export const LEGACY_WORKFLOW_ALIASES = {
 } as const;
 
 const DEPRECATED_WORKFLOW_ALIASES = {
-  // Was pointed at sales_website, which has no messaging destination at all. A
-  // click-to-WhatsApp launch belongs on the messaging row.
-  whatsapp_sales: 'engagement_messaging',
   creative_testing: 'sales_website',
 } as const;
 
@@ -187,6 +202,13 @@ export function inferLaunchWorkflow(intent: string): MetaLaunchWorkflow {
   if (/(awareness|brand baru|jangkauan|reach)/i.test(text)) return 'awareness';
   if (/(traffic|kunjungan|visit)/i.test(text)) return 'traffic_website';
   if (
+    /(sales|jualan|purchase|pembelian|konversi|roas).*(click.?to.?whatsapp|ctwa|whatsapp|chat)|((click.?to.?whatsapp|ctwa|whatsapp|chat).*(sales|jualan|purchase|pembelian|konversi|roas))/i.test(
+      text
+    )
+  ) {
+    return 'sales_messaging';
+  }
+  if (
     /(click.?to.?(message|whatsapp|instagram)|ctwa|ctx|\bdm\b|direct message|kirim pesan|chat|whatsapp|messenger|instagram direct)/i.test(
       text
     )
@@ -207,6 +229,7 @@ export function normalizeWorkflow(workflow: string | undefined): MetaLaunchWorkf
   if (workflow && workflow in LEGACY_WORKFLOW_ALIASES) {
     return LEGACY_WORKFLOW_ALIASES[workflow as keyof typeof LEGACY_WORKFLOW_ALIASES];
   }
+  if (workflow === 'whatsapp_sales') return 'sales_messaging';
   if (workflow && workflow in DEPRECATED_WORKFLOW_ALIASES) {
     return DEPRECATED_WORKFLOW_ALIASES[workflow as keyof typeof DEPRECATED_WORKFLOW_ALIASES];
   }
