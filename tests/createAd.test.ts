@@ -94,6 +94,38 @@ describe('createAd', () => {
     expect(mockMetaPost.mock.calls[0][1].status).toBe('ACTIVE');
   });
 
+  it('builds UI-style pixel tracking specs on the ad when pixelId is provided', async () => {
+    const r = await createAd(mockClient, {
+      ...baseOpts,
+      pixelId: '607249154118091',
+    });
+
+    expect(r.status).toBe('dry_run');
+    expect(r.preview.tracking_specs).toEqual([
+      {
+        'action.type': ['offsite_conversion'],
+        fb_pixel: ['607249154118091'],
+      },
+    ]);
+  });
+
+  it('prefers explicit trackingSpecs over pixelId shorthand', async () => {
+    const explicitTrackingSpecs = [
+      {
+        'action.type': ['offsite_conversion'],
+        fb_pixel: ['custom-pixel'],
+      },
+    ];
+
+    const r = await createAd(mockClient, {
+      ...baseOpts,
+      pixelId: '607249154118091',
+      trackingSpecs: explicitTrackingSpecs,
+    });
+
+    expect(r.preview.tracking_specs).toBe(explicitTrackingSpecs);
+  });
+
   it('blocks placement asset feeds on non-dynamic WhatsApp ad sets before mutation', async () => {
     mockMetaGetObject.mockImplementation(async (path: string) =>
       path === '/as456'

@@ -11,6 +11,7 @@ const CANONICAL_WORKFLOWS = [
   ['leads_instant_form', 'OUTCOME_LEADS', 'INSTANT_FORM'],
   ['app_installs', 'OUTCOME_APP_PROMOTION', 'APP'],
   ['sales_website', 'OUTCOME_SALES', 'WEBSITE'],
+  ['sales_messaging', 'OUTCOME_SALES', 'MESSAGING'],
   ['sales_catalog', 'OUTCOME_SALES', 'CATALOG'],
 ] as const;
 
@@ -83,6 +84,18 @@ const REQUIRED_INPUTS = {
     'creativeAsset',
     'primaryText',
     'headline',
+    'specialAdCategories',
+  ],
+  sales_messaging: [
+    'pageId',
+    'messagingDestination',
+    'whatsappPhoneNumber',
+    'pixelId',
+    'destinationUrl',
+    'dailyBudget',
+    'countries',
+    'creativeAsset',
+    'primaryText',
     'specialAdCategories',
   ],
   sales_catalog: [
@@ -219,9 +232,7 @@ describe('launch presets', () => {
 
   it('keeps legacy workflow aliases compatible and marks deprecated aliases', () => {
     expect(getLaunchPreset('website_sales')).toMatchObject({ workflow: 'sales_website' });
-    expect(checkLaunchReadiness({ workflow: 'whatsapp_sales' }).warnings).toEqual(
-      expect.arrayContaining([expect.stringContaining('deprecated')])
-    );
+    expect(getLaunchPreset('whatsapp_sales')).toMatchObject({ workflow: 'sales_messaging' });
   });
 
   it('infers canonical workflows from plain-language user intent', () => {
@@ -232,6 +243,9 @@ describe('launch presets', () => {
       'engagement_messaging'
     );
     expect(inferLaunchWorkflow('bikin CTWA biar orang chat whatsapp')).toBe('engagement_messaging');
+    expect(inferLaunchWorkflow('bikin CTWA sales objective biar orang purchase via WA')).toBe(
+      'sales_messaging'
+    );
   });
 
   // Before this workflow existed, OUTCOME_ENGAGEMENT only reached engagement_post, so a
@@ -323,9 +337,70 @@ describe('launch presets', () => {
     expect(getLaunchPreset('engagement_messaging').recommendedTools).toContain('ads_clone_ui_ad');
   });
 
-  it('points the whatsapp_sales alias at the messaging workflow, not website sales', () => {
+  it('points the whatsapp_sales alias at the Sales messaging workflow, not website sales', () => {
     expect(getLaunchPreset('whatsapp_sales')).toMatchObject({
-      workflow: 'engagement_messaging',
+      workflow: 'sales_messaging',
+      objective: 'OUTCOME_SALES',
+      conversionLocation: 'MESSAGING',
+      optimizationGoal: 'CONVERSATIONS',
+    });
+  });
+
+  it('resolves Sales CTWA to WhatsApp destination and CTA', () => {
+    const result = checkLaunchReadiness({
+      workflow: 'sales_messaging',
+      creativeFormat: 'single_image',
+      messagingDestination: 'WHATSAPP',
+      whatsappPhoneNumber: '6285156583372',
+      pixelId: '607249154118091',
+      pageId: 'page-1',
+      destinationUrl: 'https://wa.me/6281234567890',
+      dailyBudget: 100000,
+      countries: ['ID'],
+      imageHash: 'image-1',
+      primaryText: 'Chat admin untuk beli',
+      specialAdCategories: [],
+      writesEnabled: true,
+    });
+
+    expect(result).toMatchObject({
+      ready: true,
+      missing: [],
+      workflow: 'sales_messaging',
+      resolvedSpec: {
+        objective: 'OUTCOME_SALES',
+        conversionLocation: 'MESSAGING',
+        optimizationGoal: 'CONVERSATIONS',
+        destinationType: 'WHATSAPP',
+        defaultCallToAction: 'WHATSAPP_MESSAGE',
+      },
+    });
+  });
+
+  it('marks Sales CTWA existing-post ready without destinationUrl', () => {
+    const result = checkLaunchReadiness({
+      workflow: 'sales_messaging',
+      creativeFormat: 'existing_post',
+      messagingDestination: 'WHATSAPP',
+      whatsappPhoneNumber: '6285156583372',
+      pixelId: '607249154118091',
+      pageId: '330290916841848',
+      existingPostId: '18571075747064659',
+      dailyBudget: 175000,
+      countries: ['ID'],
+      specialAdCategories: [],
+      writesEnabled: true,
+    });
+
+    expect(result).toMatchObject({
+      ready: true,
+      missing: [],
+      workflow: 'sales_messaging',
+      resolvedSpec: {
+        optimizationGoal: 'CONVERSATIONS',
+        destinationType: 'WHATSAPP',
+        defaultCallToAction: 'WHATSAPP_MESSAGE',
+      },
     });
   });
 });

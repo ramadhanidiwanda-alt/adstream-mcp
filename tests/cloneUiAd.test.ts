@@ -54,6 +54,46 @@ describe('cloneUiAd', () => {
     expect(mockMetaPost).not.toHaveBeenCalled();
   });
 
+  it('builds ad-level pixel tracking specs for Sales CTWA clones', async () => {
+    const result = await cloneUiAd(mockClient, {
+      ...baseOpts,
+      pixelId: '607249154118091',
+    });
+
+    expect(result.preview).toMatchObject({
+      create_payload: {
+        source_ad_id: 'ad_source_1',
+        creative: { creative_id: '<SOURCE_AD_CREATIVE_ID>' },
+        tracking_specs: [
+          {
+            'action.type': ['offsite_conversion'],
+            fb_pixel: ['607249154118091'],
+          },
+        ],
+      },
+    });
+  });
+
+  it('prefers explicit trackingSpecs over the clone pixelId shorthand', async () => {
+    const trackingSpecs = [
+      {
+        'action.type': ['offsite_conversion'],
+        fb_pixel: ['custom-pixel'],
+      },
+    ];
+
+    const result = await cloneUiAd(mockClient, {
+      ...baseOpts,
+      pixelId: '607249154118091',
+      trackingSpecs,
+    });
+
+    const preview = result.preview as {
+      create_payload: { tracking_specs?: unknown };
+    };
+    expect(preview.create_payload.tracking_specs).toBe(trackingSpecs);
+  });
+
   it('executes a paused clone when confirmed', async () => {
     mockMetaGetObject.mockResolvedValueOnce({ creative: { id: 'creative_1' } });
     mockMetaPost.mockResolvedValueOnce({ id: 'ad_clone_1' });
@@ -78,6 +118,33 @@ describe('cloneUiAd', () => {
         source_ad_id: 'ad_source_1',
         creative: { creative_id: 'creative_1' },
       },
+      3
+    );
+  });
+
+  it('executes a clone with pixel tracking when confirmed', async () => {
+    mockMetaGetObject.mockResolvedValueOnce({ creative: { id: 'creative_1' } });
+    mockMetaPost.mockResolvedValueOnce({ id: 'ad_clone_1' });
+
+    const result = await cloneUiAd(
+      mockClient,
+      { ...baseOpts, pixelId: '607249154118091' },
+      { dryRun: false, confirmed: true }
+    );
+
+    expect(result.status).toBe('executed');
+    expect(mockMetaPost).toHaveBeenCalledWith(
+      '/act_123/ads',
+      expect.objectContaining({
+        source_ad_id: 'ad_source_1',
+        creative: { creative_id: 'creative_1' },
+        tracking_specs: [
+          {
+            'action.type': ['offsite_conversion'],
+            fb_pixel: ['607249154118091'],
+          },
+        ],
+      }),
       3
     );
   });

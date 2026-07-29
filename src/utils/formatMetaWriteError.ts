@@ -74,6 +74,9 @@ function getActionableFix(error: MetaApiError, message: string): string {
     return 'Reconnect the provider account and ensure the token is not expired.';
   if (error.code === 200 || error.code === 10)
     return 'Reconnect the account with the required Meta Ads permission and verify account access.';
+  if (error.subcode === 2061015 || (text.includes('link') && text.includes('wajib'))) {
+    return 'Fix the creative CTA link payload. For existing-post WhatsApp creatives, use WHATSAPP_MESSAGE with value.app_destination WHATSAPP and value.link https://api.whatsapp.com/send; avoid wa.me phone URLs. For Instagram Direct existing-post creatives, provide both app_destination and link.';
+  }
   if (text.includes('page'))
     return 'Verify the Page ID or identity is accessible to the connected ad account.';
   if (text.includes('budget'))

@@ -140,4 +140,21 @@ describe('formatMetaWriteError', () => {
       actionableFix: expect.stringContaining('Meta app'),
     });
   });
+
+  it('explains Meta link-required creative errors as CTA payload conflicts', () => {
+    const error = new MetaApiError({
+      message: 'Invalid parameter',
+      type: 'OAuthException',
+      code: 100,
+      error_subcode: 2061015,
+      error_user_title: 'Kolom Wajib Kosong',
+      error_user_msg: 'Kolom link wajib. Harap isi bidang tersebut untuk melanjutkan.',
+    });
+
+    expect(formatStructuredMetaWriteError(error)).toMatchObject({
+      code: 'INVALID_PARAMETER',
+      providerSubcode: '2061015',
+      actionableFix: expect.stringMatching(/WHATSAPP_MESSAGE.*api\.whatsapp\.com\/send/i),
+    });
+  });
 });

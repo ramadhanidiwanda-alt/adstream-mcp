@@ -20,6 +20,9 @@ export interface CloneUiAdOptions {
   adSetId: string;
   name: string;
   status?: CloneUiAdAdStatus;
+  /** Meta Pixel ID to attach as ad-level offsite conversion tracking_specs. */
+  pixelId?: string;
+  trackingSpecs?: Array<Record<string, unknown>>;
   dedupeByName?: boolean;
   externalReference?: string;
 }
@@ -201,11 +204,31 @@ function buildCreateAdPayload(
   options: CloneUiAdOptions,
   creativeId: string
 ): Record<string, unknown> {
-  return {
+  const payload: Record<string, unknown> = {
     name: options.name.trim(),
     adset_id: options.adSetId,
     status: options.status ?? 'PAUSED',
     source_ad_id: options.sourceAdId,
     creative: { creative_id: creativeId },
   };
+
+  const trackingSpecs = options.trackingSpecs ?? buildPixelTrackingSpecs(options.pixelId);
+  if (trackingSpecs) {
+    payload.tracking_specs = trackingSpecs;
+  }
+
+  return payload;
+}
+
+function buildPixelTrackingSpecs(
+  pixelId: string | undefined
+): Array<Record<string, unknown>> | undefined {
+  const normalizedPixelId = pixelId?.trim();
+  if (!normalizedPixelId) return undefined;
+  return [
+    {
+      'action.type': ['offsite_conversion'],
+      fb_pixel: [normalizedPixelId],
+    },
+  ];
 }

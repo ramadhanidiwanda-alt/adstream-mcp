@@ -10,6 +10,7 @@ import {
   MetaObjectiveLaunchValidationError,
   resolveMetaObjectiveLaunchSpec,
   type MetaConversionLocation,
+  type MetaMessagingDestination,
   type MetaOdaxObjective,
 } from '../providers/meta/objectiveLaunchMatrix.js';
 import { normalizeAccountPath } from '../utils/normalizeAccountId.js';
@@ -56,6 +57,7 @@ export type OptimizationGoal =
   | 'LANDING_PAGE_VIEWS'
   | 'LEAD_GENERATION'
   | 'LINK_CLICKS'
+  | 'MESSAGING_PURCHASE_CONVERSION'
   | 'OFFSITE_CONVERSIONS'
   | 'ONSITE_CONVERSIONS'
   | 'PAGE_LIKES'
@@ -115,8 +117,14 @@ export interface CreateAdSetOptions {
   billingEvent?: BillingEvent;
   optimizationGoal?: OptimizationGoal;
   conversionLocation?: MetaConversionLocation;
+  messagingDestination?: MetaMessagingDestination;
   creativeFormat?: MetaCreativeFormat;
   pageId?: string;
+  /**
+   * Display WhatsApp number used by Meta in promoted_object.whatsapp_phone_number
+   * for CTWA ad sets. Use digits in international format without "+".
+   */
+  whatsappPhoneNumber?: string;
   pixelId?: string;
   leadFormId?: string;
   applicationId?: string;
@@ -468,6 +476,7 @@ export async function createAdSet(
           optimizationGoal: options.optimizationGoal,
           creativeFormat: options.creativeFormat,
           apiVersion: client.apiVersion ?? 'v25.0',
+          messagingDestination: options.messagingDestination,
         });
         preview.billing_event = launchSpec.billingEvent;
         preview.optimization_goal = launchSpec.optimizationGoal;
@@ -477,6 +486,7 @@ export async function createAdSet(
         if (options.promotedObject === undefined) {
           const promotedObject = buildMetaPromotedObject(launchSpec, {
             pageId: options.pageId,
+            whatsappPhoneNumber: options.whatsappPhoneNumber,
             pixelId: options.pixelId,
             leadFormId: options.leadFormId,
             applicationId: options.applicationId,

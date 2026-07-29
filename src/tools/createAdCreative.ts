@@ -18,6 +18,7 @@ import { listLeadForms } from './listLeadForms.js';
 import {
   resolveMetaObjectiveLaunchSpec,
   type MetaConversionLocation,
+  type MetaMessagingDestination,
   type MetaOdaxObjective,
 } from '../providers/meta/objectiveLaunchMatrix.js';
 import { getMetaCreativeErrorGuidance } from '../providers/meta/metaCreativeErrorGuidance.js';
@@ -58,6 +59,8 @@ export interface CreateAdCreativeOptions {
   objective?: MetaOdaxObjective;
   /** Canonical conversion location paired with objective for launch resolution. */
   conversionLocation?: MetaConversionLocation;
+  /** Which inbox a MESSAGING launch opens. */
+  messagingDestination?: MetaMessagingDestination;
   creative?: MetaCreativeSpec;
   collaborativeProductSetId?: string;
   collaborativeAppSpec?: MetaCollaborativeAppSpec;
@@ -665,6 +668,7 @@ async function withResolvedObjectiveDestinationMode(
     conversionLocation: options.conversionLocation,
     creativeFormat: options.creative.creativeFormat,
     apiVersion,
+    messagingDestination: options.messagingDestination,
   });
 
   const leadFormId = getLeadFormId(options.creative);
@@ -688,7 +692,13 @@ async function withResolvedObjectiveDestinationMode(
   }
 
   if (launchSpec.destinationMode === 'EXTERNAL_URL') {
-    if (!destinationUrl?.trim()) throw new Error('destinationUrl wajib diisi untuk Website Leads.');
+    const canOmitDestinationUrl = isExistingPostWhatsAppMessagingCreative(
+      options.creative,
+      launchSpec
+    );
+    if (!destinationUrl?.trim() && !canOmitDestinationUrl) {
+      throw new Error('destinationUrl wajib diisi untuk destinationMode EXTERNAL_URL.');
+    }
     if (leadFormId?.trim()) {
       throw new Error('leadFormId hanya dapat digunakan untuk destinationMode INSTANT_FORM.');
     }
@@ -716,12 +726,56 @@ async function withResolvedObjectiveDestinationMode(
       creativeSpec: {
         ...options.creative.creativeSpec,
         destinationMode: launchSpec.destinationMode,
+        ...defaultMessagingCreativeFields(options.creative, launchSpec),
         ...(launchSpec.destinationMode === 'APP'
           ? { destinationUrl: options.standardAppSpec?.objectStoreUrl }
           : {}),
       },
     } as MetaCreativeSpec,
   };
+}
+
+function defaultMessagingCreativeFields(
+  creative: MetaCreativeSpec,
+  launchSpec: ReturnType<typeof resolveMetaObjectiveLaunchSpec>
+): Record<string, unknown> {
+  if (!launchSpec.defaultCallToAction) return {};
+
+  const defaults: Record<string, unknown> = {};
+  const spec = creative.creativeSpec;
+  if (supportsCallToAction(creative) && !spec.callToAction?.trim()) {
+    defaults.callToAction = launchSpec.defaultCallToAction;
+  }
+  if (creative.creativeFormat === 'existing_post') {
+    if (!creative.creativeSpec.appDestination && isMetaAppDestination(launchSpec.destinationType)) {
+      defaults.appDestination = launchSpec.destinationType;
+    }
+  }
+
+  return defaults;
+}
+
+function isExistingPostWhatsAppMessagingCreative(
+  creative: MetaCreativeSpec,
+  launchSpec: ReturnType<typeof resolveMetaObjectiveLaunchSpec>
+): boolean {
+  return (
+    creative.creativeFormat === 'existing_post' &&
+    launchSpec.defaultCallToAction === 'WHATSAPP_MESSAGE' &&
+    launchSpec.destinationType === 'WHATSAPP'
+  );
+}
+
+function supportsCallToAction(
+  creative: MetaCreativeSpec
+): creative is Exclude<MetaCreativeSpec, { creativeFormat: 'flexible' }> {
+  return creative.creativeFormat !== 'flexible';
+}
+
+function isMetaAppDestination(
+  value: unknown
+): value is 'INSTAGRAM_DIRECT' | 'MESSENGER' | 'WHATSAPP' {
+  return value === 'INSTAGRAM_DIRECT' || value === 'MESSENGER' || value === 'WHATSAPP';
 }
 
 function getLeadFormId(creative: MetaCreativeSpec): string | undefined {

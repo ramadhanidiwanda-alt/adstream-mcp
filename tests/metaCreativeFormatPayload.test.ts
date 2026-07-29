@@ -905,8 +905,8 @@ describe('buildMetaCreativeFormatPayload', () => {
     expect(payload.page_welcome_message).toBe('Halo!');
   });
 
-  it('does not require destinationUrl for a messaging call to action without appDestination on an existing_post creative', () => {
-    for (const callToAction of ['INSTAGRAM_MESSAGE', 'MESSAGE_PAGE', 'WHATSAPP_MESSAGE']) {
+  it('does not require destinationUrl for non-WhatsApp messaging call to action without appDestination on an existing_post creative', () => {
+    for (const callToAction of ['INSTAGRAM_MESSAGE', 'MESSAGE_PAGE']) {
       expect(
         buildMetaCreativeFormatPayload({
           mode: 'standard',
@@ -919,6 +919,33 @@ describe('buildMetaCreativeFormatPayload', () => {
         call_to_action: { type: callToAction },
       });
     }
+  });
+
+  it('builds a Click-to-WhatsApp existing_post creative like Ads Manager', () => {
+    expect(
+      buildMetaCreativeFormatPayload({
+        mode: 'standard',
+        pageId: 'page-1',
+        creativeFormat: 'existing_post',
+        creativeSpec: {
+          sourceInstagramMediaId: '18571075747064659',
+          callToAction: 'WHATSAPP_MESSAGE',
+          appDestination: 'WHATSAPP',
+          destinationUrl: 'https://wa.me/6285156583372',
+          pageWelcomeMessage: 'Halo!',
+        },
+      })
+    ).toEqual({
+      source_instagram_media_id: '18571075747064659',
+      call_to_action: {
+        type: 'WHATSAPP_MESSAGE',
+        value: {
+          app_destination: 'WHATSAPP',
+          link: 'https://api.whatsapp.com/send',
+        },
+      },
+      page_welcome_message: 'Halo!',
+    });
   });
 
   it('rejects a messaging destinationUrl that would be silently dropped without appDestination', () => {

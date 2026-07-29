@@ -8,6 +8,8 @@ import type {
 } from '../../types.js';
 import { assertMetaCreativeCompatibility } from './creativeFormatCompatibility.js';
 
+const WHATSAPP_SEND_URL = 'https://api.whatsapp.com/send';
+
 export type BuildMetaCreativeFormatPayloadInput = MetaCreativeSpec & {
   mode: MetaAdsMode;
   pageId: string;
@@ -100,8 +102,10 @@ function optionalWelcomeMessage(
 
 /**
  * Click-to-message CTAs usually carry app_destination (or nothing at all). Existing
- * Instagram posts are a narrower Graph API exception: Meta requires both
- * app_destination and link for an INSTAGRAM_MESSAGE CTA.
+ * Instagram Direct posts are a narrower Graph API exception: Meta requires both
+ * app_destination and link. Existing Click-to-WhatsApp posts also carry both, but
+ * Ads Manager stores the canonical https://api.whatsapp.com/send URL rather than
+ * a wa.me/phone URL.
  */
 const MESSAGING_CTA_TYPES: ReadonlySet<string> = new Set([
   'INSTAGRAM_MESSAGE',
@@ -526,23 +530,30 @@ function buildExistingPost(
   if (callToAction) {
     // TOP-LEVEL call_to_action, never object_story_spec. Verified live against
     // v25.0: object_story_spec alongside source_instagram_media_id is rejected as
-    // (#100) "Ambiguous Promoted Object" [subcode 1487929], while a top-level
-    // call_to_action carrying value.link is accepted and stored — that is the shape
-    // Ads Manager itself writes for a boosted Instagram post.
+    // (#100) "Ambiguous Promoted Object" [subcode 1487929].
     //
-    // Without appDestination, cta() would intentionally omit value.link for messaging
-    // CTAs. Reject that shape so a caller does not think the URL will be sent.
+    // Messaging destinations differ by inbox. Existing-post CTWA read-back from
+    // Ads Manager stores app_destination WHATSAPP with the canonical send URL, not
+    // a wa.me/phone URL. Sending the phone URL is what triggers the contradictory
+    // 1815630/2061015 validation loop.
+    const resolvedAppDestination = resolveExistingPostAppDestination(callToAction, appDestination);
     if (
       isMessaging &&
       creativeSpec.destinationUrl !== undefined &&
-      !appDestination &&
+      !resolvedAppDestination &&
+      callToAction !== 'WHATSAPP_MESSAGE' &&
       !input.collaborativeAppSpec
     ) {
       throw new Error(
         `destinationUrl pada callToAction messaging (${callToAction}) untuk existing_post hanya valid bersama appDestination, agar terkirim sebagai call_to_action.value.link dan value.app_destination.`
       );
     }
-    if (isMessaging && appDestination && !creativeSpec.destinationUrl?.trim()) {
+    if (
+      isMessaging &&
+      resolvedAppDestination &&
+      !creativeSpec.destinationUrl?.trim() &&
+      resolvedAppDestination !== 'WHATSAPP'
+    ) {
       throw new Error(
         `destinationUrl wajib diisi bersama appDestination pada callToAction messaging (${callToAction}) untuk existing_post; Meta Graph membutuhkan call_to_action.value.link.`
       );
@@ -550,16 +561,11 @@ function buildExistingPost(
 
     payload.call_to_action = cta(
       callToAction,
-      isMessaging
-        ? creativeSpec.destinationUrl
-        : required(
-            creativeSpec.destinationUrl,
-            'destinationUrl untuk existing_post ber-callToAction'
-          ),
+      resolveExistingPostCallToActionUrl(callToAction, appDestination, creativeSpec.destinationUrl),
       input.collaborativeAppSpec,
       undefined,
       undefined,
-      appDestination,
+      resolvedAppDestination,
       true
     );
   } else if (creativeSpec.destinationUrl !== undefined && !input.collaborativeAppSpec) {
@@ -595,6 +601,31 @@ function buildExistingPost(
       creativeSpec.applinkTreatment
     ),
   };
+}
+
+function resolveExistingPostAppDestination(
+  callToAction: string | undefined,
+  appDestination: string | undefined
+): string | undefined {
+  if (callToAction === 'WHATSAPP_MESSAGE') return 'WHATSAPP';
+  return appDestination;
+}
+
+function resolveExistingPostCallToActionUrl(
+  callToAction: string,
+  appDestination: string | undefined,
+  destinationUrl: string | undefined
+): string | undefined {
+  if (!isMessagingCallToAction(callToAction)) {
+    return required(destinationUrl, 'destinationUrl untuk existing_post ber-callToAction');
+  }
+  if (
+    callToAction === 'WHATSAPP_MESSAGE' &&
+    (appDestination === undefined || appDestination === 'WHATSAPP')
+  ) {
+    return WHATSAPP_SEND_URL;
+  }
+  return destinationUrl;
 }
 
 function buildCatalog(

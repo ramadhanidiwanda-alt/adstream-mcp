@@ -17,6 +17,7 @@ export type MetaLaunchWorkflow =
   | 'leads_instant_form'
   | 'app_installs'
   | 'sales_website'
+  | 'sales_messaging'
   | 'sales_catalog';
 
 export const META_LAUNCH_WORKFLOWS = [
@@ -29,6 +30,7 @@ export const META_LAUNCH_WORKFLOWS = [
   'leads_instant_form',
   'app_installs',
   'sales_website',
+  'sales_messaging',
   'sales_catalog',
 ] as const satisfies readonly MetaLaunchWorkflow[];
 
@@ -58,6 +60,7 @@ export interface LaunchReadinessOptions {
   productOrOffer?: string;
   pageId?: string;
   pixelId?: string;
+  whatsappPhoneNumber?: string;
   destinationUrl?: string;
   dailyBudget?: number;
   countries?: string[];
@@ -69,6 +72,7 @@ export interface LaunchReadinessOptions {
   videoFilePath?: string;
   creativeId?: string;
   existingPostId?: string;
+  sourceAdId?: string;
   whatsappPhoneNumberId?: string;
   productSetId?: string;
   catalogId?: string;
@@ -172,7 +176,6 @@ export function checkLaunchReadiness(options: LaunchReadinessOptions): LaunchRea
       'SDK/MMP dan setup app-event tidak dapat dibuktikan oleh connector; verifikasi keduanya di Meta Events Manager sebelum execute.'
     );
   }
-
   for (const requiredInput of resolvedSpec.requiredInputs) {
     requireInput(checks, missing, requiredInput, options);
   }
@@ -244,6 +247,7 @@ function labelForMissing(key: string): string {
   const labels: Record<string, string> = {
     pageId: 'Facebook Page',
     pixelId: 'Meta Pixel',
+    whatsappPhoneNumber: 'Nomor WhatsApp',
     destinationUrl: 'URL tujuan',
     dailyBudget: 'Budget harian',
     countries: 'Negara target',
@@ -251,6 +255,7 @@ function labelForMissing(key: string): string {
     headline: 'Headline',
     creativeAsset: 'Creative asset',
     existingPostId: 'Existing post',
+    sourceAdId: 'Source UI ad',
     videoId: 'Video',
     leadFormId: 'Instant Form',
     messagingDestination: 'Tujuan pesan',
@@ -268,6 +273,8 @@ function questionForMissing(key: string): string {
   const questions: Record<string, string> = {
     pageId: 'Page Facebook mana yang mau dipakai untuk iklan ini?',
     pixelId: 'Pixel Meta mana yang dipakai untuk optimasi?',
+    whatsappPhoneNumber:
+      'Nomor WhatsApp display mana yang dipakai di ad set? Pakai format digit internasional, misalnya 6285156583372.',
     destinationUrl: 'Tujuan iklan mau ke URL mana?',
     dailyBudget: 'Budget harian berapa?',
     countries: 'Target negara mana?',
@@ -275,6 +282,8 @@ function questionForMissing(key: string): string {
     headline: 'Headline iklannya apa?',
     creativeAsset: 'Pakai gambar/video mana? Bisa kirim file lokal, image hash, atau video ID.',
     existingPostId: 'Postingan existing mana yang mau dipakai?',
+    sourceAdId:
+      'Source UI ad mana yang dibuat di Ads Manager untuk konten ini? Pakai ad ID sumber agar ads_clone_ui_ad bisa preserve state CTWA.',
     videoId: 'Video Meta mana yang mau dipakai?',
     leadFormId: 'Instant Form mana yang mau dipakai?',
     messagingDestination:

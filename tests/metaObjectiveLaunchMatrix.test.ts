@@ -234,6 +234,36 @@ describe('Meta objective launch matrix', () => {
     ]);
   });
 
+  it('does not require destinationUrl for Sales CTWA existing-post creatives', () => {
+    const spec = resolveMetaObjectiveLaunchSpec({
+      objective: 'OUTCOME_SALES',
+      conversionLocation: 'MESSAGING',
+      messagingDestination: 'WHATSAPP',
+      creativeFormat: 'existing_post',
+      apiVersion: 'v25.0',
+    });
+
+    expect(spec).toMatchObject({
+      key: 'sales_messaging',
+      optimizationGoal: 'CONVERSATIONS',
+      destinationType: 'WHATSAPP',
+      defaultCallToAction: 'WHATSAPP_MESSAGE',
+    });
+    expect(spec.requiredInputs).toEqual(
+      expect.arrayContaining([
+        'pageId',
+        'messagingDestination',
+        'whatsappPhoneNumber',
+        'pixelId',
+        'existingPostId',
+        'dailyBudget',
+        'countries',
+        'specialAdCategories',
+      ])
+    );
+    expect(spec.requiredInputs).toEqual(expect.not.arrayContaining(['destinationUrl']));
+  });
+
   it('still rejects an existing post for Catalog Sales', () => {
     expect(() =>
       resolveMetaObjectiveLaunchSpec({
