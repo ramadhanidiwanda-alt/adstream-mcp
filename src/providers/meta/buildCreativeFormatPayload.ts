@@ -25,6 +25,22 @@ export type BuildMetaCreativeFormatPayloadInput = MetaCreativeSpec & {
   optOutEnhancements?: string[];
 };
 
+export function assertSupportedCreativeFeatureOptOuts(features?: string[]): void {
+  for (const feature of features ?? []) {
+    const normalized = feature.trim();
+    if (normalized === 'standard_enhancements') {
+      throw new Error(
+        'standard_enhancements sudah deprecated. Gunakan individual creative features yang masih didukung Meta, atau hilangkan optOutEnhancements untuk creative manual.'
+      );
+    }
+    if (normalized === 'media_sourcing') {
+      throw new Error(
+        'media_sourcing bukan individual creative feature yang valid. Hilangkan key ini dari optOutEnhancements; creative manual tidak perlu mengirim degrees_of_freedom_spec.'
+      );
+    }
+  }
+}
+
 export function buildMetaCreativeFormatPayload(
   input: BuildMetaCreativeFormatPayloadInput
 ): Record<string, unknown> {
@@ -1010,6 +1026,7 @@ function buildPlacementCustomizedCtwa(
 }
 
 function buildCreativeFeatureOptOutSpec(features?: string[]): Record<string, unknown> {
+  assertSupportedCreativeFeatureOptOuts(features);
   const featureList = features?.length
     ? features
     : [
