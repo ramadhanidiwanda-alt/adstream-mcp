@@ -39,6 +39,11 @@ export function assertMetaCreativeCompatibility(input: {
   mode: MetaAdsMode;
   creativeFormat: MetaCreativeFormat;
 }): void {
+  if (input.creativeFormat === 'flexible') {
+    throw new Error(
+      'Dynamic Creative/Flexible asset-feed creation is disabled. Untuk variasi headline/caption/copy/image/video, buat beberapa manual creative/ad terpisah, carousel, atau placement customization dengan asset_customization_rules.'
+    );
+  }
   if (input.mode === 'collaborative_ads' && !COLLABORATIVE_FORMATS.has(input.creativeFormat)) {
     throw new Error(
       `Format ${input.creativeFormat} belum didukung untuk Collaborative Ads. ` +

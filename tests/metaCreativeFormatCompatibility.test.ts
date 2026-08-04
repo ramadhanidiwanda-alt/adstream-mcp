@@ -11,7 +11,6 @@ describe('Meta creative format compatibility', () => {
     'carousel',
     'catalog',
     'collection',
-    'flexible',
     'placement_image',
     'placement_customized_ctwa',
     'existing_post',
@@ -30,7 +29,16 @@ describe('Meta creative format compatibility', () => {
     }
   );
 
-  it.each(['flexible', 'placement_image', 'placement_customized_ctwa', 'existing_post'] as const)(
+  it('rejects flexible Dynamic Creative in every create mode', () => {
+    expect(() =>
+      assertMetaCreativeCompatibility({ mode: 'standard', creativeFormat: 'flexible' })
+    ).toThrow(/Dynamic Creative\/Flexible.*disabled/i);
+    expect(() =>
+      assertMetaCreativeCompatibility({ mode: 'collaborative_ads', creativeFormat: 'flexible' })
+    ).toThrow(/Dynamic Creative\/Flexible.*disabled/i);
+  });
+
+  it.each(['placement_image', 'placement_customized_ctwa', 'existing_post'] as const)(
     'rejects collaborative %s with marketer-facing guidance',
     (creativeFormat) => {
       expect(() =>

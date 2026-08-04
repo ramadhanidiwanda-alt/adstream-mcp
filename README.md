@@ -68,7 +68,7 @@ The intended public API should stay small:
 
 **Standard Ads** are regular Meta campaigns that use the advertiser's own assets and destinations. **Collaborative Ads** use a catalog or product set that a retailer has already shared with the advertiser; this connector does not request the partnership or create the shared product set.
 
-Standard Ads support `single_image`, `video`, `carousel`, `catalog`, `collection`, `flexible`, and `existing_post`. The initial Collaborative Ads support covers `single_image`, `video`, `carousel`, `catalog`, and `collection`. Collaborative `flexible` and `existing_post` remain unsupported because their account- and catalog-specific compatibility cannot yet be validated safely.
+Standard Ads creation supports `single_image`, `video`, `carousel`, `catalog`, `collection`, and `existing_post`. Dynamic Creative / Flexible asset-feed creation is disabled in this connector. The initial Collaborative Ads support covers `single_image`, `video`, `carousel`, `catalog`, and `collection`. Collaborative `existing_post` remains unsupported because its account- and catalog-specific compatibility cannot yet be validated safely.
 
 Use the same four tools for either mode: create the campaign with `ads_create_campaign`, create one ad set with `ads_create_adset`, create each format separately with `ads_create_adcreative`, then connect each creative to that ad set with `ads_create_ad`. One `adsetId` can be reused by compatible manual formats such as image and video ads, but do not mix manual/static ads with Dynamic Creative, flexible asset-feed, catalog/product, or placement-customized asset-feed ads in the same Ad Set. The `ads_create_ad` dry-run checks the target Ad Set's existing ads first and blocks mismatched creative families before Meta returns error `#1885274`. A `collection` creative must reuse an existing `instantExperienceId`—the connector does not build Instant Experience content.
 
@@ -76,30 +76,11 @@ For an existing Instagram post/Reel that clicks to Instagram Direct, keep the po
 
 The four creation tools above use dry-run by default and execute only when `dryRun=false` and `confirmed=true` are both supplied. Created campaigns, ad sets, and ads default to `PAUSED`, so review the returned preview and IDs in Meta Ads Manager before activation.
 
-### Dynamic Creative with multiple texts and headlines
+### Copy variations vs Dynamic Creative
 
-`ads_create_adcreative` accepts the official Meta Dynamic Creative shape: `objectStorySpec` and `assetFeedSpec` are separate MCP inputs. The server sends them as Meta's separate `object_story_spec` and `asset_feed_spec` fields, so none of the variants are removed.
+When a marketer asks for several headline/caption/copy/image/video options, treat that as manual creative testing by default: create separate manual creatives/ads, each with one chosen media asset, one `primaryText`, and one `headline`; or use carousel cards when the intended format is a carousel. Do not switch to Dynamic Creative just because there are multiple copy or media options.
 
-```json
-{
-  "accountId": "act_123",
-  "name": "Product variants - July",
-  "pageId": "1234567890",
-  "objectStorySpec": {
-    "page_id": "1234567890"
-  },
-  "assetFeedSpec": {
-    "ad_formats": ["AUTOMATIC_FORMAT"],
-    "bodies": [{ "text": "Primary text A" }, { "text": "Primary text B" }],
-    "titles": [{ "text": "Headline A" }, { "text": "Headline B" }],
-    "images": [{ "hash": "<uploaded_image_hash>" }],
-    "link_urls": [{ "website_url": "https://example.com/product" }],
-    "call_to_action_types": ["LEARN_MORE"]
-  }
-}
-```
-
-Create the corresponding ad set with `isDynamicCreative: true` before attaching this creative. For this mode, `link`, `message`, and `headline` are optional. `ad_formats`, `images`, `bodies`, `titles`, `link_urls`, and `call_to_action_types` must each contain at least one valid entry. Simple creatives using `link`, `message`, and `headline` remain supported. The previous nested `objectStorySpec.asset_feed_spec` form remains accepted for compatibility.
+Do not use Dynamic Creative / Flexible asset-feed for new creates. `creativeFormat: "flexible"` and `isDynamicCreative: true` are rejected so the MCP cannot accidentally create a Dynamic Creative family. `assetFeedSpec` and nested `objectStorySpec.asset_feed_spec` are accepted only for placement customization with `asset_customization_rules`, including image/video media tailored per placement. Simple creatives using one media asset, one `primaryText`, and one `headline` remain supported.
 
 Write tools are turned off by default for safety, so only read tools appear until you enable them. Set `ADSTREAM_ENABLE_WRITES=true` to expose the write tools above. While they are off, calling one returns a `WRITE_TOOLS_DISABLED` error that explains how to enable them, and `ads_get_capabilities` reports `writes.enabled: false`.
 

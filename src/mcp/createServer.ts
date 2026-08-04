@@ -36,7 +36,7 @@ import {
   getTikTokLocationInsights,
 } from '../index.js';
 import type { LocationBreakdown } from '../index.js';
-import { META_CREATIVE_FORMATS } from '../types.js';
+import { META_CREATABLE_CREATIVE_FORMATS } from '../types.js';
 import {
   META_CONVERSION_LOCATIONS,
   META_MESSAGING_DESTINATIONS,
@@ -166,9 +166,11 @@ const launchReadinessInputSchema = {
     .describe('Optional conversion location override for the workflow.'),
   optimizationGoal: z.string().optional().describe('Optional Meta optimization goal.'),
   creativeFormat: z
-    .enum(META_CREATIVE_FORMATS)
+    .enum(META_CREATABLE_CREATIVE_FORMATS)
     .optional()
-    .describe('Optional intended creative format to validate against the resolved workflow.'),
+    .describe(
+      'Optional intended creative format to validate against the resolved workflow. Dynamic Creative/Flexible is disabled for create workflows; use separate manual creative/ad variants for headline/caption/copy/image/video tests, carousel for multi-card media, or placement customization with asset_customization_rules for per-placement media.'
+    ),
   apiVersion: z.string().optional().describe('Meta Marketing API version, defaults to v25.0.'),
   messagingDestination: z
     .enum(META_MESSAGING_DESTINATIONS)
@@ -468,9 +470,11 @@ const createAdSetInputSchema = {
     .optional()
     .describe('Objective-aware Meta conversion location.'),
   creativeFormat: z
-    .enum(META_CREATIVE_FORMATS)
+    .enum(META_CREATABLE_CREATIVE_FORMATS)
     .optional()
-    .describe('Creative format used to validate the objective launch.'),
+    .describe(
+      'Creative format used to validate the objective launch. Dynamic Creative/Flexible is disabled for create workflows; use separate manual creative/ad variants for headline/caption/copy/image/video tests, carousel for multi-card media, or placement customization with asset_customization_rules for per-placement media.'
+    ),
   pageId: z.string().optional().describe('Meta Page ID for the objective launch.'),
   whatsappPhoneNumber: z
     .string()
@@ -592,7 +596,7 @@ const createAdSetInputSchema = {
     .boolean()
     .optional()
     .describe(
-      'Legacy Meta API compatibility flag. Jangan diisi untuk iklan normal; hanya set true saat attaching flexible asset_feed_spec multi-varian yang sudah direview dan Meta menolak adset non-Dynamic Creative.'
+      'Disabled. Jangan diisi; MCP tidak membuat Dynamic Creative ad set. Untuk variasi headline/caption/copy/image/video, buat beberapa manual creative/ad terpisah, carousel, atau placement customization dengan asset_customization_rules.'
     ),
   dsaBeneficiary: z
     .string()
@@ -620,32 +624,24 @@ const createAdSetInputSchema = {
   confirmed: z.boolean().optional().describe('Must be true to execute after preview.'),
 };
 
-const legacyDynamicCreativeAssetFeedSpecSchema = z
-  .object({
-    bodies: z.array(z.object({ text: z.string().min(1) }).passthrough()).min(1),
-    titles: z.array(z.object({ text: z.string().min(1) }).passthrough()).min(1),
-    link_urls: z.array(z.object({ website_url: z.string().url() }).passthrough()).min(1),
-  })
-  .passthrough();
-
-const dynamicCreativeAssetFeedSpecSchema = z
-  .object({
-    ad_formats: z.array(z.literal('AUTOMATIC_FORMAT')).min(1),
-    bodies: z.array(z.object({ text: z.string().min(1) }).passthrough()).min(1),
-    titles: z.array(z.object({ text: z.string().min(1) }).passthrough()).min(1),
-    images: z.array(z.object({ hash: z.string().min(1) }).passthrough()).min(1),
-    link_urls: z.array(z.object({ website_url: z.string().url() }).passthrough()).min(1),
-    call_to_action_types: z.array(z.string().min(1)).min(1),
-  })
-  .passthrough();
+const placementCustomizedAssetFeedSpecSchema = z.record(z.unknown()).refine(
+  (value) => {
+    const rules = value.asset_customization_rules;
+    return Array.isArray(rules) && rules.length > 0;
+  },
+  {
+    message:
+      'asset_feed_spec is allowed only for placement customization with asset_customization_rules. Dynamic/Flexible asset-feed variants are disabled; use separate manual creative/ad variants instead.',
+  }
+);
 
 const objectStorySpecInputSchema = z
   .object({
-    asset_feed_spec: legacyDynamicCreativeAssetFeedSpecSchema.optional(),
+    asset_feed_spec: placementCustomizedAssetFeedSpecSchema.optional(),
   })
   .passthrough()
   .describe(
-    'Input advanced/backward-compatible Meta object_story_spec. Flexible asset-feed legacy dapat memakai asset_feed_spec di sini; untuk iklan baru prefer creativeFormat="flexible" + creativeSpec, atau assetFeedSpec tingkat atas bila harus memakai legacy.'
+    'Input advanced/backward-compatible Meta object_story_spec. asset_feed_spec bersarang hanya boleh untuk placement customization dengan asset_customization_rules; Dynamic/Flexible asset-feed variants disabled.'
   );
 
 const pageWelcomeMessageTemplateSchema = z.union([z.string(), z.record(z.unknown())]);
@@ -694,20 +690,19 @@ export const createAdCreativeInputSchema = {
       'carousel',
       'catalog',
       'collection',
-      'flexible',
       'placement_image',
       'placement_customized_ctwa',
       'existing_post',
     ])
     .optional()
     .describe(
-      'Format materi iklan: gambar tunggal, video, carousel, katalog, collection, flexible, gambar khusus per placement, atau postingan yang sudah ada.'
+      'Format materi iklan: gambar tunggal, video, carousel, katalog, collection, gambar/video khusus per placement, atau postingan yang sudah ada. Dynamic Creative/Flexible disabled; variasi headline/caption/copy/image/video dibuat sebagai beberapa creative/ad manual terpisah, carousel, atau placement customization dengan asset_customization_rules.'
     ),
   creativeSpec: z
     .record(z.unknown())
     .optional()
     .describe(
-      'Detail materi sesuai creativeFormat. Field per format: single_image memakai imageHash, primaryText, destinationUrl, headline, description, callToAction, pageWelcomeMessage (opsional, untuk Click-to-WhatsApp/Messenger), dan applinkTreatment (opsional, enum: deeplink_with_appstore_fallback, deeplink_with_web_fallback, web_only, deeplink_disabled — hanya berlaku saat collaborativeAppSpec diisi, default automatic; pada mode: collaborative_ads field ini diabaikan untuk video/single_image); video memakai videoId, thumbnailImageHash (opsional — kalau kosong, otomatis diisi dari thumbnail bawaan video via GET /{videoId}?fields=picture; hanya berbahaya diabaikan kalau video belum selesai diproses Meta dan tidak punya thumbnail sama sekali), primaryText, destinationUrl, headline, description, callToAction, pageWelcomeMessage (opsional, untuk Click-to-WhatsApp/Messenger), dan applinkTreatment (opsional, sama seperti single_image); carousel memakai primaryText, destinationUrl, cards (imageHash atau videoId, headline, description, destinationUrl); catalog memakai productSetId, primaryText, destinationUrl, templateUrl, fallbackImageHash; collection memakai instantExperienceId, coverImageHash atau coverVideoId, productSetId, primaryText, destinationUrl; flexible memakai primaryText, primaryTexts, imageHashes dan/atau videoIds, headlines, descriptions, destinationUrl; placement_image memakai asset_feed_spec; placement_customized_ctwa memakai link_data utama, platform_customizations, portrait_customizations, dan pageWelcomeMessage di link_data; existing_post memakai objectStoryId (post id Facebook Page, format {page_id}_{post_id}) ATAU sourceInstagramMediaId (media id IG yang tidak di-cross-post ke Page — dapatkan dari ads_list_instagram_media, cocokkan permalink-nya ke URL instagram.com/reel atau /p yang dimiliki user; wajib isi tepat satu dari dua field ini; untuk media VIDEO/Reel WAJIB juga mengisi instagramUserId tingkat atas, kalau tidak Meta menolak dengan (#100) subcode 1815279 yang keliru menyuruh mengunggah video ke Facebook — tidak perlu diunggah, Meta hanya tidak tahu akun IG pemiliknya; media IMAGE disimpulkan sendiri oleh Meta sehingga tidak butuh field itu), plus destinationUrl, callToAction, dan applinkTreatment (opsional). Untuk mengarahkan post yang di-boost ke landing page eksternal dengan tombol CTA: isi destinationUrl + callToAction (mis. LEARN_MORE). Keduanya dikirim sebagai call_to_action di LEVEL ATAS creative (call_to_action.value.link), BUKAN di dalam object_story_spec — object_story_spec bareng source_instagram_media_id ditolak Meta dengan (#100) subcode 1487929 Ambiguous Promoted Object (terverifikasi live di v25.0). Tujuan post Instagram bisa diganti bebas; post Facebook Page yang sudah punya link sendiri mungkin tetap memakai link lamanya — nilainya diteruskan dan Meta yang memutuskan. Pakai urlTags untuk tracking UTM; itu tersimpan bersama call_to_action. destinationUrl juga wajib diisi kalau collaborativeAppSpec diisi, dipakai untuk omnichannel_link_spec.web.url (CATATAN: itu pun tidak bisa memperbaiki object_store_urls yang hilang dari call_to_action post lama yang sudah dipublikasikan; untuk ad set CPAS omnichannel disarankan pakai creativeFormat video langsung). destinationUrl tanpa callToAction maupun collaborativeAppSpec akan DITOLAK, bukan diabaikan diam-diam. Untuk iklan click-to-message (Click-to-Instagram-Direct / Click-to-WhatsApp) pada existing_post: isi callToAction messaging (INSTAGRAM_MESSAGE, MESSAGE_PAGE, atau WHATSAPP_MESSAGE), appDestination (INSTAGRAM_DIRECT, MESSENGER, atau WHATSAPP), dan destinationUrl (untuk Instagram Direct gunakan https://www.instagram.com/). Kombinasi appDestination + destinationUrl dikirim sebagai call_to_action.value.app_destination dan call_to_action.value.link; Meta Graph menolak appDestination tanpa link untuk existing-post Instagram messaging. destinationUrl dengan CTA messaging tetapi tanpa appDestination tetap DITOLAK agar URL tidak ter-drop diam-diam. pageWelcomeMessage boleh berupa objek page_welcome_message VISUAL_EDITOR penuh ({ type, version, landing_screen_type, media_type, text_format.message.ice_breakers }) atau string; dikirim sebagai page_welcome_message di LEVEL ATAS creative, persis seperti yang ditulis Ads Manager, dan hanya berlaku bersama callToAction messaging. Field creativeSpec di luar daftar per format di atas DITOLAK dengan error yang menyebut field-nya, bukan dibuang diam-diam.'
+      'Detail materi sesuai creativeFormat. Jika user memberi opsi headline/caption/copy/image/video untuk testing manual, jangan isi primaryTexts/headlines; buat beberapa manual creative/ad terpisah dengan creativeFormat single_image/video/carousel dan satu media + satu primaryText + satu headline per creative, atau pakai carousel cards untuk beberapa media dalam satu carousel. Dynamic Creative/Flexible asset-feed untuk create baru disabled; assetFeedSpec hanya untuk placement customization dengan asset_customization_rules. Field per format: single_image memakai imageHash, primaryText, destinationUrl, headline, description, callToAction, pageWelcomeMessage (opsional, untuk Click-to-WhatsApp/Messenger), dan applinkTreatment (opsional, enum: deeplink_with_appstore_fallback, deeplink_with_web_fallback, web_only, deeplink_disabled — hanya berlaku saat collaborativeAppSpec diisi, default automatic; pada mode: collaborative_ads field ini diabaikan untuk video/single_image); video memakai videoId, thumbnailImageHash (opsional — kalau kosong, otomatis diisi dari thumbnail bawaan video via GET /{videoId}?fields=picture; hanya berbahaya diabaikan kalau video belum selesai diproses Meta dan tidak punya thumbnail sama sekali), primaryText, destinationUrl, headline, description, callToAction, pageWelcomeMessage (opsional, untuk Click-to-WhatsApp/Messenger), dan applinkTreatment (opsional, sama seperti single_image); carousel memakai primaryText, destinationUrl, cards (imageHash atau videoId, headline, description, destinationUrl); catalog memakai productSetId, primaryText, destinationUrl, templateUrl, fallbackImageHash; collection memakai instantExperienceId, coverImageHash atau coverVideoId, productSetId, primaryText, destinationUrl; placement_image memakai asset_feed_spec khusus placement; placement_customized_ctwa memakai link_data utama, platform_customizations, portrait_customizations, dan pageWelcomeMessage di link_data; existing_post memakai objectStoryId (post id Facebook Page, format {page_id}_{post_id}) ATAU sourceInstagramMediaId (media id IG yang tidak di-cross-post ke Page — dapatkan dari ads_list_instagram_media, cocokkan permalink-nya ke URL instagram.com/reel atau /p yang dimiliki user; wajib isi tepat satu dari dua field ini; untuk media VIDEO/Reel WAJIB juga mengisi instagramUserId tingkat atas, kalau tidak Meta menolak dengan (#100) subcode 1815279 yang keliru menyuruh mengunggah video ke Facebook — tidak perlu diunggah, Meta hanya tidak tahu akun IG pemiliknya; media IMAGE disimpulkan sendiri oleh Meta sehingga tidak butuh field itu), plus destinationUrl, callToAction, dan applinkTreatment (opsional). Untuk mengarahkan post yang di-boost ke landing page eksternal dengan tombol CTA: isi destinationUrl + callToAction (mis. LEARN_MORE). Keduanya dikirim sebagai call_to_action di LEVEL ATAS creative (call_to_action.value.link), BUKAN di dalam object_story_spec — object_story_spec bareng source_instagram_media_id ditolak Meta dengan (#100) subcode 1487929 Ambiguous Promoted Object (terverifikasi live di v25.0). Tujuan post Instagram bisa diganti bebas; post Facebook Page yang sudah punya link sendiri mungkin tetap memakai link lamanya — nilainya diteruskan dan Meta yang memutuskan. Pakai urlTags untuk tracking UTM; itu tersimpan bersama call_to_action. destinationUrl juga wajib diisi kalau collaborativeAppSpec diisi, dipakai untuk omnichannel_link_spec.web.url (CATATAN: itu pun tidak bisa memperbaiki object_store_urls yang hilang dari call_to_action post lama yang sudah dipublikasikan; untuk ad set CPAS omnichannel disarankan pakai creativeFormat video langsung). destinationUrl tanpa callToAction maupun collaborativeAppSpec akan DITOLAK, bukan diabaikan diam-diam. Untuk iklan click-to-message (Click-to-Instagram-Direct / Click-to-WhatsApp) pada existing_post: isi callToAction messaging (INSTAGRAM_MESSAGE, MESSAGE_PAGE, atau WHATSAPP_MESSAGE), appDestination (INSTAGRAM_DIRECT, MESSENGER, atau WHATSAPP), dan destinationUrl (untuk Instagram Direct gunakan https://www.instagram.com/). Kombinasi appDestination + destinationUrl dikirim sebagai call_to_action.value.app_destination dan call_to_action.value.link; Meta Graph menolak appDestination tanpa link untuk existing-post Instagram messaging. destinationUrl dengan CTA messaging tetapi tanpa appDestination tetap DITOLAK agar URL tidak ter-drop diam-diam. pageWelcomeMessage boleh berupa objek page_welcome_message VISUAL_EDITOR penuh ({ type, version, landing_screen_type, media_type, text_format.message.ice_breakers }) atau string; dikirim sebagai page_welcome_message di LEVEL ATAS creative, persis seperti yang ditulis Ads Manager, dan hanya berlaku bersama callToAction messaging. Field creativeSpec di luar daftar per format di atas DITOLAK dengan error yang menyebut field-nya, bukan dibuang diam-diam.'
     ),
   collaborativeProductSetId: z
     .string()
@@ -796,13 +791,13 @@ export const createAdCreativeInputSchema = {
     .string()
     .optional()
     .describe(
-      'Welcome message flow/sequence ID, dikirim sebagai asset_feed_spec.additional_data.partner_app_welcome_message_flow_id. Berlaku untuk semua jalur creative.'
+      'Disabled karena menulis asset_feed_spec.additional_data dan bisa mengubah creative menjadi asset-feed family. Pakai pageWelcomeMessage atau creativeSpec.pageWelcomeMessage manual.'
     ),
   objectStorySpec: objectStorySpecInputSchema.optional(),
-  assetFeedSpec: dynamicCreativeAssetFeedSpecSchema
+  assetFeedSpec: placementCustomizedAssetFeedSpecSchema
     .optional()
     .describe(
-      'Input advanced/backward-compatible Meta asset_feed_spec untuk Flexible creative. Untuk iklan baru, prefer creativeFormat="flexible" + creativeSpec; legacy objectStorySpec+assetFeedSpec tetap diterima saat perlu.'
+      'Hanya untuk placement customization dengan asset_customization_rules (termasuk image/video berbeda per placement). Dynamic/Flexible asset-feed variants disabled. Jangan pakai untuk opsi headline/caption/copy/video manual tanpa placement rules; buat beberapa manual creative/ad terpisah atau carousel.'
     ),
   optOutEnhancements: z
     .array(z.string())

@@ -125,6 +125,9 @@ interface MetaIdResponse extends Record<string, unknown> {
   id?: string;
 }
 
+const DYNAMIC_CREATIVE_DISABLED_MESSAGE =
+  'Dynamic Creative/Flexible asset-feed creation is disabled in this MCP. Untuk variasi headline/caption/copy/image/video, buat beberapa manual creative/ad terpisah, masing-masing satu media, satu primaryText, dan satu headline; gunakan carousel untuk multi-card media, atau asset_customization_rules untuk placement customization.';
+
 /**
  * Create a Meta ad creative.
  *
@@ -542,6 +545,7 @@ function buildCreativePayload(options: CreateAdCreativeOptions): Record<string, 
       'Konten creative wajib diisi melalui creative, objectStorySpec, atau linkData.'
     );
   }
+  assertNoDynamicCreativeCreatePath(options);
   assertSupportedCreativeFeatureOptOuts(options.optOutEnhancements);
 
   const payload: Record<string, unknown> = {
@@ -618,19 +622,36 @@ function buildCreativePayload(options: CreateAdCreativeOptions): Record<string, 
     payload.object_story_spec = objectStorySpec;
   }
 
-  // WhatsApp welcome message sequence / partner flow
-  if (options.whatsappWelcomeMessageSequenceId) {
-    payload.asset_feed_spec = {
-      ...((payload.asset_feed_spec as Record<string, unknown>) || {}),
-      additional_data: {
-        partner_app_welcome_message_flow_id: options.whatsappWelcomeMessageSequenceId,
-      },
-    };
-  }
-
   if (options.urlTags) payload.url_tags = options.urlTags;
 
   return payload;
+}
+
+function assertNoDynamicCreativeCreatePath(options: CreateAdCreativeOptions): void {
+  if (options.creative?.creativeFormat === 'flexible') {
+    throw new Error(DYNAMIC_CREATIVE_DISABLED_MESSAGE);
+  }
+  if (
+    options.assetFeedSpec !== undefined &&
+    !isPlacementCustomizedAssetFeedSpec(options.assetFeedSpec)
+  ) {
+    throw new Error(DYNAMIC_CREATIVE_DISABLED_MESSAGE);
+  }
+  const nestedAssetFeedSpec = options.objectStorySpec?.asset_feed_spec;
+  if (isRecord(nestedAssetFeedSpec) && !isPlacementCustomizedAssetFeedSpec(nestedAssetFeedSpec)) {
+    throw new Error(DYNAMIC_CREATIVE_DISABLED_MESSAGE);
+  }
+  if (options.whatsappWelcomeMessageSequenceId !== undefined) {
+    throw new Error(
+      `${DYNAMIC_CREATIVE_DISABLED_MESSAGE} whatsappWelcomeMessageSequenceId menulis asset_feed_spec.additional_data; pakai creativeSpec.pageWelcomeMessage atau pageWelcomeMessage tanpa welcome flow.`
+    );
+  }
+}
+
+function isPlacementCustomizedAssetFeedSpec(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  const rules = value.asset_customization_rules;
+  return Array.isArray(rules) && rules.length > 0;
 }
 
 async function withResolvedObjectiveDestinationMode(
@@ -829,6 +850,15 @@ function requireLegacyPageId(pageId: string | undefined): string {
 }
 
 function validationError(message: string): StructuredMutationError {
+  if (message.includes(DYNAMIC_CREATIVE_DISABLED_MESSAGE)) {
+    return {
+      provider: 'meta',
+      code: 'DYNAMIC_CREATIVE_DISABLED',
+      message,
+      actionableFix:
+        'Gunakan creativeFormat single_image, video, carousel, existing_post, catalog, atau collection. Untuk variasi headline/caption/copy/image/video, buat beberapa manual creative/ad terpisah, carousel, atau placement customization dengan asset_customization_rules.',
+    };
+  }
   return {
     provider: 'meta',
     code: 'VALIDATION_ERROR',

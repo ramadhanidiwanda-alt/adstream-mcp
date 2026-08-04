@@ -1413,34 +1413,23 @@ describe('buildMetaCreativeFormatPayload', () => {
     ).toThrow(/product set.*harus sama/i);
   });
 
-  it('builds standard flexible asset_feed_spec', () => {
-    const result = buildMetaCreativeFormatPayload({
-      mode: 'standard',
-      pageId: 'page-1',
-      creativeFormat: 'flexible',
-      creativeSpec: {
-        imageHashes: ['image-1', 'image-2'],
-        videoIds: ['video-1'],
-        primaryText: 'Copy A',
-        primaryTexts: ['Copy A', 'Copy B'],
-        headlines: ['Headline A'],
-        destinationUrl: 'https://example.com/flexible',
-        callToAction: 'SHOP_NOW',
-      },
-    });
-
-    expect(result).toMatchObject({
-      object_story_spec: { page_id: 'page-1' },
-      asset_feed_spec: {
-        images: [{ hash: 'image-1' }, { hash: 'image-2' }],
-        videos: [{ video_id: 'video-1' }],
-        bodies: [{ text: 'Copy A' }, { text: 'Copy B' }],
-        titles: [{ text: 'Headline A' }],
-        link_urls: [{ website_url: 'https://example.com/flexible' }],
-        call_to_action_types: ['SHOP_NOW'],
-        ad_formats: ['SINGLE_IMAGE', 'SINGLE_VIDEO'],
-      },
-    });
+  it('rejects flexible Dynamic Creative payload creation', () => {
+    expect(() =>
+      buildMetaCreativeFormatPayload({
+        mode: 'standard',
+        pageId: 'page-1',
+        creativeFormat: 'flexible',
+        creativeSpec: {
+          imageHashes: ['image-1', 'image-2'],
+          videoIds: ['video-1'],
+          primaryText: 'Copy A',
+          primaryTexts: ['Copy A', 'Copy B'],
+          headlines: ['Headline A'],
+          destinationUrl: 'https://example.com/flexible',
+          callToAction: 'SHOP_NOW',
+        },
+      })
+    ).toThrow(/Dynamic Creative\/Flexible.*disabled/i);
   });
 
   it('maps feed and vertical images to explicit Meta placements', () => {
@@ -1762,55 +1751,6 @@ describe('buildMetaCreativeFormatPayload', () => {
         },
       })
     ).toThrow(/harus berbeda/i);
-  });
-
-  it('rejects flexible creatives without usable media', () => {
-    expect(() =>
-      buildMetaCreativeFormatPayload({
-        mode: 'standard',
-        pageId: 'page-1',
-        creativeFormat: 'flexible',
-        creativeSpec: {
-          imageHashes: [' '],
-          videoIds: [],
-          primaryText: 'Copy',
-          primaryTexts: ['Copy'],
-          destinationUrl: 'https://example.com/flexible',
-        },
-      })
-    ).toThrow(/media/i);
-  });
-
-  it('rejects flexible creatives without usable primary text', () => {
-    expect(() =>
-      buildMetaCreativeFormatPayload({
-        mode: 'standard',
-        pageId: 'page-1',
-        creativeFormat: 'flexible',
-        creativeSpec: {
-          imageHashes: ['image-1'],
-          primaryText: ' ',
-          primaryTexts: [' '],
-          destinationUrl: 'https://example.com/flexible',
-        },
-      })
-    ).toThrow(/primary text/i);
-  });
-
-  it('rejects flexible creatives in Collaborative Ads mode locally', () => {
-    expect(() =>
-      buildMetaCreativeFormatPayload({
-        mode: 'collaborative_ads',
-        pageId: 'page-1',
-        creativeFormat: 'flexible',
-        creativeSpec: {
-          imageHashes: ['image-1'],
-          primaryText: 'Copy',
-          primaryTexts: ['Copy'],
-          destinationUrl: 'https://example.com/flexible',
-        },
-      })
-    ).toThrow(/belum didukung.*collaborative ads/i);
   });
 
   it('rejects placement image creatives in Collaborative Ads mode locally', () => {

@@ -176,6 +176,9 @@ export function checkLaunchReadiness(options: LaunchReadinessOptions): LaunchRea
       'SDK/MMP dan setup app-event tidak dapat dibuktikan oleh connector; verifikasi keduanya di Meta Events Manager sebelum execute.'
     );
   }
+  warnings.push(
+    'Jika marketer memberi opsi headline/caption/copy/image/video, default-nya testing manual: buat beberapa creative/ad manual terpisah atau carousel jika memang formatnya carousel. Dynamic Creative/Flexible asset-feed creation disabled di MCP ini; assetFeedSpec hanya untuk placement customization dengan asset_customization_rules.'
+  );
   for (const requiredInput of resolvedSpec.requiredInputs) {
     requireInput(checks, missing, requiredInput, options);
   }

@@ -1692,7 +1692,7 @@ describe('MetaAdsAdapter', () => {
     });
   });
 
-  it('passes a Dynamic Creative objectStorySpec unchanged to the creative tool', async () => {
+  it('rejects a Dynamic Creative objectStorySpec before reaching the creative tool', async () => {
     let receivedOptions: Record<string, unknown> | undefined;
     const objectStorySpec = {
       page_id: 'page_123',
@@ -1724,13 +1724,9 @@ describe('MetaAdsAdapter', () => {
       credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
     });
 
-    expect(response.ok).toBe(true);
-    expect(receivedOptions).toMatchObject({
-      adAccountId: 'act_123',
-      name: 'Dynamic Creative',
-      pageId: 'page_123',
-      objectStorySpec,
-    });
+    expect(response.ok).toBe(false);
+    expect(response.errors?.[0]?.message).toMatch(/Dynamic Creative\/Flexible.*disabled/i);
+    expect(receivedOptions).toBeUndefined();
   });
 
   it('forwards urlTags to the Meta creative tool as URL parameters', async () => {
@@ -1979,18 +1975,6 @@ describe('MetaAdsAdapter', () => {
         instantExperienceId: 'canvas-1',
         coverImageHash: 'image-1',
         primaryText: 'Collection copy',
-      },
-    },
-    {
-      creativeFormat: 'flexible',
-      creativeSpec: {
-        primaryText: 'Flexible copy',
-        primaryTexts: ['Flexible copy', 'Alternate copy'],
-        imageHashes: ['image-1'],
-        videoIds: ['video-1'],
-        headlines: ['Headline one'],
-        descriptions: ['Description one'],
-        destinationUrl: 'https://example.com/flexible',
       },
     },
     {
@@ -2506,7 +2490,6 @@ describe('MetaAdsAdapter', () => {
         message: 'Chat admin sekarang',
         destinationType: 'WHATSAPP',
         pageWelcomeMessage: '{"type":"VISUAL_EDITOR"}',
-        whatsappWelcomeMessageSequenceId: 'flow-1',
       },
       credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
     });
@@ -2515,7 +2498,6 @@ describe('MetaAdsAdapter', () => {
     expect(receivedOptions).toMatchObject({
       destinationType: 'WHATSAPP',
       pageWelcomeMessage: '{"type":"VISUAL_EDITOR"}',
-      whatsappWelcomeMessageSequenceId: 'flow-1',
     });
   });
 
@@ -2534,7 +2516,6 @@ describe('MetaAdsAdapter', () => {
         message: 'Chat admin sekarang',
         destinationType: 'WHATSAPP',
         pageWelcomeMessage: '{"type":"VISUAL_EDITOR"}',
-        whatsappWelcomeMessageSequenceId: 'flow-1',
       },
       credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
     });
@@ -2546,9 +2527,7 @@ describe('MetaAdsAdapter', () => {
 
     expect(linkData.call_to_action).toEqual({ type: 'WHATSAPP_MESSAGE' });
     expect(linkData.page_welcome_message).toBe('{"type":"VISUAL_EDITOR"}');
-    expect(preview?.asset_feed_spec).toEqual({
-      additional_data: { partner_app_welcome_message_flow_id: 'flow-1' },
-    });
+    expect(preview).not.toHaveProperty('asset_feed_spec');
   });
 
   it('rejects an unsupported destinationType instead of forwarding it to Meta', async () => {
@@ -2628,20 +2607,11 @@ describe('MetaAdsAdapter', () => {
     expect(message).toContain('pageWelcomeMessage');
   });
 
-  it('keeps whatsappWelcomeMessageSequenceId usable alongside creativeFormat', async () => {
-    let receivedOptions: Record<string, unknown> | undefined;
+  it('rejects whatsappWelcomeMessageSequenceId because it writes asset_feed_spec', async () => {
     const adapter = new MetaAdsAdapter({
       clientFactory: (config) => ({ config }) as never,
       tools: {
-        createAdCreative: async (_client, options) => {
-          receivedOptions = options as unknown as Record<string, unknown>;
-          return {
-            operation: 'create_adcreative',
-            status: 'dry_run',
-            executed: false,
-            preview: {},
-          };
-        },
+        createAdCreative: vi.fn(),
       },
     });
 
@@ -2662,8 +2632,11 @@ describe('MetaAdsAdapter', () => {
       credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
     });
 
-    expect(response.ok).toBe(true);
-    expect(receivedOptions).toMatchObject({ whatsappWelcomeMessageSequenceId: 'flow-1' });
+    expect(response).toMatchObject({
+      ok: false,
+      errors: [{ provider: 'meta', code: 'VALIDATION_ERROR' }],
+    });
+    expect(response.errors?.[0]?.message).toMatch(/whatsappWelcomeMessageSequenceId/i);
   });
 
   it('accepts every param declared on the ads_create_adcreative input schema', async () => {
@@ -2698,7 +2671,6 @@ describe('MetaAdsAdapter', () => {
         threadsProfileId: 'threads-1',
         destinationType: 'WEB',
         pageWelcomeMessage: 'Hi!',
-        whatsappWelcomeMessageSequenceId: 'flow-1',
         dedupeByName: false,
         externalReference: 'ref-1',
         optOutEnhancements: ['image_auto_crop'],
@@ -3182,8 +3154,9 @@ describe('MetaAdsAdapter', () => {
       credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
     });
 
-    expect(response.ok).toBe(true);
-    expect(receivedOptions).toMatchObject({ pageId: 'page-from-object-story-spec' });
+    expect(response.ok).toBe(false);
+    expect(receivedOptions).toBeUndefined();
+    expect(response.errors?.[0]?.message).toMatch(/Dynamic Creative\/Flexible.*disabled/i);
   });
 
   it('still rejects when neither top-level pageId nor objectStorySpec.page_id is given', async () => {
@@ -3408,7 +3381,7 @@ describe('MetaAdsAdapter', () => {
     expect(calls).toBe(0);
   });
 
-  it('explains that official assetFeedSpec requires objectStorySpec', async () => {
+  it('rejects official assetFeedSpec because Dynamic Creative creation is disabled', async () => {
     const adapter = new MetaAdsAdapter({
       clientFactory: (config) => ({ config }) as never,
     });
@@ -3425,8 +3398,8 @@ describe('MetaAdsAdapter', () => {
     });
 
     expect(response.errors?.[0]).toMatchObject({
-      code: 'INVALID_DYNAMIC_CREATIVE_PAYLOAD',
-      message: expect.stringContaining('objectStorySpec'),
+      code: 'VALIDATION_ERROR',
+      message: expect.stringContaining('Dynamic Creative/Flexible'),
     });
   });
 

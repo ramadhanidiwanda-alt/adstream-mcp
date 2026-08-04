@@ -35,12 +35,13 @@ Semua struktur dibuat PAUSED. Saya akan meminta persetujuan terpisah sebelum men
 
 1. Jalankan `ads_check_launch_readiness`; gunakan hasilnya untuk menemukan aset yang diperlukan, seperti Page, Pixel, post, video, form, app, catalog, atau product set.
 2. Jalankan dry-run untuk `ads_create_campaign`, `ads_create_adset`, `ads_create_adcreative`, dan `ads_create_ad` secara berurutan. Jangan menjalankan creation saat masih mengumpulkan brief.
-3. Saat memakai Ad Set lama, jangan mencampur manual/static creative dengan Dynamic Creative, flexible asset-feed, catalog/product, atau placement-customized asset-feed. Jika `ads_create_ad` dry-run menolak creative-family mismatch, rekomendasikan duplikat/buat Ad Set baru untuk format tersebut.
-4. Tampilkan satu ringkasan marketer: tujuan, target negara/audiens, budget, tujuan klik atau form, materi iklan, dan struktur yang akan dibuat PAUSED. Minta satu persetujuan tertulis untuk **membuat** struktur tersebut.
-5. Setelah persetujuan creation, buat campaign → ad set → creative → ad. Campaign, ad set, dan ad tetap PAUSED.
-6. Audit hasilnya melalui `ads_list_campaigns`, `ads_read_adset_full`, dan `ads_read_creative_full`. Laporkan ID yang terbaca. Bila satu langkah gagal, laporkan seluruh ID yang berhasil dibuat sampai titik itu dan berhenti; jangan mengasumsikan langkah berikutnya berhasil.
-7. Read-back hanya mengaudit respons API dan objek yang dapat dibaca. Jangan mengklaim campaign sudah tervalidasi live, sudah delivery, atau akan perform.
-8. Minta persetujuan kedua yang secara eksplisit menyebut campaign, ad set, dan ad yang akan diaktifkan. Setelah itu saja, aktifkan parent ke child: `ads_resume_campaign` → `ads_resume_adset` → `ads_resume_ad`, lalu baca ulang statusnya.
+3. Jika marketer meminta beberapa opsi headline/caption/copy/image/video, anggap itu testing manual: buat beberapa manual creative/ad terpisah, masing-masing satu media, satu `primaryText`, dan satu `headline`; atau gunakan carousel cards bila memang formatnya carousel. Jangan memakai `creativeFormat: "flexible"`, `primaryTexts`, `headlines`, atau `isDynamicCreative`; Dynamic Creative/Flexible asset-feed creation disabled di MCP ini. `assetFeedSpec`/nested `objectStorySpec.asset_feed_spec` hanya boleh untuk placement customization dengan `asset_customization_rules`, termasuk image/video berbeda per placement.
+4. Saat memakai Ad Set lama, jangan mencampur manual/static creative dengan Dynamic Creative, flexible asset-feed, catalog/product, atau placement-customized asset-feed. Jika `ads_create_ad` dry-run menolak creative-family mismatch, rekomendasikan duplikat/buat Ad Set baru untuk format tersebut.
+5. Tampilkan satu ringkasan marketer: tujuan, target negara/audiens, budget, tujuan klik atau form, materi iklan, dan struktur yang akan dibuat PAUSED. Minta satu persetujuan tertulis untuk **membuat** struktur tersebut.
+6. Setelah persetujuan creation, buat campaign → ad set → creative → ad. Campaign, ad set, dan ad tetap PAUSED.
+7. Audit hasilnya melalui `ads_list_campaigns`, `ads_read_adset_full`, dan `ads_read_creative_full`. Laporkan ID yang terbaca. Bila satu langkah gagal, laporkan seluruh ID yang berhasil dibuat sampai titik itu dan berhenti; jangan mengasumsikan langkah berikutnya berhasil.
+8. Read-back hanya mengaudit respons API dan objek yang dapat dibaca. Jangan mengklaim campaign sudah tervalidasi live, sudah delivery, atau akan perform.
+9. Minta persetujuan kedua yang secara eksplisit menyebut campaign, ad set, dan ad yang akan diaktifkan. Setelah itu saja, aktifkan parent ke child: `ads_resume_campaign` → `ads_resume_adset` → `ads_resume_ad`, lalu baca ulang statusnya.
 
 Messaging di luar workflow yang sudah didukung, Calls, Quality Leads, optimasi app-event/value yang lebih luas, dan varian Advantage+ tambahan adalah roadmap items. Jangan menyebutnya tersedia atau memetakannya diam-diam ke workflow yang ada.
 

@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
+import { pathToFileURL } from 'node:url';
 import { createMetaAdsMcpServer } from '../src/mcp/createServer.js';
 
 function redact(value: string): string {
@@ -23,6 +24,16 @@ function summarizeRows(rows: unknown[]) {
   });
 }
 
+export function resolveMetaAdAccountId(): string | undefined {
+  const accountId = process.env.META_AD_ACCOUNT_ID;
+  if (accountId && accountId !== 'act_') return accountId;
+
+  const testAccountId = process.env.META_TEST_AD_ACCOUNT_ID;
+  if (testAccountId && testAccountId !== 'act_') return testAccountId;
+
+  return undefined;
+}
+
 async function main() {
   if (!process.env.META_ACCESS_TOKEN || process.env.META_ACCESS_TOKEN === 'EAA...') {
     console.log(
@@ -31,9 +42,14 @@ async function main() {
     return;
   }
 
-  if (!process.env.META_AD_ACCOUNT_ID || process.env.META_AD_ACCOUNT_ID === 'act_') {
+  const adAccountId = resolveMetaAdAccountId();
+  if (!adAccountId) {
     console.log(
-      JSON.stringify({ ok: false, error: 'Fill META_AD_ACCOUNT_ID in .env first.' }, null, 2)
+      JSON.stringify(
+        { ok: false, error: 'Fill META_AD_ACCOUNT_ID or META_TEST_AD_ACCOUNT_ID in .env first.' },
+        null,
+        2
+      )
     );
     return;
   }
@@ -60,7 +76,7 @@ async function main() {
     const response = await client.callTool({
       name: 'meta_get_location_insights',
       arguments: {
-        adAccountId: process.env.META_AD_ACCOUNT_ID,
+        adAccountId,
         since,
         until,
         level,
@@ -89,7 +105,9 @@ async function main() {
   }
 }
 
-main().catch((error) => {
-  console.error(redact(error instanceof Error ? error.message : String(error)));
-  process.exit(1);
-});
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((error) => {
+    console.error(redact(error instanceof Error ? error.message : String(error)));
+    process.exit(1);
+  });
+}

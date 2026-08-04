@@ -307,6 +307,21 @@ describe('ads MCP broker tools', () => {
     });
   });
 
+  it('documents manual copy variations instead of defaulting headline/caption options to flexible', () => {
+    const tool = ADS_MCP_TOOL_DEFINITIONS.find(({ name }) => name === 'ads_create_adcreative');
+    const properties = tool?.inputSchema.properties as Record<string, unknown>;
+    const creativeSpec = properties.creativeSpec as { description?: string };
+    const assetFeedSpec = properties.assetFeedSpec as { description?: string };
+
+    expect(tool?.description).toMatch(/variasi.*headline.*caption.*manual/i);
+    expect(tool?.description).toMatch(/image\/video/i);
+    expect(tool?.description).toMatch(/flexible.*disabled/i);
+    expect(creativeSpec.description).toMatch(/opsi.*headline.*caption.*manual/i);
+    expect(creativeSpec.description).toMatch(/image\/video/i);
+    expect(assetFeedSpec.description).toMatch(/disabled/i);
+    expect(assetFeedSpec.description).toMatch(/placement customization/i);
+  });
+
   it('exposes applinkTreatment enum on ads_create_adcreative for omnichannel creatives', () => {
     const tool = ADS_MCP_TOOL_DEFINITIONS.find(({ name }) => name === 'ads_create_adcreative');
     const creativeSpec = (tool?.inputSchema.properties as Record<string, unknown>).creativeSpec as {
