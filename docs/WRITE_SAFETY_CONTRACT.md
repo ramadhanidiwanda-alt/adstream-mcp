@@ -13,57 +13,57 @@ This contract defines the minimum safety behavior for every Meta Ads mutation ex
 
 Full campaign creation lifecycle with pre-flight validation:
 
-| Tool | Domain | Pre-flight | CTWA |
-|------|--------|------------|------|
-| `ads_create_campaign` | Campaign | None (campaign-level params validated at schema) | — |
-| `ads_create_adset` | Ad Set | Campaign fetch (CBO conflict, bid strategy requirement, `targeting_automation`) | — |
-| `ads_create_adcreative` | Creative | None (page/link/media validated at Meta) | ✅ `destinationType`, `pageWelcomeMessage`, `welcomeMessageTemplateName`, `whatsappWelcomeMessageSequenceId` |
-| `ads_create_welcome_message_template` | Creative template | Local schema validation only; no Meta write | ✅ local reusable Messenger/Instagram welcome message |
-| `ads_list_welcome_message_templates` | Creative template | Read-only local store | ✅ local reusable Messenger/Instagram welcome message |
-| `ads_create_ad` | Ad | None (adset + creative existence validated at Meta) | — |
-| `ads_upload_image` | Media | File existence, type (jpg/png), size (< 30MB) | — |
-| `ads_upload_video` | Media | File existence, type, size (< 1GB) | — |
-| `ads_get_ad_preview` | Preview | None (read-only render check) | — |
+| Tool                                  | Domain            | Pre-flight                                                                                                                                           | CTWA                                                                                                         |
+| ------------------------------------- | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `ads_create_campaign`                 | Campaign          | None (campaign-level params validated at schema)                                                                                                     | —                                                                                                            |
+| `ads_create_adset`                    | Ad Set            | Campaign fetch (CBO conflict, bid strategy requirement, `targeting_automation`)                                                                      | —                                                                                                            |
+| `ads_create_adcreative`               | Creative          | None (page/link/media validated at Meta)                                                                                                             | ✅ `destinationType`, `pageWelcomeMessage`, `welcomeMessageTemplateName`, `whatsappWelcomeMessageSequenceId` |
+| `ads_create_welcome_message_template` | Creative template | Local schema validation only; no Meta write                                                                                                          | ✅ local reusable Messenger/Instagram welcome message                                                        |
+| `ads_list_welcome_message_templates`  | Creative template | Read-only local store                                                                                                                                | ✅ local reusable Messenger/Instagram welcome message                                                        |
+| `ads_create_ad`                       | Ad                | Ad set/creative compatibility (omnichannel, messaging destination, placement asset-feed, and Ad Set creative-family mismatch before Meta `#1885274`) | —                                                                                                            |
+| `ads_upload_image`                    | Media             | File existence, type (jpg/png), size (< 30MB)                                                                                                        | —                                                                                                            |
+| `ads_upload_video`                    | Media             | File existence, type, size (< 1GB)                                                                                                                   | —                                                                                                            |
+| `ads_get_ad_preview`                  | Preview           | None (read-only render check)                                                                                                                        | —                                                                                                            |
 
 ### ✅ Supported — Batch 2 (Light Mutation)
 
 Safe single-entity status/name changes:
 
-| Tool | Entity | Risk |
-|------|--------|------|
-| `ads_pause_campaign` | Campaign | Low |
-| `ads_resume_campaign` | Campaign | Low |
-| `ads_pause_adset` | Ad Set | Low |
-| `ads_resume_adset` | Ad Set | Low |
-| `ads_pause_ad` | Ad | Low |
-| `ads_resume_ad` | Ad | Low |
-| `ads_rename_campaign` | Campaign | Low |
-| `ads_rename_adset` | Ad Set | Low |
-| `ads_rename_ad` | Ad | Low |
-| `ads_archive_ad` | Ad | Low (permanent — see §13) |
-| `ads_update_ad` | Ad | Medium (name/status/creative swap; see §12a) |
+| Tool                  | Entity   | Risk                                           |
+| --------------------- | -------- | ---------------------------------------------- |
+| `ads_pause_campaign`  | Campaign | Low                                            |
+| `ads_resume_campaign` | Campaign | Low                                            |
+| `ads_pause_adset`     | Ad Set   | Low                                            |
+| `ads_resume_adset`    | Ad Set   | Low                                            |
+| `ads_pause_ad`        | Ad       | Low                                            |
+| `ads_resume_ad`       | Ad       | Low                                            |
+| `ads_rename_campaign` | Campaign | Low                                            |
+| `ads_rename_adset`    | Ad Set   | Low                                            |
+| `ads_rename_ad`       | Ad       | Low                                            |
+| `ads_archive_ad`      | Ad       | Low (permanent — see §13)                      |
+| `ads_update_ad`       | Ad       | Medium (name/status/creative swap; see §12a)   |
 | `ads_update_campaign` | Campaign | Medium (name/status/budget/schedule; see §12a) |
 
 ### ✅ Supported — Batch 3 (Budget Write)
 
 Budget changes with mandatory safety limits:
 
-| Tool | Safety Limit |
-|------|--------------|
+| Tool                         | Safety Limit                                                  |
+| ---------------------------- | ------------------------------------------------------------- |
 | `ads_update_campaign_budget` | Max increase 30% by default; >100% requires explicit override |
-| `ads_update_adset_budget` | Max increase 30% by default; >100% requires explicit override |
-| `ads_update_adset_targeting` | Dry-run only; confirms diff before execution |
+| `ads_update_adset_budget`    | Max increase 30% by default; >100% requires explicit override |
+| `ads_update_adset_targeting` | Dry-run only; confirms diff before execution                  |
 
 ### 🔜 Planned — Batch 4 (Targeting & Bid Write)
 
 Higher-risk mutations requiring additional validation:
 
-| Tool | Status |
-|------|--------|
+| Tool                            | Status          |
+| ------------------------------- | --------------- |
 | `ads_update_adset_bid_strategy` | Not implemented |
 | `ads_update_adset_optimization` | Not implemented |
-| Batch mutations | Not implemented |
-| Rollback mutations | Not implemented |
+| Batch mutations                 | Not implemented |
+| Rollback mutations              | Not implemented |
 
 ---
 
@@ -86,12 +86,12 @@ Execution MUST never happen in the same assistant response that first proposes t
 
 ## 3. Mode Semantics
 
-| Mode | Mutates? | Requirements |
-|------|:--------:|--------------|
-| `analyze_only` | No | Read data and summarize findings only |
-| `recommend_only` | No | Rank recommended actions, no mutation tool calls |
-| `dry_run_mutation` | No | Produce preview/audit diff for supported operations |
-| `execute_after_confirmation` | Yes | Requires prior dry run plus explicit confirmation |
+| Mode                         | Mutates? | Requirements                                        |
+| ---------------------------- | :------: | --------------------------------------------------- |
+| `analyze_only`               |    No    | Read data and summarize findings only               |
+| `recommend_only`             |    No    | Rank recommended actions, no mutation tool calls    |
+| `dry_run_mutation`           |    No    | Produce preview/audit diff for supported operations |
+| `execute_after_confirmation` |   Yes    | Requires prior dry run plus explicit confirmation   |
 
 Agents MUST NOT infer `execute_after_confirmation` from vague commands like "optimize", "fix", "improve", or "scale".
 
@@ -110,6 +110,7 @@ A confirmation is valid ONLY when all fields are unambiguous:
 - Dry-run preview timestamp or equivalent preview reference
 
 **Insufficient confirmation examples:**
+
 - "ok" after a broad list of suggested changes
 - "do it" when multiple entities are shown
 - "optimize all bad campaigns"
@@ -174,6 +175,7 @@ Budget changes require stricter validation than status/name changes:
 All errors returned through broker/MCP surfaces MUST be sanitized.
 
 **Never expose:**
+
 - Meta access tokens
 - Cuan Insight provider tokens
 - Connection Keys
@@ -200,6 +202,7 @@ For entity creation tools (especially `ads_create_adset`), the tool MUST perform
 - **Bid strategy requirement:** If parent campaign uses `COST_CAP`, `LOWEST_COST_WITH_BID_CAP`, or `TARGET_COST`, require `bidAmount` on the ad set.
 - **Invalid bid strategy values:** Reject `LOWEST_COST` (invalid) — suggest `LOWEST_COST_WITHOUT_CAP`.
 - **MIN_ROAS bid constraints:** If `bid_strategy = LOWEST_COST_WITH_MIN_ROAS`, require `bidConstraints.roas_average_floor`.
+- **Ad creative-family mismatch:** Before `ads_create_ad`, read the target Ad Set's existing non-archived ads and reject mixing manual/static creatives with Dynamic Creative, flexible asset-feed, catalog/product, or placement-customized asset-feed creatives in the same Ad Set. The actionable fix is to duplicate/create a separate Ad Set or attach a creative from the same family.
 
 Pre-flight errors MUST be returned BEFORE any Meta API call with an actionable message.
 
@@ -209,14 +212,14 @@ Pre-flight errors MUST be returned BEFORE any Meta API call with an actionable m
 
 Meta API errors carry subcodes that SHOULD be mapped to human-readable messages:
 
-| Subcode | Message |
-|---------|---------|
-| `1815857` | "Bid amount required. Add bidAmount or use LOWEST_COST_WITHOUT_CAP." |
-| `1815198` | "Frequency cap is immutable. Set it during ad set creation." |
-| `1885154` | "promoted_object/page_id required for this engagement ad set." |
-| `1815715` | "destination_type is incompatible with this campaign objective." |
-| `1885621` | "bid_amount value is invalid or too low." |
-| `2446149` | "Unsupported bid_strategy and bid_amount combination." |
+| Subcode   | Message                                                                   |
+| --------- | ------------------------------------------------------------------------- |
+| `1815857` | "Bid amount required. Add bidAmount or use LOWEST_COST_WITHOUT_CAP."      |
+| `1815198` | "Frequency cap is immutable. Set it during ad set creation."              |
+| `1885154` | "promoted_object/page_id required for this engagement ad set."            |
+| `1815715` | "destination_type is incompatible with this campaign objective."          |
+| `1885621` | "bid_amount value is invalid or too low."                                 |
+| `2446149` | "Unsupported bid_strategy and bid_amount combination."                    |
 | `4834011` | "special_ad_categories required for this campaign/objective combination." |
 
 ---
