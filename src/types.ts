@@ -20,6 +20,17 @@ export const META_CREATIVE_FORMATS = [
 
 export type MetaCreativeFormat = (typeof META_CREATIVE_FORMATS)[number];
 
+export const META_CREATABLE_CREATIVE_FORMATS = [
+  'single_image',
+  'video',
+  'carousel',
+  'catalog',
+  'collection',
+  'placement_image',
+  'placement_customized_ctwa',
+  'existing_post',
+] as const satisfies readonly MetaCreativeFormat[];
+
 export type MetaCreativeDestinationMode = 'EXTERNAL_URL' | 'NONE' | 'INSTANT_FORM' | 'APP';
 
 export interface MetaCreativeCopy {

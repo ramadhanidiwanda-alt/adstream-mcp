@@ -17,7 +17,6 @@ export const META_SALES_WEBSITE_CREATIVE_FORMATS = [
   'single_image',
   'video',
   'carousel',
-  'flexible',
 ] as const satisfies readonly MetaCreativeFormat[];
 
 export const META_CONVERSION_LOCATIONS = [
@@ -230,7 +229,7 @@ const MATRIX: Record<MetaObjectiveLaunchSpec['key'], MetaObjectiveLaunchMatrixRo
       'headline',
       'specialAdCategories',
     ],
-    supportedCreativeFormats: ['single_image', 'video', 'carousel', 'flexible', 'existing_post'],
+    supportedCreativeFormats: ['single_image', 'video', 'carousel', 'existing_post'],
     requiredInputsByCreativeFormat: {
       existing_post: WEBSITE_EXISTING_POST_REQUIRED_INPUTS,
     },

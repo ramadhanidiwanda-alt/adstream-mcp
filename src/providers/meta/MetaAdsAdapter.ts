@@ -1652,6 +1652,22 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       return validationResponse(error);
     }
 
+    if (
+      creative?.creativeFormat === 'flexible' ||
+      (request.params.assetFeedSpec !== undefined &&
+        !isPlacementCustomizedAssetFeedSpec(request.params.assetFeedSpec)) ||
+      (isRecord(request.params.objectStorySpec) &&
+        isRecord(request.params.objectStorySpec.asset_feed_spec) &&
+        !isPlacementCustomizedAssetFeedSpec(request.params.objectStorySpec.asset_feed_spec)) ||
+      request.params.whatsappWelcomeMessageSequenceId !== undefined
+    ) {
+      return validationResponse(
+        new Error(
+          'Dynamic Creative/Flexible asset-feed creation is disabled in this MCP. Untuk variasi headline/caption/copy/image/video, buat beberapa manual creative/ad terpisah, carousel, atau placement customization dengan asset_customization_rules. whatsappWelcomeMessageSequenceId juga disabled karena menulis asset_feed_spec.additional_data; pakai pageWelcomeMessage manual.'
+        )
+      );
+    }
+
     if (creative) {
       const ignoredLegacyFields = LEGACY_CREATIVE_FIELDS.filter(
         (field) => request.params[field] !== undefined
@@ -1703,21 +1719,6 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
         typeof request.params.callToActionType === 'string'
           ? request.params.callToActionType
           : 'SHOP_NOW';
-
-      if (!creative && assetFeedSpec && !objectStorySpec) {
-        return {
-          ok: false,
-          provider: 'meta',
-          errors: [
-            {
-              provider: 'meta',
-              code: 'INVALID_DYNAMIC_CREATIVE_PAYLOAD',
-              message:
-                'assetFeedSpec requires objectStorySpec with the Meta Page identity for a legacy Flexible asset-feed payload. For new ads, prefer creativeFormat="flexible" + creativeSpec.',
-            },
-          ],
-        };
-      }
 
       if (!creative && !objectStorySpec && (!link || !message)) {
         return {
@@ -3690,6 +3691,12 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+function isPlacementCustomizedAssetFeedSpec(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  const rules = value.asset_customization_rules;
+  return Array.isArray(rules) && rules.length > 0;
+}
+
 const CREATIVE_DESTINATION_TYPES: readonly CreativeDestinationType[] = [
   'WEB',
   'WHATSAPP',
@@ -3775,14 +3782,17 @@ function parseMetaCreativeFormat(value: unknown): MetaCreativeFormat {
     case 'carousel':
     case 'catalog':
     case 'collection':
-    case 'flexible':
     case 'placement_image':
     case 'placement_customized_ctwa':
     case 'existing_post':
       return value;
+    case 'flexible':
+      throw new Error(
+        'Dynamic Creative/Flexible asset-feed creation is disabled. Untuk variasi headline/caption/copy/image/video, buat beberapa manual creative/ad terpisah, carousel, atau placement customization dengan asset_customization_rules.'
+      );
     default:
       throw new Error(
-        'creativeFormat harus berupa single_image, video, carousel, catalog, collection, flexible, placement_image, placement_customized_ctwa, atau existing_post.'
+        'creativeFormat harus berupa single_image, video, carousel, catalog, collection, placement_image, placement_customized_ctwa, atau existing_post.'
       );
   }
 }

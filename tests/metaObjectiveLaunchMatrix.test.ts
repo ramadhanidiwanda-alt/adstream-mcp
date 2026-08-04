@@ -117,6 +117,34 @@ describe('Meta objective launch matrix', () => {
     );
   });
 
+  it('does not offer flexible Dynamic Creative for website launch workflows', () => {
+    const salesSpec = resolveMetaObjectiveLaunchSpec({
+      objective: 'OUTCOME_SALES',
+      conversionLocation: 'WEBSITE',
+      apiVersion: 'v25.0',
+    });
+    const trafficSpec = resolveMetaObjectiveLaunchSpec({
+      objective: 'OUTCOME_TRAFFIC',
+      conversionLocation: 'WEBSITE',
+      apiVersion: 'v25.0',
+    });
+
+    expect(salesSpec.supportedCreativeFormats).not.toContain('flexible');
+    expect(trafficSpec.supportedCreativeFormats).not.toContain('flexible');
+    expect(() =>
+      resolveMetaObjectiveLaunchSpec({
+        objective: 'OUTCOME_SALES',
+        conversionLocation: 'WEBSITE',
+        creativeFormat: 'flexible',
+        apiVersion: 'v25.0',
+      })
+    ).toThrowError(
+      expect.objectContaining<Partial<MetaObjectiveLaunchValidationError>>({
+        code: 'UNSUPPORTED_CREATIVE_FORMAT',
+      })
+    );
+  });
+
   // An existing post is a creative choice, not a conversion location: every
   // Website row keeps its own optimization goal and promoted object and swaps
   // only the creative for the post.

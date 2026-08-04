@@ -249,7 +249,7 @@ async function getPlacementCompatibilityError(
   const hasFlexibleMultiVariants = hasMultiVariantTextAssets(assetFeedSpec) && !hasPlacementRules;
 
   if (adSet.is_dynamic_creative !== true && hasFlexibleMultiVariants) {
-    return 'Creative flexible multi-varian dengan beberapa primary text/headline memerlukan adset Dynamic Creative pada jalur Meta API ini. Jangan set Dynamic Creative untuk iklan normal; gunakan single_image/video/carousel biasa, atau buat adset dengan isDynamicCreative=true hanya untuk flexible multi-varian yang sudah direview.';
+    return 'Creative flexible multi-varian dengan beberapa primary text/headline tidak didukung untuk create baru di MCP ini. Jangan set Dynamic Creative untuk iklan normal; gunakan single_image/video/carousel biasa, buat beberapa manual creative/ad terpisah untuk variasi headline/caption/copy/image/video, atau gunakan placement customization dengan asset_customization_rules untuk media per placement.';
   }
 
   if (

@@ -336,14 +336,19 @@ describe('MCP server builder', () => {
     const adSetTool = response.tools.find((tool) => tool.name === 'ads_create_adset');
     const creativeTool = response.tools.find((tool) => tool.name === 'ads_create_adcreative');
 
-    expect(toolSchemaProperty(adSetTool, 'isDynamicCreative').description).toMatch(/legacy/i);
+    expect(toolSchemaProperty(adSetTool, 'isDynamicCreative').description).toMatch(/disabled/i);
     expect(toolSchemaProperty(adSetTool, 'isDynamicCreative').description).toMatch(/jangan diisi/i);
     expect(creativeTool?.inputSchema.properties).toHaveProperty('objectStorySpec');
     expect(creativeTool?.inputSchema.properties).toHaveProperty('assetFeedSpec');
     expect(creativeTool?.inputSchema.properties).toHaveProperty('urlTags');
     expect(creativeTool?.inputSchema.required).not.toContain('message');
     expect(creativeTool?.description).toContain('Flexible');
-    expect(toolSchemaProperty(creativeTool, 'assetFeedSpec').description).toContain('Flexible');
+    expect(creativeTool?.description).toMatch(/variasi.*headline.*caption.*manual/i);
+    expect(creativeTool?.description).toMatch(/flexible.*disabled/i);
+    expect(toolSchemaProperty(creativeTool, 'assetFeedSpec').description).toMatch(/disabled/i);
+    expect(toolSchemaProperty(creativeTool, 'assetFeedSpec').description).toMatch(
+      /manual creative\/ad/i
+    );
   });
 
   it('accepts urlTags at the MCP schema boundary for Meta URL parameters', async () => {
@@ -464,7 +469,6 @@ describe('MCP server builder', () => {
         'carousel',
         'catalog',
         'collection',
-        'flexible',
         'placement_image',
         'placement_customized_ctwa',
         'existing_post',
@@ -490,11 +494,6 @@ describe('MCP server builder', () => {
       'instantExperienceId',
       'coverImageHash',
       'coverVideoId',
-      'imageHashes',
-      'videoIds',
-      'primaryTexts',
-      'headlines',
-      'descriptions',
       'objectStoryId',
     ]) {
       expect(creativeSpecDescription).toContain(fieldName);
@@ -652,13 +651,13 @@ describe('MCP server builder', () => {
       });
 
       expect(response.isError).toBe(true);
-      expect(toolResultText(response)).toMatch(/titles/i);
+      expect(toolResultText(response)).toMatch(/asset_customization_rules|placement/i);
     } finally {
       await Promise.all([client.close(), server.close()]);
     }
   });
 
-  it('passes every Dynamic Creative variant from MCP input to the broker', async () => {
+  it('rejects Dynamic Creative assetFeedSpec input at the MCP boundary', async () => {
     process.env.ADSTREAM_ENABLE_WRITES = 'true';
     const adsBroker = createBrokerStub();
     const objectStorySpec = { page_id: 'page_123' };
@@ -687,6 +686,52 @@ describe('MCP server builder', () => {
         },
       });
 
+      expect(response.isError).toBe(true);
+      expect(toolResultText(response)).toMatch(/Dynamic Creative|asset_?feed_?spec/i);
+      expect(adsBroker.createAdCreative).not.toHaveBeenCalled();
+    } finally {
+      await Promise.all([client.close(), server.close()]);
+    }
+  });
+
+  it('allows placement-customized video assetFeedSpec at the MCP boundary', async () => {
+    process.env.ADSTREAM_ENABLE_WRITES = 'true';
+    const adsBroker = createBrokerStub();
+    const objectStorySpec = { page_id: 'page_123' };
+    const assetFeedSpec = {
+      ad_formats: ['SINGLE_VIDEO'],
+      videos: [
+        { video_id: 'video_feed', adlabels: [{ name: 'placement_feed_video' }] },
+        { video_id: 'video_vertical', adlabels: [{ name: 'placement_vertical_video' }] },
+      ],
+      bodies: [{ text: 'Primary text' }],
+      titles: [{ text: 'Headline' }],
+      link_urls: [{ website_url: 'https://example.com/product' }],
+      call_to_action_types: ['LEARN_MORE'],
+      asset_customization_rules: [
+        {
+          video_label: { name: 'placement_feed_video' },
+          customization_spec: { publisher_platforms: ['facebook'], facebook_positions: ['feed'] },
+        },
+      ],
+    };
+    const { client, server } = await createConnectedClient({
+      config: metaConfig({ adAccountId: 'act_123' }),
+      adsBroker,
+    });
+
+    try {
+      const response = await client.callTool({
+        name: 'ads_create_adcreative',
+        arguments: {
+          accountId: 'act_123',
+          name: 'Placement video creative',
+          pageId: 'page_123',
+          objectStorySpec,
+          assetFeedSpec,
+        },
+      });
+
       expect(response.isError).not.toBe(true);
       expect(adsBroker.createAdCreative).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -698,7 +743,7 @@ describe('MCP server builder', () => {
     }
   });
 
-  it('continues to accept the legacy nested Dynamic Creative asset feed', async () => {
+  it('rejects the legacy nested Dynamic Creative asset feed at the MCP boundary', async () => {
     process.env.ADSTREAM_ENABLE_WRITES = 'true';
     const adsBroker = createBrokerStub();
     const objectStorySpec = {
@@ -725,12 +770,9 @@ describe('MCP server builder', () => {
         },
       });
 
-      expect(response.isError).not.toBe(true);
-      expect(adsBroker.createAdCreative).toHaveBeenCalledWith(
-        expect.objectContaining({
-          params: expect.objectContaining({ objectStorySpec }),
-        })
-      );
+      expect(response.isError).toBe(true);
+      expect(toolResultText(response)).toMatch(/asset_feed_spec|Dynamic Creative/i);
+      expect(adsBroker.createAdCreative).not.toHaveBeenCalled();
     } finally {
       await Promise.all([client.close(), server.close()]);
     }

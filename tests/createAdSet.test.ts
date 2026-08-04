@@ -531,14 +531,33 @@ describe('createAdSet — bid strategy + pre-flight validation', () => {
           destinationType: 'WEBSITE',
           attributionSpec: [{ event_type: 'CLICK_THROUGH', window_days: 7 }],
           frequencyControlSpecs: [{ event: 'IMPRESSIONS', interval_days: 7, max_frequency: 3 }],
-          isDynamicCreative: true,
         },
         { dryRun: true }
       );
       expect(result.preview.destination_type).toBe('WEBSITE');
       expect(result.preview.attribution_spec).toBeDefined();
       expect(result.preview.frequency_control_specs).toBeDefined();
-      expect(result.preview.is_dynamic_creative).toBe(true);
+      expect(result.preview).not.toHaveProperty('is_dynamic_creative');
+    });
+
+    it('rejects enabling Dynamic Creative ad sets from the MCP create path', async () => {
+      const client = createMockClient();
+      const result = await createAdSet(
+        client,
+        {
+          ...defaultOptions,
+          isDynamicCreative: true,
+        },
+        { dryRun: true }
+      );
+
+      expect(result).toMatchObject({
+        status: 'failed',
+        structuredError: {
+          code: 'DYNAMIC_CREATIVE_DISABLED',
+          actionableFix: expect.stringContaining('manual creative/ad'),
+        },
+      });
     });
   });
 

@@ -587,12 +587,11 @@ describe('createAdCreative', () => {
     });
   });
 
-  it('builds a Click-to-WhatsApp preview from destinationType, welcome message, and welcome flow', async () => {
+  it('builds a Click-to-WhatsApp preview from destinationType and welcome message without asset feed', async () => {
     const result = await createAdCreative(mockClient, {
       ...baseOpts,
       destinationType: 'WHATSAPP',
       pageWelcomeMessage: '{"type":"VISUAL_EDITOR"}',
-      whatsappWelcomeMessageSequenceId: 'flow-1',
     });
 
     expect(result.status).toBe('dry_run');
@@ -603,9 +602,22 @@ describe('createAdCreative', () => {
     // which the creative never has, so Meta resolves the destination itself.
     expect(linkData.call_to_action).toEqual({ type: 'WHATSAPP_MESSAGE' });
     expect(linkData.page_welcome_message).toBe('{"type":"VISUAL_EDITOR"}');
-    expect(result.preview.asset_feed_spec).toEqual({
-      additional_data: { partner_app_welcome_message_flow_id: 'flow-1' },
+    expect(result.preview).not.toHaveProperty('asset_feed_spec');
+  });
+
+  it('rejects WhatsApp welcome flow asset-feed writes', async () => {
+    const result = await createAdCreative(mockClient, {
+      ...baseOpts,
+      destinationType: 'WHATSAPP',
+      pageWelcomeMessage: '{"type":"VISUAL_EDITOR"}',
+      whatsappWelcomeMessageSequenceId: 'flow-1',
     });
+
+    expect(result).toMatchObject({
+      status: 'failed',
+      structuredError: { code: 'DYNAMIC_CREATIVE_DISABLED' },
+    });
+    expect(result.error).toMatch(/welcomeMessageSequenceId/i);
   });
 
   it('defaults a canonical Sales messaging creative to WHATSAPP_MESSAGE', async () => {
@@ -1055,7 +1067,7 @@ describe('createAdCreative', () => {
     });
   });
 
-  it('moves a Dynamic Creative asset_feed_spec out of object_story_spec without losing variants', async () => {
+  it('rejects nested asset_feed_spec instead of moving it into a Dynamic Creative payload', async () => {
     const assetFeedSpec = {
       bodies: [{ text: 'Primary text A' }, { text: 'Primary text B' }],
       titles: [{ text: 'Headline A' }, { text: 'Headline B' }],
@@ -1071,21 +1083,19 @@ describe('createAdCreative', () => {
       },
     });
 
-    expect(result.preview).toMatchObject({
-      name: 'Dynamic Creative',
-      object_story_spec: { page_id: '1001' },
-      asset_feed_spec: assetFeedSpec,
+    expect(result).toMatchObject({
+      status: 'failed',
+      structuredError: { code: 'DYNAMIC_CREATIVE_DISABLED' },
     });
-    expect(result.preview.object_story_spec).not.toHaveProperty('asset_feed_spec');
+    expect(result.error).toMatch(/manual creative\/ad/i);
   });
 
-  it('sends every Dynamic Creative variant to Meta on execution', async () => {
+  it('rejects legacy nested asset_feed_spec Dynamic Creative creation', async () => {
     const assetFeedSpec = {
       bodies: [{ text: 'Primary text A' }, { text: 'Primary text B' }],
       titles: [{ text: 'Headline A' }, { text: 'Headline B' }],
       link_urls: [{ website_url: 'https://example.com/product' }],
     };
-    mockMetaPost.mockResolvedValueOnce({ id: 'creative_dynamic_123' });
 
     const result = await createAdCreative(
       mockClient,
@@ -1098,18 +1108,15 @@ describe('createAdCreative', () => {
       { dryRun: false, confirmed: true }
     );
 
-    expect(result).toMatchObject({ status: 'executed', id: 'creative_dynamic_123' });
-    expect(mockMetaPost).toHaveBeenCalledWith(
-      '/act_123/adcreatives',
-      expect.objectContaining({
-        object_story_spec: { page_id: '1001' },
-        asset_feed_spec: assetFeedSpec,
-      }),
-      3
-    );
+    expect(result).toMatchObject({
+      status: 'failed',
+      structuredError: { code: 'DYNAMIC_CREATIVE_DISABLED' },
+    });
+    expect(result.error).toMatch(/manual creative\/ad/i);
+    expect(mockMetaPost).not.toHaveBeenCalled();
   });
 
-  it('accepts the official top-level assetFeedSpec input for Dynamic Creative', async () => {
+  it('rejects top-level assetFeedSpec Dynamic Creative creation', async () => {
     const assetFeedSpec = {
       ad_formats: ['AUTOMATIC_FORMAT'],
       bodies: [{ text: 'Primary text A' }, { text: 'Primary text B' }],
@@ -1127,10 +1134,83 @@ describe('createAdCreative', () => {
       assetFeedSpec,
     });
 
-    expect(result.preview).toMatchObject({
-      object_story_spec: { page_id: '1001' },
-      asset_feed_spec: assetFeedSpec,
+    expect(result).toMatchObject({
+      status: 'failed',
+      structuredError: { code: 'DYNAMIC_CREATIVE_DISABLED' },
     });
+    expect(result.error).toMatch(/manual creative\/ad/i);
+  });
+
+  it('allows placement-customized video assetFeedSpec without Dynamic Creative', async () => {
+    const assetFeedSpec = {
+      ad_formats: ['SINGLE_VIDEO'],
+      videos: [
+        { video_id: 'video_feed', adlabels: [{ name: 'placement_feed_video' }] },
+        { video_id: 'video_vertical', adlabels: [{ name: 'placement_vertical_video' }] },
+      ],
+      bodies: [{ text: 'Primary text' }],
+      titles: [{ text: 'Headline' }],
+      link_urls: [{ website_url: 'https://example.com/product' }],
+      call_to_action_types: ['LEARN_MORE'],
+      asset_customization_rules: [
+        {
+          video_label: { name: 'placement_feed_video' },
+          customization_spec: {
+            publisher_platforms: ['facebook', 'instagram'],
+            facebook_positions: ['feed'],
+            instagram_positions: ['stream'],
+          },
+        },
+        {
+          video_label: { name: 'placement_vertical_video' },
+          customization_spec: {
+            publisher_platforms: ['facebook', 'instagram'],
+            facebook_positions: ['story', 'facebook_reels'],
+            instagram_positions: ['story', 'reels'],
+          },
+        },
+      ],
+    };
+
+    const result = await createAdCreative(mockClient, {
+      adAccountId: 'act_123',
+      name: 'Placement video creative',
+      pageId: '1001',
+      objectStorySpec: { page_id: '1001' },
+      assetFeedSpec,
+    });
+
+    expect(result).toMatchObject({
+      status: 'dry_run',
+      preview: {
+        object_story_spec: { page_id: '1001' },
+        asset_feed_spec: assetFeedSpec,
+      },
+    });
+  });
+
+  it('rejects creativeFormat flexible Dynamic Creative creation', async () => {
+    const result = await createAdCreative(mockClient, {
+      adAccountId: 'act_123',
+      name: 'Flexible Dynamic Creative',
+      pageId: '1001',
+      creative: {
+        creativeFormat: 'flexible',
+        creativeSpec: {
+          primaryText: 'Primary text',
+          primaryTexts: ['Primary text', 'Alt text'],
+          imageHashes: ['image_hash_1'],
+          headlines: ['Headline A', 'Headline B'],
+          destinationUrl: 'https://example.com/product',
+        },
+      },
+    });
+
+    expect(result).toMatchObject({
+      status: 'failed',
+      structuredError: { code: 'DYNAMIC_CREATIVE_DISABLED' },
+    });
+    expect(result.error).toMatch(/manual creative\/ad/i);
   });
 
   it('returns pending_confirmation when not confirmed', async () => {
@@ -1480,15 +1560,6 @@ describe('createAdCreative', () => {
       format: 'existing_post' as const,
       creativeSpec: { objectStoryId: 'page-1_post-1' },
       readBack: { id: 'creative-1', effective_object_story_id: 'page-1_post-1' },
-    },
-    {
-      format: 'flexible' as const,
-      creativeSpec: {
-        imageHashes: ['image-1'],
-        primaryTexts: ['Primary text'],
-        destinationUrl: 'https://example.com',
-      },
-      readBack: { id: 'creative-1', asset_feed_spec: { images: [{ hash: 'image-1' }] } },
     },
     {
       format: 'collection' as const,

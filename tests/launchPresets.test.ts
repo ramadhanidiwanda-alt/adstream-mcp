@@ -145,6 +145,18 @@ describe('launch presets', () => {
     expect(result).toMatchObject({ ready: true, missing: [] });
   });
 
+  it('warns that headline and caption options default to manual creative testing', () => {
+    const result = checkLaunchReadiness({ workflow: 'sales_website', writesEnabled: true });
+
+    expect(result.warnings).toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(/opsi.*headline.*caption.*manual/i),
+        expect.stringMatching(/image\/video/i),
+        expect.stringMatching(/Dynamic Creative.*disabled/i),
+      ])
+    );
+  });
+
   it('captures the objective-specific dependencies for every workflow', () => {
     expect(
       checkLaunchReadiness({ workflow: 'traffic_website', writesEnabled: true }).missing

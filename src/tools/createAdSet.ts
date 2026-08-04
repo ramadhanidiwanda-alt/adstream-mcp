@@ -247,6 +247,23 @@ export async function createAdSet(
 ): Promise<CreateAdSetResult> {
   const { dryRun = true, confirmed = false, maxRetries = 3 } = execOptions;
 
+  if (options.isDynamicCreative === true) {
+    const message =
+      'Dynamic Creative/Flexible asset-feed creation is disabled in this MCP. Untuk variasi headline/caption/copy/image/video, buat beberapa manual creative/ad terpisah, carousel, atau placement customization dengan asset_customization_rules.';
+    return {
+      operation: 'create_adset',
+      status: 'failed',
+      executed: false,
+      preview: { name: options.name.trim() },
+      error: message,
+      structuredError: {
+        ...validationError('DYNAMIC_CREATIVE_DISABLED', message),
+        actionableFix:
+          'Gunakan ad set manual biasa, lalu buat beberapa manual creative/ad terpisah untuk variasi copy/media. Jangan aktifkan isDynamicCreative.',
+      },
+    };
+  }
+
   const preview = buildAdSetPayload(options);
   if (options.externalReference) {
     preview.external_reference = options.externalReference;
@@ -760,10 +777,6 @@ function buildAdSetPayload(options: CreateAdSetOptions): Record<string, unknown>
 
   if (options.frequencyControlSpecs) {
     payload.frequency_control_specs = options.frequencyControlSpecs;
-  }
-
-  if (options.isDynamicCreative !== undefined) {
-    payload.is_dynamic_creative = options.isDynamicCreative;
   }
 
   if (options.dsaBeneficiary) {
