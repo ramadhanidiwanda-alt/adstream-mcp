@@ -16,18 +16,18 @@ Follow `../shared/preamble.md` — MCP detection, config resolution, ad account 
 
 Use this section when a marketer asks to create a new Meta campaign. They can describe the business outcome in ordinary language; do not ask them to choose Meta field names or API values. Start with `ads_check_launch_readiness`, then ask only for the missing inputs and discover the needed account assets.
 
-| Workflow | Yang diminta dari marketer | Setup yang sistem selesaikan |
-|---|---|---|
-| Awareness | Facebook Page, negara target, budget harian, gambar/video, teks utama, dan kategori iklan khusus bila relevan | Kampanye Awareness untuk menjangkau orang atau menambah impressions; tanpa URL tujuan atau Pixel. |
-| Traffic ke website | Page, URL tujuan, negara, budget, gambar/video, teks utama, headline, dan kategori khusus | Kampanye Traffic ke website dengan optimasi kunjungan halaman atau klik tautan. |
-| Engagement existing post | Page, postingan yang sudah ada, negara, budget, dan kategori khusus | Kampanye Engagement yang memakai post tersebut dan mengoptimalkan interaksi post. |
-| Instagram Direct existing post | Page, Instagram user, existing Instagram post/Reel, welcome message, negara, budget, dan kategori khusus | Kampanye messaging yang memakai post/Reel yang sudah ada dan mengarahkan CTA ke Instagram Direct. |
-| Video engagement | Page, video yang sudah ada, negara, budget, teks utama, dan kategori khusus | Kampanye Engagement yang mengoptimalkan penayangan video berkualitas (ThruPlay). |
-| Leads ke website | Page, Pixel, URL tujuan, negara, budget, gambar/video, teks utama, headline, dan kategori khusus | Kampanye Leads ke website dengan optimasi konversi lead dari Pixel. |
-| Leads dengan Instant Form | Page, Instant Form yang sudah dipublikasikan, negara, budget, gambar/video, teks utama, headline, dan kategori khusus | Kampanye Leads dengan formulir instan milik Page tersebut. |
-| App installs | Page, application ID, store URL, negara, budget, gambar/video, teks utama, headline, dan kategori khusus | Kampanye App Promotion yang mengoptimalkan pemasangan aplikasi. |
-| Sales ke website | Page, Pixel, URL produk/checkout, negara, budget, gambar/video, teks utama, headline, dan kategori khusus | Kampanye Sales ke website dengan optimasi pembelian dari Pixel. |
-| Sales dengan catalog | Business, catalog, product set, Page, negara, budget, gambar/video, teks utama, headline, dan kategori khusus | Kampanye Sales berbasis catalog; akses catalog dan product set harus sudah tersedia di Meta. |
+| Workflow                       | Yang diminta dari marketer                                                                                            | Setup yang sistem selesaikan                                                                      |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Awareness                      | Facebook Page, negara target, budget harian, gambar/video, teks utama, dan kategori iklan khusus bila relevan         | Kampanye Awareness untuk menjangkau orang atau menambah impressions; tanpa URL tujuan atau Pixel. |
+| Traffic ke website             | Page, URL tujuan, negara, budget, gambar/video, teks utama, headline, dan kategori khusus                             | Kampanye Traffic ke website dengan optimasi kunjungan halaman atau klik tautan.                   |
+| Engagement existing post       | Page, postingan yang sudah ada, negara, budget, dan kategori khusus                                                   | Kampanye Engagement yang memakai post tersebut dan mengoptimalkan interaksi post.                 |
+| Instagram Direct existing post | Page, Instagram user, existing Instagram post/Reel, welcome message, negara, budget, dan kategori khusus              | Kampanye messaging yang memakai post/Reel yang sudah ada dan mengarahkan CTA ke Instagram Direct. |
+| Video engagement               | Page, video yang sudah ada, negara, budget, teks utama, dan kategori khusus                                           | Kampanye Engagement yang mengoptimalkan penayangan video berkualitas (ThruPlay).                  |
+| Leads ke website               | Page, Pixel, URL tujuan, negara, budget, gambar/video, teks utama, headline, dan kategori khusus                      | Kampanye Leads ke website dengan optimasi konversi lead dari Pixel.                               |
+| Leads dengan Instant Form      | Page, Instant Form yang sudah dipublikasikan, negara, budget, gambar/video, teks utama, headline, dan kategori khusus | Kampanye Leads dengan formulir instan milik Page tersebut.                                        |
+| App installs                   | Page, application ID, store URL, negara, budget, gambar/video, teks utama, headline, dan kategori khusus              | Kampanye App Promotion yang mengoptimalkan pemasangan aplikasi.                                   |
+| Sales ke website               | Page, Pixel, URL produk/checkout, negara, budget, gambar/video, teks utama, headline, dan kategori khusus             | Kampanye Sales ke website dengan optimasi pembelian dari Pixel.                                   |
+| Sales dengan catalog           | Business, catalog, product set, Page, negara, budget, gambar/video, teks utama, headline, dan kategori khusus         | Kampanye Sales berbasis catalog; akses catalog dan product set harus sudah tersedia di Meta.      |
 
 Semua struktur dibuat PAUSED. Saya akan meminta persetujuan terpisah sebelum mengaktifkan campaign, ad set, dan ad.
 
@@ -35,11 +35,12 @@ Semua struktur dibuat PAUSED. Saya akan meminta persetujuan terpisah sebelum men
 
 1. Jalankan `ads_check_launch_readiness`; gunakan hasilnya untuk menemukan aset yang diperlukan, seperti Page, Pixel, post, video, form, app, catalog, atau product set.
 2. Jalankan dry-run untuk `ads_create_campaign`, `ads_create_adset`, `ads_create_adcreative`, dan `ads_create_ad` secara berurutan. Jangan menjalankan creation saat masih mengumpulkan brief.
-3. Tampilkan satu ringkasan marketer: tujuan, target negara/audiens, budget, tujuan klik atau form, materi iklan, dan struktur yang akan dibuat PAUSED. Minta satu persetujuan tertulis untuk **membuat** struktur tersebut.
-4. Setelah persetujuan creation, buat campaign → ad set → creative → ad. Campaign, ad set, dan ad tetap PAUSED.
-5. Audit hasilnya melalui `ads_list_campaigns`, `ads_read_adset_full`, dan `ads_read_creative_full`. Laporkan ID yang terbaca. Bila satu langkah gagal, laporkan seluruh ID yang berhasil dibuat sampai titik itu dan berhenti; jangan mengasumsikan langkah berikutnya berhasil.
-6. Read-back hanya mengaudit respons API dan objek yang dapat dibaca. Jangan mengklaim campaign sudah tervalidasi live, sudah delivery, atau akan perform.
-7. Minta persetujuan kedua yang secara eksplisit menyebut campaign, ad set, dan ad yang akan diaktifkan. Setelah itu saja, aktifkan parent ke child: `ads_resume_campaign` → `ads_resume_adset` → `ads_resume_ad`, lalu baca ulang statusnya.
+3. Saat memakai Ad Set lama, jangan mencampur manual/static creative dengan Dynamic Creative, flexible asset-feed, catalog/product, atau placement-customized asset-feed. Jika `ads_create_ad` dry-run menolak creative-family mismatch, rekomendasikan duplikat/buat Ad Set baru untuk format tersebut.
+4. Tampilkan satu ringkasan marketer: tujuan, target negara/audiens, budget, tujuan klik atau form, materi iklan, dan struktur yang akan dibuat PAUSED. Minta satu persetujuan tertulis untuk **membuat** struktur tersebut.
+5. Setelah persetujuan creation, buat campaign → ad set → creative → ad. Campaign, ad set, dan ad tetap PAUSED.
+6. Audit hasilnya melalui `ads_list_campaigns`, `ads_read_adset_full`, dan `ads_read_creative_full`. Laporkan ID yang terbaca. Bila satu langkah gagal, laporkan seluruh ID yang berhasil dibuat sampai titik itu dan berhenti; jangan mengasumsikan langkah berikutnya berhasil.
+7. Read-back hanya mengaudit respons API dan objek yang dapat dibaca. Jangan mengklaim campaign sudah tervalidasi live, sudah delivery, atau akan perform.
+8. Minta persetujuan kedua yang secara eksplisit menyebut campaign, ad set, dan ad yang akan diaktifkan. Setelah itu saja, aktifkan parent ke child: `ads_resume_campaign` → `ads_resume_adset` → `ads_resume_ad`, lalu baca ulang statusnya.
 
 Messaging di luar workflow yang sudah didukung, Calls, Quality Leads, optimasi app-event/value yang lebih luas, dan varian Advantage+ tambahan adalah roadmap items. Jangan menyebutnya tersedia atau memetakannya diam-diam ke workflow yang ada.
 
@@ -99,11 +100,11 @@ Constraint apa yang harus saya ikuti? Pilih boleh lebih dari satu:
 
 Map the user's answer into one mode and state it back before proceeding:
 
-| Mode | Use when | Allowed behavior |
-|---|---|---|
-| `analyze_only` | User wants to understand performance | Read data, summarize findings, no action plan required |
-| `recommend_only` | User wants what to do next | Read data, rank top 3 actions, no mutation calls |
-| `dry_run_mutation` | User wants to preview a campaign change | Use supported dry-run write tools only; show before/after and expected impact |
+| Mode                         | Use when                                                    | Allowed behavior                                                                         |
+| ---------------------------- | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `analyze_only`               | User wants to understand performance                        | Read data, summarize findings, no action plan required                                   |
+| `recommend_only`             | User wants what to do next                                  | Read data, rank top 3 actions, no mutation calls                                         |
+| `dry_run_mutation`           | User wants to preview a campaign change                     | Use supported dry-run write tools only; show before/after and expected impact            |
 | `execute_after_confirmation` | User explicitly asks to execute a supported campaign change | Run dry-run first, ask for explicit confirmation, then execute only the confirmed change |
 
 Execution requires a separate confirmation after the dry-run result. Never execute in the same response that first proposes the change.
@@ -123,13 +124,13 @@ If the user does not specify timeframe, default to `last_30d` for strategic anal
 
 Pick the lens that matches the user's question. Don't pre-load all of these; load on demand.
 
-| The user wants to… | Read |
-|---|---|
-| Understand profitability, ROAS, break-even | `../shared/meta-math.md` |
-| Check if metrics are good/bad for their industry | `../shared/meta-math.md` (benchmarks section) |
-| Diagnose creative fatigue | Check frequency + CPM trend + CTR trend |
-| Find wasted spend | Compare CPA to break-even, find high-spend low-ROAS campaigns |
-| Decide whether to scale | Check Headroom $, frequency, CPM trend |
+| The user wants to…                               | Read                                                          |
+| ------------------------------------------------ | ------------------------------------------------------------- |
+| Understand profitability, ROAS, break-even       | `../shared/meta-math.md`                                      |
+| Check if metrics are good/bad for their industry | `../shared/meta-math.md` (benchmarks section)                 |
+| Diagnose creative fatigue                        | Check frequency + CPM trend + CTR trend                       |
+| Find wasted spend                                | Compare CPA to break-even, find high-spend low-ROAS campaigns |
+| Decide whether to scale                          | Check Headroom $, frequency, CPM trend                        |
 
 For business context (AOV, profit margin, brand voice), read `{data_dir}/business-context.json`. If missing or stale (>90 days), suggest `/meta-ads-audit`.
 
@@ -147,6 +148,7 @@ When user asks "how did yesterday go" or "show me today's performance":
 4. If business context exists, calculate profitability (Headroom $, ROAS vs Break-Even)
 
 **Report structure:**
+
 ```
 # Meta Ads Performance — [Date]
 
@@ -178,6 +180,7 @@ When user asks about specific campaign(s):
    - Audience saturation (frequency > 4.0)
 
 **Analysis structure:**
+
 ```
 # [Campaign Name] Analysis
 
@@ -217,6 +220,7 @@ When user asks "where am I wasting money" or "what should I pause":
 5. Present as actionable list
 
 **Report structure:**
+
 ```
 # Wasted Spend Analysis
 
@@ -255,6 +259,7 @@ When user asks "what should I scale" or "where should I spend more":
 6. Apply 20% scaling rule (don't recommend >20% budget increase)
 
 **Report structure:**
+
 ```
 # Scale Opportunities
 
@@ -289,6 +294,7 @@ Your MCP server provides these tools:
 - `generateDailyReport` — Automated daily report (convenience wrapper)
 
 **Best practices:**
+
 - Use `datePreset` for common ranges: `'yesterday'`, `'last_7d'`, `'last_30d'`
 - Use `timeRange` for custom ranges: `{ since: '2026-05-01', until: '2026-05-28' }`
 - Request only the fields you need to reduce API latency
@@ -298,26 +304,27 @@ Your MCP server provides these tools:
 
 Write operations may be available through broker/MCP tools, depending on the connected server. **All tools below are supported with dry-run + confirmation:**
 
-| Tool | Entity | Pre-flight |
-|------|--------|------------|
-| `ads_create_campaign` | Campaign | Schema validation |
-| `ads_create_adset` | Ad Set | Campaign fetch (CBO, bid strategy, targeting_automation) |
-| `ads_create_adcreative` | Creative | Page/link/media validated at Meta |
-| `ads_create_ad` | Ad | Adset + creative validated at Meta |
-| `ads_create_welcome_message_template` | Welcome message | Local schema validation; no Meta write |
-| `ads_list_welcome_message_templates` | Welcome message | Read-only local store |
-| `ads_upload_image` | Image | File type/size validation |
-| `ads_upload_video` | Video | File type/size validation |
-| `ads_pause_campaign` | Campaign | None (safe) |
-| `ads_resume_campaign` | Campaign | None (safe) |
-| `ads_update_campaign_budget` | Campaign | Max 30% increase by default |
-| `ads_rename_campaign` | Campaign | None (safe) |
-| `ads_update_adset` | Ad Set | Budget, targeting, bid changes |
-| `ads_archive_ad` | Ad | Irreversible — warns before execute |
+| Tool                                  | Entity          | Pre-flight                                               |
+| ------------------------------------- | --------------- | -------------------------------------------------------- |
+| `ads_create_campaign`                 | Campaign        | Schema validation                                        |
+| `ads_create_adset`                    | Ad Set          | Campaign fetch (CBO, bid strategy, targeting_automation) |
+| `ads_create_adcreative`               | Creative        | Page/link/media validated at Meta                        |
+| `ads_create_ad`                       | Ad              | Adset + creative validated at Meta                       |
+| `ads_create_welcome_message_template` | Welcome message | Local schema validation; no Meta write                   |
+| `ads_list_welcome_message_templates`  | Welcome message | Read-only local store                                    |
+| `ads_upload_image`                    | Image           | File type/size validation                                |
+| `ads_upload_video`                    | Video           | File type/size validation                                |
+| `ads_pause_campaign`                  | Campaign        | None (safe)                                              |
+| `ads_resume_campaign`                 | Campaign        | None (safe)                                              |
+| `ads_update_campaign_budget`          | Campaign        | Max 30% increase by default                              |
+| `ads_rename_campaign`                 | Campaign        | None (safe)                                              |
+| `ads_update_adset`                    | Ad Set          | Budget, targeting, bid changes                           |
+| `ads_archive_ad`                      | Ad              | Irreversible — warns before execute                      |
 
 For the full lifecycle and confirmation requirements, follow `../../../docs/WRITE_SAFETY_CONTRACT.md`.
 
 **Rules:**
+
 - Always start with `dry_run_mutation` for write-like requests.
 - Show the before/after diff, expected impact, risks, and audit intent.
 - Ask for explicit confirmation after the dry-run result.
@@ -349,6 +356,7 @@ Change: +61% (anomaly — investigate)
 **Anomaly threshold:** >30% change from rolling average
 
 **Common anomaly patterns:**
+
 - CPM spike + frequency spike = creative fatigue
 - CPM spike + frequency stable = auction pressure
 - CTR drop + frequency spike = creative fatigue

@@ -190,6 +190,159 @@ describe('createAd', () => {
     expect(mockMetaPost).not.toHaveBeenCalled();
   });
 
+  it('blocks attaching a manual creative to an ad set that already contains dynamic asset-feed ads', async () => {
+    mockMetaGet.mockResolvedValueOnce({
+      data: [
+        {
+          id: 'existing_dynamic_ad_1',
+          name: 'Existing Dynamic Creative',
+          status: 'ACTIVE',
+          creative: {
+            id: 'existing_creative_1',
+            asset_feed_spec: {
+              ad_formats: ['AUTOMATIC_FORMAT'],
+              bodies: [{ text: 'Primary text A' }, { text: 'Primary text B' }],
+              titles: [{ text: 'Headline A' }, { text: 'Headline B' }],
+              images: [{ hash: 'image_hash_1' }],
+              link_urls: [{ website_url: 'https://example.com/product' }],
+              call_to_action_types: ['LEARN_MORE'],
+            },
+          },
+        },
+      ],
+    });
+
+    const r = await createAd(mockClient, baseOpts);
+
+    expect(r).toMatchObject({
+      status: 'failed',
+      executed: false,
+      error: expect.stringMatching(/Ad Set.*dynamic|dynamic.*Ad Set/i),
+    });
+    expect(mockMetaPost).not.toHaveBeenCalled();
+  });
+
+  it('keeps the creative-family guard active with Meta-readable creative fields', async () => {
+    mockMetaGetObject.mockImplementation(async (path: string, params: Record<string, unknown>) => {
+      if (String(params.fields).includes('template_data')) {
+        throw new Error('Unsupported creative field template_data');
+      }
+      return path === '/as456'
+        ? { destination_type: 'WEBSITE', is_dynamic_creative: false }
+        : { object_story_spec: { page_id: 'page_1', link_data: { link: 'https://example.com' } } };
+    });
+    mockMetaGet.mockImplementation(async (_path: string, params: Record<string, unknown>) => {
+      if (String(params.fields).includes('template_data')) {
+        throw new Error('Unsupported creative field template_data');
+      }
+      return {
+        data: [
+          {
+            id: 'existing_dynamic_ad_1',
+            name: 'Existing Dynamic Creative',
+            status: 'ACTIVE',
+            creative: {
+              id: 'existing_creative_1',
+              asset_feed_spec: {
+                ad_formats: ['AUTOMATIC_FORMAT'],
+                bodies: [{ text: 'Primary text A' }, { text: 'Primary text B' }],
+                titles: [{ text: 'Headline A' }, { text: 'Headline B' }],
+                images: [{ hash: 'image_hash_1' }],
+                link_urls: [{ website_url: 'https://example.com/product' }],
+                call_to_action_types: ['LEARN_MORE'],
+              },
+            },
+          },
+        ],
+      };
+    });
+
+    const r = await createAd(mockClient, baseOpts);
+
+    expect(r.status).toBe('failed');
+    expect(r.error).toMatch(/#1885274|campuran format creative/i);
+  });
+
+  it('blocks attaching a dynamic asset-feed creative to an ad set that already contains manual ads', async () => {
+    mockMetaGetObject.mockImplementation(async (path: string) =>
+      path === '/as456'
+        ? { destination_type: 'WEBSITE', is_dynamic_creative: true }
+        : {
+            asset_feed_spec: {
+              ad_formats: ['AUTOMATIC_FORMAT'],
+              bodies: [{ text: 'Primary text A' }, { text: 'Primary text B' }],
+              titles: [{ text: 'Headline A' }, { text: 'Headline B' }],
+              images: [{ hash: 'image_hash_1' }],
+              link_urls: [{ website_url: 'https://example.com/product' }],
+              call_to_action_types: ['LEARN_MORE'],
+            },
+          }
+    );
+    mockMetaGet.mockResolvedValueOnce({
+      data: [
+        {
+          id: 'existing_manual_ad_1',
+          name: 'Existing Manual Creative',
+          status: 'ACTIVE',
+          creative: {
+            id: 'existing_creative_1',
+            object_story_spec: {
+              page_id: 'page_1',
+              link_data: { image_hash: 'image_hash_1', link: 'https://example.com' },
+            },
+          },
+        },
+      ],
+    });
+
+    const r = await createAd(mockClient, baseOpts);
+
+    expect(r).toMatchObject({
+      status: 'failed',
+      executed: false,
+      error: expect.stringMatching(/manual.*dynamic|dynamic.*manual/i),
+    });
+    expect(mockMetaPost).not.toHaveBeenCalled();
+  });
+
+  it('allows attaching another dynamic asset-feed creative to a dynamic-only ad set', async () => {
+    const assetFeedSpec = {
+      ad_formats: ['AUTOMATIC_FORMAT'],
+      bodies: [{ text: 'Primary text A' }, { text: 'Primary text B' }],
+      titles: [{ text: 'Headline A' }, { text: 'Headline B' }],
+      images: [{ hash: 'image_hash_1' }],
+      link_urls: [{ website_url: 'https://example.com/product' }],
+      call_to_action_types: ['LEARN_MORE'],
+    };
+    mockMetaGetObject.mockImplementation(async (path: string) =>
+      path === '/as456'
+        ? { destination_type: 'WEBSITE', is_dynamic_creative: true }
+        : { asset_feed_spec: assetFeedSpec }
+    );
+    mockMetaGet.mockResolvedValueOnce({
+      data: [
+        {
+          id: 'existing_dynamic_ad_1',
+          name: 'Existing Dynamic Creative',
+          status: 'ACTIVE',
+          creative: { id: 'existing_creative_1', asset_feed_spec: assetFeedSpec },
+        },
+      ],
+    });
+
+    const r = await createAd(mockClient, baseOpts);
+
+    expect(r.status).toBe('dry_run');
+    expect(mockMetaPost).not.toHaveBeenCalled();
+  });
+
+  it('allows bypassing the ad-set creative-family preflight with an explicit warning', async () => {
+    const r = await createAd(mockClient, { ...baseOpts, skipAdSetCreativeFamilyCheck: true });
+
+    expect(r.status).toBe('dry_run');
+    expect(r.warnings?.join(' ')).toMatch(/creative-family/i);
+  });
+
   it('allows placement compatibility bypass with an explicit warning', async () => {
     mockMetaGetObject.mockImplementation(async (path: string) =>
       path === '/as456'
@@ -214,7 +367,7 @@ describe('createAd', () => {
   });
 
   it('does not create a duplicate ad when dedupeByName finds an existing one', async () => {
-    mockMetaGet.mockResolvedValueOnce({
+    mockMetaGet.mockResolvedValueOnce({ data: [] }).mockResolvedValueOnce({
       data: [{ id: 'existing_ad_1', name: 'Test Ad', status: 'PAUSED' }],
     });
 

@@ -1852,6 +1852,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
           skipOmnichannelCheck: request.params.skipOmnichannelCheck === true,
           skipPlacementCompatibilityCheck: request.params.skipPlacementCompatibilityCheck === true,
           skipMessagingDestinationCheck: request.params.skipMessagingDestinationCheck === true,
+          skipAdSetCreativeFamilyCheck: request.params.skipAdSetCreativeFamilyCheck === true,
           externalReference:
             typeof request.params.externalReference === 'string'
               ? request.params.externalReference

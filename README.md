@@ -39,21 +39,21 @@ The intended public API should stay small:
 
 ## Write tools (scoped mutations; creation tools use dry-run + confirmation):
 
-| Tool                         | Purpose                                                                                                                               |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `ads_create_campaign`        | Create a campaign under an ad account                                                                                                 |
-| `ads_create_adset`           | Create an ad set with pre-flight validation (bid strategy, CBO, budget)                                                               |
-| `ads_create_adcreative`      | Create ad creative with page link, media, existing post, messaging CTA, `pageWelcomeMessage`, or `welcomeMessageTemplateName`          |
-| `ads_create_ad`              | Create an ad linking ad set and creative                                                                                              |
-| `ads_update_adset`           | Update ad set settings (budget, status, targeting)                                                                                    |
-| `ads_pause_campaign`         | Pause an active campaign                                                                                                              |
-| `ads_resume_campaign`        | Resume a paused campaign                                                                                                              |
-| `ads_update_campaign_budget` | Change campaign daily budget                                                                                                          |
-| `ads_rename_campaign`        | Rename a campaign                                                                                                                     |
-| `ads_archive_ad`             | Archive an ad or campaign                                                                                                             |
-| `ads_upload_image`           | Upload image to Meta Ads Image Library                                                                                                |
-| `ads_upload_video`           | Upload video to Meta Ads Video Library                                                                                                |
-| `ads_create_welcome_message_template` | Save a local reusable Messenger/Instagram welcome message template                                                           |
+| Tool                                  | Purpose                                                                                                                       |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `ads_create_campaign`                 | Create a campaign under an ad account                                                                                         |
+| `ads_create_adset`                    | Create an ad set with pre-flight validation (bid strategy, CBO, budget)                                                       |
+| `ads_create_adcreative`               | Create ad creative with page link, media, existing post, messaging CTA, `pageWelcomeMessage`, or `welcomeMessageTemplateName` |
+| `ads_create_ad`                       | Create an ad linking ad set and creative                                                                                      |
+| `ads_update_adset`                    | Update ad set settings (budget, status, targeting)                                                                            |
+| `ads_pause_campaign`                  | Pause an active campaign                                                                                                      |
+| `ads_resume_campaign`                 | Resume a paused campaign                                                                                                      |
+| `ads_update_campaign_budget`          | Change campaign daily budget                                                                                                  |
+| `ads_rename_campaign`                 | Rename a campaign                                                                                                             |
+| `ads_archive_ad`                      | Archive an ad or campaign                                                                                                     |
+| `ads_upload_image`                    | Upload image to Meta Ads Image Library                                                                                        |
+| `ads_upload_video`                    | Upload video to Meta Ads Video Library                                                                                        |
+| `ads_create_welcome_message_template` | Save a local reusable Messenger/Instagram welcome message template                                                            |
 | `ads_list_welcome_message_templates`  | List local reusable welcome message templates                                                                                 |
 
 ## WhatsApp Discovery Tools (read-only, Meta-specific)
@@ -70,7 +70,7 @@ The intended public API should stay small:
 
 Standard Ads support `single_image`, `video`, `carousel`, `catalog`, `collection`, `flexible`, and `existing_post`. The initial Collaborative Ads support covers `single_image`, `video`, `carousel`, `catalog`, and `collection`. Collaborative `flexible` and `existing_post` remain unsupported because their account- and catalog-specific compatibility cannot yet be validated safely.
 
-Use the same four tools for either mode: create the campaign with `ads_create_campaign`, create one ad set with `ads_create_adset`, create each format separately with `ads_create_adcreative`, then connect each creative to that ad set with `ads_create_ad`. For example, one `adsetId` can be reused by an image ad and a video ad; the format belongs to each creative, not to a duplicate ad set. A `collection` creative must reuse an existing `instantExperienceId`—the connector does not build Instant Experience content.
+Use the same four tools for either mode: create the campaign with `ads_create_campaign`, create one ad set with `ads_create_adset`, create each format separately with `ads_create_adcreative`, then connect each creative to that ad set with `ads_create_ad`. One `adsetId` can be reused by compatible manual formats such as image and video ads, but do not mix manual/static ads with Dynamic Creative, flexible asset-feed, catalog/product, or placement-customized asset-feed ads in the same Ad Set. The `ads_create_ad` dry-run checks the target Ad Set's existing ads first and blocks mismatched creative families before Meta returns error `#1885274`. A `collection` creative must reuse an existing `instantExperienceId`—the connector does not build Instant Experience content.
 
 For an existing Instagram post/Reel that clicks to Instagram Direct, keep the post reference as `creativeSpec.sourceInstagramMediaId`; do not upload the media again. Use `callToAction: "INSTAGRAM_MESSAGE"`, `appDestination: "INSTAGRAM_DIRECT"`, and `destinationUrl: "https://www.instagram.com/"` so the Graph payload includes both `call_to_action.value.app_destination` and `call_to_action.value.link`. Add either an inline `pageWelcomeMessage` or a reusable `welcomeMessageTemplateName`; the template expands into `pageWelcomeMessage` before creative creation.
 

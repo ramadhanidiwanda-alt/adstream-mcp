@@ -874,6 +874,12 @@ const createAdInputSchema = {
     .describe(
       'Skip the messaging destination/CTA cross-check. Only set if the mapping misfires; a click-to-message ad set (INSTAGRAM_DIRECT, MESSENGER, WHATSAPP, MESSAGING_*) normally needs a creative whose CTA opens the same inbox.'
     ),
+  skipAdSetCreativeFamilyCheck: z
+    .boolean()
+    .optional()
+    .describe(
+      'Skip the Ad Set creative-family pre-flight check. Only set after Ads Manager review; one Ad Set normally should not mix manual/static ads with dynamic/flexible/catalog/placement-customized asset-feed ads.'
+    ),
   externalReference: z
     .string()
     .optional()

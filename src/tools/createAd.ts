@@ -31,6 +31,8 @@ export interface CreateAdOptions {
   skipPlacementCompatibilityCheck?: boolean;
   /** Skip the messaging destination/CTA cross-check (use only if the mapping misfires). */
   skipMessagingDestinationCheck?: boolean;
+  /** Skip the ad-set creative-family pre-flight check (use only if Meta changes this constraint). */
+  skipAdSetCreativeFamilyCheck?: boolean;
 }
 
 export type CreateAdStatus = 'dry_run' | 'pending_confirmation' | 'executed' | 'failed' | 'deduped';
@@ -80,6 +82,11 @@ export async function createAd(
     ...(options.skipMessagingDestinationCheck
       ? [
           'Messaging destination/CTA cross-check skipped by request. Confirm in Ads Manager that the CTA button opens the intended inbox before activating.',
+        ]
+      : []),
+    ...(options.skipAdSetCreativeFamilyCheck
+      ? [
+          'Ad Set creative-family pre-flight skipped by request. Continue only if Ads Manager confirms this Ad Set can accept the new creative format.',
         ]
       : []),
   ];
@@ -138,6 +145,23 @@ export async function createAd(
         status: 'failed',
         executed: false,
         error: placementCompatibilityError,
+      };
+    }
+  }
+
+  if (!options.skipAdSetCreativeFamilyCheck) {
+    const adSetCreativeFamilyError = await getAdSetCreativeFamilyCompatibilityError(
+      client,
+      options.adSetId,
+      options.creativeId,
+      maxRetries
+    );
+    if (adSetCreativeFamilyError) {
+      return {
+        ...baseResult,
+        status: 'failed',
+        executed: false,
+        error: adSetCreativeFamilyError,
       };
     }
   }
@@ -307,4 +331,118 @@ function hasMultiVariantTextAssets(assetFeedSpec: Record<string, unknown> | unde
 
 function countArray(value: unknown): number {
   return Array.isArray(value) ? value.length : 0;
+}
+
+type CreativeFamily =
+  | 'manual_static'
+  | 'dynamic_flexible'
+  | 'catalog_dynamic'
+  | 'placement_customized';
+
+interface ExistingAdWithCreative extends Record<string, unknown> {
+  id?: string;
+  name?: string;
+  status?: string;
+  effective_status?: string;
+  creative?: Record<string, unknown>;
+}
+
+async function getAdSetCreativeFamilyCompatibilityError(
+  client: MetaClient,
+  adSetId: string,
+  creativeId: string,
+  maxRetries: number
+): Promise<string | undefined> {
+  try {
+    const [newCreative, existingAdsResponse] = await Promise.all([
+      client.metaGetObject<Record<string, unknown>>(
+        `/${creativeId}`,
+        {
+          fields:
+            'id,name,asset_feed_spec,object_story_spec,product_set_id,omnichannel_link_spec,applink_treatment',
+        },
+        maxRetries
+      ),
+      client.metaGet<{ data?: ExistingAdWithCreative[] }>(
+        `/${adSetId}/ads`,
+        {
+          fields:
+            'id,name,status,effective_status,creative{id,name,asset_feed_spec,object_story_spec,product_set_id,omnichannel_link_spec,applink_treatment}',
+          limit: 100,
+        },
+        { maxRetries, paginate: true, maxPages: 20 }
+      ),
+    ]);
+
+    const newFamily = classifyCreativeFamily(newCreative);
+    const conflictingAd = existingAdsResponse.data
+      ?.filter((ad) => !isArchivedOrDeleted(ad))
+      .map((ad) => ({ ad, family: classifyCreativeFamily(ad.creative) }))
+      .find(({ family }) => family !== undefined && creativeFamiliesConflict(family, newFamily));
+
+    if (!conflictingAd) return undefined;
+
+    return (
+      `Ad Set ${adSetId} sudah berisi iklan ${creativeFamilyLabel(conflictingAd.family)} ` +
+      `(${conflictingAd.ad.name ?? conflictingAd.ad.id ?? 'existing ad'}), tetapi creative baru ` +
+      `${creativeId} terdeteksi sebagai ${creativeFamilyLabel(newFamily)}. Meta menolak campuran ` +
+      'format creative yang berbeda dalam 1 Ad Set (sering muncul sebagai error #1885274). ' +
+      'Buat Ad Set baru/duplikat untuk format baru ini, atau gunakan creative dengan family yang sama.'
+    );
+  } catch {
+    return undefined;
+  }
+}
+
+function classifyCreativeFamily(creative: Record<string, unknown> | undefined): CreativeFamily {
+  if (!creative) return 'manual_static';
+
+  const assetFeedSpec = isRecord(creative.asset_feed_spec) ? creative.asset_feed_spec : undefined;
+  if (hasCatalogSignal(creative, assetFeedSpec)) return 'catalog_dynamic';
+
+  if (assetFeedSpec) {
+    const hasPlacementRules = Array.isArray(assetFeedSpec.asset_customization_rules)
+      ? assetFeedSpec.asset_customization_rules.length > 0
+      : false;
+    return hasPlacementRules ? 'placement_customized' : 'dynamic_flexible';
+  }
+
+  return 'manual_static';
+}
+
+function creativeFamiliesConflict(left: CreativeFamily, right: CreativeFamily): boolean {
+  return left !== right;
+}
+
+function creativeFamilyLabel(family: CreativeFamily): string {
+  switch (family) {
+    case 'manual_static':
+      return 'manual/static';
+    case 'dynamic_flexible':
+      return 'dynamic/flexible asset-feed';
+    case 'catalog_dynamic':
+      return 'catalog/dynamic product';
+    case 'placement_customized':
+      return 'placement-customized asset-feed';
+  }
+}
+
+function isArchivedOrDeleted(ad: ExistingAdWithCreative): boolean {
+  const status = String(ad.effective_status ?? ad.status ?? '').toUpperCase();
+  return status === 'ARCHIVED' || status === 'DELETED';
+}
+
+function hasCatalogSignal(
+  creative: Record<string, unknown>,
+  assetFeedSpec: Record<string, unknown> | undefined
+): boolean {
+  if (typeof creative.product_set_id === 'string' && creative.product_set_id.trim()) return true;
+  if (typeof assetFeedSpec?.product_set_id === 'string' && assetFeedSpec.product_set_id.trim()) {
+    return true;
+  }
+
+  const storySpec = isRecord(creative.object_story_spec) ? creative.object_story_spec : undefined;
+  const templateData =
+    storySpec && isRecord(storySpec.template_data) ? storySpec.template_data : undefined;
+  return templateData !== undefined || isRecord(creative.template_data);
 }
