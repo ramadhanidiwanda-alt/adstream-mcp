@@ -6,6 +6,7 @@ import {
   formatStructuredMetaWriteError,
 } from '../utils/formatMetaWriteError.js';
 import { stripReadonlyTargetingKeys } from '../utils/targetingMerge.js';
+import { checkCampaignOptimizationGoalConsistency } from './metaOptimizationGoalConsistency.js';
 
 export type CloneAdSetStatus = 'dry_run' | 'pending_confirmation' | 'executed' | 'failed';
 
@@ -180,6 +181,41 @@ export async function cloneAdSet(
       ...baseResult,
       status: 'pending_confirmation',
       error: 'Explicit confirmation is required after reviewing the dry-run preview.',
+    };
+  }
+
+  try {
+    const campaignId = preview.campaign_id;
+    if (typeof campaignId === 'string') {
+      const consistencyIssue = await checkCampaignOptimizationGoalConsistency(
+        client,
+        campaignId,
+        preview.optimization_goal,
+        { maxRetries }
+      );
+      if (consistencyIssue) {
+        return {
+          ...baseResult,
+          status: 'failed',
+          error: consistencyIssue.error,
+          structuredError: consistencyIssue.structuredError,
+        };
+      }
+    }
+  } catch (error) {
+    return {
+      ...baseResult,
+      status: 'failed',
+      error:
+        `Failed to verify sibling ad set optimization goals before cloning; ` +
+        `aborting rather than risking Meta error #1885760. ${formatMetaWriteError(error)}`,
+      structuredError: {
+        ...formatStructuredMetaWriteError(error),
+        code: 'OPTIMIZATION_GOAL_CONSISTENCY_CHECK_FAILED',
+        provider: 'meta',
+        actionableFix:
+          'Retry once sibling ad sets can be read, or clone into a separate campaign for a different optimization goal.',
+      },
     };
   }
 

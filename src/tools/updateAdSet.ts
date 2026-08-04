@@ -10,6 +10,7 @@ import {
   isPlainObject,
   stripReadonlyTargetingKeys,
 } from '../utils/targetingMerge.js';
+import { checkCampaignOptimizationGoalConsistency } from './metaOptimizationGoalConsistency.js';
 
 export interface UpdateAdSetOptions {
   adSetId: string;
@@ -116,6 +117,49 @@ export async function updateAdSet(
           'Use mode="patch" for merge semantics or set replaceTargetingConfirmed=true after reviewing the dry-run preview.',
       },
     };
+  }
+
+  if (options.optimizationGoal !== undefined) {
+    try {
+      const current = await client.metaGetObject<{ id?: string; campaign_id?: string }>(
+        `/${options.adSetId}`,
+        { fields: 'id,campaign_id,optimization_goal' },
+        maxRetries
+      );
+      if (typeof current.campaign_id === 'string' && current.campaign_id.length > 0) {
+        const consistencyIssue = await checkCampaignOptimizationGoalConsistency(
+          client,
+          current.campaign_id,
+          options.optimizationGoal,
+          { currentAdSetId: options.adSetId, maxRetries }
+        );
+        if (consistencyIssue) {
+          return {
+            ...baseResult,
+            status: 'failed',
+            success: false,
+            error: consistencyIssue.error,
+            structuredError: consistencyIssue.structuredError,
+          };
+        }
+      }
+    } catch (error) {
+      return {
+        ...baseResult,
+        status: 'failed',
+        success: false,
+        error:
+          `Failed to verify sibling ad set optimization goals before update; ` +
+          `aborting rather than risking Meta error #1885760. ${formatMetaWriteError(error)}`,
+        structuredError: {
+          ...formatStructuredMetaWriteError(error),
+          code: 'OPTIMIZATION_GOAL_CONSISTENCY_CHECK_FAILED',
+          provider: 'meta',
+          actionableFix:
+            'Retry once the ad set and sibling read succeeds, or split different optimization goals into separate campaigns.',
+        },
+      };
+    }
   }
 
   try {

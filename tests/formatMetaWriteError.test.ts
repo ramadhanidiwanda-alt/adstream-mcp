@@ -157,4 +157,34 @@ describe('formatMetaWriteError', () => {
       actionableFix: expect.stringMatching(/WHATSAPP_MESSAGE.*api\.whatsapp\.com\/send/i),
     });
   });
+
+  it('explains mixed campaign optimization goals from Meta subcode 1885760', () => {
+    const error = new MetaApiError({
+      message: 'Invalid parameter',
+      type: 'OAuthException',
+      code: 100,
+      error_subcode: 1885760,
+      error_user_title: 'Invalid optimization goal',
+    });
+
+    expect(formatStructuredMetaWriteError(error)).toMatchObject({
+      providerSubcode: '1885760',
+      actionableFix: expect.stringContaining('same optimization_goal'),
+    });
+  });
+
+  it('explains unavailable messaging purchase performance goal from Meta subcode 2490408', () => {
+    const error = new MetaApiError({
+      message: 'Invalid parameter',
+      type: 'OAuthException',
+      code: 100,
+      error_subcode: 2490408,
+      error_user_title: 'Target kinerja tidak tersedia',
+    });
+
+    expect(formatStructuredMetaWriteError(error)).toMatchObject({
+      providerSubcode: '2490408',
+      actionableFix: expect.stringContaining('MESSAGING_PURCHASE_CONVERSION'),
+    });
+  });
 });

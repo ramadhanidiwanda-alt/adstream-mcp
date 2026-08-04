@@ -463,7 +463,7 @@ const createAdSetInputSchema = {
     .string()
     .optional()
     .describe(
-      'Optimization goal. Meta values: NONE, APP_INSTALLS, CONVERSATIONS, ENGAGED_USERS, IMPRESSIONS, LANDING_PAGE_VIEWS, LEAD_GENERATION, LINK_CLICKS, OFFSITE_CONVERSIONS, PAGE_LIKES, POST_ENGAGEMENT, REACH, THRUPLAY, VALUE (required when conversionLocation is omitted). TikTok values are objective-specific, e.g. CLICK, LANDING_PAGE_VIEW, VIDEO_VIEW, ENGAGED_VIEW, FOLLOWERS, CONVERT, IN_APP_EVENT, REACH, LEAD_GENERATION, APP_INSTALLS, VALUE — see the TikTok objective launch matrix for the authoritative list per objective.'
+      'Optimization goal. Meta values: NONE, APP_INSTALLS, CONVERSATIONS, ENGAGED_USERS, IMPRESSIONS, LANDING_PAGE_VIEWS, LEAD_GENERATION, LINK_CLICKS, MESSAGING_PURCHASE_CONVERSION, OFFSITE_CONVERSIONS, PAGE_LIKES, POST_ENGAGEMENT, REACH, THRUPLAY, VALUE (required when conversionLocation is omitted). For Sales Click-to-WhatsApp purchase-through-messaging, request MESSAGING_PURCHASE_CONVERSION; Meta may reject it with subcode 2490408 when the Page/WhatsApp/WABA/dataset is not eligible. TikTok values are objective-specific, e.g. CLICK, LANDING_PAGE_VIEW, VIDEO_VIEW, ENGAGED_VIEW, FOLLOWERS, CONVERT, IN_APP_EVENT, REACH, LEAD_GENERATION, APP_INSTALLS, VALUE — see the TikTok objective launch matrix for the authoritative list per objective.'
     ),
   conversionLocation: z
     .enum(META_CONVERSION_LOCATIONS)
@@ -970,7 +970,16 @@ const updateAdSetInputSchema = {
   lifetimeBudget: z.number().optional().describe('New lifetime budget.'),
   bidStrategy: z.string().optional().describe('New bid strategy.'),
   optimizationGoal: z
-    .enum(['REACH', 'IMPRESSIONS', 'LINK_CLICKS', 'LANDING_PAGE_VIEWS', 'CONVERSATIONS', 'VALUE'])
+    .enum([
+      'REACH',
+      'IMPRESSIONS',
+      'LINK_CLICKS',
+      'LANDING_PAGE_VIEWS',
+      'CONVERSATIONS',
+      'MESSAGING_PURCHASE_CONVERSION',
+      'OFFSITE_CONVERSIONS',
+      'VALUE',
+    ])
     .optional()
     .describe('New optimization goal.'),
   geoLocations: z.record(z.unknown()).optional().describe('Geo targeting object.'),
