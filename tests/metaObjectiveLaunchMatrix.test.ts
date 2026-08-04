@@ -117,6 +117,24 @@ describe('Meta objective launch matrix', () => {
     );
   });
 
+  it('keeps messaging purchase conversion as the requested Sales CTWA performance goal', () => {
+    expect(
+      resolveMetaObjectiveLaunchSpec({
+        objective: 'OUTCOME_SALES',
+        conversionLocation: 'MESSAGING',
+        messagingDestination: 'WHATSAPP',
+        optimizationGoal: 'MESSAGING_PURCHASE_CONVERSION',
+        creativeFormat: 'single_image',
+        apiVersion: 'v25.0',
+      })
+    ).toMatchObject({
+      key: 'sales_messaging',
+      optimizationGoal: 'MESSAGING_PURCHASE_CONVERSION',
+      allowedOptimizationGoals: expect.arrayContaining(['MESSAGING_PURCHASE_CONVERSION']),
+      destinationType: 'WHATSAPP',
+    });
+  });
+
   it('does not offer flexible Dynamic Creative for website launch workflows', () => {
     const salesSpec = resolveMetaObjectiveLaunchSpec({
       objective: 'OUTCOME_SALES',

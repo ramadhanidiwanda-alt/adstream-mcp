@@ -77,6 +77,12 @@ function getActionableFix(error: MetaApiError, message: string): string {
   if (error.subcode === 2061015 || (text.includes('link') && text.includes('wajib'))) {
     return 'Fix the creative CTA link payload. For existing-post WhatsApp creatives, use WHATSAPP_MESSAGE with value.app_destination WHATSAPP and value.link https://api.whatsapp.com/send; avoid wa.me phone URLs. For Instagram Direct existing-post creatives, provide both app_destination and link.';
   }
+  if (error.subcode === 1885760) {
+    return 'All non-archived ad sets in this campaign must use the same optimization_goal under auto bid/CBO-style delivery. Match the sibling ad set goal or split different goals into separate campaigns.';
+  }
+  if (error.subcode === 2490408) {
+    return 'The requested Meta performance goal is not available for this Page, WhatsApp/WABA, dataset, or account setup. For MESSAGING_PURCHASE_CONVERSION, verify purchase events from messaging are shared and eligible before retrying; do not silently fall back to CONVERSATIONS if purchase-through-messaging was requested.';
+  }
   if (text.includes('page'))
     return 'Verify the Page ID or identity is accessible to the connected ad account.';
   if (text.includes('budget'))

@@ -7,9 +7,11 @@ type Mock = ReturnType<typeof vi.fn>;
 describe('updateAdSet', () => {
   const mockMetaPost: Mock = vi.fn();
   const mockMetaGetObject: Mock = vi.fn();
+  const mockMetaGet: Mock = vi.fn();
   const mockClient = {
     metaPost: mockMetaPost,
     metaGetObject: mockMetaGetObject,
+    metaGet: mockMetaGet,
   } as unknown as MetaClient;
 
   const baseOpts = { adSetId: 'as789' };
@@ -20,6 +22,7 @@ describe('updateAdSet', () => {
     // behaves like the pre-merge diff-only payload for tests that don't care about
     // remote state.
     mockMetaGetObject.mockResolvedValue({ targeting: {} });
+    mockMetaGet.mockResolvedValue({ data: [] });
   });
 
   it('returns dry_run without calling API', async () => {
@@ -272,6 +275,36 @@ describe('updateAdSet', () => {
     expect(r.id).toBe('as789');
     expect(mockMetaPost.mock.calls[0][0]).toBe('/as789');
     expect(mockMetaPost.mock.calls[0][1].daily_budget).toBe(50000);
+  });
+
+  it('rejects optimizationGoal updates that differ from active siblings', async () => {
+    mockMetaGetObject.mockResolvedValueOnce({
+      id: 'as789',
+      campaign_id: 'cmp_1',
+      optimization_goal: 'CONVERSATIONS',
+    });
+    mockMetaGet.mockResolvedValueOnce({
+      data: [
+        {
+          id: 'as456',
+          name: 'Sibling Purchase Messages',
+          status: 'ACTIVE',
+          effective_status: 'ACTIVE',
+          optimization_goal: 'MESSAGING_PURCHASE_CONVERSION',
+        },
+      ],
+    });
+
+    const r = await updateAdSet(
+      mockClient,
+      { ...baseOpts, optimizationGoal: 'CONVERSATIONS' },
+      { dryRun: false, confirmed: true }
+    );
+
+    expect(r.status).toBe('failed');
+    expect(r.structuredError?.code).toBe('OPTIMIZATION_GOAL_MISMATCH');
+    expect(r.error).toContain('MESSAGING_PURCHASE_CONVERSION');
+    expect(mockMetaPost).not.toHaveBeenCalled();
   });
 
   it('returns failed on error', async () => {

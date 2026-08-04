@@ -104,6 +104,19 @@ describe('createAdSet — bid strategy + pre-flight validation', () => {
           promoted_object: { page_id: 'page-1', whatsapp_phone_number: '6285156583372' },
         },
       },
+      {
+        objective: 'OUTCOME_SALES',
+        conversionLocation: 'MESSAGING' as const,
+        creativeFormat: 'single_image' as const,
+        optimizationGoal: 'MESSAGING_PURCHASE_CONVERSION' as const,
+        messagingDestination: 'WHATSAPP' as const,
+        expected: {
+          optimization_goal: 'MESSAGING_PURCHASE_CONVERSION',
+          billing_event: 'IMPRESSIONS',
+          destination_type: 'WHATSAPP',
+          promoted_object: { page_id: 'page-1', whatsapp_phone_number: '6285156583372' },
+        },
+      },
     ])('uses the canonical $objective/$conversionLocation payload', async (testCase) => {
       const client = createMockClient({
         objective: testCase.objective,
@@ -386,6 +399,40 @@ describe('createAdSet — bid strategy + pre-flight validation', () => {
       // Without bidAmount, this should fail
       expect(result.status).toBe('failed');
       expect(result.error).toContain('bidAmount is required');
+    });
+
+    it('rejects a new ad set whose optimization goal differs from active siblings', async () => {
+      const client = createMockClient({
+        objective: 'OUTCOME_SALES',
+        bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+        daily_budget: 100000,
+      });
+      vi.mocked(client.metaGet).mockResolvedValueOnce({
+        data: [
+          {
+            id: 'sibling_1',
+            name: 'Existing Purchase Messages',
+            status: 'ACTIVE',
+            effective_status: 'ACTIVE',
+            optimization_goal: 'MESSAGING_PURCHASE_CONVERSION',
+          },
+        ],
+      });
+
+      const result = await createAdSet(
+        client,
+        {
+          ...defaultOptions,
+          optimizationGoal: 'CONVERSATIONS',
+        },
+        { dryRun: false, confirmed: true }
+      );
+
+      expect(result.status).toBe('failed');
+      expect(result.structuredError?.code).toBe('OPTIMIZATION_GOAL_MISMATCH');
+      expect(result.error).toContain('MESSAGING_PURCHASE_CONVERSION');
+      expect(result.error).toContain('CONVERSATIONS');
+      expect(client.metaPost).not.toHaveBeenCalled();
     });
   });
 

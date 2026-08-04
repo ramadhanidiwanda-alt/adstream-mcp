@@ -110,6 +110,7 @@ describe('cloneAdSet', () => {
   function client(post = vi.fn()): MetaClient {
     return {
       metaGetObject: vi.fn().mockResolvedValue(source),
+      metaGet: vi.fn().mockResolvedValue({ data: [] }),
       metaPost: post,
     } as unknown as MetaClient;
   }
@@ -152,5 +153,33 @@ describe('cloneAdSet', () => {
     );
     expect(r.status).toBe('executed');
     expect(r.id).toBe('as_new');
+  });
+
+  it('rejects clones whose optimization goal differs from target campaign siblings', async () => {
+    const post = vi.fn();
+    const mockClient = client(post);
+    vi.mocked(mockClient.metaGet).mockResolvedValueOnce({
+      data: [
+        {
+          id: 'as_existing',
+          name: 'Existing Messaging Purchases',
+          status: 'ACTIVE',
+          effective_status: 'ACTIVE',
+          optimization_goal: 'MESSAGING_PURCHASE_CONVERSION',
+        },
+      ],
+    });
+
+    const r = await cloneAdSet(
+      mockClient,
+      { adAccountId: 'act_1', sourceAdSetId: 'as_src' },
+      { dryRun: false, confirmed: true }
+    );
+
+    expect(r.status).toBe('failed');
+    expect(r.structuredError?.code).toBe('OPTIMIZATION_GOAL_MISMATCH');
+    expect(r.error).toContain('OFFSITE_CONVERSIONS');
+    expect(r.error).toContain('MESSAGING_PURCHASE_CONVERSION');
+    expect(post).not.toHaveBeenCalled();
   });
 });

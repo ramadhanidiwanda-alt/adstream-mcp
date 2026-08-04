@@ -202,6 +202,7 @@ For entity creation tools (especially `ads_create_adset`), the tool MUST perform
 - **Bid strategy requirement:** If parent campaign uses `COST_CAP`, `LOWEST_COST_WITH_BID_CAP`, or `TARGET_COST`, require `bidAmount` on the ad set.
 - **Invalid bid strategy values:** Reject `LOWEST_COST` (invalid) — suggest `LOWEST_COST_WITHOUT_CAP`.
 - **MIN_ROAS bid constraints:** If `bid_strategy = LOWEST_COST_WITH_MIN_ROAS`, require `bidConstraints.roas_average_floor`.
+- **Optimization goal consistency:** Before creating/updating/cloning ad sets, read non-deleted, non-archived sibling ad sets in the target campaign and reject mixed `optimization_goal` values with a clear local error. Meta rejects these under auto bid/CBO-style delivery (subcode `1885760`).
 - **Ad creative-family mismatch:** Before `ads_create_ad`, read the target Ad Set's existing non-archived ads and reject mixing manual/static creatives with Dynamic Creative, flexible asset-feed, catalog/product, or placement-customized asset-feed creatives in the same Ad Set. The actionable fix is to duplicate/create a separate Ad Set or attach a creative from the same family.
 
 Pre-flight errors MUST be returned BEFORE any Meta API call with an actionable message.
@@ -212,15 +213,17 @@ Pre-flight errors MUST be returned BEFORE any Meta API call with an actionable m
 
 Meta API errors carry subcodes that SHOULD be mapped to human-readable messages:
 
-| Subcode   | Message                                                                   |
-| --------- | ------------------------------------------------------------------------- |
-| `1815857` | "Bid amount required. Add bidAmount or use LOWEST_COST_WITHOUT_CAP."      |
-| `1815198` | "Frequency cap is immutable. Set it during ad set creation."              |
-| `1885154` | "promoted_object/page_id required for this engagement ad set."            |
-| `1815715` | "destination_type is incompatible with this campaign objective."          |
-| `1885621` | "bid_amount value is invalid or too low."                                 |
-| `2446149` | "Unsupported bid_strategy and bid_amount combination."                    |
-| `4834011` | "special_ad_categories required for this campaign/objective combination." |
+| Subcode   | Message                                                                     |
+| --------- | --------------------------------------------------------------------------- |
+| `1815857` | "Bid amount required. Add bidAmount or use LOWEST_COST_WITHOUT_CAP."        |
+| `1815198` | "Frequency cap is immutable. Set it during ad set creation."                |
+| `1885154` | "promoted_object/page_id required for this engagement ad set."              |
+| `1815715` | "destination_type is incompatible with this campaign objective."            |
+| `1885621` | "bid_amount value is invalid or too low."                                   |
+| `1885760` | "All ad sets in the campaign must use the same optimization_goal."          |
+| `2446149` | "Unsupported bid_strategy and bid_amount combination."                      |
+| `2490408` | "Requested performance goal is not available for this Page/WhatsApp setup." |
+| `4834011` | "special_ad_categories required for this campaign/objective combination."   |
 
 ---
 

@@ -20,6 +20,7 @@ import {
   formatStructuredMetaWriteError,
 } from '../utils/formatMetaWriteError.js';
 import { deepMergeTargeting } from '../utils/targetingMerge.js';
+import { checkCampaignOptimizationGoalConsistency } from './metaOptimizationGoalConsistency.js';
 
 export type AdSetStatus = 'ACTIVE' | 'PAUSED';
 
@@ -619,6 +620,38 @@ export async function createAdSet(
         response: { deduped: true, existing },
       };
     }
+  }
+
+  try {
+    const consistencyIssue = await checkCampaignOptimizationGoalConsistency(
+      client,
+      options.campaignId,
+      preview.optimization_goal,
+      { maxRetries }
+    );
+    if (consistencyIssue) {
+      return {
+        ...baseResult,
+        status: 'failed',
+        error: consistencyIssue.error,
+        structuredError: consistencyIssue.structuredError,
+      };
+    }
+  } catch (error) {
+    return {
+      ...baseResult,
+      status: 'failed',
+      error:
+        `Failed to verify sibling ad set optimization goals before creation; ` +
+        `aborting rather than risking Meta error #1885760. ${formatMetaWriteError(error)}`,
+      structuredError: {
+        ...formatStructuredMetaWriteError(error),
+        code: 'OPTIMIZATION_GOAL_CONSISTENCY_CHECK_FAILED',
+        provider: 'meta',
+        actionableFix:
+          'Retry once sibling ad sets can be read, or create the ad set in a separate campaign for a different optimization goal.',
+      },
+    };
   }
 
   try {
