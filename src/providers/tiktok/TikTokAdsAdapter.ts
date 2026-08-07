@@ -28,6 +28,7 @@ import type {
   AdDestinationResult,
   AdCreativeFullResult,
   AdSetFullResult,
+  CreativeAssetResolution,
 } from '../../broker/types.js';
 import { ADS_PROVIDER_CAPABILITY_MATRIX } from '../../broker/types.js';
 import { redactErrorMessage } from '../../broker/credentials.js';
@@ -212,6 +213,10 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
     request: AdsBrokerRequest
   ): Promise<AdsBrokerResponse<AdsMetricRecord[]>> {
     return this.getPerformance(request, 'creative', this.options.mockData?.creatives);
+  }
+
+  async resolveCreativeAssets(): Promise<AdsBrokerResponse<CreativeAssetResolution[]>> {
+    return this.notImplemented('TikTok creative asset resolution is not implemented yet');
   }
 
   async getPlacementPerformance(

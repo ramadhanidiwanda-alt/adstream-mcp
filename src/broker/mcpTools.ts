@@ -48,6 +48,7 @@ export const ADS_MCP_TOOL_NAMES = [
   'ads_check_launch_readiness',
   'ads_get_performance',
   'ads_get_creatives',
+  'ads_resolve_creative_assets',
   'ads_list_welcome_message_templates',
   'ads_get_change_history',
   'ads_get_capabilities',
@@ -259,6 +260,12 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
     description:
       'Canonical read tool for creative metadata and creative-level metrics. Returns the standard performance envelope with level creative. For Meta setup checks, pass params.complianceAudit=true to audit active ads with their Ad Set placements.',
     inputSchema: createPerformanceInputSchema([]),
+  },
+  {
+    name: 'ads_resolve_creative_assets',
+    description:
+      'Read-only Meta creative asset resolver for reports with local thumbnails. Returns ranked image/video thumbnail URL candidates with width, height, source, and quality metadata. It does not download files or create a report. For highest quality it resolves image_hash via /adimages, video_id via /{video_id}/thumbnails, and requests AdCreative thumbnail_url with thumbnail_width/thumbnail_height fallback.',
+    inputSchema: createCreativeAssetsInputSchema(),
   },
   {
     name: 'ads_list_welcome_message_templates',
@@ -878,6 +885,8 @@ function callBrokerMethod(
         ...request,
         params: { ...request.params, level: 'creative' },
       });
+    case 'ads_resolve_creative_assets':
+      return broker.resolveCreativeAssets(request);
     case 'ads_get_change_history':
       if ((request.provider ?? 'meta') !== 'meta')
         return Promise.resolve(getAdsChangeHistory(request));
@@ -3155,6 +3164,55 @@ function createPerformanceInputSchema(required: string[]) {
       cursor: {
         type: 'string',
         description: 'Opaque pagination cursor from a previous response.',
+      },
+    },
+  };
+}
+
+function createCreativeAssetsInputSchema() {
+  const schema = createAdsInputSchema([]);
+
+  return {
+    ...schema,
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      adId: {
+        type: 'string',
+        description: 'Optional single Meta ad ID to resolve.',
+      },
+      adIds: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'Optional Meta ad IDs to resolve.',
+      },
+      campaignId: {
+        anyOf: [{ type: 'string' }, { type: 'array', items: { type: 'string' } }],
+        description: 'Optional campaign scope. Uses the nested campaign ads edge when possible.',
+      },
+      adSetId: {
+        anyOf: [{ type: 'string' }, { type: 'array', items: { type: 'string' } }],
+        description: 'Optional ad set scope. Uses the nested ad set ads edge when possible.',
+      },
+      thumbnailWidth: {
+        type: 'number',
+        description: 'Requested AdCreative thumbnail width. Defaults to 1920.',
+      },
+      thumbnailHeight: {
+        type: 'number',
+        description: 'Requested AdCreative thumbnail height. Defaults to 1080.',
+      },
+      limit: {
+        type: 'number',
+        description: 'Maximum ads to inspect. Defaults to 100.',
+      },
+      cursor: {
+        type: 'string',
+        description: 'Opaque pagination cursor from a previous response.',
+      },
+      filtering: {
+        type: 'array',
+        items: { type: 'object', additionalProperties: true },
+        description: 'Optional raw Meta filtering rules, merged with adIds.',
       },
     },
   };

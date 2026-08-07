@@ -159,6 +159,9 @@ export type {
   AdDestinationPage,
 } from './tools/getAdDestinations.js';
 
+export { resolveCreativeAssets } from './tools/resolveCreativeAssets.js';
+export type * from './tools/resolveCreativeAssets.js';
+
 export { readAdCreativeFull } from './tools/readAdCreativeFull.js';
 export type { ReadAdCreativeFullOptions, AdCreativeFull } from './tools/readAdCreativeFull.js';
 

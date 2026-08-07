@@ -52,6 +52,7 @@ The target public API is provider-agnostic and small:
 - `ads_list_campaigns`
 - `ads_get_performance`
 - `ads_get_creatives`
+- `ads_resolve_creative_assets`
 - `ads_get_change_history`
 - `ads_get_capabilities`
 - `commerce_get_performance`

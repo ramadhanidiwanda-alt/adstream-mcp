@@ -28,6 +28,7 @@ import type {
   AdDestinationResult,
   AdCreativeFullResult,
   AdSetFullResult,
+  CreativeAssetResolution,
 } from '../../broker/types.js';
 import { ADS_PROVIDER_CAPABILITY_MATRIX } from '../../broker/types.js';
 import { redactErrorMessage } from '../../broker/credentials.js';
@@ -101,6 +102,10 @@ export class GoogleAdsAdapter implements AdsProviderAdapter {
 
   async getCreativePerformance(): Promise<AdsBrokerResponse<AdsMetricRecord[]>> {
     return this.notImplemented('Google creative performance is not implemented yet');
+  }
+
+  async resolveCreativeAssets(): Promise<AdsBrokerResponse<CreativeAssetResolution[]>> {
+    return this.notImplemented('Google creative asset resolution is not implemented yet');
   }
 
   async getPlacementPerformance(): Promise<AdsBrokerResponse> {

@@ -139,6 +139,34 @@ const adsCreativeInputSchema = {
   until: z.string().optional().describe('Optional end date in YYYY-MM-DD format.'),
 };
 
+const creativeAssetsInputSchema = {
+  ...adsBaseInputSchema,
+  adId: z.string().optional().describe('Optional single Meta ad ID to resolve.'),
+  adIds: z.array(z.string()).optional().describe('Optional Meta ad IDs to resolve.'),
+  campaignId: z
+    .union([z.string(), z.array(z.string())])
+    .optional()
+    .describe('Optional campaign scope. Uses the nested campaign ads edge when possible.'),
+  adSetId: z
+    .union([z.string(), z.array(z.string())])
+    .optional()
+    .describe('Optional ad set scope. Uses the nested ad set ads edge when possible.'),
+  thumbnailWidth: z
+    .number()
+    .optional()
+    .describe('Requested AdCreative thumbnail width. Defaults to 1920.'),
+  thumbnailHeight: z
+    .number()
+    .optional()
+    .describe('Requested AdCreative thumbnail height. Defaults to 1080.'),
+  limit: z.number().optional().describe('Maximum ads to inspect. Defaults to 100.'),
+  cursor: z.string().optional().describe('Opaque pagination cursor from a previous response.'),
+  filtering: z
+    .array(z.record(z.unknown()))
+    .optional()
+    .describe('Optional raw Meta filtering rules, merged with adIds.'),
+};
+
 const leadFormsInputSchema = {
   ...adsBaseInputSchema,
   accountId: z.string().describe('Provider account id used to resolve Meta credentials.'),
@@ -1179,6 +1207,8 @@ export function createMetaAdsMcpServer(options: CreateMetaAdsMcpServerOptions = 
       inputSchema = adsPerformanceInputSchema;
     } else if (toolDefinition.name === 'ads_get_creatives') {
       inputSchema = adsCreativeInputSchema;
+    } else if (toolDefinition.name === 'ads_resolve_creative_assets') {
+      inputSchema = creativeAssetsInputSchema;
     } else if (toolDefinition.name === 'ads_create_welcome_message_template') {
       inputSchema = createWelcomeMessageTemplateInputSchema;
     } else if (toolDefinition.name === 'ads_list_welcome_message_templates') {

@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — Creative asset resolution
+
+- **`ads_resolve_creative_assets`** — read-only Meta tool that resolves the best
+  available thumbnail for each ad instead of settling for the generic AdCreative
+  `thumbnail_url`. Returns ranked candidates with `url`, `source`, `width`,
+  `height`, `quality`, and `media_kind`, plus `best_thumbnail`, `video_id`, and
+  `image_hashes`. It resolves assets from three places: `image_hash` via
+  `/act_{id}/adimages` (looked up by explicit `hashes`, batched 50 per call),
+  `video_id` via `/{video_id}/thumbnails`, and Instagram-native placements via
+  the IG media node (`effective_instagram_media_id` /
+  `source_instagram_media_id`). Per-entity lookups are capped at 5 concurrent
+  Graph calls, and a failing video or Instagram lookup degrades to the remaining
+  candidates rather than failing the page. Supports `adIds`, `campaignId`,
+  `adSetId`, raw `filtering`, `limit`, `cursor`, and
+  `thumbnailWidth`/`thumbnailHeight`; the next page cursor is returned as
+  `meta.nextCursor`. The tool resolves URLs only — it does not download files or
+  build a report. Google and TikTok return structured `NOT_IMPLEMENTED`.
+
 ### Fixed — Click-to-message creative integrity
 
 A Click-to-Instagram-Direct ad shipped with a dead CTA button and no welcome

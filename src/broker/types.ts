@@ -186,6 +186,41 @@ export interface AdsCreativeMetadata {
   setup_compliance?: AdsCreativeSetupCompliance;
 }
 
+export type CreativeAssetSource =
+  | 'adimage_url'
+  | 'adimage_url_128'
+  | 'video_thumbnail'
+  | 'adcreative_thumbnail_url'
+  | 'adcreative_image_url'
+  | 'ig_media_url'
+  | 'ig_thumbnail_url';
+
+export type CreativeAssetQuality = 'high' | 'medium' | 'low' | 'unknown';
+
+export interface CreativeAssetCandidate {
+  url: string;
+  source: CreativeAssetSource;
+  width?: number;
+  height?: number;
+  quality: CreativeAssetQuality;
+  expires_maybe: boolean;
+  media_kind?: 'image' | 'video' | 'unknown';
+  is_preferred?: boolean;
+}
+
+export interface CreativeAssetResolution {
+  provider: 'meta';
+  ad_id: string;
+  ad_name?: string;
+  creative_id?: string;
+  creative_name?: string;
+  media_kind: 'image' | 'video' | 'unknown';
+  best_thumbnail?: CreativeAssetCandidate;
+  candidates: CreativeAssetCandidate[];
+  video_id?: string;
+  image_hashes?: string[];
+}
+
 export interface AdsDiagnostics {
   quality_ranking?: string;
   engagement_rate_ranking?: string;
@@ -1107,6 +1142,9 @@ export interface AdsProviderAdapter {
   ): Promise<AdsBrokerResponse<AdsMetricRecord[]>>;
   getAdPerformance(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMetricRecord[]>>;
   getCreativePerformance(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMetricRecord[]>>;
+  resolveCreativeAssets(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<CreativeAssetResolution[]>>;
   getPlacementPerformance(request: AdsBrokerRequest): Promise<AdsBrokerResponse>;
   getChangeHistory(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsChangeHistoryEnvelope>>;
   getVideoSource(request: AdsBrokerRequest): Promise<AdsBrokerResponse<VideoSourceResult>>;

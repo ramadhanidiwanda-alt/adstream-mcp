@@ -33,6 +33,7 @@ The intended public API should stay small:
 | `ads_list_campaigns`       | List campaign identity/status metadata                                |
 | `ads_get_performance`      | Fetch normalized ads performance rows across levels                   |
 | `ads_get_creatives`        | Fetch creative metadata and creative metrics                          |
+| `ads_resolve_creative_assets` | Resolve ranked image/video thumbnail URLs for creatives (Meta)     |
 | `ads_get_change_history`   | Fetch provider change history when available                          |
 | `ads_get_capabilities`     | Discover supported providers, metrics, breakdowns, levels, and writes |
 | `commerce_get_performance` | Fetch commerce/SKU/product/order performance when available           |

@@ -8,6 +8,7 @@ import type {
   AdsMetricRecord,
   AdsMutationResult,
   AdDestinationResult,
+  CreativeAssetResolution,
   ArchiveAdResult,
   CloneUiAdResult,
   CloneAdSetResult,
@@ -72,6 +73,7 @@ type AdapterMethod =
   | 'getAdsetOrAdgroupPerformance'
   | 'getAdPerformance'
   | 'getCreativePerformance'
+  | 'resolveCreativeAssets'
   | 'getPlacementPerformance'
   | 'getChangeHistory'
   | 'getVideoSource'
@@ -149,6 +151,12 @@ export class AdsBroker {
 
   getCreativePerformance(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMetricRecord[]>> {
     return this.executeRead(request, 'getCreativePerformance');
+  }
+
+  resolveCreativeAssets(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<CreativeAssetResolution[]>> {
+    return this.executeRead(request, 'resolveCreativeAssets');
   }
 
   getPlacementPerformance(request: AdsBrokerRequest): Promise<AdsBrokerResponse> {

@@ -55,6 +55,7 @@ describe('MetaAdsAdapter', () => {
     expect(typeof adapter.getAdsetOrAdgroupPerformance).toBe('function');
     expect(typeof adapter.getAdPerformance).toBe('function');
     expect(typeof adapter.getCreativePerformance).toBe('function');
+    expect(typeof adapter.resolveCreativeAssets).toBe('function');
     expect(typeof adapter.getPlacementPerformance).toBe('function');
     expect(typeof adapter.getChangeHistory).toBe('function');
   });
@@ -973,6 +974,108 @@ describe('MetaAdsAdapter', () => {
       delivery: { spend: 0, impressions: 0 },
     });
     expect(JSON.stringify(response)).not.toContain('secret-token');
+  });
+
+  it('resolves high-quality creative asset candidates without exposing credentials', async () => {
+    const capturedPaths: string[] = [];
+    const adapter = new MetaAdsAdapter({
+      clientFactory: () =>
+        ({
+          metaGet: async (path: string, params: Record<string, unknown>) => {
+            capturedPaths.push(path);
+            if (path === '/act_123/ads') {
+              expect(params).toMatchObject({
+                thumbnail_width: 1920,
+                thumbnail_height: 1080,
+              });
+              return {
+                data: [
+                  {
+                    id: 'ad_1',
+                    creative: {
+                      id: 'cr_1',
+                      thumbnail_url: 'https://example.test/thumb.jpg',
+                      image_hash: 'hash_1',
+                    },
+                  },
+                ],
+              };
+            }
+            if (path === '/act_123/adimages') {
+              return {
+                data: [
+                  {
+                    hash: 'hash_1',
+                    url: 'https://example.test/full.jpg',
+                    url_128: 'https://example.test/128.jpg',
+                    width: 1080,
+                    height: 1080,
+                  },
+                ],
+              };
+            }
+            return { data: [] };
+          },
+        }) as never,
+    });
+
+    const response = await adapter.resolveCreativeAssets({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: { thumbnailWidth: 1920, thumbnailHeight: 1080 },
+      credentials: {
+        provider: 'meta',
+        accessToken: 'secret-token',
+        accountId: 'act_123',
+        source: 'test',
+      },
+    });
+
+    expect(response.ok).toBe(true);
+    expect(capturedPaths).toEqual(['/act_123/ads', '/act_123/adimages']);
+    expect(response.data?.[0]).toMatchObject({
+      ad_id: 'ad_1',
+      creative_id: 'cr_1',
+      best_thumbnail: {
+        url: 'https://example.test/full.jpg',
+        source: 'adimage_url',
+      },
+    });
+    expect(JSON.stringify(response)).not.toContain('secret-token');
+  });
+
+  it('surfaces the creative asset paging cursor as meta.nextCursor', async () => {
+    const adapter = new MetaAdsAdapter({
+      clientFactory: () =>
+        ({
+          metaGet: async (path: string) => {
+            if (path === '/act_123/ads') {
+              return {
+                data: [{ id: 'ad_1', creative: { id: 'cr_1' } }],
+                paging: { cursors: { after: 'cursor_next' } },
+              };
+            }
+            return { data: [] };
+          },
+        }) as never,
+    });
+
+    const response = await adapter.resolveCreativeAssets({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: { limit: 1 },
+      credentials: {
+        provider: 'meta',
+        accessToken: 'secret-token',
+        accountId: 'act_123',
+        source: 'test',
+      },
+    });
+
+    expect(response.ok).toBe(true);
+    expect(response.meta?.nextCursor).toBe('cursor_next');
+    // The cursor must survive serialization — array augmentations do not.
+    expect(JSON.parse(JSON.stringify(response)).meta.nextCursor).toBe('cursor_next');
   });
 
   it('scopes ads_get_creatives to a single ad set via the nested /ads endpoint instead of ignoring the filter', async () => {
