@@ -140,7 +140,7 @@ const PRESETS: Record<MetaLaunchWorkflow, LaunchPresetDefinition> = {
     ],
     safetyNotes: [
       'Gunakan messagingDestination WHATSAPP untuk CTWA; ad set harus memakai destination_type WHATSAPP dan creative CTA WHATSAPP_MESSAGE.',
-      'Default Sales CTWA tetap CONVERSATIONS untuk percakapan. Target kinerja pembelian melalui pesan (MESSAGING_PURCHASE_CONVERSION) tidak bisa dibuat lewat API — ad set-nya harus lahir di Ads Manager. Jangan fallback diam-diam ke CONVERSATIONS atau OFFSITE_CONVERSIONS.',
+      'Default Sales CTWA tetap CONVERSATIONS untuk percakapan. Target kinerja pembelian melalui pesan (MESSAGING_PURCHASE_CONVERSION) butuh Page yang sudah membagikan 10+ purchase event dalam 30 hari terakhir; sebelum itu Meta menolak dengan 2490408. Jangan fallback diam-diam ke CONVERSATIONS atau OFFSITE_CONVERSIONS.',
       'Untuk existing-post/Reels CTWA, creative root harus mengikuti read-back Ads Manager: source_instagram_media_id, instagram_user_id, page_welcome_message, dan call_to_action WHATSAPP_MESSAGE dengan app_destination WHATSAPP serta link https://api.whatsapp.com/send.',
     ],
   },

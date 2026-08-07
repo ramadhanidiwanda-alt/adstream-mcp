@@ -435,9 +435,11 @@ const MATRIX: Record<MetaObjectiveLaunchSpec['key'], MetaObjectiveLaunchMatrixRo
     // with a pixel Purchase event. It is a real, separate performance goal — NOT a stand-in
     // for MESSAGING_PURCHASE_CONVERSION ("Maksimalkan jumlah pembelian melalui pengiriman
     // pesan"), which uses no pixel and no purchase conversion event; the two are distinct
-    // options in Ads Manager. MESSAGING_PURCHASE_CONVERSION stays listed because ad sets
-    // read it back, but every API write of it is refused with subcode 2490408, so it can
-    // only be set in Ads Manager — see formatMetaWriteError for the guidance.
+    // options in Ads Manager. MESSAGING_PURCHASE_CONVERSION stays listed and is genuinely
+    // writable — but only once the Page clears Meta's eligibility gate of 10+ purchase
+    // events shared in the prior 30 days for that messaging channel. Until then every API
+    // write returns subcode 2490408; see formatMetaWriteError and
+    // https://www.facebook.com/business/help/1214599109289826 for the requirement.
     allowedGoals: [
       'OFFSITE_CONVERSIONS',
       'MESSAGING_PURCHASE_CONVERSION',

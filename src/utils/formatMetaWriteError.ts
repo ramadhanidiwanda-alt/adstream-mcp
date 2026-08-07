@@ -82,16 +82,20 @@ function getActionableFix(error: MetaApiError, message: string): string {
   }
   if (error.subcode === 2490408) {
     return (
-      'Meta rejected optimization_goal for this campaign objective. MESSAGING_PURCHASE_' +
-      'CONVERSION (Ads Manager: "Maksimalkan jumlah pembelian melalui pengiriman pesan") ' +
-      'cannot be set through the public Marketing API at all: it is refused on every write ' +
-      'path (POST /act_X/adsets, /{adset_id}/copies, /{adset_id}), on v21.0 through v26.0, ' +
-      'with the exact promoted_object { page_id, whatsapp_phone_number } that live working ' +
-      'ad sets store, so no payload change or retry will get past it. Create that ad set in ' +
-      'Ads Manager, then finish it here with ads_update_adset (placement, budget, name, ads) ' +
-      'while leaving optimizationGoal out of the update. Note OFFSITE_CONVERSIONS with a ' +
-      'PURCHASE pixel event is a DIFFERENT performance goal, not a substitute — it optimizes ' +
-      'on pixel purchase events, not on purchases attributed through the message thread.'
+      'Meta rejected optimization_goal for this campaign objective. For ' +
+      'MESSAGING_PURCHASE_CONVERSION this is an eligibility gate, not a payload problem: ' +
+      'Meta requires 10+ purchase events shared in the prior 30 days, from chats that ' +
+      'originated in click-to-message ads and were labelled as a purchase within 7 days of ' +
+      'the click. Eligibility is per Facebook Page and per messaging channel — a Page that ' +
+      'qualifies for WhatsApp can still be refused for Messenger/Instagram Direct. Share the ' +
+      'events from the WhatsApp Business app (Tools > Your customers activity > allow Meta ' +
+      'to receive events, then label chats New Order / Pending Payment / Paid / Order ' +
+      'complete — custom labels do not count) or via Conversions API for Business Messaging. ' +
+      'Until the Page qualifies, the goal can only be carried in by duplicating an existing ' +
+      'ad set inside Ads Manager, which does not re-check eligibility the way every API ' +
+      'write does. Do not substitute OFFSITE_CONVERSIONS: it optimizes on pixel purchase ' +
+      'events, not on purchases attributed through the message thread. ' +
+      'https://www.facebook.com/business/help/1214599109289826'
     );
   }
   if (text.includes('page'))

@@ -188,10 +188,10 @@ describe('formatMetaWriteError', () => {
     });
   });
 
-  // MESSAGING_PURCHASE_CONVERSION is Ads-Manager-only, and OFFSITE_CONVERSIONS with a
-  // pixel Purchase event is a genuinely different performance goal — confirmed in the UI.
-  // The guidance has to say both things, or the next reader swaps one for the other.
-  it('tells subcode 2490408 that the goal is Ads Manager only, without offering a substitute', () => {
+  // 2490408 on this goal is an eligibility gate (10+ purchase events in 30 days, per Page,
+  // per channel), not a payload defect. The guidance has to name the threshold and the way
+  // to satisfy it, and must not offer OFFSITE_CONVERSIONS as a substitute.
+  it('tells subcode 2490408 how to clear the purchase-event eligibility gate', () => {
     const error = new MetaApiError({
       message: 'Invalid parameter',
       type: 'OAuthException',
@@ -202,8 +202,10 @@ describe('formatMetaWriteError', () => {
 
     const { actionableFix } = formatStructuredMetaWriteError(error);
 
-    expect(actionableFix).toContain('Ads Manager');
-    expect(actionableFix).toContain('ads_update_adset');
-    expect(actionableFix).toMatch(/DIFFERENT performance goal|not a substitute/);
+    expect(actionableFix).toMatch(/10\+ purchase events/);
+    expect(actionableFix).toContain('30 days');
+    expect(actionableFix).toContain('per Facebook Page');
+    expect(actionableFix).toContain('Conversions API for Business Messaging');
+    expect(actionableFix).toContain('Do not substitute OFFSITE_CONVERSIONS');
   });
 });
