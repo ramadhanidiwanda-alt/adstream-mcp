@@ -135,6 +135,70 @@ describe('Meta objective launch matrix', () => {
     });
   });
 
+  // Meta's ODAX mapping routes Sales + WhatsApp purchase conversions to
+  // OFFSITE_CONVERSIONS with a Purchase conversion event, not to
+  // MESSAGING_PURCHASE_CONVERSION — the latter is refused by the API with subcode
+  // 2490408 while this combination validates. Verified against a live account 2026-08-07.
+  it('allows OFFSITE_CONVERSIONS for Sales CTWA purchase optimization', () => {
+    expect(
+      resolveMetaObjectiveLaunchSpec({
+        objective: 'OUTCOME_SALES',
+        conversionLocation: 'MESSAGING',
+        messagingDestination: 'WHATSAPP',
+        optimizationGoal: 'OFFSITE_CONVERSIONS',
+        apiVersion: 'v25.0',
+      })
+    ).toMatchObject({
+      key: 'sales_messaging',
+      optimizationGoal: 'OFFSITE_CONVERSIONS',
+      destinationType: 'WHATSAPP',
+    });
+  });
+
+  it('carries the purchase pixel signal in promoted_object for Sales CTWA conversions', () => {
+    const spec = resolveMetaObjectiveLaunchSpec({
+      objective: 'OUTCOME_SALES',
+      conversionLocation: 'MESSAGING',
+      messagingDestination: 'WHATSAPP',
+      optimizationGoal: 'OFFSITE_CONVERSIONS',
+      apiVersion: 'v25.0',
+    });
+
+    expect(
+      buildMetaPromotedObject(spec, {
+        pageId: '330290916841848',
+        whatsappPhoneNumber: '6285156583372',
+        pixelId: '607249154118091',
+      })
+    ).toEqual({
+      page_id: '330290916841848',
+      whatsapp_phone_number: '6285156583372',
+      pixel_id: '607249154118091',
+      custom_event_type: 'PURCHASE',
+    });
+  });
+
+  it('keeps conversation-goal Sales CTWA promoted_object free of the pixel', () => {
+    const spec = resolveMetaObjectiveLaunchSpec({
+      objective: 'OUTCOME_SALES',
+      conversionLocation: 'MESSAGING',
+      messagingDestination: 'WHATSAPP',
+      optimizationGoal: 'CONVERSATIONS',
+      apiVersion: 'v25.0',
+    });
+
+    expect(
+      buildMetaPromotedObject(spec, {
+        pageId: '330290916841848',
+        whatsappPhoneNumber: '6285156583372',
+        pixelId: '607249154118091',
+      })
+    ).toEqual({
+      page_id: '330290916841848',
+      whatsapp_phone_number: '6285156583372',
+    });
+  });
+
   it('does not offer flexible Dynamic Creative for website launch workflows', () => {
     const salesSpec = resolveMetaObjectiveLaunchSpec({
       objective: 'OUTCOME_SALES',

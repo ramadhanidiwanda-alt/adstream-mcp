@@ -189,10 +189,10 @@ describe('formatMetaWriteError', () => {
   });
 
   // The old guidance blamed Page/WhatsApp/dataset eligibility, which sent operators off
-  // re-checking assets that were already fine. Probing a live account showed every API
-  // write path is rejected identically, so the guidance has to stop the retry loop and
-  // name Ads Manager as the only way in.
-  it('directs subcode 2490408 to Ads Manager instead of another API retry', () => {
+  // re-checking assets that were already fine. The goal that actually works for Sales +
+  // WhatsApp purchase optimization is OFFSITE_CONVERSIONS with a Purchase event, so the
+  // guidance has to hand over that combination rather than just naming what failed.
+  it('directs subcode 2490408 to the OFFSITE_CONVERSIONS purchase path', () => {
     const error = new MetaApiError({
       message: 'Invalid parameter',
       type: 'OAuthException',
@@ -203,9 +203,9 @@ describe('formatMetaWriteError', () => {
 
     const { actionableFix } = formatStructuredMetaWriteError(error);
 
-    expect(actionableFix).toContain('Ads Manager');
-    expect(actionableFix).toContain('ads_update_adset');
-    expect(actionableFix).toMatch(/copies/);
-    expect(actionableFix).toContain('CONVERSATIONS');
+    expect(actionableFix).toContain('OFFSITE_CONVERSIONS');
+    expect(actionableFix).toContain('custom_event_type');
+    expect(actionableFix).toContain('PURCHASE');
+    expect(actionableFix).toContain('pixel_id');
   });
 });

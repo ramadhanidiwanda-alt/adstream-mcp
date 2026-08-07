@@ -82,17 +82,16 @@ function getActionableFix(error: MetaApiError, message: string): string {
   }
   if (error.subcode === 2490408) {
     return (
-      'Meta rejected optimization_goal for this campaign objective. For ' +
-      'MESSAGING_PURCHASE_CONVERSION this is not a payload problem and not a Page/WhatsApp ' +
-      'eligibility problem: probing a live account found every public Marketing API write ' +
-      'path rejected identically — POST /act_X/adsets, POST /{adset_id}/copies and ' +
-      'POST /{adset_id} — on every version from v21.0 to v26.0, with and without pixel_id, ' +
-      'custom_event_type, attribution_spec and destination_type, while CONVERSATIONS with an ' +
-      'otherwise identical payload succeeded. Changing the payload or retrying will not help. ' +
-      'Create the ad set by duplicating it in Ads Manager, then finish it (placement, budget, ' +
-      'name) with ads_update_adset, which succeeds as long as optimization_goal is left ' +
-      'untouched. Do not silently fall back to CONVERSATIONS if purchase-through-messaging ' +
-      'was requested.'
+      'Meta rejected optimization_goal for this campaign objective. For purchase-through-' +
+      'messaging on Sales + WhatsApp, use optimization_goal OFFSITE_CONVERSIONS with ' +
+      'promoted_object { page_id, whatsapp_phone_number, pixel_id, custom_event_type: ' +
+      '"PURCHASE" } — that is the combination Meta\'s ODAX mapping table lists for this ' +
+      'conversion location, and it validates. MESSAGING_PURCHASE_CONVERSION is refused on ' +
+      'every public API write path (POST /act_X/adsets, /{adset_id}/copies and /{adset_id}, ' +
+      'v21.0 through v26.0) even though Ads Manager can set it and ad sets read it back, so ' +
+      'retrying it with a different payload or endpoint will not help. Do not silently fall ' +
+      'back to CONVERSATIONS if purchase optimization was requested — that optimizes for ' +
+      'threads, not purchases.'
     );
   }
   if (text.includes('page'))

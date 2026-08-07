@@ -431,7 +431,18 @@ const MATRIX: Record<MetaObjectiveLaunchSpec['key'], MetaObjectiveLaunchMatrixRo
     objective: 'OUTCOME_SALES',
     conversionLocation: 'MESSAGING',
     defaultGoal: 'CONVERSATIONS',
-    allowedGoals: ['MESSAGING_PURCHASE_CONVERSION', 'CONVERSATIONS', 'LINK_CLICKS', 'IMPRESSIONS'],
+    // OFFSITE_CONVERSIONS is the goal Meta's ODAX mapping table actually lists for
+    // Sales + WhatsApp (paired with a Purchase conversion event), and the only one of the
+    // two that the API accepts. MESSAGING_PURCHASE_CONVERSION stays listed because Ads
+    // Manager can set it and ad sets read it back, but every API write of it is refused
+    // with subcode 2490408 — see formatMetaWriteError for the guidance that says so.
+    allowedGoals: [
+      'OFFSITE_CONVERSIONS',
+      'MESSAGING_PURCHASE_CONVERSION',
+      'CONVERSATIONS',
+      'LINK_CLICKS',
+      'IMPRESSIONS',
+    ],
     billingEvent: 'IMPRESSIONS',
     // Replaced with the resolved messagingDestination; there is no single default.
     destinationType: undefined,
@@ -603,13 +614,26 @@ export function buildMetaPromotedObject(
         pixel_id: requireInput(input.pixelId, 'pixelId'),
         custom_event_type: input.customEventType?.trim() || 'PURCHASE',
       };
-    case 'page':
-      return {
+    case 'page': {
+      const page = {
         page_id: requireInput(input.pageId, 'pageId'),
         ...(input.whatsappPhoneNumber?.trim()
           ? { whatsapp_phone_number: input.whatsappPhoneNumber.trim() }
           : {}),
       };
+
+      // A messaging ad set optimizing for an offsite conversion has to name the signal
+      // it optimizes against; the inbox identity alone is not enough. Meta rejects the
+      // pixel-less form, and accepts page + WhatsApp + pixel + custom_event_type.
+      // Conversation goals must NOT carry it — they optimize on the thread, not an event.
+      if (spec.optimizationGoal !== 'OFFSITE_CONVERSIONS') return page;
+
+      return {
+        ...page,
+        pixel_id: requireInput(input.pixelId, 'pixelId'),
+        custom_event_type: input.customEventType?.trim() || 'PURCHASE',
+      };
+    }
     case 'application':
       return {
         application_id: requireInput(input.applicationId, 'applicationId'),
