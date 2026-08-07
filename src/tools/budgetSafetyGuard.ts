@@ -28,13 +28,17 @@ export async function assertBudgetIncreaseWithinLimit(
   if (maxIncreasePct <= 0) return;
 
   const maxRetries = options.maxRetries ?? 3;
-  const current = await client.metaGet<{ data: Array<Record<string, string | undefined>> }>(
+  // GET /{campaign_id} returns the node itself, not a {data:[...]} edge envelope, so this
+  // must go through metaGetObject. Reading it as an edge made extractCurrent see {} on every
+  // call, which the "current value is 0" guard below treated as "nothing to compare" and let
+  // any increase through.
+  const current = await client.metaGetObject<Record<string, string | undefined>>(
     `/${campaignId}`,
     { fields },
-    { maxRetries }
+    maxRetries
   );
 
-  const currentValue = extractCurrent(current.data?.[0] ?? {});
+  const currentValue = extractCurrent(current);
   if (currentValue <= 0) return;
 
   const maxAllowed = Math.round(currentValue * (1 + maxIncreasePct));

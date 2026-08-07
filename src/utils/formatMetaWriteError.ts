@@ -81,7 +81,19 @@ function getActionableFix(error: MetaApiError, message: string): string {
     return 'All non-archived ad sets in this campaign must use the same optimization_goal under auto bid/CBO-style delivery. Match the sibling ad set goal or split different goals into separate campaigns.';
   }
   if (error.subcode === 2490408) {
-    return 'The requested Meta performance goal is not available for this Page, WhatsApp/WABA, dataset, or account setup. For MESSAGING_PURCHASE_CONVERSION, verify purchase events from messaging are shared and eligible before retrying; do not silently fall back to CONVERSATIONS if purchase-through-messaging was requested.';
+    return (
+      'Meta rejected optimization_goal for this campaign objective. For ' +
+      'MESSAGING_PURCHASE_CONVERSION this is not a payload problem and not a Page/WhatsApp ' +
+      'eligibility problem: probing a live account found every public Marketing API write ' +
+      'path rejected identically — POST /act_X/adsets, POST /{adset_id}/copies and ' +
+      'POST /{adset_id} — on every version from v21.0 to v26.0, with and without pixel_id, ' +
+      'custom_event_type, attribution_spec and destination_type, while CONVERSATIONS with an ' +
+      'otherwise identical payload succeeded. Changing the payload or retrying will not help. ' +
+      'Create the ad set by duplicating it in Ads Manager, then finish it (placement, budget, ' +
+      'name) with ads_update_adset, which succeeds as long as optimization_goal is left ' +
+      'untouched. Do not silently fall back to CONVERSATIONS if purchase-through-messaging ' +
+      'was requested.'
+    );
   }
   if (text.includes('page'))
     return 'Verify the Page ID or identity is accessible to the connected ad account.';

@@ -187,4 +187,25 @@ describe('formatMetaWriteError', () => {
       actionableFix: expect.stringContaining('MESSAGING_PURCHASE_CONVERSION'),
     });
   });
+
+  // The old guidance blamed Page/WhatsApp/dataset eligibility, which sent operators off
+  // re-checking assets that were already fine. Probing a live account showed every API
+  // write path is rejected identically, so the guidance has to stop the retry loop and
+  // name Ads Manager as the only way in.
+  it('directs subcode 2490408 to Ads Manager instead of another API retry', () => {
+    const error = new MetaApiError({
+      message: 'Invalid parameter',
+      type: 'OAuthException',
+      code: 100,
+      error_subcode: 2490408,
+      error_user_title: 'Target kinerja tidak tersedia',
+    });
+
+    const { actionableFix } = formatStructuredMetaWriteError(error);
+
+    expect(actionableFix).toContain('Ads Manager');
+    expect(actionableFix).toContain('ads_update_adset');
+    expect(actionableFix).toMatch(/copies/);
+    expect(actionableFix).toContain('CONVERSATIONS');
+  });
 });

@@ -7,7 +7,12 @@ type MetaMock = ReturnType<typeof vi.fn>;
 describe('updateCampaign', () => {
   const mockMetaPost: MetaMock = vi.fn();
   const mockMetaGet: MetaMock = vi.fn();
-  const mockClient = { metaPost: mockMetaPost, metaGet: mockMetaGet } as unknown as MetaClient;
+  const mockMetaGetObject: MetaMock = vi.fn();
+  const mockClient = {
+    metaPost: mockMetaPost,
+    metaGet: mockMetaGet,
+    metaGetObject: mockMetaGetObject,
+  } as unknown as MetaClient;
 
   const baseOpts = { campaignId: 'cmp789' };
 
@@ -60,7 +65,7 @@ describe('updateCampaign', () => {
   });
 
   it('applies the budget guard to lifetimeBudget', async () => {
-    mockMetaGet.mockResolvedValueOnce({ data: [{ daily_budget: '50000', name: 'Test' }] });
+    mockMetaGetObject.mockResolvedValueOnce({ daily_budget: '50000', name: 'Test' });
 
     const r = await updateCampaign(
       mockClient,
@@ -74,7 +79,7 @@ describe('updateCampaign', () => {
   });
 
   it('applies the budget guard to spendCap independently', async () => {
-    mockMetaGet.mockResolvedValueOnce({ data: [{ spend_cap: '50000', name: 'Test' }] });
+    mockMetaGetObject.mockResolvedValueOnce({ spend_cap: '50000', name: 'Test' });
 
     const r = await updateCampaign(
       mockClient,
@@ -84,11 +89,7 @@ describe('updateCampaign', () => {
 
     expect(r.status).toBe('failed');
     expect(r.error).toContain('Budget increase exceeds safety limit');
-    expect(mockMetaGet).toHaveBeenCalledWith(
-      '/cmp789',
-      { fields: 'spend_cap,name' },
-      { maxRetries: 3 }
-    );
+    expect(mockMetaGetObject).toHaveBeenCalledWith('/cmp789', { fields: 'spend_cap,name' }, 3);
   });
 
   it('builds specialAdCategories and schedule fields', async () => {
