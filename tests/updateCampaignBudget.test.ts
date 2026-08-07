@@ -6,6 +6,7 @@ function createMockClient(): MetaClient {
   return {
     metaPost: vi.fn(),
     metaGet: vi.fn(),
+    metaGetObject: vi.fn(),
     lastRateLimitInfo: null,
   } as unknown as MetaClient;
 }
@@ -15,8 +16,9 @@ describe('updateCampaignBudget', () => {
 
   beforeEach(() => {
     client = createMockClient();
-    (client.metaGet as ReturnType<typeof vi.fn>).mockResolvedValue({
-      data: [{ daily_budget: '50000', name: 'Test Campaign' }],
+    (client.metaGetObject as ReturnType<typeof vi.fn>).mockResolvedValue({
+      daily_budget: '50000',
+      name: 'Test Campaign',
     });
   });
 
@@ -25,10 +27,10 @@ describe('updateCampaignBudget', () => {
 
     const result = await updateCampaignBudget(client, '120248446250030168', 75000);
 
-    expect(client.metaGet).toHaveBeenCalledWith(
+    expect(client.metaGetObject).toHaveBeenCalledWith(
       '/120248446250030168',
       { fields: 'daily_budget,lifetime_budget,name' },
-      { maxRetries: 3 }
+      3
     );
     expect(client.metaPost).toHaveBeenCalledWith('/120248446250030168', { daily_budget: 75000 }, 3);
     expect(result).toEqual({
@@ -54,6 +56,16 @@ describe('updateCampaignBudget', () => {
     await expect(updateCampaignBudget(client, '120248446250030168', 0)).rejects.toThrow(
       'Invalid budget'
     );
+  });
+
+  // A 0 here is almost always an attempt to switch the campaign off CBO. Meta has no
+  // "budget = 0" affordance for that, so the rejection has to name the mechanism that
+  // does work, or the caller is left thinking the connector cannot do it at all.
+  it('points a zero budget at the adsetBudgets CBO->ABO path', async () => {
+    await expect(updateCampaignBudget(client, '120248446250030168', 0)).rejects.toThrow(
+      /ads_update_campaign.*adsetBudgets/s
+    );
+    expect(client.metaPost).not.toHaveBeenCalled();
   });
 
   it('should accept custom maxBudgetIncrease', async () => {

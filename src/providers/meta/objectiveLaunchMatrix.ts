@@ -431,7 +431,22 @@ const MATRIX: Record<MetaObjectiveLaunchSpec['key'], MetaObjectiveLaunchMatrixRo
     objective: 'OUTCOME_SALES',
     conversionLocation: 'MESSAGING',
     defaultGoal: 'CONVERSATIONS',
-    allowedGoals: ['MESSAGING_PURCHASE_CONVERSION', 'CONVERSATIONS', 'LINK_CLICKS', 'IMPRESSIONS'],
+    // OFFSITE_CONVERSIONS is what Meta's ODAX mapping lists for Sales + WhatsApp, paired
+    // with a pixel Purchase event. It is a real, separate performance goal — NOT a stand-in
+    // for MESSAGING_PURCHASE_CONVERSION ("Maksimalkan jumlah pembelian melalui pengiriman
+    // pesan"), which uses no pixel and no purchase conversion event; the two are distinct
+    // options in Ads Manager. MESSAGING_PURCHASE_CONVERSION stays listed and is genuinely
+    // writable — but only once the Page clears Meta's eligibility gate of 10+ purchase
+    // events shared in the prior 30 days for that messaging channel. Until then every API
+    // write returns subcode 2490408; see formatMetaWriteError and
+    // https://www.facebook.com/business/help/1214599109289826 for the requirement.
+    allowedGoals: [
+      'OFFSITE_CONVERSIONS',
+      'MESSAGING_PURCHASE_CONVERSION',
+      'CONVERSATIONS',
+      'LINK_CLICKS',
+      'IMPRESSIONS',
+    ],
     billingEvent: 'IMPRESSIONS',
     // Replaced with the resolved messagingDestination; there is no single default.
     destinationType: undefined,
@@ -603,13 +618,26 @@ export function buildMetaPromotedObject(
         pixel_id: requireInput(input.pixelId, 'pixelId'),
         custom_event_type: input.customEventType?.trim() || 'PURCHASE',
       };
-    case 'page':
-      return {
+    case 'page': {
+      const page = {
         page_id: requireInput(input.pageId, 'pageId'),
         ...(input.whatsappPhoneNumber?.trim()
           ? { whatsapp_phone_number: input.whatsappPhoneNumber.trim() }
           : {}),
       };
+
+      // A messaging ad set optimizing for an offsite conversion has to name the signal
+      // it optimizes against; the inbox identity alone is not enough. Meta rejects the
+      // pixel-less form, and accepts page + WhatsApp + pixel + custom_event_type.
+      // Conversation goals must NOT carry it — they optimize on the thread, not an event.
+      if (spec.optimizationGoal !== 'OFFSITE_CONVERSIONS') return page;
+
+      return {
+        ...page,
+        pixel_id: requireInput(input.pixelId, 'pixelId'),
+        custom_event_type: input.customEventType?.trim() || 'PURCHASE',
+      };
+    }
     case 'application':
       return {
         application_id: requireInput(input.applicationId, 'applicationId'),

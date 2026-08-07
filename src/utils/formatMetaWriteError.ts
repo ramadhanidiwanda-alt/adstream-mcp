@@ -81,7 +81,22 @@ function getActionableFix(error: MetaApiError, message: string): string {
     return 'All non-archived ad sets in this campaign must use the same optimization_goal under auto bid/CBO-style delivery. Match the sibling ad set goal or split different goals into separate campaigns.';
   }
   if (error.subcode === 2490408) {
-    return 'The requested Meta performance goal is not available for this Page, WhatsApp/WABA, dataset, or account setup. For MESSAGING_PURCHASE_CONVERSION, verify purchase events from messaging are shared and eligible before retrying; do not silently fall back to CONVERSATIONS if purchase-through-messaging was requested.';
+    return (
+      'Meta rejected optimization_goal for this campaign objective. For ' +
+      'MESSAGING_PURCHASE_CONVERSION this is an eligibility gate, not a payload problem: ' +
+      'Meta requires 10+ purchase events shared in the prior 30 days, from chats that ' +
+      'originated in click-to-message ads and were labelled as a purchase within 7 days of ' +
+      'the click. Eligibility is per Facebook Page and per messaging channel — a Page that ' +
+      'qualifies for WhatsApp can still be refused for Messenger/Instagram Direct. Share the ' +
+      'events from the WhatsApp Business app (Tools > Your customers activity > allow Meta ' +
+      'to receive events, then label chats New Order / Pending Payment / Paid / Order ' +
+      'complete — custom labels do not count) or via Conversions API for Business Messaging. ' +
+      'Until the Page qualifies, the goal can only be carried in by duplicating an existing ' +
+      'ad set inside Ads Manager, which does not re-check eligibility the way every API ' +
+      'write does. Do not substitute OFFSITE_CONVERSIONS: it optimizes on pixel purchase ' +
+      'events, not on purchases attributed through the message thread. ' +
+      'https://www.facebook.com/business/help/1214599109289826'
+    );
   }
   if (text.includes('page'))
     return 'Verify the Page ID or identity is accessible to the connected ad account.';

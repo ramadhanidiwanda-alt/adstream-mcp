@@ -187,4 +187,25 @@ describe('formatMetaWriteError', () => {
       actionableFix: expect.stringContaining('MESSAGING_PURCHASE_CONVERSION'),
     });
   });
+
+  // 2490408 on this goal is an eligibility gate (10+ purchase events in 30 days, per Page,
+  // per channel), not a payload defect. The guidance has to name the threshold and the way
+  // to satisfy it, and must not offer OFFSITE_CONVERSIONS as a substitute.
+  it('tells subcode 2490408 how to clear the purchase-event eligibility gate', () => {
+    const error = new MetaApiError({
+      message: 'Invalid parameter',
+      type: 'OAuthException',
+      code: 100,
+      error_subcode: 2490408,
+      error_user_title: 'Target kinerja tidak tersedia',
+    });
+
+    const { actionableFix } = formatStructuredMetaWriteError(error);
+
+    expect(actionableFix).toMatch(/10\+ purchase events/);
+    expect(actionableFix).toContain('30 days');
+    expect(actionableFix).toContain('per Facebook Page');
+    expect(actionableFix).toContain('Conversions API for Business Messaging');
+    expect(actionableFix).toContain('Do not substitute OFFSITE_CONVERSIONS');
+  });
 });

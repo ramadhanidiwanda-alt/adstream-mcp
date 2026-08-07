@@ -33,9 +33,21 @@ export async function updateCampaignBudget(
 ): Promise<MutationResult> {
   const maxRetries = options.maxRetries ?? 3;
 
-  // Validate budget is positive
+  // Validate budget is positive.
+  //
+  // Meta has no "set the campaign budget to 0" affordance — neither for pausing spend
+  // (use status=PAUSED) nor for leaving CBO. Turning CBO off is done by handing Meta the
+  // per-ad-set budgets that replace the campaign budget, via adset_budgets on
+  // POST /{campaign_id}, which ads_update_campaign already exposes as adsetBudgets. A
+  // bare "must be positive" here reads as "the connector cannot do this", so name the path.
   if (dailyBudget <= 0) {
-    throw new Error(`Invalid budget: ${dailyBudget}. Budget must be positive.`);
+    throw new Error(
+      `Invalid budget: ${dailyBudget}. Budget must be positive. ` +
+        `To turn off Campaign Budget Optimization and move spend to the ad sets, call ` +
+        `ads_update_campaign with adsetBudgets (one entry per non-deleted, non-archived ` +
+        `ad set) instead — Meta removes the campaign budget as part of that same request. ` +
+        `To stop spend entirely, set status=PAUSED.`
+    );
   }
 
   await assertBudgetIncreaseWithinLimit(

@@ -1748,7 +1748,7 @@ function createCreateAdSetInputSchema() {
       optimizationGoal: {
         type: 'string',
         description:
-          'Optimization goal. Meta values: NONE, APP_INSTALLS, CONVERSATIONS, ENGAGED_USERS, IMPRESSIONS, LANDING_PAGE_VIEWS, LEAD_GENERATION, LINK_CLICKS, MESSAGING_PURCHASE_CONVERSION, OFFSITE_CONVERSIONS, PAGE_LIKES, POST_ENGAGEMENT, REACH, THRUPLAY, VALUE (required when conversionLocation is omitted). For Sales Click-to-WhatsApp purchase-through-messaging, request MESSAGING_PURCHASE_CONVERSION; Meta may reject it with subcode 2490408 when the Page/WhatsApp/WABA/dataset is not eligible. TikTok values are objective-specific, e.g. CLICK, LANDING_PAGE_VIEW, VIDEO_VIEW, ENGAGED_VIEW, FOLLOWERS, CONVERT, IN_APP_EVENT, REACH, LEAD_GENERATION, APP_INSTALLS, VALUE — see the TikTok objective launch matrix for the authoritative list per objective.',
+          'Optimization goal. Meta values: NONE, APP_INSTALLS, CONVERSATIONS, ENGAGED_USERS, IMPRESSIONS, LANDING_PAGE_VIEWS, LEAD_GENERATION, LINK_CLICKS, MESSAGING_PURCHASE_CONVERSION, OFFSITE_CONVERSIONS, PAGE_LIKES, POST_ENGAGEMENT, REACH, THRUPLAY, VALUE (required when conversionLocation is omitted). For Sales Click-to-WhatsApp, OFFSITE_CONVERSIONS with pixelId and customEventType PURCHASE optimizes on pixel purchase events. MESSAGING_PURCHASE_CONVERSION (purchases attributed through the message thread) is a different goal, gated on the Page having shared 10+ purchase events in the prior 30 days for that messaging channel; until then Meta rejects it with subcode 2490408. TikTok values are objective-specific, e.g. CLICK, LANDING_PAGE_VIEW, VIDEO_VIEW, ENGAGED_VIEW, FOLLOWERS, CONVERT, IN_APP_EVENT, REACH, LEAD_GENERATION, APP_INSTALLS, VALUE — see the TikTok objective launch matrix for the authoritative list per objective.',
       },
       conversionLocation: {
         type: 'string',
@@ -1759,7 +1759,7 @@ function createCreateAdSetInputSchema() {
         type: 'string',
         enum: [...META_MESSAGING_DESTINATIONS],
         description:
-          'Inbox tujuan untuk conversionLocation MESSAGING. Untuk Sales CTWA, isi WHATSAPP agar ad set memakai destination_type WHATSAPP. Jika user meminta target kinerja pembelian via pesan, set optimizationGoal MESSAGING_PURCHASE_CONVERSION secara eksplisit; jangan fallback ke CONVERSATIONS.',
+          'Inbox tujuan untuk conversionLocation MESSAGING. Untuk Sales CTWA, isi WHATSAPP agar ad set memakai destination_type WHATSAPP. Target kinerja pembelian via pesan (MESSAGING_PURCHASE_CONVERSION) tidak bisa disetel lewat API; buat ad set-nya di Ads Manager lalu rapikan via ads_update_adset tanpa mengirim optimizationGoal. Jangan fallback ke CONVERSATIONS maupun OFFSITE_CONVERSIONS, keduanya target yang berbeda.',
       },
       creativeFormat: {
         type: 'string',
