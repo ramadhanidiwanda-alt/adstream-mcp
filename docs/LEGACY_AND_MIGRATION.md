@@ -18,6 +18,7 @@ This document inventories the current tool surface and maps it toward the smalle
 | `ads_list_campaigns` | Keep | Canonical |
 | `ads_get_performance` | Keep | Canonical wrapper over level-specific broker methods |
 | `ads_get_creatives` | Keep | Canonical creative asset path; Meta fetches ad creative metadata/assets, other providers can expand later |
+| `ads_resolve_creative_assets` | Keep | Canonical thumbnail-resolution path; Meta implemented, other providers return structured `NOT_IMPLEMENTED` |
 | `ads_get_change_history` | Keep | Canonical change-history envelope backed by Meta account activities; other providers return structured `NOT_IMPLEMENTED` |
 | `ads_get_capabilities` | Keep | Canonical static discovery surface; provider-specific discovery can be expanded later |
 | `ads_get_account_performance` | Migrate | Legacy alias for `ads_get_performance` with `level: "account"` |

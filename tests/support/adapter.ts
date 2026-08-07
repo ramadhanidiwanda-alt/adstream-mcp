@@ -44,6 +44,7 @@ export function providerAdapterStub(
     getAdsetOrAdgroupPerformance: notImplemented,
     getAdPerformance: notImplemented,
     getCreativePerformance: notImplemented,
+    resolveCreativeAssets: notImplemented,
     getPlacementPerformance: notImplemented,
     getChangeHistory: notImplemented,
     getVideoSource: notImplemented,

@@ -73,6 +73,11 @@ function createBrokerStub(): AdsBroker {
       provider: 'meta',
       errors: [{ provider: 'meta', code: 'NOT_IMPLEMENTED', message: 'not implemented' }],
     }),
+    resolveCreativeAssets: async () => ({
+      ok: true,
+      provider: 'meta',
+      data: [],
+    }),
     getCapabilities: () => ({
       ok: true,
       provider: 'meta',
@@ -414,6 +419,7 @@ describe('ads MCP broker tools', () => {
       'ads_check_launch_readiness',
       'ads_get_performance',
       'ads_get_creatives',
+      'ads_resolve_creative_assets',
       'ads_list_welcome_message_templates',
       'ads_get_change_history',
       'ads_get_capabilities',
@@ -817,6 +823,53 @@ describe('ads MCP broker tools', () => {
     expect(parseToolResponse(response).data).toMatchObject({ level: 'creative' });
     expect(receivedRequest).toMatchObject({
       params: { level: 'creative', limit: 10, complianceAudit: true },
+    });
+  });
+
+  it('routes ads_resolve_creative_assets to broker without wrapping it as a report', async () => {
+    let receivedRequest: AdsBrokerRequest | undefined;
+    const broker = {
+      ...createBrokerStub(),
+      resolveCreativeAssets: async (request: AdsBrokerRequest) => {
+        receivedRequest = request;
+        return {
+          ok: true,
+          provider: 'meta' as const,
+          data: [
+            {
+              provider: 'meta',
+              ad_id: 'ad_1',
+              creative_id: 'cr_1',
+              media_kind: 'image',
+              best_thumbnail: {
+                url: 'https://example.test/full.jpg',
+                source: 'adimage_url',
+                quality: 'high',
+                expires_maybe: true,
+              },
+              candidates: [],
+            },
+          ],
+        };
+      },
+    } as unknown as AdsBroker;
+
+    const response = await handleAdsMcpToolCall(broker, 'ads_resolve_creative_assets', {
+      provider: 'meta',
+      accountId: 'act_123',
+      thumbnailWidth: 1920,
+      thumbnailHeight: 1080,
+    });
+
+    const parsed = parseToolResponse(response);
+    expect(parsed.data).toEqual([
+      expect.objectContaining({
+        ad_id: 'ad_1',
+        best_thumbnail: expect.objectContaining({ source: 'adimage_url' }),
+      }),
+    ]);
+    expect(receivedRequest).toMatchObject({
+      params: { thumbnailWidth: 1920, thumbnailHeight: 1080 },
     });
   });
 

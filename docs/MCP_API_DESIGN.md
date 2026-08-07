@@ -22,6 +22,7 @@ Implementation note: `ads_get_performance`, `ads_get_creatives`, and `ads_get_ca
 | `ads_list_campaigns` | List campaigns with identity/status metadata | Canonical |
 | `ads_get_performance` | Fetch normalized performance rows at account/campaign/adset/ad/creative level | Canonical wrapper implemented |
 | `ads_get_creatives` | Fetch creative assets and creative metadata/metrics | Meta creative asset fetch implemented; other providers can expand behind the same tool |
+| `ads_resolve_creative_assets` | Resolve ranked thumbnail URL candidates (image hash, video thumbnail, Instagram media) per ad | Meta implemented; Google/TikTok return structured `NOT_IMPLEMENTED` |
 | `ads_get_change_history` | Fetch provider change history when available | Meta account activities fetch implemented; unsupported providers return structured `NOT_IMPLEMENTED` |
 | `ads_get_capabilities` | Discover supported levels, metrics, breakdowns, writes, and provider limitations | Canonical static discovery implemented |
 | `commerce_get_performance` | Fetch normalized commerce/SKU/order/product performance when available | Canonical |

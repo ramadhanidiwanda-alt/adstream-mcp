@@ -1,4 +1,5 @@
 import { getAdCreativeMapping } from '../../tools/getAdCreativeMapping.js';
+import { resolveCreativeAssets as resolveCreativeAssetsTool } from '../../tools/resolveCreativeAssets.js';
 import { readAdCreativeFull as readAdCreativeFullTool } from '../../tools/readAdCreativeFull.js';
 import {
   readAdSetFull as readAdSetFullTool,
@@ -118,6 +119,7 @@ import type {
   AdsMetricRecord,
   AdsMutationResult,
   AdDestinationResult,
+  CreativeAssetResolution,
   AdCreativeFullResult,
   AdSetFullResult,
   AdsProviderAdapter,
@@ -357,6 +359,10 @@ export interface MetaAdsAdapterTools {
     client: MetaClient,
     options: { adAccountId: string; limit?: number; cursor?: string }
   ): Promise<AdVideoResult[]>;
+  resolveCreativeAssets(
+    client: MetaClient,
+    options: import('../../tools/resolveCreativeAssets.js').ResolveCreativeAssetsOptions
+  ): Promise<CreativeAssetResolution[]>;
   getAdPreview(
     client: MetaClient,
     options: { creativeId: string; adFormat: string }
@@ -459,6 +465,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       uploadVideo: uploadVideoTool,
       listAdImages,
       listAdVideos,
+      resolveCreativeAssets: resolveCreativeAssetsTool,
       getAdPreview,
       listPixels: listPixelsTool,
       listCatalogs: listCatalogsTool,
@@ -825,6 +832,62 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
         validation.options
       );
       return { ok: true, provider: 'meta', data };
+    } catch (error) {
+      return this.errorResponse(error);
+    }
+  }
+
+  async resolveCreativeAssets(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<CreativeAssetResolution[]>> {
+    const context = this.getCredentialContext(request);
+    if (!context.ok) return context.response;
+
+    const accountId = request.accountId ?? context.credential.accountId;
+    if (!accountId) {
+      return {
+        ok: false,
+        provider: 'meta',
+        errors: [
+          {
+            provider: 'meta',
+            code: 'MISSING_ACCOUNT_ID',
+            message: 'accountId is required for Meta creative asset resolution',
+          },
+        ],
+      };
+    }
+
+    const limit = typeof request.params.limit === 'number' ? request.params.limit : 100;
+
+    try {
+      const result = await this.tools.resolveCreativeAssets(this.createClient(context.credential), {
+        adAccountId: accountId,
+        adIds: parseStringArrayParam(request.params.adIds ?? request.params.adId),
+        campaignId: parseIdParam(request.params.campaignId),
+        adSetId: parseIdParam(request.params.adSetId ?? request.params.adsetId),
+        explicitFilters: parseExplicitMetaFilters(request.params.filtering),
+        limit,
+        cursor: typeof request.params.cursor === 'string' ? request.params.cursor : undefined,
+        thumbnailWidth: parsePositiveIntegerParam(request.params.thumbnailWidth),
+        thumbnailHeight: parsePositiveIntegerParam(request.params.thumbnailHeight),
+      });
+
+      // The tool augments the array with Meta's paging; surface it as a cursor
+      // because JSON serialization drops non-index array properties.
+      const page = result as CreativeAssetResolution[] & {
+        paging?: { cursors?: { after?: string } };
+      };
+      const nextCursor = page.paging?.cursors?.after ?? null;
+      return {
+        ok: true,
+        provider: 'meta',
+        data: page,
+        meta: {
+          nextCursor,
+          ...partialPageWarningMeta(page.length, limit, nextCursor),
+        },
+      };
     } catch (error) {
       return this.errorResponse(error);
     }
@@ -3657,6 +3720,21 @@ function parseIdParam(value: unknown): string | string[] | undefined {
   if (typeof value === 'string') return value;
   if (Array.isArray(value) && value.every((item) => typeof item === 'string')) return value;
   return undefined;
+}
+
+function parseStringArrayParam(value: unknown): string[] | undefined {
+  if (typeof value === 'string' && value.trim()) return [value];
+  if (Array.isArray(value)) {
+    const values = value.filter(
+      (item): item is string => typeof item === 'string' && Boolean(item.trim())
+    );
+    return values.length ? values : undefined;
+  }
+  return undefined;
+}
+
+function parsePositiveIntegerParam(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isInteger(value) && value > 0 ? value : undefined;
 }
 
 /**
