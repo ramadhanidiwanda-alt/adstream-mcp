@@ -82,16 +82,16 @@ function getActionableFix(error: MetaApiError, message: string): string {
   }
   if (error.subcode === 2490408) {
     return (
-      'Meta rejected optimization_goal for this campaign objective. For purchase-through-' +
-      'messaging on Sales + WhatsApp, use optimization_goal OFFSITE_CONVERSIONS with ' +
-      'promoted_object { page_id, whatsapp_phone_number, pixel_id, custom_event_type: ' +
-      '"PURCHASE" } — that is the combination Meta\'s ODAX mapping table lists for this ' +
-      'conversion location, and it validates. MESSAGING_PURCHASE_CONVERSION is refused on ' +
-      'every public API write path (POST /act_X/adsets, /{adset_id}/copies and /{adset_id}, ' +
-      'v21.0 through v26.0) even though Ads Manager can set it and ad sets read it back, so ' +
-      'retrying it with a different payload or endpoint will not help. Do not silently fall ' +
-      'back to CONVERSATIONS if purchase optimization was requested — that optimizes for ' +
-      'threads, not purchases.'
+      'Meta rejected optimization_goal for this campaign objective. MESSAGING_PURCHASE_' +
+      'CONVERSION (Ads Manager: "Maksimalkan jumlah pembelian melalui pengiriman pesan") ' +
+      'cannot be set through the public Marketing API at all: it is refused on every write ' +
+      'path (POST /act_X/adsets, /{adset_id}/copies, /{adset_id}), on v21.0 through v26.0, ' +
+      'with the exact promoted_object { page_id, whatsapp_phone_number } that live working ' +
+      'ad sets store, so no payload change or retry will get past it. Create that ad set in ' +
+      'Ads Manager, then finish it here with ads_update_adset (placement, budget, name, ads) ' +
+      'while leaving optimizationGoal out of the update. Note OFFSITE_CONVERSIONS with a ' +
+      'PURCHASE pixel event is a DIFFERENT performance goal, not a substitute — it optimizes ' +
+      'on pixel purchase events, not on purchases attributed through the message thread.'
     );
   }
   if (text.includes('page'))

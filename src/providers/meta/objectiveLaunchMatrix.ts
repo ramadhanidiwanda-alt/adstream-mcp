@@ -431,11 +431,13 @@ const MATRIX: Record<MetaObjectiveLaunchSpec['key'], MetaObjectiveLaunchMatrixRo
     objective: 'OUTCOME_SALES',
     conversionLocation: 'MESSAGING',
     defaultGoal: 'CONVERSATIONS',
-    // OFFSITE_CONVERSIONS is the goal Meta's ODAX mapping table actually lists for
-    // Sales + WhatsApp (paired with a Purchase conversion event), and the only one of the
-    // two that the API accepts. MESSAGING_PURCHASE_CONVERSION stays listed because Ads
-    // Manager can set it and ad sets read it back, but every API write of it is refused
-    // with subcode 2490408 — see formatMetaWriteError for the guidance that says so.
+    // OFFSITE_CONVERSIONS is what Meta's ODAX mapping lists for Sales + WhatsApp, paired
+    // with a pixel Purchase event. It is a real, separate performance goal — NOT a stand-in
+    // for MESSAGING_PURCHASE_CONVERSION ("Maksimalkan jumlah pembelian melalui pengiriman
+    // pesan"), which uses no pixel and no purchase conversion event; the two are distinct
+    // options in Ads Manager. MESSAGING_PURCHASE_CONVERSION stays listed because ad sets
+    // read it back, but every API write of it is refused with subcode 2490408, so it can
+    // only be set in Ads Manager — see formatMetaWriteError for the guidance.
     allowedGoals: [
       'OFFSITE_CONVERSIONS',
       'MESSAGING_PURCHASE_CONVERSION',

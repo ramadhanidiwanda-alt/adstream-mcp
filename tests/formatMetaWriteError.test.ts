@@ -188,11 +188,10 @@ describe('formatMetaWriteError', () => {
     });
   });
 
-  // The old guidance blamed Page/WhatsApp/dataset eligibility, which sent operators off
-  // re-checking assets that were already fine. The goal that actually works for Sales +
-  // WhatsApp purchase optimization is OFFSITE_CONVERSIONS with a Purchase event, so the
-  // guidance has to hand over that combination rather than just naming what failed.
-  it('directs subcode 2490408 to the OFFSITE_CONVERSIONS purchase path', () => {
+  // MESSAGING_PURCHASE_CONVERSION is Ads-Manager-only, and OFFSITE_CONVERSIONS with a
+  // pixel Purchase event is a genuinely different performance goal — confirmed in the UI.
+  // The guidance has to say both things, or the next reader swaps one for the other.
+  it('tells subcode 2490408 that the goal is Ads Manager only, without offering a substitute', () => {
     const error = new MetaApiError({
       message: 'Invalid parameter',
       type: 'OAuthException',
@@ -203,9 +202,8 @@ describe('formatMetaWriteError', () => {
 
     const { actionableFix } = formatStructuredMetaWriteError(error);
 
-    expect(actionableFix).toContain('OFFSITE_CONVERSIONS');
-    expect(actionableFix).toContain('custom_event_type');
-    expect(actionableFix).toContain('PURCHASE');
-    expect(actionableFix).toContain('pixel_id');
+    expect(actionableFix).toContain('Ads Manager');
+    expect(actionableFix).toContain('ads_update_adset');
+    expect(actionableFix).toMatch(/DIFFERENT performance goal|not a substitute/);
   });
 });
