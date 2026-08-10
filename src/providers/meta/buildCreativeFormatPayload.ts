@@ -685,7 +685,7 @@ function buildCatalog(
  * `applink_treatment`) that a cross-channel/omnichannel ad set requires on its
  * creative. Shared by collaborative catalog creatives and placement_image.
  */
-function buildOmnichannelLinkFields(
+export function buildOmnichannelLinkFields(
   destinationUrl: string,
   collaborativeAppSpec?: MetaCollaborativeAppSpec,
   applinkTreatmentOverride?: MetaApplinkTreatment

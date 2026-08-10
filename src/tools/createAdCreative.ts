@@ -12,6 +12,7 @@ import {
 } from '../types.js';
 import {
   assertSupportedCreativeFeatureOptOuts,
+  buildOmnichannelLinkFields,
   buildMetaCreativeFormatPayload,
 } from '../providers/meta/buildCreativeFormatPayload.js';
 import { listLeadForms } from './listLeadForms.js';
@@ -576,6 +577,16 @@ function buildCreativePayload(options: CreateAdCreativeOptions): Record<string, 
     const assetFeedSpec = options.assetFeedSpec ?? nestedAssetFeedSpec;
     if (assetFeedSpec !== undefined) {
       payload.asset_feed_spec = assetFeedSpec;
+    }
+    if (options.collaborativeAppSpec) {
+      const linkData = isRecord(objectStorySpec.link_data) ? objectStorySpec.link_data : undefined;
+      const destinationUrl = hasNonBlankString(linkData?.link) ? linkData.link : undefined;
+      if (!destinationUrl) {
+        throw new Error(
+          'objectStorySpec.link_data.link wajib diisi saat collaborativeAppSpec digunakan untuk creative omnichannel.'
+        );
+      }
+      Object.assign(payload, buildOmnichannelLinkFields(destinationUrl, options.collaborativeAppSpec));
     }
   } else if (options.linkData) {
     const pageId = requireLegacyPageId(options.pageId);
