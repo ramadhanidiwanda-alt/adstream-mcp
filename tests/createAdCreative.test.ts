@@ -149,6 +149,48 @@ describe('createAdCreative', () => {
     expect(mockMetaPost).not.toHaveBeenCalled();
   });
 
+  it('adds top-level omnichannel fields to a legacy poster creative', async () => {
+    const result = await createAdCreative(mockClient, {
+      adAccountId: 'act_123',
+      name: 'CPAS omnichannel poster',
+      pageId: '1001',
+      collaborativeAppSpec: {
+        applicationId: '957549474255294',
+        android: { appName: 'Shopee', packageName: 'com.shopee.id' },
+        ios: { appName: 'Shopee', appStoreId: '959841443' },
+      },
+      objectStorySpec: {
+        page_id: '1001',
+        link_data: {
+          image_hash: 'poster-hash',
+          message: 'Promo',
+          link: 'https://s.shopee.co.id/promo',
+          call_to_action: {
+            type: 'SHOP_NOW',
+            value: {
+              application: '957549474255294',
+              object_store_urls: [
+                'https://play.google.com/store/apps/details?id=com.shopee.id',
+                'https://apps.apple.com/app/id959841443',
+              ],
+            },
+          },
+        },
+      },
+    });
+
+    expect(result).toMatchObject({
+      status: 'dry_run',
+      preview: {
+        applink_treatment: 'automatic',
+        omnichannel_link_spec: {
+          web: { url: 'https://s.shopee.co.id/promo' },
+          app: { application_id: '957549474255294' },
+        },
+      },
+    });
+  });
+
   it('uses creativeFormat and creativeSpec instead of legacy linkData', async () => {
     const result = await createAdCreative(
       mockClient,
