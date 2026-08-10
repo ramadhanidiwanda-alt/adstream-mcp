@@ -13,6 +13,7 @@ export type CpasCatalogCreativeFormat =
   | 'catalog_single_image'
   | 'catalog_carousel'
   | 'catalog_video'
+  | 'catalog_video_carousel'
   | 'collection';
 
 export interface CpasCatalogCollectionSpec {
@@ -28,6 +29,11 @@ export interface CpasCatalogVideoSpec {
   retailerItemIds?: string[];
   thumbnailImageHash?: string;
   thumbnailImageUrl?: string;
+}
+
+export interface CpasCatalogHybridVideoSpec {
+  videoId: string;
+  thumbnailUrl: string;
 }
 
 export interface CpasCatalogCampaignBundlePayload {
@@ -53,6 +59,7 @@ export interface CpasCatalogCampaignBundlePayload {
   creativeFormat?: CpasCatalogCreativeFormat;
   collection?: CpasCatalogCollectionSpec;
   video?: CpasCatalogVideoSpec;
+  hybridVideo?: CpasCatalogHybridVideoSpec;
   destinationUrl: string;
   templateUrl?: string;
   fallbackImageHash?: string;
@@ -110,6 +117,8 @@ export function buildCpasCatalogBundlePreview(
       ? 'single_image'
       : creativeFormat === 'catalog_carousel'
         ? 'carousel'
+        : creativeFormat === 'catalog_video_carousel'
+          ? 'video_carousel'
         : undefined;
   return {
     campaign: {
@@ -241,10 +250,30 @@ export function buildCpasCatalogBundlePreview(
                     }
                   : catalogPresentation === 'carousel'
                     ? { multi_share_end_card: false, show_multiple_images: false }
+                    : catalogPresentation === 'video_carousel'
+                      ? {
+                          child_attachments: [
+                            {
+                              link: payload.templateUrl?.trim() || destinationUrl,
+                              picture: payload.hybridVideo?.thumbnailUrl.trim() ?? '',
+                              name: payload.headline.trim(),
+                              call_to_action: { type: payload.callToAction ?? 'SHOP_NOW' },
+                              video_id: payload.hybridVideo?.videoId.trim() ?? '',
+                              static_card: true,
+                            },
+                            {
+                              link: payload.templateUrl?.trim() || destinationUrl,
+                              name: '{{product.name}}',
+                              call_to_action: { type: payload.callToAction ?? 'SHOP_NOW' },
+                            },
+                          ],
+                          multi_share_end_card: false,
+                          show_multiple_images: false,
+                        }
                     : {}),
               },
             },
-            ...(catalogPresentation === 'carousel'
+            ...(catalogPresentation === 'carousel' || catalogPresentation === 'video_carousel'
               ? {
                   asset_feed_spec: {
                     bodies: [{ text: payload.primaryText.trim() }],
@@ -333,6 +362,16 @@ export async function createCpasCatalogCampaignBundle(
     }
     if (video.retailerItemIds?.some((id) => !id.trim())) {
       return failure('preflight', 'INVALID_CPAS_CATALOG_VIDEO_ITEMS', 'retailerItemIds tidak boleh kosong.');
+    }
+  }
+  if (creativeFormat === 'catalog_video_carousel') {
+    const hybridVideo = payload.hybridVideo;
+    if (!hybridVideo?.videoId.trim() || !hybridVideo.thumbnailUrl.trim()) {
+      return failure(
+        'preflight',
+        'MISSING_CPAS_CATALOG_HYBRID_VIDEO_FIELD',
+        'Catalog video-carousel memerlukan hybridVideo.videoId dan hybridVideo.thumbnailUrl.'
+      );
     }
   }
   const appOmnichannel = payload.destinationMode === 'app_omnichannel';
@@ -526,6 +565,14 @@ export async function createCpasCatalogCampaignBundle(
                   ? { presentation: 'single_image' as const }
                   : creativeFormat === 'catalog_carousel'
                     ? { presentation: 'carousel' as const }
+                    : creativeFormat === 'catalog_video_carousel'
+                      ? {
+                          presentation: 'video_carousel' as const,
+                          hybridVideo: {
+                            videoId: payload.hybridVideo?.videoId ?? '',
+                            thumbnailUrl: payload.hybridVideo?.thumbnailUrl ?? '',
+                          },
+                        }
                     : {}),
               },
             },

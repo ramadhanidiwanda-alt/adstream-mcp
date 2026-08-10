@@ -707,12 +707,36 @@ function buildCatalog(
     templateData.multi_share_end_card = false;
     templateData.show_multiple_images = false;
   }
+  if (creativeSpec.presentation === 'video_carousel') {
+    const hybridVideo = creativeSpec.hybridVideo;
+    if (!hybridVideo) {
+      throw new Error('hybridVideo wajib diisi untuk catalog video-carousel.');
+    }
+    const cardLink = required(destinationUrl, 'destinationUrl catalog video-carousel');
+    templateData.child_attachments = [
+      {
+        link: cardLink,
+        picture: required(hybridVideo.thumbnailUrl, 'hybridVideo.thumbnailUrl'),
+        ...(headline ? { name: headline } : {}),
+        call_to_action: { type: creativeSpec.callToAction?.trim() || 'SHOP_NOW' },
+        video_id: required(hybridVideo.videoId, 'hybridVideo.videoId'),
+        static_card: true,
+      },
+      {
+        link: cardLink,
+        name: '{{product.name}}',
+        call_to_action: { type: creativeSpec.callToAction?.trim() || 'SHOP_NOW' },
+      },
+    ];
+    templateData.multi_share_end_card = false;
+    templateData.show_multiple_images = false;
+  }
 
   return withCollaborativeCatalogContext(
     input,
     {
       product_set_id: productSetId,
-      ...(creativeSpec.presentation === 'carousel'
+      ...(creativeSpec.presentation === 'carousel' || creativeSpec.presentation === 'video_carousel'
         ? {
             asset_feed_spec: {
               bodies: [{ text: required(creativeSpec.primaryText, 'primaryText') }],

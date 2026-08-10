@@ -184,6 +184,35 @@ describe('createCpasCatalogCampaignBundle', () => {
     expect(result.preview.creative).not.toHaveProperty('omnichannel_link_spec');
   });
 
+  it('builds the CPAS video-carousel hybrid with one static video card and one dynamic product card', async () => {
+    const client = createMockClient();
+    const result = await createCpasCatalogCampaignBundle(client, {
+      ...payload,
+      creativeFormat: 'catalog_video_carousel',
+      hybridVideo: { videoId: 'video_1', thumbnailUrl: 'https://cdn.example/video.jpg' },
+    });
+
+    expect(result.preview.creative).toMatchObject({
+      product_set_id: 'ps_1',
+      object_story_spec: {
+        template_data: {
+          child_attachments: [
+            {
+              video_id: 'video_1',
+              picture: 'https://cdn.example/video.jpg',
+              static_card: true,
+            },
+            { name: '{{product.name}}' },
+          ],
+          multi_share_end_card: false,
+          show_multiple_images: false,
+        },
+      },
+      asset_feed_spec: { ad_formats: ['CAROUSEL', 'COLLECTION'] },
+    });
+    expect(result.preview.creative).not.toHaveProperty('template_url_spec');
+  });
+
   it('requires confirmation before creating any paused object', async () => {
     const client = createMockClient();
 

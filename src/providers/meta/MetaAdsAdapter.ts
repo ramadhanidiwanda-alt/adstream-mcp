@@ -3546,7 +3546,8 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
           params.creativeFormat === 'collection' ||
           params.creativeFormat === 'catalog_single_image' ||
           params.creativeFormat === 'catalog_carousel' ||
-          params.creativeFormat === 'catalog_video'
+          params.creativeFormat === 'catalog_video' ||
+          params.creativeFormat === 'catalog_video_carousel'
             ? params.creativeFormat
             : 'catalog',
         collection:
@@ -3587,6 +3588,21 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
                   typeof params.video.thumbnailImageUrl === 'string'
                     ? params.video.thumbnailImageUrl
                     : undefined,
+              }
+            : undefined,
+        hybridVideo:
+          params.hybridVideo &&
+          typeof params.hybridVideo === 'object' &&
+          !Array.isArray(params.hybridVideo)
+            ? {
+                videoId:
+                  typeof params.hybridVideo.videoId === 'string'
+                    ? params.hybridVideo.videoId
+                    : '',
+                thumbnailUrl:
+                  typeof params.hybridVideo.thumbnailUrl === 'string'
+                    ? params.hybridVideo.thumbnailUrl
+                    : '',
               }
             : undefined,
         destinationUrl: String(params.destinationUrl ?? ''),

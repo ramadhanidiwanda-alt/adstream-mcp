@@ -40,6 +40,38 @@ describe('buildMetaCreativeFormatPayload', () => {
     expect(payload).not.toHaveProperty('applink_treatment');
   });
 
+  it('builds a catalog video-carousel hybrid without video_data or canvas', () => {
+    const payload = buildMetaCreativeFormatPayload({
+      mode: 'collaborative_ads',
+      pageId: 'page-1',
+      collaborativeProductSetId: 'product-set-1',
+      catalogOnly: true,
+      creativeFormat: 'catalog',
+      creativeSpec: {
+        productSetId: 'product-set-1',
+        primaryText: 'Shop the catalog',
+        headline: 'Watch now',
+        destinationUrl: 'https://retailer.example/universal-link',
+        presentation: 'video_carousel',
+        hybridVideo: { videoId: 'video-1', thumbnailUrl: 'https://cdn.example/video.jpg' },
+      },
+    });
+
+    expect(payload).toMatchObject({
+      product_set_id: 'product-set-1',
+      asset_feed_spec: { ad_formats: ['CAROUSEL', 'COLLECTION'] },
+      object_story_spec: {
+        template_data: {
+          child_attachments: [
+            { video_id: 'video-1', static_card: true },
+            { name: '{{product.name}}' },
+          ],
+        },
+      },
+    });
+    expect(payload.object_story_spec).not.toHaveProperty('video_data');
+  });
+
   it('builds an Awareness single image without an external URL or CTA', () => {
     expect(
       buildMetaCreativeFormatPayload({

@@ -111,7 +111,9 @@ export interface MetaCatalogCreativeSpec extends MetaCreativeCopy {
    * Catalog rendering requested from Meta. These are dynamic catalog templates,
    * not manually supplied image or carousel-card creatives.
    */
-  presentation?: 'single_image' | 'carousel';
+  presentation?: 'single_image' | 'carousel' | 'video_carousel';
+  /** Required only for the catalog video-carousel hybrid presentation. */
+  hybridVideo?: { videoId: string; thumbnailUrl: string };
 }
 
 export interface MetaCollectionCreativeSpec extends MetaCreativeCopy {

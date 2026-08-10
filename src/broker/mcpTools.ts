@@ -2868,7 +2868,14 @@ function createCpasCatalogBundleInputSchema() {
       description: { type: 'string' },
       creativeFormat: {
         type: 'string',
-        enum: ['catalog', 'catalog_single_image', 'catalog_carousel', 'catalog_video', 'collection'],
+        enum: [
+          'catalog',
+          'catalog_single_image',
+          'catalog_carousel',
+          'catalog_video',
+          'catalog_video_carousel',
+          'collection',
+        ],
         description:
           'Defaults to catalog. catalog_single_image dan catalog_carousel tetap memakai produk dinamis; catalog_video membutuhkan video. Collection membutuhkan properti collection.',
       },
@@ -2895,6 +2902,16 @@ function createCpasCatalogBundleInputSchema() {
           thumbnailImageUrl: { type: 'string' },
         },
         required: ['videoId', 'instantExperienceId', 'retailerAppId'],
+      },
+      hybridVideo: {
+        type: 'object',
+        description:
+          'Wajib bila creativeFormat=catalog_video_carousel. Gunakan URL thumbnail Meta untuk static video card; format ini tidak memakai Instant Experience.',
+        properties: {
+          videoId: { type: 'string' },
+          thumbnailUrl: { type: 'string' },
+        },
+        required: ['videoId', 'thumbnailUrl'],
       },
       destinationUrl: { type: 'string' },
       templateUrl: { type: 'string' },
