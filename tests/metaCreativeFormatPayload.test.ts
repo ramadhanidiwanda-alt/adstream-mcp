@@ -1090,6 +1090,32 @@ describe('buildMetaCreativeFormatPayload', () => {
     expect(result).not.toHaveProperty('asset_feed_spec');
   });
 
+  it('keeps catalog-only CPAS creative free of app omnichannel fields', () => {
+    const result = buildMetaCreativeFormatPayload({
+      mode: 'collaborative_ads',
+      catalogOnly: true,
+      pageId: 'page-1',
+      collaborativeProductSetId: 'product-set-1',
+      creativeFormat: 'catalog',
+      creativeSpec: {
+        productSetId: 'product-set-1',
+        primaryText: 'Belanja di Shopee',
+        destinationUrl: 'https://shopee.example/universal-link',
+        callToAction: 'SHOP_NOW',
+      },
+    });
+
+    expect(result).toMatchObject({
+      product_set_id: 'product-set-1',
+      object_story_spec: {
+        template_data: { call_to_action: { type: 'SHOP_NOW' } },
+      },
+    });
+    expect(result).not.toHaveProperty('omnichannel_link_spec');
+    expect(result).not.toHaveProperty('applink_treatment');
+    expect(result.object_story_spec.template_data.call_to_action).not.toHaveProperty('value');
+  });
+
   it('rejects mismatched collaborative product sets', () => {
     expect(() =>
       buildMetaCreativeFormatPayload({

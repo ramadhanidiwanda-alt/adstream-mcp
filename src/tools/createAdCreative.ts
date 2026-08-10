@@ -64,6 +64,8 @@ export interface CreateAdCreativeOptions {
   messagingDestination?: MetaMessagingDestination;
   creative?: MetaCreativeSpec;
   collaborativeProductSetId?: string;
+  /** Keep CPAS catalog creative on its retailer universal-link route, without app-event tracking. */
+  catalogOnly?: boolean;
   collaborativeAppSpec?: MetaCollaborativeAppSpec;
   standardAppSpec?: MetaStandardAppSpec;
   linkData?: {
@@ -562,6 +564,7 @@ function buildCreativePayload(options: CreateAdCreativeOptions): Record<string, 
         ...options.creative,
         instagramUserId: options.instagramUserId,
         collaborativeProductSetId: options.collaborativeProductSetId,
+        catalogOnly: options.catalogOnly,
         collaborativeAppSpec: options.collaborativeAppSpec,
         standardAppSpec: options.standardAppSpec,
         optOutEnhancements: options.optOutEnhancements,

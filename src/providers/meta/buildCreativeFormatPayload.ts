@@ -15,6 +15,8 @@ export type BuildMetaCreativeFormatPayloadInput = MetaCreativeSpec & {
   pageId: string;
   instagramUserId?: string;
   collaborativeProductSetId?: string;
+  /** Catalog-only CPAS uses the retailer universal link and must not request app-event tracking. */
+  catalogOnly?: boolean;
   collaborativeAppSpec?: MetaCollaborativeAppSpec;
   standardAppSpec?: MetaStandardAppSpec;
   /**
@@ -657,11 +659,10 @@ function buildCatalog(
   if (description) templateData.description = description;
   if (destinationUrl) {
     templateData.link = destinationUrl;
-    templateData.call_to_action = cta(
-      creativeSpec.callToAction,
-      destinationUrl,
-      input.collaborativeAppSpec
-    );
+    templateData.call_to_action =
+      input.catalogOnly
+        ? { type: creativeSpec.callToAction?.trim() || 'SHOP_NOW' }
+        : cta(creativeSpec.callToAction, destinationUrl, input.collaborativeAppSpec);
   }
   if (templateUrl) templateData.template_url = templateUrl;
   if (fallbackImageHash) templateData.image_hash = fallbackImageHash;
@@ -712,7 +713,8 @@ function withCollaborativeCatalogContext(
   required(input.collaborativeProductSetId, 'Product set Collaborative Ads');
 
   const usesProductTemplate =
-    input.creativeFormat === 'catalog' || input.creativeFormat === 'collection';
+    input.creativeFormat === 'catalog' ||
+    (input.creativeFormat === 'collection' && !input.catalogOnly);
 
   return {
     ...payload,
@@ -724,7 +726,9 @@ function withCollaborativeCatalogContext(
           ),
         }
       : {}),
-    ...buildOmnichannelLinkFields(destinationUrl, input.collaborativeAppSpec),
+    ...(!input.catalogOnly
+      ? buildOmnichannelLinkFields(destinationUrl, input.collaborativeAppSpec)
+      : {}),
   };
 }
 

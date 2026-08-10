@@ -226,8 +226,12 @@ export type MetaCreativeSpec =
 
 export interface MetaCollaborativeCatalogContext {
   productSetId: string;
+  productCatalogId?: string;
   pixelId?: string;
   customEventType?: string;
+  /** Meta CPAS catalog variation returned by working catalog ad sets. */
+  variation?: 'PRODUCT_SET_AND_OMNICHANNEL';
+  smartPseEnabled?: boolean;
   destinationUrl?: string;
   applicationId?: string;
   objectStoreUrls?: string[];

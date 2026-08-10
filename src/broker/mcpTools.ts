@@ -2830,13 +2830,57 @@ function createCpasCatalogBundleInputSchema() {
       adName: { type: 'string' },
       pageId: { type: 'string' },
       productSetId: { type: 'string', description: 'Retailer-shared CPAS product set ID.' },
+      destinationMode: {
+        type: 'string',
+        enum: ['catalog_web', 'app_omnichannel'],
+        description:
+          'Defaults to catalog_web: CPAS katalog dinamis dengan universal web/app link tanpa app-event tracking. Pilih app_omnichannel hanya jika ad account sudah memiliki izin tracking aplikasi retailer.',
+      },
       pixelId: { type: 'string' },
+      collaborativeAppSpec: {
+        type: 'object',
+        description: 'Wajib hanya untuk destinationMode=app_omnichannel.',
+        properties: {
+          applicationId: { type: 'string' },
+          android: {
+            type: 'object',
+            properties: { appName: { type: 'string' }, packageName: { type: 'string' } },
+            required: ['appName', 'packageName'],
+          },
+          ios: {
+            type: 'object',
+            properties: { appName: { type: 'string' }, appStoreId: { type: 'string' } },
+            required: ['appName', 'appStoreId'],
+          },
+        },
+        required: ['applicationId'],
+      },
+      objectStoreUrls: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'Wajib hanya untuk destinationMode=app_omnichannel.',
+      },
       customEventType: { type: 'string', enum: ['PURCHASE', 'ADD_TO_CART', 'INITIATED_CHECKOUT'] },
       dailyBudget: { type: 'number' },
       countries: { type: 'array', items: { type: 'string' } },
       primaryText: { type: 'string' },
       headline: { type: 'string' },
       description: { type: 'string' },
+      creativeFormat: {
+        type: 'string',
+        enum: ['catalog', 'collection'],
+        description: 'Defaults to catalog. Collection membutuhkan properti collection.',
+      },
+      collection: {
+        type: 'object',
+        description: 'Wajib bila creativeFormat=collection.',
+        properties: {
+          instantExperienceId: { type: 'string' },
+          coverImageHash: { type: 'string' },
+          coverVideoId: { type: 'string' },
+        },
+        required: ['instantExperienceId'],
+      },
       destinationUrl: { type: 'string' },
       templateUrl: { type: 'string' },
       fallbackImageHash: { type: 'string' },

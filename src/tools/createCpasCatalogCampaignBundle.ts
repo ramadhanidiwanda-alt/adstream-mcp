@@ -4,8 +4,17 @@ import { createAdCreative } from './createAdCreative.js';
 import { createAdSet } from './createAdSet.js';
 import { createCampaign } from './createCampaign.js';
 import { formatMetaWriteError } from '../utils/formatMetaWriteError.js';
+import type { MetaCollaborativeAppSpec } from '../types.js';
 
 export type CpasCatalogBundleStatus = 'dry_run' | 'pending_confirmation' | 'executed' | 'failed';
+export type CpasCatalogDestinationMode = 'catalog_web' | 'app_omnichannel';
+export type CpasCatalogCreativeFormat = 'catalog' | 'collection';
+
+export interface CpasCatalogCollectionSpec {
+  instantExperienceId: string;
+  coverImageHash?: string;
+  coverVideoId?: string;
+}
 
 export interface CpasCatalogCampaignBundlePayload {
   adAccountId: string;
@@ -15,12 +24,20 @@ export interface CpasCatalogCampaignBundlePayload {
   pageId: string;
   productSetId: string;
   pixelId?: string;
+  /** Defaults to catalog_web, the catalog-only CPAS route verified from the active RTG ad set. */
+  destinationMode?: CpasCatalogDestinationMode;
+  /** Required only when destinationMode is app_omnichannel and the account has app-event permission. */
+  collaborativeAppSpec?: MetaCollaborativeAppSpec;
+  /** Required only when destinationMode is app_omnichannel. */
+  objectStoreUrls?: string[];
   customEventType?: 'PURCHASE' | 'ADD_TO_CART' | 'INITIATED_CHECKOUT';
   dailyBudget: number;
   countries: string[];
   primaryText: string;
   headline: string;
   description?: string;
+  creativeFormat?: CpasCatalogCreativeFormat;
+  collection?: CpasCatalogCollectionSpec;
   destinationUrl: string;
   templateUrl?: string;
   fallbackImageHash?: string;
@@ -60,7 +77,7 @@ export interface CpasCatalogCampaignBundleResult {
 
 interface ProductSetRead extends Record<string, unknown> {
   id?: string;
-  product_catalog?: string;
+  product_catalog?: string | { id?: string };
   product_count?: number;
 }
 
@@ -69,6 +86,9 @@ export function buildCpasCatalogBundlePreview(
 ): CpasCatalogCampaignBundlePreview {
   const productSetId = payload.productSetId.trim();
   const destinationUrl = payload.destinationUrl.trim();
+  const appOmnichannel = payload.destinationMode === 'app_omnichannel';
+  const creativeFormat = payload.creativeFormat ?? 'catalog';
+  const collection = payload.collection;
   return {
     campaign: {
       name: payload.campaignName.trim(),
@@ -76,37 +96,92 @@ export function buildCpasCatalogBundlePreview(
       status: 'PAUSED',
       special_ad_categories: [],
       daily_budget: payload.dailyBudget,
+      bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
     },
     adSet: {
       name: payload.adSetName.trim(),
       status: 'PAUSED',
-      destination_type: 'CATALOG',
       billing_event: 'IMPRESSIONS',
       optimization_goal: 'OFFSITE_CONVERSIONS',
+      destination_type: 'UNDEFINED',
       promoted_object: {
         product_set_id: productSetId,
-        ...(payload.pixelId?.trim()
-          ? { pixel_id: payload.pixelId.trim(), custom_event_type: payload.customEventType ?? 'PURCHASE' }
+        ...(appOmnichannel
+          ? {}
+          : {
+              custom_event_type: payload.customEventType ?? 'PURCHASE',
+              variation: 'PRODUCT_SET_AND_OMNICHANNEL',
+              smart_pse_enabled: false,
+            }),
+        ...(appOmnichannel
+          ? {
+              smart_pse_enabled: false,
+              omnichannel_object: {
+                app: [
+                  {
+                    application_id: payload.collaborativeAppSpec?.applicationId.trim(),
+                    custom_event_type: payload.customEventType ?? 'PURCHASE',
+                    object_store_urls: (payload.objectStoreUrls ?? [])
+                      .map((url) => url.trim())
+                      .filter(Boolean),
+                  },
+                ],
+                ...(payload.pixelId?.trim()
+                  ? {
+                      pixel: [
+                        {
+                          pixel_id: payload.pixelId.trim(),
+                          custom_event_type: payload.customEventType ?? 'PURCHASE',
+                        },
+                      ],
+                    }
+                  : {}),
+              },
+            }
           : {}),
       },
     },
-    creative: {
-      name: payload.adName.trim() + ' Creative',
-      product_set_id: productSetId,
-      object_story_spec: {
-        page_id: payload.pageId.trim(),
-        template_data: {
-          message: payload.primaryText.trim(),
-          name: payload.headline.trim(),
-          ...(payload.description?.trim() ? { description: payload.description.trim() } : {}),
-          link: payload.templateUrl?.trim() || destinationUrl,
-          call_to_action: {
-            type: payload.callToAction ?? 'SHOP_NOW',
-            value: { link: destinationUrl },
+    creative:
+      creativeFormat === 'collection'
+          ? {
+            name: payload.adName.trim() + ' Creative',
+            object_story_spec: {
+              page_id: payload.pageId.trim(),
+              ...(payload.instagramUserId?.trim()
+                ? { instagram_user_id: payload.instagramUserId.trim() }
+                : {}),
+              link_data: {
+                ...(collection?.coverImageHash?.trim()
+                  ? { image_hash: collection.coverImageHash.trim() }
+                  : {}),
+                message: payload.primaryText.trim(),
+                ...(payload.headline.trim() ? { name: payload.headline.trim() } : {}),
+                ...(payload.description?.trim() ? { description: payload.description.trim() } : {}),
+                link: `https://fb.com/canvas_doc/${collection?.instantExperienceId.trim() ?? ''}`,
+                call_to_action: { type: payload.callToAction ?? 'SHOP_NOW' },
+              },
+            },
+          }
+        : {
+            name: payload.adName.trim() + ' Creative',
+            product_set_id: productSetId,
+            object_story_spec: {
+              page_id: payload.pageId.trim(),
+              ...(payload.instagramUserId?.trim()
+                ? { instagram_user_id: payload.instagramUserId.trim() }
+                : {}),
+              template_data: {
+                message: payload.primaryText.trim(),
+                name: payload.headline.trim(),
+                ...(payload.description?.trim() ? { description: payload.description.trim() } : {}),
+                link: payload.templateUrl?.trim() || destinationUrl,
+                call_to_action: {
+                  type: payload.callToAction ?? 'SHOP_NOW',
+                  ...(appOmnichannel ? { value: { link: destinationUrl } } : {}),
+                },
+              },
+            },
           },
-        },
-      },
-    },
     ad: { name: payload.adName.trim(), status: 'PAUSED' },
   };
 }
@@ -165,6 +240,29 @@ export async function createCpasCatalogCampaignBundle(
   if (payload.countries.length === 0 || payload.countries.some((country) => !country.trim())) {
     return failure('preflight', 'INVALID_CPAS_CATALOG_COUNTRIES', 'countries harus berisi minimal satu negara.');
   }
+  const creativeFormat = payload.creativeFormat ?? 'catalog';
+  if (creativeFormat === 'collection') {
+    const collection = payload.collection;
+    if (!collection?.instantExperienceId.trim()) {
+      return failure('preflight', 'MISSING_CPAS_COLLECTION_INSTANT_EXPERIENCE', 'Collection memerlukan instantExperienceId.');
+    }
+    if (Boolean(collection.coverImageHash?.trim()) === Boolean(collection.coverVideoId?.trim())) {
+      return failure('preflight', 'INVALID_CPAS_COLLECTION_COVER', 'Collection memerlukan tepat satu coverImageHash atau coverVideoId.');
+    }
+  }
+  const appOmnichannel = payload.destinationMode === 'app_omnichannel';
+  if (
+    appOmnichannel &&
+    (!payload.collaborativeAppSpec?.applicationId.trim() ||
+      (payload.objectStoreUrls ?? []).length === 0 ||
+      (payload.objectStoreUrls ?? []).some((url) => !url.trim()))
+  ) {
+    return failure(
+      'preflight',
+      'MISSING_CPAS_OMNICHANNEL_APP',
+      'Mode app_omnichannel memerlukan collaborativeAppSpec dan objectStoreUrls.'
+    );
+  }
 
   let productSet: ProductSetRead;
   try {
@@ -183,9 +281,19 @@ export async function createCpasCatalogCampaignBundle(
     return failure('preflight', 'EMPTY_CPAS_PRODUCT_SET', 'Product set CPAS tidak memiliki produk yang siap diiklankan.');
   }
 
+  const productCatalogId =
+    typeof productSet.product_catalog === 'string'
+      ? productSet.product_catalog
+      : productSet.product_catalog?.id;
+  if (productCatalogId?.trim()) {
+    preview.campaign.promoted_object = {
+      product_catalog_id: productCatalogId.trim(),
+      smart_pse_enabled: false,
+    };
+  }
   const productSetEvidence = {
     id: productSet.id,
-    ...(typeof productSet.product_catalog === 'string' ? { catalogId: productSet.product_catalog } : {}),
+    ...(productCatalogId?.trim() ? { catalogId: productCatalogId.trim() } : {}),
     productCount: Number(productSet.product_count),
   };
   const withEvidence = (result: CpasCatalogCampaignBundleResult): CpasCatalogCampaignBundleResult => ({
@@ -216,6 +324,15 @@ export async function createCpasCatalogCampaignBundle(
       mode: 'collaborative_ads',
       status: 'PAUSED',
       dailyBudget: payload.dailyBudget,
+      bidStrategy: 'LOWEST_COST_WITHOUT_CAP',
+      ...(productCatalogId?.trim()
+        ? {
+            promotedObject: {
+              product_catalog_id: productCatalogId.trim(),
+              smart_pse_enabled: false,
+            },
+          }
+        : {}),
     },
     { dryRun: false, confirmed: true, maxRetries: options.maxRetries }
   );
@@ -230,13 +347,26 @@ export async function createCpasCatalogCampaignBundle(
       name: payload.adSetName,
       mode: 'collaborative_ads',
       status: 'PAUSED',
-      destinationType: 'CATALOG',
+      conversionLocation: 'CATALOG',
+      destinationType: 'UNDEFINED',
       billingEvent: 'IMPRESSIONS',
       optimizationGoal: 'OFFSITE_CONVERSIONS',
+      bidStrategy: 'LOWEST_COST_WITHOUT_CAP',
+      productSetId: payload.productSetId,
       collaborativeCatalog: {
         productSetId: payload.productSetId,
-        pixelId: payload.pixelId,
-        customEventType: payload.customEventType ?? 'PURCHASE',
+        ...(appOmnichannel
+          ? {
+              pixelId: payload.pixelId,
+              customEventType: payload.customEventType ?? 'PURCHASE',
+              applicationId: payload.collaborativeAppSpec?.applicationId,
+              objectStoreUrls: payload.objectStoreUrls,
+            }
+          : {
+              customEventType: payload.customEventType ?? 'PURCHASE',
+              variation: 'PRODUCT_SET_AND_OMNICHANNEL',
+              smartPseEnabled: false,
+            }),
       },
       targeting: {
         geoLocations: { countries: payload.countries },
@@ -260,19 +390,36 @@ export async function createCpasCatalogCampaignBundle(
       objective: 'OUTCOME_SALES',
       conversionLocation: 'CATALOG',
       collaborativeProductSetId: payload.productSetId,
-      creative: {
-        creativeFormat: 'catalog',
-        creativeSpec: {
-          productSetId: payload.productSetId,
-          primaryText: payload.primaryText,
-          headline: payload.headline,
-          description: payload.description,
-          destinationUrl: payload.destinationUrl,
-          templateUrl: payload.templateUrl,
-          fallbackImageHash: payload.fallbackImageHash,
-          callToAction: payload.callToAction ?? 'SHOP_NOW',
-        },
-      },
+      catalogOnly: !appOmnichannel,
+      ...(appOmnichannel ? { collaborativeAppSpec: payload.collaborativeAppSpec } : {}),
+      creative:
+        creativeFormat === 'collection'
+          ? {
+              creativeFormat: 'collection',
+              creativeSpec: {
+                instantExperienceId: payload.collection?.instantExperienceId ?? '',
+                coverImageHash: payload.collection?.coverImageHash,
+                coverVideoId: payload.collection?.coverVideoId,
+                primaryText: payload.primaryText,
+                headline: payload.headline,
+                description: payload.description,
+                destinationUrl: `https://fb.com/canvas_doc/${payload.collection?.instantExperienceId ?? ''}`,
+                callToAction: payload.callToAction ?? 'SHOP_NOW',
+              },
+            }
+          : {
+              creativeFormat: 'catalog',
+              creativeSpec: {
+                productSetId: payload.productSetId,
+                primaryText: payload.primaryText,
+                headline: payload.headline,
+                description: payload.description,
+                destinationUrl: payload.destinationUrl,
+                templateUrl: payload.templateUrl,
+                fallbackImageHash: payload.fallbackImageHash,
+                callToAction: payload.callToAction ?? 'SHOP_NOW',
+              },
+            },
       instagramUserId: payload.instagramUserId,
       threadsProfileId: payload.threadsProfileId,
     },

@@ -3499,7 +3499,14 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
   ):
     | { ok: true; payload: MetaCpasCatalogCampaignBundlePayload }
     | { ok: false; response: AdsBrokerResponse<never> } {
-    const params = request.params as Partial<MetaCpasCatalogCampaignBundlePayload>;
+    const nestedParams =
+      request.params.params && typeof request.params.params === 'object' && !Array.isArray(request.params.params)
+        ? request.params.params
+        : {};
+    const params = {
+      ...request.params,
+      ...nestedParams,
+    } as Partial<MetaCpasCatalogCampaignBundlePayload>;
     const adAccountId = request.accountId ?? credential.accountId;
     if (!adAccountId) {
       return {
@@ -3521,6 +3528,12 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
         pageId: String(params.pageId ?? ''),
         productSetId: String(params.productSetId ?? ''),
         pixelId: typeof params.pixelId === 'string' ? params.pixelId : undefined,
+        destinationMode:
+          params.destinationMode === 'app_omnichannel' ? 'app_omnichannel' : 'catalog_web',
+        collaborativeAppSpec: parseCollaborativeAppSpec(params.collaborativeAppSpec),
+        objectStoreUrls: Array.isArray(params.objectStoreUrls)
+          ? params.objectStoreUrls.filter((url): url is string => typeof url === 'string')
+          : [],
         customEventType: params.customEventType,
         dailyBudget: Number(params.dailyBudget),
         countries: Array.isArray(params.countries)
@@ -3529,6 +3542,24 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
         primaryText: String(params.primaryText ?? ''),
         headline: String(params.headline ?? ''),
         description: typeof params.description === 'string' ? params.description : undefined,
+        creativeFormat: params.creativeFormat === 'collection' ? 'collection' : 'catalog',
+        collection:
+          params.collection && typeof params.collection === 'object' && !Array.isArray(params.collection)
+            ? {
+                instantExperienceId:
+                  typeof params.collection.instantExperienceId === 'string'
+                    ? params.collection.instantExperienceId
+                    : '',
+                coverImageHash:
+                  typeof params.collection.coverImageHash === 'string'
+                    ? params.collection.coverImageHash
+                    : undefined,
+                coverVideoId:
+                  typeof params.collection.coverVideoId === 'string'
+                    ? params.collection.coverVideoId
+                    : undefined,
+              }
+            : undefined,
         destinationUrl: String(params.destinationUrl ?? ''),
         templateUrl: typeof params.templateUrl === 'string' ? params.templateUrl : undefined,
         fallbackImageHash:

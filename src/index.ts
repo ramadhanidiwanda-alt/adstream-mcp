@@ -44,6 +44,8 @@ export type {
   CpasCatalogCampaignBundlePayload,
   CpasCatalogCampaignBundlePreview,
   CpasCatalogCampaignBundleResult,
+  CpasCatalogCollectionSpec,
+  CpasCatalogCreativeFormat,
 } from './tools/createCpasCatalogCampaignBundle.js';
 
 export { createCampaign } from './tools/createCampaign.js';
