@@ -21,6 +21,7 @@ import type {
   UpdateAdResult,
   UpdateCampaignResult,
   EcommerceCampaignBundleResult,
+  CpasCatalogCampaignBundleResult,
   AdsReport,
   AdsMultiProviderReport,
   AdsProviderReportError,
@@ -107,6 +108,7 @@ type AdapterWriteMethod =
   | 'updateAd'
   | 'updateCampaign'
   | 'createEcommerceCampaignBundle'
+  | 'createCpasCatalogCampaignBundle'
   | 'uploadImage'
   | 'uploadVideo';
 
@@ -609,6 +611,15 @@ export class AdsBroker {
     );
   }
 
+  createCpasCatalogCampaignBundle(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<CpasCatalogCampaignBundleResult>> {
+    return this.executeWrite<CpasCatalogCampaignBundleResult>(
+      request,
+      'createCpasCatalogCampaignBundle'
+    );
+  }
+
   uploadImage(request: AdsBrokerRequest): Promise<AdsBrokerResponse<ImageUploadResult>> {
     return this.executeWrite<ImageUploadResult>(request, 'uploadImage');
   }
@@ -684,6 +695,7 @@ export class AdsBroker {
     TData extends
       | AdsMutationResult
       | EcommerceCampaignBundleResult
+      | CpasCatalogCampaignBundleResult
       | CreateCampaignResult
       | CreateAdSetResult
       | CreateAdCreativeResult

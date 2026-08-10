@@ -57,6 +57,7 @@ import { resumeCampaign as resumeCampaignTool } from '../../tools/resumeCampaign
 import { updateCampaignBudget as updateCampaignBudgetTool } from '../../tools/updateCampaignBudget.js';
 import { renameCampaign as renameCampaignTool } from '../../tools/renameCampaign.js';
 import { createEcommerceCampaignBundle as createEcommerceCampaignBundleTool } from '../../tools/createEcommerceCampaignBundle.js';
+import { createCpasCatalogCampaignBundle as createCpasCatalogCampaignBundleTool } from '../../tools/createCpasCatalogCampaignBundle.js';
 import { createCampaign as createCampaignTool } from '../../tools/createCampaign.js';
 import { createAdSet as createAdSetTool } from '../../tools/createAdSet.js';
 import { createAdCreative as createAdCreativeTool } from '../../tools/createAdCreative.js';
@@ -78,6 +79,10 @@ import type {
   EcommerceCampaignBundlePayload as MetaEcommerceCampaignBundlePayload,
   EcommerceCampaignBundleResult,
 } from '../../tools/createEcommerceCampaignBundle.js';
+import type {
+  CpasCatalogCampaignBundlePayload as MetaCpasCatalogCampaignBundlePayload,
+  CpasCatalogCampaignBundleResult,
+} from '../../tools/createCpasCatalogCampaignBundle.js';
 import type {
   CreateCampaignResult,
   CreateAdSetResult,
@@ -282,6 +287,11 @@ export interface MetaAdsAdapterTools {
     payload: MetaEcommerceCampaignBundlePayload,
     options?: { dryRun?: boolean; confirmed?: boolean; maxRetries?: number }
   ): Promise<EcommerceCampaignBundleResult>;
+  createCpasCatalogCampaignBundle(
+    client: MetaClient,
+    payload: MetaCpasCatalogCampaignBundlePayload,
+    options?: { dryRun?: boolean; confirmed?: boolean; maxRetries?: number }
+  ): Promise<CpasCatalogCampaignBundleResult>;
   createCampaign(
     client: MetaClient,
     options: import('../../tools/createCampaign.js').CreateCampaignOptions,
@@ -461,6 +471,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       updateCampaign: updateCampaignTool,
       getTargetingOptions: getTargetingOptionsTool,
       createEcommerceCampaignBundle: createEcommerceCampaignBundleTool,
+      createCpasCatalogCampaignBundle: createCpasCatalogCampaignBundleTool,
       uploadImage: uploadImageTool,
       uploadVideo: uploadVideoTool,
       listAdImages,
@@ -2468,6 +2479,25 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
     }
   }
 
+  async createCpasCatalogCampaignBundle(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<CpasCatalogCampaignBundleResult>> {
+    const context = this.getCredentialContext(request);
+    if (!context.ok) return context.response;
+    const payload = this.getCpasCatalogCampaignBundlePayload(request, context.credential);
+    if (!payload.ok) return payload.response;
+    try {
+      const client = this.createClient(context.credential);
+      const result = await this.tools.createCpasCatalogCampaignBundle(client, payload.payload, {
+        dryRun: request.params.dryRun !== false,
+        confirmed: request.params.confirmed === true,
+      });
+      return { ok: result.status !== 'failed', provider: 'meta', data: result };
+    } catch (error) {
+      return this.writeErrorResponse(error);
+    }
+  }
+
   async uploadImage(request: AdsBrokerRequest): Promise<AdsBrokerResponse<ImageUploadResult>> {
     const context = this.getCredentialContext(request);
     if (!context.ok) return context.response;
@@ -3454,6 +3484,60 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
           ? params.publisherPlatforms.filter(
               (platform): platform is string => typeof platform === 'string'
             )
+          : undefined,
+        instagramUserId:
+          typeof params.instagramUserId === 'string' ? params.instagramUserId : undefined,
+        threadsProfileId:
+          typeof params.threadsProfileId === 'string' ? params.threadsProfileId : undefined,
+      },
+    };
+  }
+
+  private getCpasCatalogCampaignBundlePayload(
+    request: AdsBrokerRequest,
+    credential: CredentialContext
+  ):
+    | { ok: true; payload: MetaCpasCatalogCampaignBundlePayload }
+    | { ok: false; response: AdsBrokerResponse<never> } {
+    const params = request.params as Partial<MetaCpasCatalogCampaignBundlePayload>;
+    const adAccountId = request.accountId ?? credential.accountId;
+    if (!adAccountId) {
+      return {
+        ok: false,
+        response: {
+          ok: false,
+          provider: 'meta',
+          errors: [{ provider: 'meta', code: 'MISSING_ACCOUNT_ID', message: 'accountId is required' }],
+        },
+      };
+    }
+    return {
+      ok: true,
+      payload: {
+        adAccountId,
+        campaignName: String(params.campaignName ?? ''),
+        adSetName: String(params.adSetName ?? ''),
+        adName: String(params.adName ?? ''),
+        pageId: String(params.pageId ?? ''),
+        productSetId: String(params.productSetId ?? ''),
+        pixelId: typeof params.pixelId === 'string' ? params.pixelId : undefined,
+        customEventType: params.customEventType,
+        dailyBudget: Number(params.dailyBudget),
+        countries: Array.isArray(params.countries)
+          ? params.countries.filter((country): country is string => typeof country === 'string')
+          : [],
+        primaryText: String(params.primaryText ?? ''),
+        headline: String(params.headline ?? ''),
+        description: typeof params.description === 'string' ? params.description : undefined,
+        destinationUrl: String(params.destinationUrl ?? ''),
+        templateUrl: typeof params.templateUrl === 'string' ? params.templateUrl : undefined,
+        fallbackImageHash:
+          typeof params.fallbackImageHash === 'string' ? params.fallbackImageHash : undefined,
+        callToAction: params.callToAction,
+        ageMin: typeof params.ageMin === 'number' ? params.ageMin : undefined,
+        ageMax: typeof params.ageMax === 'number' ? params.ageMax : undefined,
+        publisherPlatforms: Array.isArray(params.publisherPlatforms)
+          ? params.publisherPlatforms.filter((value): value is string => typeof value === 'string')
           : undefined,
         instagramUserId:
           typeof params.instagramUserId === 'string' ? params.instagramUserId : undefined,

@@ -81,6 +81,7 @@ export const ADS_MCP_TOOL_NAMES = [
   'ads_clone_adset',
   'ads_get_targeting_options',
   'ads_create_ecommerce_campaign_bundle',
+  'ads_create_cpas_catalog_bundle',
   'ads_get_video_source',
   'ads_get_ad_creative_mapping',
   'ads_upload_image',
@@ -154,6 +155,7 @@ const ADDITIVE_WRITE_TOOLS = new Set<AdsMcpToolName>([
   'ads_create_ad',
   'ads_clone_ui_ad',
   'ads_create_ecommerce_campaign_bundle',
+  'ads_create_cpas_catalog_bundle',
   'ads_clone_adset',
   'ads_upload_image',
   'ads_upload_video',
@@ -455,6 +457,12 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
     description:
       'Create a PAUSED Meta ecommerce sales campaign bundle (campaign, ad set, creative, ad) after dry-run preview and explicit confirmation.',
     inputSchema: createEcommerceLaunchInputSchema(),
+  },
+  {
+    name: 'ads_create_cpas_catalog_bundle',
+    description:
+      'Create a PAUSED Meta Sales CPAS catalog bundle. Dry-run by default; productSetId is verified before any write.',
+    inputSchema: createCpasCatalogBundleInputSchema(),
   },
   {
     name: 'ads_get_video_source',
@@ -949,6 +957,8 @@ function callBrokerMethod(
       return broker.getTargetingOptions(request);
     case 'ads_create_ecommerce_campaign_bundle':
       return broker.createEcommerceCampaignBundle(request);
+    case 'ads_create_cpas_catalog_bundle':
+      return broker.createCpasCatalogCampaignBundle(request);
     case 'ads_get_video_source':
       return broker.getVideoSource(request);
     case 'ads_get_ad_creative_mapping':
@@ -2805,6 +2815,52 @@ function createEcommerceLaunchInputSchema() {
       'countries',
       'primaryText',
       'headline',
+    ],
+  };
+}
+
+function createCpasCatalogBundleInputSchema() {
+  const schema = createAdsInputSchema([]);
+  return {
+    type: 'object',
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      campaignName: { type: 'string' },
+      adSetName: { type: 'string' },
+      adName: { type: 'string' },
+      pageId: { type: 'string' },
+      productSetId: { type: 'string', description: 'Retailer-shared CPAS product set ID.' },
+      pixelId: { type: 'string' },
+      customEventType: { type: 'string', enum: ['PURCHASE', 'ADD_TO_CART', 'INITIATED_CHECKOUT'] },
+      dailyBudget: { type: 'number' },
+      countries: { type: 'array', items: { type: 'string' } },
+      primaryText: { type: 'string' },
+      headline: { type: 'string' },
+      description: { type: 'string' },
+      destinationUrl: { type: 'string' },
+      templateUrl: { type: 'string' },
+      fallbackImageHash: { type: 'string' },
+      callToAction: { type: 'string', enum: ['SHOP_NOW', 'LEARN_MORE'] },
+      ageMin: { type: 'number' },
+      ageMax: { type: 'number' },
+      publisherPlatforms: { type: 'array', items: { type: 'string' } },
+      instagramUserId: { type: 'string' },
+      threadsProfileId: { type: 'string' },
+      dryRun: { type: 'boolean', description: 'Defaults to true.' },
+      confirmed: { type: 'boolean', description: 'Required with dryRun=false.' },
+    },
+    required: [
+      'accountId',
+      'campaignName',
+      'adSetName',
+      'adName',
+      'pageId',
+      'productSetId',
+      'dailyBudget',
+      'countries',
+      'primaryText',
+      'headline',
+      'destinationUrl',
     ],
   };
 }
