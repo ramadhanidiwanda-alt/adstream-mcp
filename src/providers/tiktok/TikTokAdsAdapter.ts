@@ -16,6 +16,7 @@ import type {
   UpdateAdResult,
   UpdateCampaignResult,
   EcommerceCampaignBundleResult,
+  CpasCatalogCampaignBundleResult,
   AdsProviderAdapter,
   VideoSourceResult,
   AdCreativeMappingResult,
@@ -1011,6 +1012,12 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
     } catch (error) {
       return this.errorResponse(error);
     }
+  }
+
+  async createCpasCatalogCampaignBundle(
+    _request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<CpasCatalogCampaignBundleResult>> {
+    return this.notImplemented('CPAS catalog bundle is only supported by Meta Ads');
   }
 
   // ── TikTok GMV Max specific methods ──

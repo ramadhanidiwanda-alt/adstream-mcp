@@ -30,6 +30,8 @@ export interface CreateCampaignOptions {
   dailyBudget?: number;
   lifetimeBudget?: number;
   bidStrategy?: string;
+  /** Provider-native campaign context, used for catalog selection on Sales catalog campaigns. */
+  promotedObject?: Record<string, unknown>;
   dedupeByName?: boolean;
   externalReference?: string;
 }
@@ -217,6 +219,10 @@ function buildCampaignPayload(options: CreateCampaignOptions): Record<string, un
 
   if (options.bidStrategy) {
     payload.bid_strategy = options.bidStrategy;
+  }
+
+  if (options.promotedObject) {
+    payload.promoted_object = options.promotedObject;
   }
 
   return payload;

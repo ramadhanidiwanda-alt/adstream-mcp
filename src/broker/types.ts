@@ -1,5 +1,7 @@
 import type { MetaAdsMode, MetaCreativeVerification, StructuredMutationError } from '../types.js';
 import type { LaunchReadinessResult } from '../tools/checkLaunchReadiness.js';
+import type { CpasCatalogCampaignBundleResult } from '../tools/createCpasCatalogCampaignBundle.js';
+export type { CpasCatalogCampaignBundleResult } from '../tools/createCpasCatalogCampaignBundle.js';
 
 export const ADS_PROVIDER_IDS = ['meta', 'tiktok', 'google'] as const;
 export type AdsProviderId = (typeof ADS_PROVIDER_IDS)[number];
@@ -1179,6 +1181,9 @@ export interface AdsProviderAdapter {
   createEcommerceCampaignBundle(
     request: AdsBrokerRequest
   ): Promise<AdsBrokerResponse<EcommerceCampaignBundleResult>>;
+  createCpasCatalogCampaignBundle(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<CpasCatalogCampaignBundleResult>>;
   uploadImage(request: AdsBrokerRequest): Promise<AdsBrokerResponse<ImageUploadResult>>;
   uploadVideo(request: AdsBrokerRequest): Promise<AdsBrokerResponse<VideoUploadResult>>;
   getAccountInfo(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AccountInfoResult>>;

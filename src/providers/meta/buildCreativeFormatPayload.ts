@@ -15,6 +15,8 @@ export type BuildMetaCreativeFormatPayloadInput = MetaCreativeSpec & {
   pageId: string;
   instagramUserId?: string;
   collaborativeProductSetId?: string;
+  /** Catalog-only CPAS uses the retailer universal link and must not request app-event tracking. */
+  catalogOnly?: boolean;
   collaborativeAppSpec?: MetaCollaborativeAppSpec;
   standardAppSpec?: MetaStandardAppSpec;
   /**
@@ -387,10 +389,41 @@ function buildVideo(
   else if (thumbnailImageUrl) videoData.image_url = thumbnailImageUrl;
   if (headline) videoData.title = headline;
   if (pageWelcomeMessage) videoData.page_welcome_message = pageWelcomeMessage;
+  if (creativeSpec.retailerItemIds?.length) {
+    videoData.retailer_item_ids = creativeSpec.retailerItemIds.map((id) =>
+      required(id, 'retailerItemIds')
+    );
+  }
+  if (creativeSpec.postClickConfiguration) {
+    videoData.post_click_configuration = {
+      post_click_item_headline: required(
+        creativeSpec.postClickConfiguration.itemHeadline,
+        'postClickConfiguration.itemHeadline'
+      ),
+      ...(creativeSpec.postClickConfiguration.itemDescription?.trim()
+        ? {
+            post_click_item_description:
+              creativeSpec.postClickConfiguration.itemDescription.trim(),
+          }
+        : {}),
+    };
+  }
 
   const payload = withCollaborativeCatalogContext(
     input,
     {
+      ...(creativeSpec.templateUrlSpec
+        ? {
+            template_url_spec: {
+              config: {
+                app_id: required(
+                  creativeSpec.templateUrlSpec.applicationId,
+                  'templateUrlSpec.applicationId'
+                ),
+              },
+            },
+          }
+        : {}),
       object_story_spec: {
         page_id: required(input.pageId, 'pageId'),
         ...instagramIdentity(input),
@@ -657,19 +690,61 @@ function buildCatalog(
   if (description) templateData.description = description;
   if (destinationUrl) {
     templateData.link = destinationUrl;
-    templateData.call_to_action = cta(
-      creativeSpec.callToAction,
-      destinationUrl,
-      input.collaborativeAppSpec
-    );
+    templateData.call_to_action =
+      input.catalogOnly
+        ? { type: creativeSpec.callToAction?.trim() || 'SHOP_NOW' }
+        : cta(creativeSpec.callToAction, destinationUrl, input.collaborativeAppSpec);
   }
   if (templateUrl) templateData.template_url = templateUrl;
   if (fallbackImageHash) templateData.image_hash = fallbackImageHash;
+
+  if (creativeSpec.presentation === 'single_image') {
+    templateData.multi_share_end_card = true;
+    templateData.show_multiple_images = false;
+    templateData.force_single_link = true;
+  }
+  if (creativeSpec.presentation === 'carousel') {
+    templateData.multi_share_end_card = false;
+    templateData.show_multiple_images = false;
+  }
+  if (creativeSpec.presentation === 'video_carousel') {
+    const hybridVideo = creativeSpec.hybridVideo;
+    if (!hybridVideo) {
+      throw new Error('hybridVideo wajib diisi untuk catalog video-carousel.');
+    }
+    const cardLink = required(destinationUrl, 'destinationUrl catalog video-carousel');
+    templateData.child_attachments = [
+      {
+        link: cardLink,
+        picture: required(hybridVideo.thumbnailUrl, 'hybridVideo.thumbnailUrl'),
+        ...(headline ? { name: headline } : {}),
+        call_to_action: { type: creativeSpec.callToAction?.trim() || 'SHOP_NOW' },
+        video_id: required(hybridVideo.videoId, 'hybridVideo.videoId'),
+        static_card: true,
+      },
+      {
+        link: cardLink,
+        name: '{{product.name}}',
+        call_to_action: { type: creativeSpec.callToAction?.trim() || 'SHOP_NOW' },
+      },
+    ];
+    templateData.multi_share_end_card = false;
+    templateData.show_multiple_images = false;
+  }
 
   return withCollaborativeCatalogContext(
     input,
     {
       product_set_id: productSetId,
+      ...(creativeSpec.presentation === 'carousel' || creativeSpec.presentation === 'video_carousel'
+        ? {
+            asset_feed_spec: {
+              bodies: [{ text: required(creativeSpec.primaryText, 'primaryText') }],
+              ad_formats: ['CAROUSEL', 'COLLECTION'],
+              optimization_type: 'FORMAT_AUTOMATION',
+            },
+          }
+        : {}),
       object_story_spec: {
         page_id: required(input.pageId, 'pageId'),
         ...instagramIdentity(input),
@@ -712,7 +787,8 @@ function withCollaborativeCatalogContext(
   required(input.collaborativeProductSetId, 'Product set Collaborative Ads');
 
   const usesProductTemplate =
-    input.creativeFormat === 'catalog' || input.creativeFormat === 'collection';
+    input.creativeFormat === 'catalog' ||
+    (input.creativeFormat === 'collection' && !input.catalogOnly);
 
   return {
     ...payload,
@@ -724,7 +800,9 @@ function withCollaborativeCatalogContext(
           ),
         }
       : {}),
-    ...buildOmnichannelLinkFields(destinationUrl, input.collaborativeAppSpec),
+    ...(!input.catalogOnly
+      ? buildOmnichannelLinkFields(destinationUrl, input.collaborativeAppSpec)
+      : {}),
   };
 }
 

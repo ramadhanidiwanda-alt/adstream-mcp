@@ -81,6 +81,7 @@ export const ADS_MCP_TOOL_NAMES = [
   'ads_clone_adset',
   'ads_get_targeting_options',
   'ads_create_ecommerce_campaign_bundle',
+  'ads_create_cpas_catalog_bundle',
   'ads_get_video_source',
   'ads_get_ad_creative_mapping',
   'ads_upload_image',
@@ -154,6 +155,7 @@ const ADDITIVE_WRITE_TOOLS = new Set<AdsMcpToolName>([
   'ads_create_ad',
   'ads_clone_ui_ad',
   'ads_create_ecommerce_campaign_bundle',
+  'ads_create_cpas_catalog_bundle',
   'ads_clone_adset',
   'ads_upload_image',
   'ads_upload_video',
@@ -455,6 +457,12 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
     description:
       'Create a PAUSED Meta ecommerce sales campaign bundle (campaign, ad set, creative, ad) after dry-run preview and explicit confirmation.',
     inputSchema: createEcommerceLaunchInputSchema(),
+  },
+  {
+    name: 'ads_create_cpas_catalog_bundle',
+    description:
+      'Create a PAUSED Meta Sales CPAS catalog bundle. Dry-run by default; productSetId is verified before any write.',
+    inputSchema: createCpasCatalogBundleInputSchema(),
   },
   {
     name: 'ads_get_video_source',
@@ -949,6 +957,8 @@ function callBrokerMethod(
       return broker.getTargetingOptions(request);
     case 'ads_create_ecommerce_campaign_bundle':
       return broker.createEcommerceCampaignBundle(request);
+    case 'ads_create_cpas_catalog_bundle':
+      return broker.createCpasCatalogCampaignBundle(request);
     case 'ads_get_video_source':
       return broker.getVideoSource(request);
     case 'ads_get_ad_creative_mapping':
@@ -2805,6 +2815,128 @@ function createEcommerceLaunchInputSchema() {
       'countries',
       'primaryText',
       'headline',
+    ],
+  };
+}
+
+function createCpasCatalogBundleInputSchema() {
+  const schema = createAdsInputSchema([]);
+  return {
+    type: 'object',
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      campaignName: { type: 'string' },
+      adSetName: { type: 'string' },
+      adName: { type: 'string' },
+      pageId: { type: 'string' },
+      productSetId: { type: 'string', description: 'Retailer-shared CPAS product set ID.' },
+      destinationMode: {
+        type: 'string',
+        enum: ['catalog_web', 'app_omnichannel'],
+        description:
+          'Defaults to catalog_web: CPAS katalog dinamis dengan universal web/app link tanpa app-event tracking. Pilih app_omnichannel hanya jika ad account sudah memiliki izin tracking aplikasi retailer.',
+      },
+      pixelId: { type: 'string' },
+      collaborativeAppSpec: {
+        type: 'object',
+        description: 'Wajib hanya untuk destinationMode=app_omnichannel.',
+        properties: {
+          applicationId: { type: 'string' },
+          android: {
+            type: 'object',
+            properties: { appName: { type: 'string' }, packageName: { type: 'string' } },
+            required: ['appName', 'packageName'],
+          },
+          ios: {
+            type: 'object',
+            properties: { appName: { type: 'string' }, appStoreId: { type: 'string' } },
+            required: ['appName', 'appStoreId'],
+          },
+        },
+        required: ['applicationId'],
+      },
+      objectStoreUrls: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'Wajib hanya untuk destinationMode=app_omnichannel.',
+      },
+      customEventType: { type: 'string', enum: ['PURCHASE', 'ADD_TO_CART', 'INITIATED_CHECKOUT'] },
+      dailyBudget: { type: 'number' },
+      countries: { type: 'array', items: { type: 'string' } },
+      primaryText: { type: 'string' },
+      headline: { type: 'string' },
+      description: { type: 'string' },
+      creativeFormat: {
+        type: 'string',
+        enum: [
+          'catalog',
+          'catalog_single_image',
+          'catalog_carousel',
+          'catalog_video',
+          'catalog_video_carousel',
+          'collection',
+        ],
+        description:
+          'Defaults to catalog. catalog_single_image dan catalog_carousel tetap memakai produk dinamis; catalog_video membutuhkan video. Collection membutuhkan properti collection.',
+      },
+      collection: {
+        type: 'object',
+        description: 'Wajib bila creativeFormat=collection.',
+        properties: {
+          instantExperienceId: { type: 'string' },
+          coverImageHash: { type: 'string' },
+          coverVideoId: { type: 'string' },
+        },
+        required: ['instantExperienceId'],
+      },
+      video: {
+        type: 'object',
+        description:
+          'Wajib bila creativeFormat=catalog_video. Instant Experience harus sudah published dan videoId harus berasal dari object_story_spec.video_data creative CPAS yang valid.',
+        properties: {
+          videoId: { type: 'string' },
+          instantExperienceId: { type: 'string' },
+          retailerAppId: { type: 'string' },
+          retailerItemIds: { type: 'array', items: { type: 'string' } },
+          thumbnailImageHash: { type: 'string' },
+          thumbnailImageUrl: { type: 'string' },
+        },
+        required: ['videoId', 'instantExperienceId', 'retailerAppId'],
+      },
+      hybridVideo: {
+        type: 'object',
+        description:
+          'Wajib bila creativeFormat=catalog_video_carousel. Gunakan URL thumbnail Meta untuk static video card; format ini tidak memakai Instant Experience.',
+        properties: {
+          videoId: { type: 'string' },
+          thumbnailUrl: { type: 'string' },
+        },
+        required: ['videoId', 'thumbnailUrl'],
+      },
+      destinationUrl: { type: 'string' },
+      templateUrl: { type: 'string' },
+      fallbackImageHash: { type: 'string' },
+      callToAction: { type: 'string', enum: ['SHOP_NOW', 'LEARN_MORE'] },
+      ageMin: { type: 'number' },
+      ageMax: { type: 'number' },
+      publisherPlatforms: { type: 'array', items: { type: 'string' } },
+      instagramUserId: { type: 'string' },
+      threadsProfileId: { type: 'string' },
+      dryRun: { type: 'boolean', description: 'Defaults to true.' },
+      confirmed: { type: 'boolean', description: 'Required with dryRun=false.' },
+    },
+    required: [
+      'accountId',
+      'campaignName',
+      'adSetName',
+      'adName',
+      'pageId',
+      'productSetId',
+      'dailyBudget',
+      'countries',
+      'primaryText',
+      'headline',
+      'destinationUrl',
     ],
   };
 }
