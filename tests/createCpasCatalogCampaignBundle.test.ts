@@ -106,6 +106,84 @@ describe('createCpasCatalogCampaignBundle', () => {
     expect(result.preview.creative).not.toHaveProperty('product_set_id');
   });
 
+  it('builds a catalog single-image template without a manually supplied image', async () => {
+    const client = createMockClient();
+
+    const result = await createCpasCatalogCampaignBundle(client, {
+      ...payload,
+      creativeFormat: 'catalog_single_image',
+    });
+
+    const templateData = result.preview.creative.object_story_spec.template_data;
+    expect(result.preview.creative).toMatchObject({ product_set_id: 'ps_1' });
+    expect(templateData).toMatchObject({
+      multi_share_end_card: true,
+      show_multiple_images: false,
+      force_single_link: true,
+    });
+    expect(templateData).not.toHaveProperty('image_hash');
+    expect(result.preview.creative).not.toHaveProperty('omnichannel_link_spec');
+  });
+
+  it('builds a catalog carousel template without manual child attachments', async () => {
+    const client = createMockClient();
+
+    const result = await createCpasCatalogCampaignBundle(client, {
+      ...payload,
+      creativeFormat: 'catalog_carousel',
+    });
+
+    expect(result.preview.creative).toMatchObject({
+      product_set_id: 'ps_1',
+      asset_feed_spec: {
+        bodies: [{ text: payload.primaryText }],
+        ad_formats: ['CAROUSEL', 'COLLECTION'],
+        optimization_type: 'FORMAT_AUTOMATION',
+      },
+      object_story_spec: {
+        template_data: {
+          multi_share_end_card: false,
+          show_multiple_images: false,
+        },
+      },
+    });
+    expect(result.preview.creative.object_story_spec).not.toHaveProperty('link_data');
+    expect(result.preview.creative.object_story_spec).not.toHaveProperty('child_attachments');
+    expect(result.preview.creative).not.toHaveProperty('omnichannel_link_spec');
+  });
+
+  it('builds a CPAS catalog video with its published Instant Experience and retailer template', async () => {
+    const client = createMockClient();
+    const result = await createCpasCatalogCampaignBundle(client, {
+      ...payload,
+      creativeFormat: 'catalog_video',
+      video: {
+        videoId: 'video_1',
+        instantExperienceId: 'canvas_1',
+        retailerAppId: 'app_1',
+      },
+    });
+
+    expect(result.preview.creative).toMatchObject({
+      template_url_spec: { config: { app_id: 'app_1' } },
+      object_story_spec: {
+        video_data: {
+          video_id: 'video_1',
+          call_to_action: {
+            type: 'SHOP_NOW',
+            value: { link: 'https://fb.com/canvas_doc/canvas_1' },
+          },
+          retailer_item_ids: ['0', '0', '0', '0'],
+          post_click_configuration: {
+            post_click_item_headline: '{{product.name}}',
+          },
+        },
+      },
+    });
+    expect(result.preview.creative).not.toHaveProperty('product_set_id');
+    expect(result.preview.creative).not.toHaveProperty('omnichannel_link_spec');
+  });
+
   it('requires confirmation before creating any paused object', async () => {
     const client = createMockClient();
 

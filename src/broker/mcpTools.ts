@@ -2868,8 +2868,9 @@ function createCpasCatalogBundleInputSchema() {
       description: { type: 'string' },
       creativeFormat: {
         type: 'string',
-        enum: ['catalog', 'collection'],
-        description: 'Defaults to catalog. Collection membutuhkan properti collection.',
+        enum: ['catalog', 'catalog_single_image', 'catalog_carousel', 'catalog_video', 'collection'],
+        description:
+          'Defaults to catalog. catalog_single_image dan catalog_carousel tetap memakai produk dinamis; catalog_video membutuhkan video. Collection membutuhkan properti collection.',
       },
       collection: {
         type: 'object',
@@ -2880,6 +2881,20 @@ function createCpasCatalogBundleInputSchema() {
           coverVideoId: { type: 'string' },
         },
         required: ['instantExperienceId'],
+      },
+      video: {
+        type: 'object',
+        description:
+          'Wajib bila creativeFormat=catalog_video. Instant Experience harus sudah published dan videoId harus berasal dari object_story_spec.video_data creative CPAS yang valid.',
+        properties: {
+          videoId: { type: 'string' },
+          instantExperienceId: { type: 'string' },
+          retailerAppId: { type: 'string' },
+          retailerItemIds: { type: 'array', items: { type: 'string' } },
+          thumbnailImageHash: { type: 'string' },
+          thumbnailImageUrl: { type: 'string' },
+        },
+        required: ['videoId', 'instantExperienceId', 'retailerAppId'],
       },
       destinationUrl: { type: 'string' },
       templateUrl: { type: 'string' },

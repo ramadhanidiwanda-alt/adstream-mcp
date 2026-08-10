@@ -3,6 +3,43 @@ import { buildMetaCreativeFormatPayload } from '../src/providers/meta/buildCreat
 import { readNested } from './support/json.js';
 
 describe('buildMetaCreativeFormatPayload', () => {
+  it('builds the typed CPAS video retailer template without omnichannel fields', () => {
+    const payload = buildMetaCreativeFormatPayload({
+      mode: 'collaborative_ads',
+      pageId: 'page-1',
+      collaborativeProductSetId: 'product-set-1',
+      catalogOnly: true,
+      creativeFormat: 'video',
+      creativeSpec: {
+        videoId: 'video-1',
+        primaryText: 'Shop the catalog',
+        destinationUrl: 'https://fb.com/canvas_doc/canvas-1',
+        callToAction: 'SHOP_NOW',
+        retailerItemIds: ['0', '0', '0', '0'],
+        postClickConfiguration: {
+          itemHeadline: '{{product.name}}',
+          itemDescription: '{{product.current_price strip_zeros}}',
+        },
+        templateUrlSpec: { applicationId: 'retailer-app-1' },
+      },
+    });
+
+    expect(payload).toMatchObject({
+      template_url_spec: { config: { app_id: 'retailer-app-1' } },
+      object_story_spec: {
+        video_data: {
+          video_id: 'video-1',
+          retailer_item_ids: ['0', '0', '0', '0'],
+          post_click_configuration: {
+            post_click_item_headline: '{{product.name}}',
+          },
+        },
+      },
+    });
+    expect(payload).not.toHaveProperty('omnichannel_link_spec');
+    expect(payload).not.toHaveProperty('applink_treatment');
+  });
+
   it('builds an Awareness single image without an external URL or CTA', () => {
     expect(
       buildMetaCreativeFormatPayload({

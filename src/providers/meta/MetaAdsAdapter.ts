@@ -3542,7 +3542,13 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
         primaryText: String(params.primaryText ?? ''),
         headline: String(params.headline ?? ''),
         description: typeof params.description === 'string' ? params.description : undefined,
-        creativeFormat: params.creativeFormat === 'collection' ? 'collection' : 'catalog',
+        creativeFormat:
+          params.creativeFormat === 'collection' ||
+          params.creativeFormat === 'catalog_single_image' ||
+          params.creativeFormat === 'catalog_carousel' ||
+          params.creativeFormat === 'catalog_video'
+            ? params.creativeFormat
+            : 'catalog',
         collection:
           params.collection && typeof params.collection === 'object' && !Array.isArray(params.collection)
             ? {
@@ -3557,6 +3563,29 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
                 coverVideoId:
                   typeof params.collection.coverVideoId === 'string'
                     ? params.collection.coverVideoId
+                    : undefined,
+              }
+            : undefined,
+        video:
+          params.video && typeof params.video === 'object' && !Array.isArray(params.video)
+            ? {
+                videoId: typeof params.video.videoId === 'string' ? params.video.videoId : '',
+                instantExperienceId:
+                  typeof params.video.instantExperienceId === 'string'
+                    ? params.video.instantExperienceId
+                    : '',
+                retailerAppId:
+                  typeof params.video.retailerAppId === 'string' ? params.video.retailerAppId : '',
+                retailerItemIds: Array.isArray(params.video.retailerItemIds)
+                  ? params.video.retailerItemIds.filter((item): item is string => typeof item === 'string')
+                  : undefined,
+                thumbnailImageHash:
+                  typeof params.video.thumbnailImageHash === 'string'
+                    ? params.video.thumbnailImageHash
+                    : undefined,
+                thumbnailImageUrl:
+                  typeof params.video.thumbnailImageUrl === 'string'
+                    ? params.video.thumbnailImageUrl
                     : undefined,
               }
             : undefined,
@@ -4084,6 +4113,9 @@ const CREATIVE_SPEC_FIELDS: Record<MetaCreativeFormat, ReadonlySet<string>> = {
     'thumbnailImageUrl',
     'pageWelcomeMessage',
     'applinkTreatment',
+    'retailerItemIds',
+    'postClickConfiguration',
+    'templateUrlSpec',
   ]),
   carousel: new Set([...COMMON_CREATIVE_COPY_FIELDS, 'cards']),
   catalog: new Set([
@@ -4229,6 +4261,27 @@ function parseMetaCreativeSpec(
             spec.applinkTreatment,
             'creativeSpec.applinkTreatment'
           ),
+          retailerItemIds: optionalStringArray(spec.retailerItemIds, 'creativeSpec.retailerItemIds'),
+          postClickConfiguration: spec.postClickConfiguration
+            ? {
+                itemHeadline: requireString(
+                  requireRecord(spec.postClickConfiguration, 'creativeSpec.postClickConfiguration').itemHeadline,
+                  'creativeSpec.postClickConfiguration.itemHeadline'
+                ),
+                itemDescription: optionalString(
+                  requireRecord(spec.postClickConfiguration, 'creativeSpec.postClickConfiguration').itemDescription,
+                  'creativeSpec.postClickConfiguration.itemDescription'
+                ),
+              }
+            : undefined,
+          templateUrlSpec: spec.templateUrlSpec
+            ? {
+                applicationId: requireString(
+                  requireRecord(spec.templateUrlSpec, 'creativeSpec.templateUrlSpec').applicationId,
+                  'creativeSpec.templateUrlSpec.applicationId'
+                ),
+              }
+            : undefined,
         },
       };
     case 'carousel':

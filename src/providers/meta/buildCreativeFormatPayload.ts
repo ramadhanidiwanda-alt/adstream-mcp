@@ -389,10 +389,41 @@ function buildVideo(
   else if (thumbnailImageUrl) videoData.image_url = thumbnailImageUrl;
   if (headline) videoData.title = headline;
   if (pageWelcomeMessage) videoData.page_welcome_message = pageWelcomeMessage;
+  if (creativeSpec.retailerItemIds?.length) {
+    videoData.retailer_item_ids = creativeSpec.retailerItemIds.map((id) =>
+      required(id, 'retailerItemIds')
+    );
+  }
+  if (creativeSpec.postClickConfiguration) {
+    videoData.post_click_configuration = {
+      post_click_item_headline: required(
+        creativeSpec.postClickConfiguration.itemHeadline,
+        'postClickConfiguration.itemHeadline'
+      ),
+      ...(creativeSpec.postClickConfiguration.itemDescription?.trim()
+        ? {
+            post_click_item_description:
+              creativeSpec.postClickConfiguration.itemDescription.trim(),
+          }
+        : {}),
+    };
+  }
 
   const payload = withCollaborativeCatalogContext(
     input,
     {
+      ...(creativeSpec.templateUrlSpec
+        ? {
+            template_url_spec: {
+              config: {
+                app_id: required(
+                  creativeSpec.templateUrlSpec.applicationId,
+                  'templateUrlSpec.applicationId'
+                ),
+              },
+            },
+          }
+        : {}),
       object_story_spec: {
         page_id: required(input.pageId, 'pageId'),
         ...instagramIdentity(input),
@@ -667,10 +698,29 @@ function buildCatalog(
   if (templateUrl) templateData.template_url = templateUrl;
   if (fallbackImageHash) templateData.image_hash = fallbackImageHash;
 
+  if (creativeSpec.presentation === 'single_image') {
+    templateData.multi_share_end_card = true;
+    templateData.show_multiple_images = false;
+    templateData.force_single_link = true;
+  }
+  if (creativeSpec.presentation === 'carousel') {
+    templateData.multi_share_end_card = false;
+    templateData.show_multiple_images = false;
+  }
+
   return withCollaborativeCatalogContext(
     input,
     {
       product_set_id: productSetId,
+      ...(creativeSpec.presentation === 'carousel'
+        ? {
+            asset_feed_spec: {
+              bodies: [{ text: required(creativeSpec.primaryText, 'primaryText') }],
+              ad_formats: ['CAROUSEL', 'COLLECTION'],
+              optimization_type: 'FORMAT_AUTOMATION',
+            },
+          }
+        : {}),
       object_story_spec: {
         page_id: required(input.pageId, 'pageId'),
         ...instagramIdentity(input),
