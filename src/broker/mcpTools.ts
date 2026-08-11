@@ -2323,6 +2323,11 @@ function createCreateAdInputSchema() {
         description:
           'Meta: the creative ID to use for this ad. Not used for TikTok — use creatives instead.',
       },
+      sourceAdId: {
+        type: 'string',
+        description:
+          'Optional Ads Manager source ad ID for Meta. Sends source_ad_id together with creativeId, preserving CTWA composer context while attaching the requested creative. Use only with a reviewed source ad from the same account.',
+      },
       pixelId: {
         type: 'string',
         description:

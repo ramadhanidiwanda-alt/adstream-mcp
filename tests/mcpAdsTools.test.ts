@@ -298,6 +298,12 @@ describe('ads MCP broker tools', () => {
     });
   });
 
+  it('exposes sourceAdId on ads_create_ad for source-backed Meta composer context', () => {
+    const tool = ADS_MCP_TOOL_DEFINITIONS.find(({ name }) => name === 'ads_create_ad');
+    expect(tool).toBeDefined();
+    expect(tool?.inputSchema.properties).toHaveProperty('sourceAdId');
+  });
+
   it('exposes canonical objective and conversionLocation for objective-aware creatives', () => {
     const tool = ADS_MCP_TOOL_DEFINITIONS.find(({ name }) => name === 'ads_create_adcreative');
     const properties = tool?.inputSchema.properties as Record<string, unknown>;

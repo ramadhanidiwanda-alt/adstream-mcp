@@ -40,6 +40,22 @@ describe('createAd', () => {
     expect(mockMetaPost).not.toHaveBeenCalled();
   });
 
+  it('includes source_ad_id when an Ads Manager source ad supplies composer context', async () => {
+    const r = await createAd(mockClient, {
+      ...baseOpts,
+      sourceAdId: 'source-ad-123',
+    });
+
+    expect(r).toMatchObject({
+      status: 'dry_run',
+      preview: {
+        adset_id: 'as456',
+        source_ad_id: 'source-ad-123',
+      },
+    });
+    expect(JSON.parse(r.preview.creative as string)).toEqual({ creative_id: 'c789' });
+  });
+
   it('returns pending_confirmation when not confirmed', async () => {
     const r = await createAd(mockClient, baseOpts, { dryRun: false, confirmed: false });
     expect(r.status).toBe('pending_confirmation');

@@ -15,6 +15,12 @@ export interface CreateAdOptions {
   name: string;
   adSetId: string;
   creativeId: string;
+  /**
+   * Optional Ads Manager source ad. Meta uses this composer context for CTWA
+   * state that is not expressed by a standalone creative, while creativeId
+   * remains the creative attached to the new ad.
+   */
+  sourceAdId?: string;
   status?: AdStatus;
   /** Meta Pixel ID to attach as ad-level offsite conversion tracking_specs. */
   pixelId?: string;
@@ -346,6 +352,9 @@ function buildAdPayload(options: CreateAdOptions): Record<string, unknown> {
     creative: JSON.stringify({ creative_id: options.creativeId }),
     status: options.status ?? 'PAUSED',
   };
+
+  const sourceAdId = options.sourceAdId?.trim();
+  if (sourceAdId) payload.source_ad_id = sourceAdId;
 
   const trackingSpecs = options.trackingSpecs ?? buildPixelTrackingSpecs(options.pixelId);
   if (trackingSpecs) {

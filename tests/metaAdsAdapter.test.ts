@@ -2921,6 +2921,37 @@ describe('MetaAdsAdapter', () => {
     ]);
   });
 
+  it('forwards sourceAdId with creativeId to the Meta ad-create tool', async () => {
+    let receivedOptions: Record<string, unknown> | undefined;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        createAd: async (_client, options) => {
+          receivedOptions = options as unknown as Record<string, unknown>;
+          return { operation: 'create_ad', status: 'dry_run', executed: false, preview: {} };
+        },
+      },
+    });
+
+    const response = await adapter.createAd({
+      provider: 'meta',
+      accountId: 'act_2086409658377471',
+      params: {
+        name: 'Meena CTWA source-backed video',
+        adSetId: '120252412055710415',
+        creativeId: '1407381131537636',
+        sourceAdId: '120251883871090415',
+      },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    });
+
+    expect(response.ok).toBe(true);
+    expect(receivedOptions).toMatchObject({
+      creativeId: '1407381131537636',
+      sourceAdId: '120251883871090415',
+    });
+  });
+
   it('preserves completed IDs when the legacy bundle reports a later partial failure', async () => {
     const adapter = new MetaAdsAdapter({
       clientFactory: (config) => ({ config }) as never,
