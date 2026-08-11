@@ -450,7 +450,41 @@ describe('buildMetaCreativeFormatPayload', () => {
             app_destination: 'WHATSAPP',
           },
         },
-        page_welcome_message: '{"type":"VISUAL_EDITOR"}',
+        page_welcome_message: { type: 'VISUAL_EDITOR' },
+      },
+    });
+  });
+
+  it('wraps a plain direct-video CTWA welcome string in Meta VISUAL_EDITOR payload', () => {
+    const result = buildMetaCreativeFormatPayload({
+      mode: 'standard',
+      pageId: 'page-1',
+      creativeFormat: 'video',
+      creativeSpec: {
+        videoId: 'video-1',
+        thumbnailImageHash: 'thumb-1',
+        primaryText: 'Mid month sale',
+        destinationUrl: 'https://api.whatsapp.com/send',
+        callToAction: 'WHATSAPP_MESSAGE',
+        pageWelcomeMessage: 'Halo, saya ingin cek promo.',
+      },
+    });
+
+    expect(result.object_story_spec).toMatchObject({
+      video_data: {
+        page_welcome_message: {
+          type: 'VISUAL_EDITOR',
+          version: 2,
+          landing_screen_type: 'welcome_message',
+          media_type: 'text',
+          text_format: {
+            customer_action_type: 'autofill_message',
+            message: {
+              text: 'Halo, saya ingin cek promo.',
+              autofill_message: { content: 'Halo, saya ingin cek promo.' },
+            },
+          },
+        },
       },
     });
   });
