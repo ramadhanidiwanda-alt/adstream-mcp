@@ -66,7 +66,6 @@ const CLONE_FIELDS = [
   'promoted_object',
   'attribution_spec',
   'destination_type',
-  'is_dynamic_creative',
   'frequency_control_specs',
 ].join(',');
 
@@ -123,7 +122,6 @@ export function buildCloneAdSetPayload(
   if (source.destination_type && source.destination_type !== 'UNDEFINED') {
     payload.destination_type = source.destination_type;
   }
-  if (source.is_dynamic_creative) payload.is_dynamic_creative = source.is_dynamic_creative;
   if (source.frequency_control_specs) {
     payload.frequency_control_specs = source.frequency_control_specs;
   }

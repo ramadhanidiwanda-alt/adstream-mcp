@@ -93,6 +93,15 @@ describe('buildCloneAdSetPayload', () => {
     expect(payload.destination_type).toBeUndefined();
   });
 
+  it('does not copy Dynamic Creative from the source ad set', () => {
+    const payload = buildCloneAdSetPayload(
+      { ...source, is_dynamic_creative: true },
+      { adAccountId: 'act_1', sourceAdSetId: 'as_dynamic' }
+    );
+
+    expect(payload).not.toHaveProperty('is_dynamic_creative');
+  });
+
   it('lets an explicit dailyBudget override the source', () => {
     const payload = buildCloneAdSetPayload(
       { ...source, daily_budget: '10000' },

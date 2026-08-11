@@ -1182,7 +1182,10 @@ describe('buildMetaCreativeFormatPayload', () => {
     });
     expect(result).not.toHaveProperty('omnichannel_link_spec');
     expect(result).not.toHaveProperty('applink_treatment');
-    expect(result.object_story_spec.template_data.call_to_action).not.toHaveProperty('value');
+    const objectStorySpec = result.object_story_spec as Record<string, unknown>;
+    const templateData = objectStorySpec.template_data as Record<string, unknown>;
+    const callToAction = templateData.call_to_action as Record<string, unknown>;
+    expect(callToAction).not.toHaveProperty('value');
   });
 
   it('rejects mismatched collaborative product sets', () => {

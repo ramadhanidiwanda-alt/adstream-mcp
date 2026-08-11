@@ -132,19 +132,34 @@ export async function createAd(
     }
   }
 
-  if (!options.skipPlacementCompatibilityCheck) {
-    const placementCompatibilityError = await getPlacementCompatibilityError(
+  if (options.skipPlacementCompatibilityCheck) {
+    const dynamicCreativePolicyError = await getDynamicCreativePolicyError(
       client,
       options.adSetId,
       options.creativeId,
       maxRetries
     );
-    if (placementCompatibilityError) {
+    if (dynamicCreativePolicyError) {
       return {
         ...baseResult,
         status: 'failed',
         executed: false,
-        error: placementCompatibilityError,
+        error: dynamicCreativePolicyError,
+      };
+    }
+  } else {
+    const placementCompatibility = await getPlacementCompatibilityError(
+      client,
+      options.adSetId,
+      options.creativeId,
+      maxRetries
+    );
+    if (placementCompatibility) {
+      return {
+        ...baseResult,
+        status: 'failed',
+        executed: false,
+        error: placementCompatibility.message,
       };
     }
   }
@@ -228,7 +243,7 @@ async function getPlacementCompatibilityError(
   adSetId: string,
   creativeId: string,
   maxRetries: number
-): Promise<string | undefined> {
+): Promise<{ message: string; policyBlocked: boolean } | undefined> {
   const [adSet, creative] = await Promise.all([
     client.metaGetObject<Record<string, unknown>>(
       `/${adSetId}`,
@@ -247,9 +262,27 @@ async function getPlacementCompatibilityError(
     ? assetFeedSpec.asset_customization_rules.length > 0
     : false;
   const hasFlexibleMultiVariants = hasMultiVariantTextAssets(assetFeedSpec) && !hasPlacementRules;
+  const hasDynamicAssetFeed =
+    assetFeedSpec !== undefined &&
+    Object.keys(assetFeedSpec).length > 0 &&
+    !hasPlacementRules &&
+    !hasCatalogSignal(creative, assetFeedSpec);
 
-  if (adSet.is_dynamic_creative !== true && hasFlexibleMultiVariants) {
-    return 'Creative flexible multi-varian dengan beberapa primary text/headline tidak didukung untuk create baru di MCP ini. Jangan set Dynamic Creative untuk iklan normal; gunakan single_image/video/carousel biasa, buat beberapa manual creative/ad terpisah untuk variasi headline/caption/copy/image/video, atau gunakan placement customization dengan asset_customization_rules untuk media per placement.';
+  if (adSet.is_dynamic_creative === true) {
+    return {
+      message:
+        'Dynamic Creative ad set is disabled in this MCP. Create or use a normal manual ad set instead.',
+      policyBlocked: true,
+    };
+  }
+
+  if (hasDynamicAssetFeed) {
+    return {
+      message: hasFlexibleMultiVariants
+        ? 'Creative flexible multi-varian dengan beberapa primary text/headline tidak didukung untuk create baru di MCP ini. Jangan set Dynamic Creative untuk iklan normal; gunakan single_image/video/carousel biasa, buat beberapa manual creative/ad terpisah untuk variasi headline/caption/copy/image/video, atau gunakan placement customization dengan asset_customization_rules untuk media per placement.'
+        : 'Dynamic Creative/Flexible asset-feed ads are disabled in this MCP. Use separate manual ads, catalog or collection ads, or placement customization with asset_customization_rules instead.',
+      policyBlocked: true,
+    };
   }
 
   if (
@@ -257,10 +290,29 @@ async function getPlacementCompatibilityError(
     adSet.is_dynamic_creative !== true &&
     hasPlacementRules
   ) {
-    return 'Creative placement multi-ukuran via API tidak kompatibel dengan adset WhatsApp non-Dynamic Creative ini. Gunakan satu gambar via API atau atur media per placement secara manual di Ads Manager.';
+    return {
+      message:
+        'Creative placement multi-ukuran via API tidak kompatibel dengan adset WhatsApp non-Dynamic Creative ini. Gunakan satu gambar via API atau atur media per placement secara manual di Ads Manager.',
+      policyBlocked: false,
+    };
   }
 
   return undefined;
+}
+
+async function getDynamicCreativePolicyError(
+  client: MetaClient,
+  adSetId: string,
+  creativeId: string,
+  maxRetries: number
+): Promise<string | undefined> {
+  const placementCompatibility = await getPlacementCompatibilityError(
+    client,
+    adSetId,
+    creativeId,
+    maxRetries
+  );
+  return placementCompatibility?.policyBlocked ? placementCompatibility.message : undefined;
 }
 
 interface ExistingNamedAd extends Record<string, unknown> {
