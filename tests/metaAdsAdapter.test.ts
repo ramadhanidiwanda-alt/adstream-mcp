@@ -2876,7 +2876,7 @@ describe('MetaAdsAdapter', () => {
   });
 
   it('attaches image and video creatives to separate ads in the same ad set', async () => {
-    const adCreateCalls: Array<{ adsetId: string; creativeId: string }> = [];
+    const adCreateCalls: Array<{ adsetId: string; creativeId?: string }> = [];
     const adapter = new MetaAdsAdapter({
       clientFactory: (config) => ({ config }) as never,
       tools: {

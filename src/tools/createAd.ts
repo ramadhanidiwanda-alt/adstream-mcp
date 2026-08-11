@@ -10,11 +10,38 @@ import { getMessagingDestinationCompatibilityError } from '../providers/meta/mes
 
 export type AdStatus = 'ACTIVE' | 'PAUSED';
 
+export interface MultiMediaPlacementExclusion {
+  publisherPlatform: string;
+  positions: string[];
+}
+
+export interface MetaMultiMediaImage {
+  imageHash: string;
+  placementExclusions?: MultiMediaPlacementExclusion[];
+}
+
+/**
+ * Inline, non-Dynamic Meta multi-media creative. Meta stores the asset list in
+ * media_sourcing_spec, not asset_feed_spec, so a normal ad set can use it.
+ */
+export interface MetaMultiMediaAdOptions {
+  pageId: string;
+  instagramUserId?: string;
+  destinationUrl: string;
+  primaryImageHash: string;
+  primaryText?: string;
+  headline?: string;
+  callToAction: string;
+  images: MetaMultiMediaImage[];
+}
+
 export interface CreateAdOptions {
   adAccountId: string;
   name: string;
   adSetId: string;
-  creativeId: string;
+  creativeId?: string;
+  /** Inline Meta multi-media creative (2-10 images), mutually exclusive with creativeId. */
+  multiMedia?: MetaMultiMediaAdOptions;
   /**
    * Optional Ads Manager source ad. Meta uses this composer context for CTWA
    * state that is not expressed by a standalone creative, while creativeId
@@ -107,7 +134,7 @@ export async function createAd(
 
   // Pre-flight: an omnichannel ad set requires an omnichannel-ready creative.
   // Surface this during dry-run so the mismatch is caught before any ad is made.
-  if (!options.skipOmnichannelCheck) {
+  if (options.creativeId && !options.skipOmnichannelCheck) {
     const omnichannelError = await getOmnichannelCompatibilityError(
       client,
       options.adSetId,
@@ -121,7 +148,7 @@ export async function createAd(
 
   // Pre-flight: a click-to-message ad set needs a creative whose CTA opens the same
   // inbox. Meta accepts the mismatch and the ad runs with a button pointing elsewhere.
-  if (!options.skipMessagingDestinationCheck) {
+  if (options.creativeId && !options.skipMessagingDestinationCheck) {
     const messagingDestinationError = await getMessagingDestinationCompatibilityError(
       client,
       options.adSetId,
@@ -138,7 +165,7 @@ export async function createAd(
     }
   }
 
-  if (options.skipPlacementCompatibilityCheck) {
+  if (options.creativeId && options.skipPlacementCompatibilityCheck) {
     const dynamicCreativePolicyError = await getDynamicCreativePolicyError(
       client,
       options.adSetId,
@@ -153,7 +180,7 @@ export async function createAd(
         error: dynamicCreativePolicyError,
       };
     }
-  } else {
+  } else if (options.creativeId) {
     const placementCompatibility = await getPlacementCompatibilityError(
       client,
       options.adSetId,
@@ -170,7 +197,7 @@ export async function createAd(
     }
   }
 
-  if (!options.skipAdSetCreativeFamilyCheck) {
+  if (options.creativeId && !options.skipAdSetCreativeFamilyCheck) {
     const adSetCreativeFamilyError = await getAdSetCreativeFamilyCompatibilityError(
       client,
       options.adSetId,
@@ -346,10 +373,18 @@ async function findExistingAdByName(
 }
 
 function buildAdPayload(options: CreateAdOptions): Record<string, unknown> {
+  const hasCreativeId = Boolean(options.creativeId?.trim());
+  const hasMultiMedia = options.multiMedia !== undefined;
+  if (hasCreativeId === hasMultiMedia) {
+    throw new Error('Isi tepat satu dari creativeId atau multiMedia.');
+  }
+
   const payload: Record<string, unknown> = {
     name: options.name.trim(),
     adset_id: options.adSetId,
-    creative: JSON.stringify({ creative_id: options.creativeId }),
+    creative: JSON.stringify(
+      options.multiMedia ? buildMultiMediaCreative(options.multiMedia) : { creative_id: options.creativeId }
+    ),
     status: options.status ?? 'PAUSED',
   };
 
@@ -366,6 +401,76 @@ function buildAdPayload(options: CreateAdOptions): Record<string, unknown> {
   }
 
   return payload;
+}
+
+function buildMultiMediaCreative(options: MetaMultiMediaAdOptions): Record<string, unknown> {
+  const pageId = requiredString(options.pageId, 'multiMedia.pageId');
+  const primaryImageHash = requiredString(options.primaryImageHash, 'multiMedia.primaryImageHash');
+  const destinationUrl = requiredString(options.destinationUrl, 'multiMedia.destinationUrl');
+  const callToAction = requiredString(options.callToAction, 'multiMedia.callToAction');
+  if (options.images.length < 2 || options.images.length > 10) {
+    throw new Error('multiMedia.images harus berisi 2 sampai 10 gambar.');
+  }
+
+  const hashes = options.images.map((image) => requiredString(image.imageHash, 'multiMedia.images[].imageHash'));
+  if (!hashes.includes(primaryImageHash)) {
+    throw new Error('multiMedia.primaryImageHash harus tercantum di multiMedia.images.');
+  }
+  if (new Set(hashes).size !== hashes.length) {
+    throw new Error('multiMedia.images tidak boleh berisi imageHash duplikat.');
+  }
+
+  return {
+    object_story_spec: {
+      page_id: pageId,
+      ...(optionalString(options.instagramUserId) ? { instagram_user_id: options.instagramUserId!.trim() } : {}),
+      link_data: {
+        link: destinationUrl,
+        image_hash: primaryImageHash,
+        ...(optionalString(options.primaryText) ? { message: options.primaryText!.trim() } : {}),
+        ...(optionalString(options.headline) ? { name: options.headline!.trim() } : {}),
+        call_to_action: { type: callToAction },
+      },
+    },
+    media_sourcing_spec: {
+      images: options.images.map((image) => ({
+        hash: image.imageHash.trim(),
+        source: 'multi_media',
+        opt_in_status: 'opt_in',
+        ...(image.placementExclusions?.length
+          ? {
+              placement_customizations: image.placementExclusions.map((exclusion) => ({
+                publisher_platform: requiredString(
+                  exclusion.publisherPlatform,
+                  'multiMedia.images[].placementExclusions[].publisherPlatform'
+                ),
+                placement_exclusions: nonEmptyStrings(
+                  exclusion.positions,
+                  'multiMedia.images[].placementExclusions[].positions'
+                ),
+              })),
+            }
+          : {}),
+      })),
+    },
+  };
+}
+
+function requiredString(value: string | undefined, field: string): string {
+  const normalized = value?.trim();
+  if (!normalized) throw new Error(`${field} wajib diisi.`);
+  return normalized;
+}
+
+function optionalString(value: string | undefined): string | undefined {
+  const normalized = value?.trim();
+  return normalized || undefined;
+}
+
+function nonEmptyStrings(values: string[], field: string): string[] {
+  const normalized = values.map((value) => value.trim()).filter(Boolean);
+  if (normalized.length === 0) throw new Error(`${field} harus berisi minimal satu placement.`);
+  return normalized;
 }
 
 function buildPixelTrackingSpecs(

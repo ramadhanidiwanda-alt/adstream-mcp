@@ -1891,8 +1891,11 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
     const adSetId = typeof request.params.adSetId === 'string' ? request.params.adSetId : undefined;
     const creativeId =
       typeof request.params.creativeId === 'string' ? request.params.creativeId : undefined;
+    const multiMedia = isMultiMediaAdOptions(request.params.multiMedia)
+      ? request.params.multiMedia
+      : undefined;
 
-    if (!adAccountId || !name || !adSetId || !creativeId) {
+    if (!adAccountId || !name || !adSetId || (!creativeId && !multiMedia)) {
       return {
         ok: false,
         provider: 'meta',
@@ -1900,7 +1903,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
           {
             provider: 'meta',
             code: 'MISSING_REQUIRED_PARAMS',
-            message: 'accountId, name, adSetId, and creativeId are required',
+            message: 'accountId, name, adSetId, and exactly one of creativeId or multiMedia are required',
           },
         ],
       };
@@ -1915,6 +1918,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
           name,
           adSetId,
           creativeId,
+          multiMedia,
           sourceAdId:
             typeof request.params.sourceAdId === 'string' ? request.params.sourceAdId : undefined,
           status:
@@ -3935,6 +3939,18 @@ function partialPageWarningMeta(
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isMultiMediaAdOptions(
+  value: unknown
+): value is import('../../tools/createAd.js').MetaMultiMediaAdOptions {
+  if (!isRecord(value) || !Array.isArray(value.images)) return false;
+  return (
+    typeof value.pageId === 'string' &&
+    typeof value.destinationUrl === 'string' &&
+    typeof value.primaryImageHash === 'string' &&
+    typeof value.callToAction === 'string'
+  );
 }
 
 function isPlacementCustomizedAssetFeedSpec(value: unknown): boolean {
