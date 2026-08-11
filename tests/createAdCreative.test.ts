@@ -653,7 +653,7 @@ describe('createAdCreative', () => {
                 app_destination: 'WHATSAPP',
               },
             },
-            page_welcome_message: '{"type":"VISUAL_EDITOR"}',
+            page_welcome_message: { type: 'VISUAL_EDITOR' },
           },
         },
       },

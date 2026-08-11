@@ -103,6 +103,49 @@ function optionalWelcomeMessage(
 }
 
 /**
+ * Meta accepts a plain greeting when a video CTWA creative is created, but may
+ * reject the subsequent ad attachment with a generic code 2. Ads Manager's
+ * successful shape is a VISUAL_EDITOR object, so normalize the legacy string
+ * only for direct standard Click-to-WhatsApp video.
+ */
+function directVideoCtwaWelcomeMessage(
+  input: Extract<BuildMetaCreativeFormatPayloadInput, { creativeFormat: 'video' }>,
+  value: MetaPageWelcomeMessage | undefined
+): MetaPageWelcomeMessage | undefined {
+  const welcomeMessage = optionalWelcomeMessage(value, 'pageWelcomeMessage');
+  if (
+    typeof welcomeMessage !== 'string' ||
+    input.mode !== 'standard' ||
+    input.creativeSpec.callToAction?.trim() !== 'WHATSAPP_MESSAGE'
+  ) {
+    return welcomeMessage;
+  }
+
+  try {
+    const parsed = JSON.parse(welcomeMessage) as unknown;
+    if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+      return parsed as Record<string, unknown>;
+    }
+  } catch {
+    // A plain greeting is expected on the legacy API surface.
+  }
+
+  return {
+    type: 'VISUAL_EDITOR',
+    version: 2,
+    landing_screen_type: 'welcome_message',
+    media_type: 'text',
+    text_format: {
+      customer_action_type: 'autofill_message',
+      message: {
+        text: welcomeMessage,
+        autofill_message: { content: welcomeMessage },
+      },
+    },
+  };
+}
+
+/**
  * Click-to-message CTAs usually carry app_destination (or nothing at all). Existing
  * Instagram Direct posts are a narrower Graph API exception: Meta requires both
  * app_destination and link. Existing Click-to-WhatsApp posts also carry both, but
@@ -376,10 +419,7 @@ function buildVideo(
     ),
   };
   const headline = optional(creativeSpec.headline, 'headline');
-  const pageWelcomeMessage = optionalWelcomeMessage(
-    creativeSpec.pageWelcomeMessage,
-    'pageWelcomeMessage'
-  );
+  const pageWelcomeMessage = directVideoCtwaWelcomeMessage(input, creativeSpec.pageWelcomeMessage);
 
   // Meta requires exactly one of image_hash / image_url on video_data.
   // Prefer an explicit hash; fall back to a URL (e.g. the video's own
