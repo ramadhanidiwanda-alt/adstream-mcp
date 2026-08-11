@@ -22,7 +22,7 @@ describe('createAd', () => {
   };
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
     mockMetaGet.mockResolvedValue({ data: [] });
     mockMetaGetObject.mockImplementation(async (path: string) =>
       path === '/as456'
@@ -305,7 +305,7 @@ describe('createAd', () => {
     expect(mockMetaPost).not.toHaveBeenCalled();
   });
 
-  it('allows attaching another dynamic asset-feed creative to a dynamic-only ad set', async () => {
+  it('rejects a Dynamic Creative ad set even when it already contains only dynamic ads', async () => {
     const assetFeedSpec = {
       ad_formats: ['AUTOMATIC_FORMAT'],
       bodies: [{ text: 'Primary text A' }, { text: 'Primary text B' }],
@@ -319,20 +319,67 @@ describe('createAd', () => {
         ? { destination_type: 'WEBSITE', is_dynamic_creative: true }
         : { asset_feed_spec: assetFeedSpec }
     );
-    mockMetaGet.mockResolvedValueOnce({
-      data: [
-        {
-          id: 'existing_dynamic_ad_1',
-          name: 'Existing Dynamic Creative',
-          status: 'ACTIVE',
-          creative: { id: 'existing_creative_1', asset_feed_spec: assetFeedSpec },
-        },
-      ],
-    });
-
     const r = await createAd(mockClient, baseOpts);
 
-    expect(r.status).toBe('dry_run');
+    expect(r).toMatchObject({
+      status: 'failed',
+      executed: false,
+      error: expect.stringMatching(/Dynamic Creative ad set.*disabled/i),
+    });
+    expect(mockMetaPost).not.toHaveBeenCalled();
+  });
+
+  it('does not allow a compatibility-check bypass to attach a dynamic creative', async () => {
+    const dynamicAssetFeedSpec = {
+      ad_formats: ['AUTOMATIC_FORMAT'],
+      bodies: [{ text: 'Primary text A' }, { text: 'Primary text B' }],
+      titles: [{ text: 'Headline A' }, { text: 'Headline B' }],
+    };
+    mockMetaGetObject.mockImplementation(async (path: string) =>
+      path === '/as456'
+        ? { destination_type: 'WEBSITE', is_dynamic_creative: false }
+        : { asset_feed_spec: dynamicAssetFeedSpec }
+    );
+
+    const r = await createAd(mockClient, {
+      ...baseOpts,
+      skipPlacementCompatibilityCheck: true,
+      skipAdSetCreativeFamilyCheck: true,
+    });
+
+    expect(r).toMatchObject({
+      status: 'failed',
+      executed: false,
+      error: expect.stringMatching(/flexible.*multi-varian|multi-varian.*flexible/i),
+    });
+    expect(mockMetaPost).not.toHaveBeenCalled();
+  });
+
+  it('rejects a single-variant dynamic asset feed even when placement checks are skipped', async () => {
+    mockMetaGetObject.mockImplementation(async (path: string) =>
+      path === '/as456'
+        ? { destination_type: 'WEBSITE', is_dynamic_creative: false }
+        : {
+            asset_feed_spec: {
+              ad_formats: ['AUTOMATIC_FORMAT'],
+              bodies: [{ text: 'Only primary text' }],
+              titles: [{ text: 'Only headline' }],
+              images: [{ hash: 'image_hash_1' }, { hash: 'image_hash_2' }],
+            },
+          }
+    );
+
+    const r = await createAd(mockClient, {
+      ...baseOpts,
+      skipPlacementCompatibilityCheck: true,
+      skipAdSetCreativeFamilyCheck: true,
+    });
+
+    expect(r).toMatchObject({
+      status: 'failed',
+      executed: false,
+      error: expect.stringMatching(/Dynamic Creative\/Flexible.*disabled/i),
+    });
     expect(mockMetaPost).not.toHaveBeenCalled();
   });
 
