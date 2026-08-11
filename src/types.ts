@@ -425,6 +425,7 @@ export interface MetaCreativeVerificationSummary {
   hasDegreesOfFreedomSpec?: boolean;
   hasMediaSourcingSpec?: boolean;
   urlTagsStatus?: 'not_requested' | 'verified' | 'missing' | 'mismatch';
+  videoCtwaStatus?: 'not_requested' | 'verified' | 'missing_cta_link' | 'missing_welcome_message';
   placementImageCount?: number;
   placementRuleCount?: number;
   hasFeedPlacementRule?: boolean;

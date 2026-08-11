@@ -1915,6 +1915,8 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
           name,
           adSetId,
           creativeId,
+          sourceAdId:
+            typeof request.params.sourceAdId === 'string' ? request.params.sourceAdId : undefined,
           status:
             typeof request.params.status === 'string'
               ? (request.params.status as import('../../tools/createAd.js').AdStatus)
@@ -3500,7 +3502,9 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
     | { ok: true; payload: MetaCpasCatalogCampaignBundlePayload }
     | { ok: false; response: AdsBrokerResponse<never> } {
     const nestedParams =
-      request.params.params && typeof request.params.params === 'object' && !Array.isArray(request.params.params)
+      request.params.params &&
+      typeof request.params.params === 'object' &&
+      !Array.isArray(request.params.params)
         ? request.params.params
         : {};
     const params = {
@@ -3514,7 +3518,9 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
         response: {
           ok: false,
           provider: 'meta',
-          errors: [{ provider: 'meta', code: 'MISSING_ACCOUNT_ID', message: 'accountId is required' }],
+          errors: [
+            { provider: 'meta', code: 'MISSING_ACCOUNT_ID', message: 'accountId is required' },
+          ],
         },
       };
     }
@@ -3551,7 +3557,9 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
             ? params.creativeFormat
             : 'catalog',
         collection:
-          params.collection && typeof params.collection === 'object' && !Array.isArray(params.collection)
+          params.collection &&
+          typeof params.collection === 'object' &&
+          !Array.isArray(params.collection)
             ? {
                 instantExperienceId:
                   typeof params.collection.instantExperienceId === 'string'
@@ -3578,7 +3586,9 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
                 retailerAppId:
                   typeof params.video.retailerAppId === 'string' ? params.video.retailerAppId : '',
                 retailerItemIds: Array.isArray(params.video.retailerItemIds)
-                  ? params.video.retailerItemIds.filter((item): item is string => typeof item === 'string')
+                  ? params.video.retailerItemIds.filter(
+                      (item): item is string => typeof item === 'string'
+                    )
                   : undefined,
                 thumbnailImageHash:
                   typeof params.video.thumbnailImageHash === 'string'
@@ -3596,9 +3606,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
           !Array.isArray(params.hybridVideo)
             ? {
                 videoId:
-                  typeof params.hybridVideo.videoId === 'string'
-                    ? params.hybridVideo.videoId
-                    : '',
+                  typeof params.hybridVideo.videoId === 'string' ? params.hybridVideo.videoId : '',
                 thumbnailUrl:
                   typeof params.hybridVideo.thumbnailUrl === 'string'
                     ? params.hybridVideo.thumbnailUrl
@@ -4240,7 +4248,7 @@ function parseMetaCreativeSpec(
           headline: optionalString(spec.headline, 'creativeSpec.headline'),
           description: optionalString(spec.description, 'creativeSpec.description'),
           callToAction: optionalString(spec.callToAction, 'creativeSpec.callToAction'),
-          pageWelcomeMessage: optionalString(
+          pageWelcomeMessage: optionalPageWelcomeMessage(
             spec.pageWelcomeMessage,
             'creativeSpec.pageWelcomeMessage'
           ),
@@ -4269,7 +4277,7 @@ function parseMetaCreativeSpec(
           headline: optionalString(spec.headline, 'creativeSpec.headline'),
           description: optionalString(spec.description, 'creativeSpec.description'),
           callToAction: optionalString(spec.callToAction, 'creativeSpec.callToAction'),
-          pageWelcomeMessage: optionalString(
+          pageWelcomeMessage: optionalPageWelcomeMessage(
             spec.pageWelcomeMessage,
             'creativeSpec.pageWelcomeMessage'
           ),
@@ -4277,15 +4285,20 @@ function parseMetaCreativeSpec(
             spec.applinkTreatment,
             'creativeSpec.applinkTreatment'
           ),
-          retailerItemIds: optionalStringArray(spec.retailerItemIds, 'creativeSpec.retailerItemIds'),
+          retailerItemIds: optionalStringArray(
+            spec.retailerItemIds,
+            'creativeSpec.retailerItemIds'
+          ),
           postClickConfiguration: spec.postClickConfiguration
             ? {
                 itemHeadline: requireString(
-                  requireRecord(spec.postClickConfiguration, 'creativeSpec.postClickConfiguration').itemHeadline,
+                  requireRecord(spec.postClickConfiguration, 'creativeSpec.postClickConfiguration')
+                    .itemHeadline,
                   'creativeSpec.postClickConfiguration.itemHeadline'
                 ),
                 itemDescription: optionalString(
-                  requireRecord(spec.postClickConfiguration, 'creativeSpec.postClickConfiguration').itemDescription,
+                  requireRecord(spec.postClickConfiguration, 'creativeSpec.postClickConfiguration')
+                    .itemDescription,
                   'creativeSpec.postClickConfiguration.itemDescription'
                 ),
               }

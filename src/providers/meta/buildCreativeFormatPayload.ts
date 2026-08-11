@@ -368,11 +368,10 @@ function buildVideo(
   const videoData: Record<string, unknown> = {
     video_id: required(creativeSpec.videoId, 'videoId'),
     message: required(creativeSpec.primaryText, 'primaryText'),
-    call_to_action: cta(
+    call_to_action: videoCta(
       creativeSpec.callToAction,
       destinationUrl,
       input.collaborativeAppSpec,
-      undefined,
       input.standardAppSpec
     ),
   };
@@ -402,8 +401,7 @@ function buildVideo(
       ),
       ...(creativeSpec.postClickConfiguration.itemDescription?.trim()
         ? {
-            post_click_item_description:
-              creativeSpec.postClickConfiguration.itemDescription.trim(),
+            post_click_item_description: creativeSpec.postClickConfiguration.itemDescription.trim(),
           }
         : {}),
     };
@@ -437,6 +435,30 @@ function buildVideo(
     withDirectOmnichannelLinkFields(input, payload, destinationUrl, creativeSpec.applinkTreatment),
     input.optOutEnhancements
   );
+}
+
+/**
+ * Regular video Click-to-WhatsApp creatives are the exception to the generic
+ * messaging-CTA shape. Meta's persisted video_data requires the canonical send
+ * link and WhatsApp app destination; omitting either can create a creative that
+ * cannot attach to a WhatsApp CONVERSATIONS ad set (subcode 1487891).
+ */
+function videoCta(
+  type: string | undefined,
+  destinationUrl: string,
+  collaborativeAppSpec?: MetaCollaborativeAppSpec,
+  standardAppSpec?: MetaStandardAppSpec
+): Record<string, unknown> {
+  if (type?.trim() === 'WHATSAPP_MESSAGE' && !collaborativeAppSpec && !standardAppSpec) {
+    return {
+      type: 'WHATSAPP_MESSAGE',
+      value: {
+        link: WHATSAPP_SEND_URL,
+        app_destination: 'WHATSAPP',
+      },
+    };
+  }
+  return cta(type, destinationUrl, collaborativeAppSpec, undefined, standardAppSpec);
 }
 
 function resolveLeadFormId(creativeSpec: {
@@ -690,10 +712,9 @@ function buildCatalog(
   if (description) templateData.description = description;
   if (destinationUrl) {
     templateData.link = destinationUrl;
-    templateData.call_to_action =
-      input.catalogOnly
-        ? { type: creativeSpec.callToAction?.trim() || 'SHOP_NOW' }
-        : cta(creativeSpec.callToAction, destinationUrl, input.collaborativeAppSpec);
+    templateData.call_to_action = input.catalogOnly
+      ? { type: creativeSpec.callToAction?.trim() || 'SHOP_NOW' }
+      : cta(creativeSpec.callToAction, destinationUrl, input.collaborativeAppSpec);
   }
   if (templateUrl) templateData.template_url = templateUrl;
   if (fallbackImageHash) templateData.image_hash = fallbackImageHash;

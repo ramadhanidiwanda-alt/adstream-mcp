@@ -856,6 +856,12 @@ const createAdInputSchema = {
     .describe(
       'Meta: the creative ID to use for this ad. Not used for TikTok — use creatives instead.'
     ),
+  sourceAdId: z
+    .string()
+    .optional()
+    .describe(
+      'Optional Ads Manager source ad ID for Meta. Sends source_ad_id together with creativeId to preserve CTWA composer context.'
+    ),
   pixelId: z
     .string()
     .optional()

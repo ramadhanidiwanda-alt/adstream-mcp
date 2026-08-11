@@ -279,9 +279,9 @@ const MATRIX: Record<MetaObjectiveLaunchSpec['key'], MetaObjectiveLaunchMatrixRo
    * resolved to engagement_post with destinationType ON_POST — boosting likes and
    * comments, not opening a conversation.
    *
-   * An existing post carries its own media and copy, and a messaging CTA carries no
-   * link, so this row asks for neither creativeAsset/primaryText/headline nor
-   * destinationUrl. messagingDestination decides which inbox opens.
+   * Existing-post creatives carry their own media and copy, but direct image/video
+   * CTWA creatives require the canonical WhatsApp send URL in their CTA payload.
+   * The existing-post builder remains the explicit exception that may omit it.
    */
   engagement_messaging: {
     key: 'engagement_messaging',
@@ -292,7 +292,7 @@ const MATRIX: Record<MetaObjectiveLaunchSpec['key'], MetaObjectiveLaunchMatrixRo
     billingEvent: 'IMPRESSIONS',
     // Replaced with the resolved messagingDestination; there is no single default.
     destinationType: undefined,
-    destinationMode: 'NONE',
+    destinationMode: 'EXTERNAL_URL',
     promotedObjectKind: 'page',
     requiredInputs: [
       'pageId',
