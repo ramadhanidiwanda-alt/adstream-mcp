@@ -199,6 +199,24 @@ describe('Meta objective launch matrix', () => {
     });
   });
 
+  it('resolves Engagement WhatsApp video to a destination-backed CTWA creative', () => {
+    expect(
+      resolveMetaObjectiveLaunchSpec({
+        objective: 'OUTCOME_ENGAGEMENT',
+        conversionLocation: 'MESSAGING',
+        messagingDestination: 'WHATSAPP',
+        creativeFormat: 'video',
+        apiVersion: 'v25.0',
+      })
+    ).toMatchObject({
+      key: 'engagement_messaging',
+      optimizationGoal: 'CONVERSATIONS',
+      destinationType: 'WHATSAPP',
+      destinationMode: 'EXTERNAL_URL',
+      defaultCallToAction: 'WHATSAPP_MESSAGE',
+    });
+  });
+
   it('does not offer flexible Dynamic Creative for website launch workflows', () => {
     const salesSpec = resolveMetaObjectiveLaunchSpec({
       objective: 'OUTCOME_SALES',

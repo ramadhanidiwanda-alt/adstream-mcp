@@ -613,6 +613,50 @@ describe('createAdCreative', () => {
     expect(mockMetaPost).not.toHaveBeenCalled();
   });
 
+  it('keeps CTA, welcome message, and title for an objective-aware Engagement WhatsApp video', async () => {
+    const result = await createAdCreative(mockClient, {
+      adAccountId: 'act_1',
+      name: 'Direct video CTWA',
+      pageId: 'page-1',
+      instagramUserId: 'ig-1',
+      objective: 'OUTCOME_ENGAGEMENT',
+      conversionLocation: 'MESSAGING',
+      messagingDestination: 'WHATSAPP',
+      creative: {
+        creativeFormat: 'video',
+        creativeSpec: {
+          videoId: 'video-1',
+          thumbnailImageHash: 'thumb-1',
+          primaryText: 'Chat dengan kami',
+          headline: 'Video CTWA',
+          destinationUrl: 'https://api.whatsapp.com/send',
+          pageWelcomeMessage: '{"type":"VISUAL_EDITOR"}',
+        },
+      },
+    });
+
+    expect(result).toMatchObject({
+      status: 'dry_run',
+      preview: {
+        object_story_spec: {
+          page_id: 'page-1',
+          instagram_user_id: 'ig-1',
+          video_data: {
+            video_id: 'video-1',
+            image_hash: 'thumb-1',
+            message: 'Chat dengan kami',
+            title: 'Video CTWA',
+            call_to_action: {
+              type: 'WHATSAPP_MESSAGE',
+              value: { link: 'https://api.whatsapp.com/send' },
+            },
+            page_welcome_message: '{"type":"VISUAL_EDITOR"}',
+          },
+        },
+      },
+    });
+  });
+
   it('allows existing_post to omit pageId', async () => {
     const result = await createAdCreative(mockClient, {
       adAccountId: 'act_1',
