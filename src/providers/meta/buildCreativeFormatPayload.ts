@@ -440,8 +440,8 @@ function buildVideo(
 /**
  * Regular video Click-to-WhatsApp creatives are the exception to the generic
  * messaging-CTA shape. Meta's persisted video_data requires the canonical send
- * link; omitting it creates a creative that cannot attach to a WhatsApp
- * CONVERSATIONS ad set (subcode 1487891).
+ * link and WhatsApp app destination; omitting either can create a creative that
+ * cannot attach to a WhatsApp CONVERSATIONS ad set (subcode 1487891).
  */
 function videoCta(
   type: string | undefined,
@@ -452,7 +452,10 @@ function videoCta(
   if (type?.trim() === 'WHATSAPP_MESSAGE' && !collaborativeAppSpec && !standardAppSpec) {
     return {
       type: 'WHATSAPP_MESSAGE',
-      value: { link: WHATSAPP_SEND_URL },
+      value: {
+        link: WHATSAPP_SEND_URL,
+        app_destination: 'WHATSAPP',
+      },
     };
   }
   return cta(type, destinationUrl, collaborativeAppSpec, undefined, standardAppSpec);

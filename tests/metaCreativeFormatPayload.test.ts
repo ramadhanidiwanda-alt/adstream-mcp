@@ -445,7 +445,10 @@ describe('buildMetaCreativeFormatPayload', () => {
       video_data: {
         call_to_action: {
           type: 'WHATSAPP_MESSAGE',
-          value: { link: 'https://api.whatsapp.com/send' },
+          value: {
+            link: 'https://api.whatsapp.com/send',
+            app_destination: 'WHATSAPP',
+          },
         },
         page_welcome_message: '{"type":"VISUAL_EDITOR"}',
       },
