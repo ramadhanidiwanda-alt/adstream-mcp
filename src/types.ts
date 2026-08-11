@@ -81,6 +81,8 @@ export interface MetaMultiMediaAdOptions {
   headline?: string;
   description?: string;
   callToAction: string;
+  /** Preserved verbatim on CTWA multi-media creatives. */
+  pageWelcomeMessage?: MetaPageWelcomeMessage;
   images: MetaMultiMediaImage[];
 }
 

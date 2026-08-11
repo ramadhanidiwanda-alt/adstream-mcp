@@ -944,7 +944,7 @@ export interface UpdateAdSetResult {
 export type UpdateAdStatus = 'dry_run' | 'pending_confirmation' | 'executed' | 'failed';
 
 export interface UpdateAdResult {
-  operation: 'update_ad';
+  operation: 'update_ad' | 'replace_ad_media';
   status: UpdateAdStatus;
   executed: boolean;
   preview: Record<string, unknown>;
@@ -954,6 +954,16 @@ export interface UpdateAdResult {
   error?: string;
   structuredError?: StructuredMutationError;
   confirmedCreativeId?: string;
+  createdCreativeId?: string;
+  verification?: {
+    status: 'verified' | 'unverified';
+    expectedImageHashes: string[];
+    confirmedImageHashes: string[];
+    placementExclusionsVerified: boolean;
+    pageWelcomeMessageVerified: boolean;
+  };
+  adPausedForVerification?: boolean;
+  ambiguousCreativeCreation?: boolean;
 }
 
 export type UpdateCampaignStatus = 'dry_run' | 'pending_confirmation' | 'executed' | 'failed';
