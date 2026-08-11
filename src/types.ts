@@ -81,6 +81,14 @@ export interface MetaVideoCreativeSpec extends MetaCreativeCopy {
   thumbnailImageUrl?: string;
   pageWelcomeMessage?: MetaPageWelcomeMessage;
   applinkTreatment?: MetaApplinkTreatment;
+  /** CPAS video metadata used by Meta to render the post-click catalog products. */
+  retailerItemIds?: string[];
+  postClickConfiguration?: {
+    itemHeadline: string;
+    itemDescription?: string;
+  };
+  /** Retailer app configuration required by the CPAS video template. */
+  templateUrlSpec?: { applicationId: string };
 }
 
 export interface MetaCarouselCard {
@@ -99,6 +107,13 @@ export interface MetaCatalogCreativeSpec extends MetaCreativeCopy {
   productSetId: string;
   templateUrl?: string;
   fallbackImageHash?: string;
+  /**
+   * Catalog rendering requested from Meta. These are dynamic catalog templates,
+   * not manually supplied image or carousel-card creatives.
+   */
+  presentation?: 'single_image' | 'carousel' | 'video_carousel';
+  /** Required only for the catalog video-carousel hybrid presentation. */
+  hybridVideo?: { videoId: string; thumbnailUrl: string };
 }
 
 export interface MetaCollectionCreativeSpec extends MetaCreativeCopy {
@@ -226,8 +241,12 @@ export type MetaCreativeSpec =
 
 export interface MetaCollaborativeCatalogContext {
   productSetId: string;
+  productCatalogId?: string;
   pixelId?: string;
   customEventType?: string;
+  /** Meta CPAS catalog variation returned by working catalog ad sets. */
+  variation?: 'PRODUCT_SET_AND_OMNICHANNEL';
+  smartPseEnabled?: boolean;
   destinationUrl?: string;
   applicationId?: string;
   objectStoreUrls?: string[];

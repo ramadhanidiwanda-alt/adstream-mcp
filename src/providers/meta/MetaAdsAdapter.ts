@@ -57,6 +57,7 @@ import { resumeCampaign as resumeCampaignTool } from '../../tools/resumeCampaign
 import { updateCampaignBudget as updateCampaignBudgetTool } from '../../tools/updateCampaignBudget.js';
 import { renameCampaign as renameCampaignTool } from '../../tools/renameCampaign.js';
 import { createEcommerceCampaignBundle as createEcommerceCampaignBundleTool } from '../../tools/createEcommerceCampaignBundle.js';
+import { createCpasCatalogCampaignBundle as createCpasCatalogCampaignBundleTool } from '../../tools/createCpasCatalogCampaignBundle.js';
 import { createCampaign as createCampaignTool } from '../../tools/createCampaign.js';
 import { createAdSet as createAdSetTool } from '../../tools/createAdSet.js';
 import { createAdCreative as createAdCreativeTool } from '../../tools/createAdCreative.js';
@@ -78,6 +79,10 @@ import type {
   EcommerceCampaignBundlePayload as MetaEcommerceCampaignBundlePayload,
   EcommerceCampaignBundleResult,
 } from '../../tools/createEcommerceCampaignBundle.js';
+import type {
+  CpasCatalogCampaignBundlePayload as MetaCpasCatalogCampaignBundlePayload,
+  CpasCatalogCampaignBundleResult,
+} from '../../tools/createCpasCatalogCampaignBundle.js';
 import type {
   CreateCampaignResult,
   CreateAdSetResult,
@@ -282,6 +287,11 @@ export interface MetaAdsAdapterTools {
     payload: MetaEcommerceCampaignBundlePayload,
     options?: { dryRun?: boolean; confirmed?: boolean; maxRetries?: number }
   ): Promise<EcommerceCampaignBundleResult>;
+  createCpasCatalogCampaignBundle(
+    client: MetaClient,
+    payload: MetaCpasCatalogCampaignBundlePayload,
+    options?: { dryRun?: boolean; confirmed?: boolean; maxRetries?: number }
+  ): Promise<CpasCatalogCampaignBundleResult>;
   createCampaign(
     client: MetaClient,
     options: import('../../tools/createCampaign.js').CreateCampaignOptions,
@@ -461,6 +471,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       updateCampaign: updateCampaignTool,
       getTargetingOptions: getTargetingOptionsTool,
       createEcommerceCampaignBundle: createEcommerceCampaignBundleTool,
+      createCpasCatalogCampaignBundle: createCpasCatalogCampaignBundleTool,
       uploadImage: uploadImageTool,
       uploadVideo: uploadVideoTool,
       listAdImages,
@@ -2468,6 +2479,25 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
     }
   }
 
+  async createCpasCatalogCampaignBundle(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<CpasCatalogCampaignBundleResult>> {
+    const context = this.getCredentialContext(request);
+    if (!context.ok) return context.response;
+    const payload = this.getCpasCatalogCampaignBundlePayload(request, context.credential);
+    if (!payload.ok) return payload.response;
+    try {
+      const client = this.createClient(context.credential);
+      const result = await this.tools.createCpasCatalogCampaignBundle(client, payload.payload, {
+        dryRun: request.params.dryRun !== false,
+        confirmed: request.params.confirmed === true,
+      });
+      return { ok: result.status !== 'failed', provider: 'meta', data: result };
+    } catch (error) {
+      return this.writeErrorResponse(error);
+    }
+  }
+
   async uploadImage(request: AdsBrokerRequest): Promise<AdsBrokerResponse<ImageUploadResult>> {
     const context = this.getCredentialContext(request);
     if (!context.ok) return context.response;
@@ -3463,6 +3493,136 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
     };
   }
 
+  private getCpasCatalogCampaignBundlePayload(
+    request: AdsBrokerRequest,
+    credential: CredentialContext
+  ):
+    | { ok: true; payload: MetaCpasCatalogCampaignBundlePayload }
+    | { ok: false; response: AdsBrokerResponse<never> } {
+    const nestedParams =
+      request.params.params && typeof request.params.params === 'object' && !Array.isArray(request.params.params)
+        ? request.params.params
+        : {};
+    const params = {
+      ...request.params,
+      ...nestedParams,
+    } as Partial<MetaCpasCatalogCampaignBundlePayload>;
+    const adAccountId = request.accountId ?? credential.accountId;
+    if (!adAccountId) {
+      return {
+        ok: false,
+        response: {
+          ok: false,
+          provider: 'meta',
+          errors: [{ provider: 'meta', code: 'MISSING_ACCOUNT_ID', message: 'accountId is required' }],
+        },
+      };
+    }
+    return {
+      ok: true,
+      payload: {
+        adAccountId,
+        campaignName: String(params.campaignName ?? ''),
+        adSetName: String(params.adSetName ?? ''),
+        adName: String(params.adName ?? ''),
+        pageId: String(params.pageId ?? ''),
+        productSetId: String(params.productSetId ?? ''),
+        pixelId: typeof params.pixelId === 'string' ? params.pixelId : undefined,
+        destinationMode:
+          params.destinationMode === 'app_omnichannel' ? 'app_omnichannel' : 'catalog_web',
+        collaborativeAppSpec: parseCollaborativeAppSpec(params.collaborativeAppSpec),
+        objectStoreUrls: Array.isArray(params.objectStoreUrls)
+          ? params.objectStoreUrls.filter((url): url is string => typeof url === 'string')
+          : [],
+        customEventType: params.customEventType,
+        dailyBudget: Number(params.dailyBudget),
+        countries: Array.isArray(params.countries)
+          ? params.countries.filter((country): country is string => typeof country === 'string')
+          : [],
+        primaryText: String(params.primaryText ?? ''),
+        headline: String(params.headline ?? ''),
+        description: typeof params.description === 'string' ? params.description : undefined,
+        creativeFormat:
+          params.creativeFormat === 'collection' ||
+          params.creativeFormat === 'catalog_single_image' ||
+          params.creativeFormat === 'catalog_carousel' ||
+          params.creativeFormat === 'catalog_video' ||
+          params.creativeFormat === 'catalog_video_carousel'
+            ? params.creativeFormat
+            : 'catalog',
+        collection:
+          params.collection && typeof params.collection === 'object' && !Array.isArray(params.collection)
+            ? {
+                instantExperienceId:
+                  typeof params.collection.instantExperienceId === 'string'
+                    ? params.collection.instantExperienceId
+                    : '',
+                coverImageHash:
+                  typeof params.collection.coverImageHash === 'string'
+                    ? params.collection.coverImageHash
+                    : undefined,
+                coverVideoId:
+                  typeof params.collection.coverVideoId === 'string'
+                    ? params.collection.coverVideoId
+                    : undefined,
+              }
+            : undefined,
+        video:
+          params.video && typeof params.video === 'object' && !Array.isArray(params.video)
+            ? {
+                videoId: typeof params.video.videoId === 'string' ? params.video.videoId : '',
+                instantExperienceId:
+                  typeof params.video.instantExperienceId === 'string'
+                    ? params.video.instantExperienceId
+                    : '',
+                retailerAppId:
+                  typeof params.video.retailerAppId === 'string' ? params.video.retailerAppId : '',
+                retailerItemIds: Array.isArray(params.video.retailerItemIds)
+                  ? params.video.retailerItemIds.filter((item): item is string => typeof item === 'string')
+                  : undefined,
+                thumbnailImageHash:
+                  typeof params.video.thumbnailImageHash === 'string'
+                    ? params.video.thumbnailImageHash
+                    : undefined,
+                thumbnailImageUrl:
+                  typeof params.video.thumbnailImageUrl === 'string'
+                    ? params.video.thumbnailImageUrl
+                    : undefined,
+              }
+            : undefined,
+        hybridVideo:
+          params.hybridVideo &&
+          typeof params.hybridVideo === 'object' &&
+          !Array.isArray(params.hybridVideo)
+            ? {
+                videoId:
+                  typeof params.hybridVideo.videoId === 'string'
+                    ? params.hybridVideo.videoId
+                    : '',
+                thumbnailUrl:
+                  typeof params.hybridVideo.thumbnailUrl === 'string'
+                    ? params.hybridVideo.thumbnailUrl
+                    : '',
+              }
+            : undefined,
+        destinationUrl: String(params.destinationUrl ?? ''),
+        templateUrl: typeof params.templateUrl === 'string' ? params.templateUrl : undefined,
+        fallbackImageHash:
+          typeof params.fallbackImageHash === 'string' ? params.fallbackImageHash : undefined,
+        callToAction: params.callToAction,
+        ageMin: typeof params.ageMin === 'number' ? params.ageMin : undefined,
+        ageMax: typeof params.ageMax === 'number' ? params.ageMax : undefined,
+        publisherPlatforms: Array.isArray(params.publisherPlatforms)
+          ? params.publisherPlatforms.filter((value): value is string => typeof value === 'string')
+          : undefined,
+        instagramUserId:
+          typeof params.instagramUserId === 'string' ? params.instagramUserId : undefined,
+        threadsProfileId:
+          typeof params.threadsProfileId === 'string' ? params.threadsProfileId : undefined,
+      },
+    };
+  }
+
   private getEntityId(request: AdsBrokerRequest): string | undefined {
     return typeof request.params.campaignId === 'string' ? request.params.campaignId : undefined;
   }
@@ -3969,6 +4129,9 @@ const CREATIVE_SPEC_FIELDS: Record<MetaCreativeFormat, ReadonlySet<string>> = {
     'thumbnailImageUrl',
     'pageWelcomeMessage',
     'applinkTreatment',
+    'retailerItemIds',
+    'postClickConfiguration',
+    'templateUrlSpec',
   ]),
   carousel: new Set([...COMMON_CREATIVE_COPY_FIELDS, 'cards']),
   catalog: new Set([
@@ -4114,6 +4277,27 @@ function parseMetaCreativeSpec(
             spec.applinkTreatment,
             'creativeSpec.applinkTreatment'
           ),
+          retailerItemIds: optionalStringArray(spec.retailerItemIds, 'creativeSpec.retailerItemIds'),
+          postClickConfiguration: spec.postClickConfiguration
+            ? {
+                itemHeadline: requireString(
+                  requireRecord(spec.postClickConfiguration, 'creativeSpec.postClickConfiguration').itemHeadline,
+                  'creativeSpec.postClickConfiguration.itemHeadline'
+                ),
+                itemDescription: optionalString(
+                  requireRecord(spec.postClickConfiguration, 'creativeSpec.postClickConfiguration').itemDescription,
+                  'creativeSpec.postClickConfiguration.itemDescription'
+                ),
+              }
+            : undefined,
+          templateUrlSpec: spec.templateUrlSpec
+            ? {
+                applicationId: requireString(
+                  requireRecord(spec.templateUrlSpec, 'creativeSpec.templateUrlSpec').applicationId,
+                  'creativeSpec.templateUrlSpec.applicationId'
+                ),
+              }
+            : undefined,
         },
       };
     case 'carousel':

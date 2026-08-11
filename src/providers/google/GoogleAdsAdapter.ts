@@ -16,6 +16,7 @@ import type {
   UpdateAdResult,
   UpdateCampaignResult,
   EcommerceCampaignBundleResult,
+  CpasCatalogCampaignBundleResult,
   AdsProviderAdapter,
   VideoSourceResult,
   AdCreativeMappingResult,
@@ -208,6 +209,12 @@ export class GoogleAdsAdapter implements AdsProviderAdapter {
     _request: AdsBrokerRequest
   ): Promise<AdsBrokerResponse<EcommerceCampaignBundleResult>> {
     return this.notImplemented('Google Ads ecommerce launch bundle is not implemented yet');
+  }
+
+  async createCpasCatalogCampaignBundle(
+    _request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<CpasCatalogCampaignBundleResult>> {
+    return this.notImplemented('CPAS catalog bundle is only supported by Meta Ads');
   }
 
   async uploadImage(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<ImageUploadResult>> {

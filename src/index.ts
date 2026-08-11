@@ -37,6 +37,16 @@ export type {
   EcommerceLaunchStatus,
   MetaEcommerceCallToActionType,
 } from './tools/createEcommerceCampaignBundle.js';
+export { createCpasCatalogCampaignBundle } from './tools/createCpasCatalogCampaignBundle.js';
+export type {
+  CpasCatalogBundleStatus,
+  CpasCatalogCampaignBundleOptions,
+  CpasCatalogCampaignBundlePayload,
+  CpasCatalogCampaignBundlePreview,
+  CpasCatalogCampaignBundleResult,
+  CpasCatalogCollectionSpec,
+  CpasCatalogCreativeFormat,
+} from './tools/createCpasCatalogCampaignBundle.js';
 
 export { createCampaign } from './tools/createCampaign.js';
 export type {

@@ -498,7 +498,7 @@ export async function createAdSet(
         });
         preview.billing_event = launchSpec.billingEvent;
         preview.optimization_goal = launchSpec.optimizationGoal;
-        if (launchSpec.destinationType !== undefined) {
+        if (launchSpec.destinationType !== undefined && options.destinationType === undefined) {
           preview.destination_type = launchSpec.destinationType;
         }
         if (options.promotedObject === undefined) {
@@ -831,22 +831,29 @@ function buildCollaborativePromotedObject(
   catalog: MetaCollaborativeCatalogContext
 ): Record<string, unknown> {
   const productSetId = catalog.productSetId.trim();
+  const productCatalogId = catalog.productCatalogId?.trim();
   const pixelId = catalog.pixelId?.trim();
   const customEventType = catalog.customEventType?.trim();
+  const variation = catalog.variation?.trim();
+  const smartPseEnabled = catalog.smartPseEnabled;
   const applicationId = catalog.applicationId?.trim();
   const objectStoreUrls = (catalog.objectStoreUrls ?? []).map((url) => url.trim()).filter(Boolean);
 
   if (!applicationId) {
     return {
       product_set_id: productSetId,
+      ...(productCatalogId ? { product_catalog_id: productCatalogId } : {}),
       ...(pixelId ? { pixel_id: pixelId } : {}),
       ...(customEventType ? { custom_event_type: customEventType } : {}),
+      ...(variation ? { variation } : {}),
+      ...(smartPseEnabled !== undefined ? { smart_pse_enabled: smartPseEnabled } : {}),
     };
   }
 
   const eventType = customEventType || 'PURCHASE';
   return {
     product_set_id: productSetId,
+    ...(productCatalogId ? { product_catalog_id: productCatalogId } : {}),
     smart_pse_enabled: false,
     omnichannel_object: {
       app: [

@@ -452,6 +452,7 @@ describe('ads MCP broker tools', () => {
       'ads_update_campaign',
       'ads_get_targeting_options',
       'ads_create_ecommerce_campaign_bundle',
+      'ads_create_cpas_catalog_bundle',
       'ads_get_video_source',
       'ads_get_ad_creative_mapping',
       'ads_upload_image',

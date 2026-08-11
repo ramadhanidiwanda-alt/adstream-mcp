@@ -3,6 +3,75 @@ import { buildMetaCreativeFormatPayload } from '../src/providers/meta/buildCreat
 import { readNested } from './support/json.js';
 
 describe('buildMetaCreativeFormatPayload', () => {
+  it('builds the typed CPAS video retailer template without omnichannel fields', () => {
+    const payload = buildMetaCreativeFormatPayload({
+      mode: 'collaborative_ads',
+      pageId: 'page-1',
+      collaborativeProductSetId: 'product-set-1',
+      catalogOnly: true,
+      creativeFormat: 'video',
+      creativeSpec: {
+        videoId: 'video-1',
+        primaryText: 'Shop the catalog',
+        destinationUrl: 'https://fb.com/canvas_doc/canvas-1',
+        callToAction: 'SHOP_NOW',
+        retailerItemIds: ['0', '0', '0', '0'],
+        postClickConfiguration: {
+          itemHeadline: '{{product.name}}',
+          itemDescription: '{{product.current_price strip_zeros}}',
+        },
+        templateUrlSpec: { applicationId: 'retailer-app-1' },
+      },
+    });
+
+    expect(payload).toMatchObject({
+      template_url_spec: { config: { app_id: 'retailer-app-1' } },
+      object_story_spec: {
+        video_data: {
+          video_id: 'video-1',
+          retailer_item_ids: ['0', '0', '0', '0'],
+          post_click_configuration: {
+            post_click_item_headline: '{{product.name}}',
+          },
+        },
+      },
+    });
+    expect(payload).not.toHaveProperty('omnichannel_link_spec');
+    expect(payload).not.toHaveProperty('applink_treatment');
+  });
+
+  it('builds a catalog video-carousel hybrid without video_data or canvas', () => {
+    const payload = buildMetaCreativeFormatPayload({
+      mode: 'collaborative_ads',
+      pageId: 'page-1',
+      collaborativeProductSetId: 'product-set-1',
+      catalogOnly: true,
+      creativeFormat: 'catalog',
+      creativeSpec: {
+        productSetId: 'product-set-1',
+        primaryText: 'Shop the catalog',
+        headline: 'Watch now',
+        destinationUrl: 'https://retailer.example/universal-link',
+        presentation: 'video_carousel',
+        hybridVideo: { videoId: 'video-1', thumbnailUrl: 'https://cdn.example/video.jpg' },
+      },
+    });
+
+    expect(payload).toMatchObject({
+      product_set_id: 'product-set-1',
+      asset_feed_spec: { ad_formats: ['CAROUSEL', 'COLLECTION'] },
+      object_story_spec: {
+        template_data: {
+          child_attachments: [
+            { video_id: 'video-1', static_card: true },
+            { name: '{{product.name}}' },
+          ],
+        },
+      },
+    });
+    expect(payload.object_story_spec).not.toHaveProperty('video_data');
+  });
+
   it('builds an Awareness single image without an external URL or CTA', () => {
     expect(
       buildMetaCreativeFormatPayload({
@@ -1088,6 +1157,32 @@ describe('buildMetaCreativeFormatPayload', () => {
       },
     });
     expect(result).not.toHaveProperty('asset_feed_spec');
+  });
+
+  it('keeps catalog-only CPAS creative free of app omnichannel fields', () => {
+    const result = buildMetaCreativeFormatPayload({
+      mode: 'collaborative_ads',
+      catalogOnly: true,
+      pageId: 'page-1',
+      collaborativeProductSetId: 'product-set-1',
+      creativeFormat: 'catalog',
+      creativeSpec: {
+        productSetId: 'product-set-1',
+        primaryText: 'Belanja di Shopee',
+        destinationUrl: 'https://shopee.example/universal-link',
+        callToAction: 'SHOP_NOW',
+      },
+    });
+
+    expect(result).toMatchObject({
+      product_set_id: 'product-set-1',
+      object_story_spec: {
+        template_data: { call_to_action: { type: 'SHOP_NOW' } },
+      },
+    });
+    expect(result).not.toHaveProperty('omnichannel_link_spec');
+    expect(result).not.toHaveProperty('applink_treatment');
+    expect(result.object_story_spec.template_data.call_to_action).not.toHaveProperty('value');
   });
 
   it('rejects mismatched collaborative product sets', () => {
