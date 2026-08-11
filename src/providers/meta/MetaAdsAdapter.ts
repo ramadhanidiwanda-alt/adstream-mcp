@@ -4248,7 +4248,7 @@ function parseMetaCreativeSpec(
           headline: optionalString(spec.headline, 'creativeSpec.headline'),
           description: optionalString(spec.description, 'creativeSpec.description'),
           callToAction: optionalString(spec.callToAction, 'creativeSpec.callToAction'),
-          pageWelcomeMessage: optionalString(
+          pageWelcomeMessage: optionalPageWelcomeMessage(
             spec.pageWelcomeMessage,
             'creativeSpec.pageWelcomeMessage'
           ),
@@ -4277,7 +4277,7 @@ function parseMetaCreativeSpec(
           headline: optionalString(spec.headline, 'creativeSpec.headline'),
           description: optionalString(spec.description, 'creativeSpec.description'),
           callToAction: optionalString(spec.callToAction, 'creativeSpec.callToAction'),
-          pageWelcomeMessage: optionalString(
+          pageWelcomeMessage: optionalPageWelcomeMessage(
             spec.pageWelcomeMessage,
             'creativeSpec.pageWelcomeMessage'
           ),

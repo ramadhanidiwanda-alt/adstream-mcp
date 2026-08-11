@@ -2161,6 +2161,54 @@ describe('MetaAdsAdapter', () => {
     }
   );
 
+  it('preserves a VISUAL_EDITOR welcome object for a direct video CTWA creative', async () => {
+    let receivedOptions: Record<string, unknown> | undefined;
+    const pageWelcomeMessage = {
+      type: 'VISUAL_EDITOR',
+      version: 2,
+      landing_screen_type: 'welcome_message',
+      media_type: 'text',
+      text_format: {
+        customer_action_type: 'autofill_message',
+        message: { text: 'Halo!', autofill_message: { content: 'Saya tertarik.' } },
+      },
+    };
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        createAdCreative: async (_client, options) => {
+          receivedOptions = options as unknown as Record<string, unknown>;
+          return { operation: 'create_adcreative', status: 'dry_run', executed: false, preview: {} };
+        },
+      },
+    });
+
+    const response = await adapter.createAdCreative({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {
+        name: 'Video CTWA welcome object',
+        pageId: 'page-1',
+        objective: 'OUTCOME_ENGAGEMENT',
+        conversionLocation: 'MESSAGING',
+        messagingDestination: 'WHATSAPP',
+        creativeFormat: 'video',
+        creativeSpec: {
+          videoId: 'video-1',
+          primaryText: 'Chat dengan kami',
+          destinationUrl: 'https://api.whatsapp.com/send',
+          pageWelcomeMessage,
+        },
+      },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    });
+
+    expect(response.ok).toBe(true);
+    expect(receivedOptions).toMatchObject({
+      creative: { creativeSpec: { pageWelcomeMessage } },
+    });
+  });
+
   // The 2026-07-26 CTX incident in one assertion: creativeSpec used to pick the
   // fields it knew and drop the rest without a word, so a dry-run looked clean while
   // the field the caller cared about never reached Meta. Every format must refuse.
