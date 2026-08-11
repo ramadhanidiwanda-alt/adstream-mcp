@@ -304,6 +304,28 @@ describe('ads MCP broker tools', () => {
     expect(tool?.inputSchema.properties).toHaveProperty('sourceAdId');
   });
 
+  it('exposes multiMedia on ads_update_ad for verified in-place media replacement', () => {
+    const tool = ADS_MCP_TOOL_DEFINITIONS.find(({ name }) => name === 'ads_update_ad');
+    const properties = tool?.inputSchema.properties as Record<string, unknown>;
+    const multiMedia = properties.multiMedia as {
+      properties?: Record<string, unknown>;
+      required?: string[];
+    };
+
+    expect(tool?.description).toMatch(/same ad ID/i);
+    expect(multiMedia.required).toEqual(
+      expect.arrayContaining([
+        'pageId',
+        'destinationUrl',
+        'primaryImageHash',
+        'callToAction',
+        'images',
+      ])
+    );
+    expect(multiMedia.properties).toHaveProperty('pageWelcomeMessage');
+    expect(multiMedia.properties).toHaveProperty('images');
+  });
+
   it('exposes canonical objective and conversionLocation for objective-aware creatives', () => {
     const tool = ADS_MCP_TOOL_DEFINITIONS.find(({ name }) => name === 'ads_create_adcreative');
     const properties = tool?.inputSchema.properties as Record<string, unknown>;

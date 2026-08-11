@@ -437,7 +437,7 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
   {
     name: 'ads_update_ad',
     description:
-      'Update an existing Meta ad (name, status, or swap its creative). Use creativeId to point the ad at a different, already-created creative — the standard way to change tracking/UTM parameters on an ad that is already live, since url_tags can only be set when a creative is created. Dry-run by default. Set dryRun=false and confirmed=true to execute.',
+      'Update an existing Meta ad (name, status, or swap its creative). Use creativeId to point the ad at a different, already-created creative. Alternatively, multiMedia creates a documented standalone multi-media creative then swaps this same ad ID to it, preserving the ad name and ad set; it cannot be combined with other updates. If currently ACTIVE, the ad is paused before the swap and never resumed automatically. Read-back verifies the creative ID and every submitted image hash. Dry-run by default. Set dryRun=false and confirmed=true to execute.',
     inputSchema: createUpdateAdInputSchema(),
   },
   {
@@ -2732,6 +2732,59 @@ function createUpdateAdInputSchema() {
         type: 'string',
         description:
           'Point this ad at a different, already-existing creative. Use this to change UTM/tracking parameters on a live ad by first creating a new creative with url_tags set, then swapping this ad to it.',
+      },
+      multiMedia: {
+        type: 'object',
+        description:
+          'Meta only: create a standalone non-Dynamic multi-media image creative and swap it onto this same ad ID. Mutually exclusive with every other ad-update field. The primaryImageHash must also appear in images. Each asset may exclude placements through media_sourcing_spec. Use pageWelcomeMessage to preserve the full CTWA VISUAL_EDITOR object verbatim.',
+        properties: {
+          pageId: { type: 'string' },
+          instagramUserId: { type: 'string' },
+          destinationUrl: { type: 'string' },
+          primaryImageHash: { type: 'string' },
+          primaryText: { type: 'string' },
+          headline: { type: 'string' },
+          description: { type: 'string' },
+          callToAction: { type: 'string' },
+          pageWelcomeMessage: {
+            type: ['string', 'object'],
+            description:
+              'Full page_welcome_message, including VISUAL_EDITOR JSON, preserved verbatim.',
+          },
+          images: {
+            type: 'array',
+            minItems: 2,
+            maxItems: 10,
+            items: {
+              type: 'object',
+              properties: {
+                imageHash: { type: 'string' },
+                placementExclusions: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      publisherPlatform: { type: 'string' },
+                      positions: { type: 'array', minItems: 1, items: { type: 'string' } },
+                    },
+                    required: ['publisherPlatform', 'positions'],
+                    additionalProperties: false,
+                  },
+                },
+                textCustomizations: { type: 'object', additionalProperties: true },
+              },
+              required: ['imageHash'],
+              additionalProperties: false,
+            },
+          },
+        },
+        required: ['pageId', 'destinationUrl', 'primaryImageHash', 'callToAction', 'images'],
+        additionalProperties: false,
+      },
+      multiMediaCreativeName: {
+        type: 'string',
+        description:
+          'Optional name for the newly-created standalone multi-media creative. Does not rename the ad.',
       },
       trackingSpecs: {
         type: 'array',

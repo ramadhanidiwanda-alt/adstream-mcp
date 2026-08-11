@@ -101,6 +101,9 @@ export type {
 export { archiveAd } from './tools/archiveAd.js';
 export type { ArchiveAdOptions, ArchiveAdResult } from './tools/archiveAd.js';
 
+export { updateAd } from './tools/updateAd.js';
+export type { UpdateAdOptions, UpdateAdResult, UpdateAdStatus } from './tools/updateAd.js';
+
 export { updateAdSet } from './tools/updateAdSet.js';
 export type {
   UpdateAdSetOptions,

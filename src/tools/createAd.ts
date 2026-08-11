@@ -393,7 +393,7 @@ function buildAdPayload(options: CreateAdOptions): Record<string, unknown> {
   return payload;
 }
 
-function buildMultiMediaCreative(options: MetaMultiMediaAdOptions): Record<string, unknown> {
+export function buildMultiMediaCreative(options: MetaMultiMediaAdOptions): Record<string, unknown> {
   const pageId = requiredString(options.pageId, 'multiMedia.pageId');
   const primaryImageHash = requiredString(options.primaryImageHash, 'multiMedia.primaryImageHash');
   const destinationUrl = requiredString(options.destinationUrl, 'multiMedia.destinationUrl');
@@ -429,6 +429,7 @@ function buildMultiMediaCreative(options: MetaMultiMediaAdOptions): Record<strin
         ...(headline ? { name: headline } : {}),
         ...(description ? { description } : {}),
         call_to_action: { type: callToAction },
+        ...(options.pageWelcomeMessage ? { page_welcome_message: options.pageWelcomeMessage } : {}),
       },
     },
     media_sourcing_spec: {

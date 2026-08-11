@@ -2321,6 +2321,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
         client,
         {
           adId,
+          adAccountId: request.accountId ?? context.credential.accountId,
           name: typeof request.params.name === 'string' ? request.params.name : undefined,
           status:
             typeof request.params.status === 'string'
@@ -2342,6 +2343,13 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
           adScheduleEndTime:
             typeof request.params.adScheduleEndTime === 'string'
               ? request.params.adScheduleEndTime
+              : undefined,
+          multiMedia: isMultiMediaAdOptions(request.params.multiMedia)
+            ? request.params.multiMedia
+            : undefined,
+          multiMediaCreativeName:
+            typeof request.params.multiMediaCreativeName === 'string'
+              ? request.params.multiMediaCreativeName
               : undefined,
         },
         {
