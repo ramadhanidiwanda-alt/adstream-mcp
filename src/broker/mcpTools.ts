@@ -2334,19 +2334,69 @@ function createCreateAdInputSchema() {
           primaryImageHash: { type: 'string' },
           primaryText: { type: 'string' },
           headline: { type: 'string' },
+          description: { type: 'string' },
           callToAction: { type: 'string' },
           images: {
-            type: 'array', minItems: 2, maxItems: 10,
+            type: 'array',
+            minItems: 2,
+            maxItems: 10,
             items: {
               type: 'object',
               properties: {
                 imageHash: { type: 'string' },
                 placementExclusions: {
                   type: 'array',
-                  items: { type: 'object', properties: { publisherPlatform: { type: 'string' }, positions: { type: 'array', minItems: 1, items: { type: 'string' } } }, required: ['publisherPlatform', 'positions'], additionalProperties: false },
+                  items: {
+                    type: 'object',
+                    properties: {
+                      publisherPlatform: { type: 'string' },
+                      positions: { type: 'array', minItems: 1, items: { type: 'string' } },
+                    },
+                    required: ['publisherPlatform', 'positions'],
+                    additionalProperties: false,
+                  },
+                },
+                textCustomizations: {
+                  type: 'object',
+                  description:
+                    'Optional per-image overrides for the root multi-media text. Each field is an array of { text } objects.',
+                  properties: {
+                    titles: {
+                      type: 'array',
+                      minItems: 1,
+                      items: {
+                        type: 'object',
+                        properties: { text: { type: 'string' } },
+                        required: ['text'],
+                        additionalProperties: false,
+                      },
+                    },
+                    bodies: {
+                      type: 'array',
+                      minItems: 1,
+                      items: {
+                        type: 'object',
+                        properties: { text: { type: 'string' } },
+                        required: ['text'],
+                        additionalProperties: false,
+                      },
+                    },
+                    descriptions: {
+                      type: 'array',
+                      minItems: 1,
+                      items: {
+                        type: 'object',
+                        properties: { text: { type: 'string' } },
+                        required: ['text'],
+                        additionalProperties: false,
+                      },
+                    },
+                  },
+                  additionalProperties: false,
                 },
               },
-              required: ['imageHash'], additionalProperties: false,
+              required: ['imageHash'],
+              additionalProperties: false,
             },
           },
         },

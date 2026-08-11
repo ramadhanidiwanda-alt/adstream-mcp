@@ -42,6 +42,48 @@ export interface MetaCreativeCopy {
   destinationMode?: MetaCreativeDestinationMode;
 }
 
+/** A documented `media_sourcing_spec` text object. */
+export interface MetaMultiMediaTextVariant {
+  text: string;
+}
+
+/**
+ * Per-asset overrides for a multi-media ad. These fields mirror Meta's
+ * `text_customizations` object and override root-level L1 text for this asset.
+ */
+export interface MetaMultiMediaTextCustomizations {
+  titles?: MetaMultiMediaTextVariant[];
+  bodies?: MetaMultiMediaTextVariant[];
+  descriptions?: MetaMultiMediaTextVariant[];
+}
+
+export interface MetaMultiMediaPlacementExclusion {
+  publisherPlatform: string;
+  positions: string[];
+}
+
+export interface MetaMultiMediaImage {
+  imageHash: string;
+  placementExclusions?: MetaMultiMediaPlacementExclusion[];
+  textCustomizations?: MetaMultiMediaTextCustomizations;
+}
+
+/**
+ * Inline, non-Dynamic Meta multi-media image creative. Meta stores the asset
+ * list and L1 copy variants in `media_sourcing_spec`, not `asset_feed_spec`.
+ */
+export interface MetaMultiMediaAdOptions {
+  pageId: string;
+  instagramUserId?: string;
+  destinationUrl: string;
+  primaryImageHash: string;
+  primaryText?: string;
+  headline?: string;
+  description?: string;
+  callToAction: string;
+  images: MetaMultiMediaImage[];
+}
+
 export interface MetaAssetMessageExtension {
   type: string;
 }
