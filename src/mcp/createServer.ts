@@ -856,6 +856,36 @@ const createAdInputSchema = {
     .describe(
       'Meta: the creative ID to use for this ad. Not used for TikTok — use creatives instead.'
     ),
+  multiMedia: z
+    .object({
+      pageId: z.string(),
+      instagramUserId: z.string().optional(),
+      destinationUrl: z.string().url(),
+      primaryImageHash: z.string(),
+      primaryText: z.string().optional(),
+      headline: z.string().optional(),
+      callToAction: z.string(),
+      images: z
+        .array(
+          z.object({
+            imageHash: z.string(),
+            placementExclusions: z
+              .array(
+                z.object({
+                  publisherPlatform: z.string(),
+                  positions: z.array(z.string()).min(1),
+                })
+              )
+              .optional(),
+          })
+        )
+        .min(2)
+        .max(10),
+    })
+    .optional()
+    .describe(
+      'Meta non-Dynamic inline multi-media image creative. Mutually exclusive with creativeId; primaryImageHash must also be included in images.'
+    ),
   sourceAdId: z
     .string()
     .optional()

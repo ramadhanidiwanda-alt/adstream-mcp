@@ -2323,6 +2323,36 @@ function createCreateAdInputSchema() {
         description:
           'Meta: the creative ID to use for this ad. Not used for TikTok — use creatives instead.',
       },
+      multiMedia: {
+        type: 'object',
+        description:
+          'Meta only: create a normal (non-Dynamic) inline multi-media image creative. Mutually exclusive with creativeId. The primaryImageHash must also appear in images. Each image is sent through media_sourcing_spec with source multi_media and may exclude placements.',
+        properties: {
+          pageId: { type: 'string' },
+          instagramUserId: { type: 'string' },
+          destinationUrl: { type: 'string' },
+          primaryImageHash: { type: 'string' },
+          primaryText: { type: 'string' },
+          headline: { type: 'string' },
+          callToAction: { type: 'string' },
+          images: {
+            type: 'array', minItems: 2, maxItems: 10,
+            items: {
+              type: 'object',
+              properties: {
+                imageHash: { type: 'string' },
+                placementExclusions: {
+                  type: 'array',
+                  items: { type: 'object', properties: { publisherPlatform: { type: 'string' }, positions: { type: 'array', minItems: 1, items: { type: 'string' } } }, required: ['publisherPlatform', 'positions'], additionalProperties: false },
+                },
+              },
+              required: ['imageHash'], additionalProperties: false,
+            },
+          },
+        },
+        required: ['pageId', 'destinationUrl', 'primaryImageHash', 'callToAction', 'images'],
+        additionalProperties: false,
+      },
       sourceAdId: {
         type: 'string',
         description:

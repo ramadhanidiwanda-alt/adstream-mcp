@@ -40,6 +40,72 @@ describe('createAd', () => {
     expect(mockMetaPost).not.toHaveBeenCalled();
   });
 
+  it('builds a non-Dynamic inline multi-media CTWA creative with per-image placement exclusions', async () => {
+    const r = await createAd(mockClient, {
+      adAccountId: 'act_123',
+      name: 'Five-image CTWA',
+      adSetId: 'as456',
+      multiMedia: {
+        pageId: 'page-1',
+        instagramUserId: 'ig-1',
+        destinationUrl: 'https://api.whatsapp.com/send',
+        primaryImageHash: 'image-1',
+        primaryText: 'Chat with us',
+        headline: 'Five images',
+        callToAction: 'WHATSAPP_MESSAGE',
+        images: [
+          {
+            imageHash: 'image-1',
+            placementExclusions: [
+              { publisherPlatform: 'instagram', positions: ['story', 'reels'] },
+            ],
+          },
+          {
+            imageHash: 'image-2',
+            placementExclusions: [
+              { publisherPlatform: 'instagram', positions: ['stream'] },
+            ],
+          },
+        ],
+      },
+    });
+
+    expect(r.status).toBe('dry_run');
+    expect(JSON.parse(r.preview.creative as string)).toEqual({
+      object_story_spec: {
+        page_id: 'page-1',
+        instagram_user_id: 'ig-1',
+        link_data: {
+          link: 'https://api.whatsapp.com/send',
+          message: 'Chat with us',
+          name: 'Five images',
+          image_hash: 'image-1',
+          call_to_action: { type: 'WHATSAPP_MESSAGE' },
+        },
+      },
+      media_sourcing_spec: {
+        images: [
+          {
+            hash: 'image-1',
+            source: 'multi_media',
+            opt_in_status: 'opt_in',
+            placement_customizations: [
+              { publisher_platform: 'instagram', placement_exclusions: ['story', 'reels'] },
+            ],
+          },
+          {
+            hash: 'image-2',
+            source: 'multi_media',
+            opt_in_status: 'opt_in',
+            placement_customizations: [
+              { publisher_platform: 'instagram', placement_exclusions: ['stream'] },
+            ],
+          },
+        ],
+      },
+    });
+  });
+
   it('includes source_ad_id when an Ads Manager source ad supplies composer context', async () => {
     const r = await createAd(mockClient, {
       ...baseOpts,
