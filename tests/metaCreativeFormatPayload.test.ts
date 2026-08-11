@@ -443,13 +443,13 @@ describe('buildMetaCreativeFormatPayload', () => {
 
     expect(result.object_story_spec).toMatchObject({
       video_data: {
-        call_to_action: { type: 'WHATSAPP_MESSAGE' },
+        call_to_action: {
+          type: 'WHATSAPP_MESSAGE',
+          value: { link: 'https://api.whatsapp.com/send' },
+        },
         page_welcome_message: '{"type":"VISUAL_EDITOR"}',
       },
     });
-    expect(
-      readNested(result, 'object_story_spec', 'video_data', 'call_to_action')
-    ).not.toHaveProperty('value');
   });
 
   it('adds official asset_feed_spec message_extensions to placement-image creatives', () => {

@@ -1358,6 +1358,102 @@ describe('createAdCreative', () => {
     );
   });
 
+  it('verifies video CTWA CTA link and welcome message before returning it as ready', async () => {
+    mockMetaPost.mockResolvedValueOnce({ id: 'creative-video-ctwa' });
+    mockMetaGetObject.mockResolvedValueOnce({
+      id: 'creative-video-ctwa',
+      object_story_spec: {
+        video_data: {
+          video_id: '2477639949641639',
+          image_hash: '510512f2214a70ee799ea43334d2d172',
+          message: 'Chat Meena Beauty',
+          call_to_action: {
+            type: 'WHATSAPP_MESSAGE',
+            value: { link: 'https://api.whatsapp.com/send' },
+          },
+          page_welcome_message: 'Halo, ada yang bisa kami bantu?',
+        },
+      },
+    });
+
+    const result = await createAdCreative(
+      mockClient,
+      {
+        adAccountId: 'act_2086409658377471',
+        name: 'Meena | Video CTWA',
+        pageId: '215116488342403',
+        instagramUserId: '17841463380041722',
+        creative: {
+          creativeFormat: 'video',
+          creativeSpec: {
+            videoId: '2477639949641639',
+            thumbnailImageHash: '510512f2214a70ee799ea43334d2d172',
+            primaryText: 'Chat Meena Beauty',
+            destinationUrl: 'https://api.whatsapp.com/send',
+            callToAction: 'WHATSAPP_MESSAGE',
+            pageWelcomeMessage: 'Halo, ada yang bisa kami bantu?',
+          },
+        },
+      },
+      { dryRun: false, confirmed: true }
+    );
+
+    expect(result).toMatchObject({
+      status: 'executed',
+      verification: {
+        status: 'verified',
+        effectiveFormat: 'video',
+        summary: { videoCtwaStatus: 'verified' },
+      },
+    });
+  });
+
+  it('fails safely when Meta strips video CTWA CTA fields on read-back', async () => {
+    mockMetaPost.mockResolvedValueOnce({ id: 'creative-video-ctwa-stripped' });
+    mockMetaGetObject.mockResolvedValueOnce({
+      id: 'creative-video-ctwa-stripped',
+      object_story_spec: {
+        video_data: {
+          video_id: '2477639949641639',
+          image_hash: '510512f2214a70ee799ea43334d2d172',
+          message: 'Chat Meena Beauty',
+          call_to_action: { type: 'WHATSAPP_MESSAGE' },
+        },
+      },
+    });
+
+    const result = await createAdCreative(
+      mockClient,
+      {
+        adAccountId: 'act_2086409658377471',
+        name: 'Meena | Video CTWA',
+        pageId: '215116488342403',
+        creative: {
+          creativeFormat: 'video',
+          creativeSpec: {
+            videoId: '2477639949641639',
+            thumbnailImageHash: '510512f2214a70ee799ea43334d2d172',
+            primaryText: 'Chat Meena Beauty',
+            destinationUrl: 'https://api.whatsapp.com/send',
+            callToAction: 'WHATSAPP_MESSAGE',
+            pageWelcomeMessage: 'Halo, ada yang bisa kami bantu?',
+          },
+        },
+      },
+      { dryRun: false, confirmed: true }
+    );
+
+    expect(result).toMatchObject({
+      status: 'failed',
+      executed: true,
+      verification: {
+        status: 'warning',
+        summary: { videoCtwaStatus: 'missing_cta_link' },
+      },
+      error: expect.stringMatching(/Jangan lanjutkan creative ini menjadi ad/i),
+    });
+  });
+
   it('warns when Meta omits requested url_tags from a legacy manual video', async () => {
     mockMetaPost.mockResolvedValueOnce({ id: 'creative-without-utm' });
     mockMetaGetObject.mockResolvedValueOnce({

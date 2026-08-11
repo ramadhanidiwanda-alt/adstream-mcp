@@ -225,12 +225,14 @@ export async function createAdCreative(
     }
 
     const intendedFormat = resolveVerificationFormat(options);
+    const videoCtwaRequirement = getVideoCtwaReadBackRequirement(preview);
     const verification = intendedFormat
       ? await verifyCreatedCreative(
           client,
           response.id,
           intendedFormat,
           options.urlTags,
+          videoCtwaRequirement,
           maxRetries
         )
       : undefined;
@@ -248,6 +250,19 @@ export async function createAdCreative(
         verification,
         error:
           'Creative sudah dibuat, tetapi aturan media per placement tidak terverifikasi. Jangan lanjutkan creative ini menjadi ad.',
+      };
+    }
+
+    if (videoCtwaRequirement && verification?.status !== 'verified') {
+      return {
+        ...baseResult,
+        status: 'failed',
+        executed: true,
+        id: response.id,
+        response,
+        verification,
+        error:
+          'Creative video CTWA sudah dibuat, tetapi CTA WhatsApp atau welcome message tidak terverifikasi pada read-back Meta. Jangan lanjutkan creative ini menjadi ad.',
       };
     }
 
@@ -281,6 +296,7 @@ async function verifyCreatedCreative(
   creativeId: string,
   intendedFormat: MetaCreativeFormat,
   intendedUrlTags: string | undefined,
+  videoCtwaRequirement: VideoCtwaReadBackRequirement | undefined,
   maxRetries: number
 ): Promise<MetaCreativeVerification> {
   try {
@@ -290,10 +306,11 @@ async function verifyCreatedCreative(
       maxRetries
     );
     const matchesIntendedFormat = matchesCreativeFormat(fields, intendedFormat);
-    const summary = summarizeCreativeVerification(fields, intendedUrlTags);
+    const summary = summarizeCreativeVerification(fields, intendedUrlTags, videoCtwaRequirement);
     const urlTagsWarning = getUrlTagsVerificationWarning(summary.urlTagsStatus);
+    const videoCtwaWarning = getVideoCtwaVerificationWarning(summary.videoCtwaStatus);
 
-    if (matchesIntendedFormat && !urlTagsWarning) {
+    if (matchesIntendedFormat && !urlTagsWarning && !videoCtwaWarning) {
       return {
         status: 'verified',
         creativeId,
@@ -314,6 +331,7 @@ async function verifyCreatedCreative(
       summary,
       warning:
         urlTagsWarning ??
+        videoCtwaWarning ??
         (effectiveFormat
           ? `Creative berhasil dibuat, tetapi format hasil read-back (${effectiveFormat}) tidak cocok dengan format yang diminta (${intendedFormat}).`
           : `Creative berhasil dibuat, tetapi field read-back belum cukup untuk memverifikasi format ${intendedFormat}.`),
@@ -330,7 +348,8 @@ async function verifyCreatedCreative(
 
 function summarizeCreativeVerification(
   fields: Record<string, unknown>,
-  intendedUrlTags?: string
+  intendedUrlTags?: string,
+  videoCtwaRequirement?: VideoCtwaReadBackRequirement
 ): MetaCreativeVerificationSummary {
   const storySpec = isRecord(fields.object_story_spec) ? fields.object_story_spec : undefined;
   const linkData = storySpec && isRecord(storySpec.link_data) ? storySpec.link_data : undefined;
@@ -356,10 +375,46 @@ function summarizeCreativeVerification(
     hasDegreesOfFreedomSpec: isRecord(fields.degrees_of_freedom_spec),
     hasMediaSourcingSpec: isRecord(fields.media_sourcing_spec),
     urlTagsStatus: getUrlTagsVerificationStatus(fields.url_tags, intendedUrlTags),
+    videoCtwaStatus: getVideoCtwaVerificationStatus(videoData, videoCtwaRequirement),
     ...placementSummary,
     hasOmnichannelLinkSpec: isRecord(fields.omnichannel_link_spec),
     hasCanvasReference: containsCanvasUrl(linkData) || containsCanvasUrl(videoData),
   };
+}
+
+interface VideoCtwaReadBackRequirement {
+  requiresWelcomeMessage: boolean;
+}
+
+function getVideoCtwaReadBackRequirement(
+  preview: Record<string, unknown>
+): VideoCtwaReadBackRequirement | undefined {
+  const storySpec = isRecord(preview.object_story_spec) ? preview.object_story_spec : undefined;
+  const videoData = storySpec && isRecord(storySpec.video_data) ? storySpec.video_data : undefined;
+  const callToAction =
+    videoData && isRecord(videoData.call_to_action) ? videoData.call_to_action : undefined;
+  if (callToAction?.type !== 'WHATSAPP_MESSAGE') return undefined;
+  return { requiresWelcomeMessage: videoData?.page_welcome_message !== undefined };
+}
+
+function getVideoCtwaVerificationStatus(
+  videoData: Record<string, unknown> | undefined,
+  requirement: VideoCtwaReadBackRequirement | undefined
+): NonNullable<MetaCreativeVerificationSummary['videoCtwaStatus']> {
+  if (!requirement) return 'not_requested';
+  const callToAction =
+    videoData && isRecord(videoData.call_to_action) ? videoData.call_to_action : undefined;
+  const ctaValue = callToAction && isRecord(callToAction.value) ? callToAction.value : undefined;
+  if (
+    callToAction?.type !== 'WHATSAPP_MESSAGE' ||
+    ctaValue?.link !== 'https://api.whatsapp.com/send'
+  ) {
+    return 'missing_cta_link';
+  }
+  if (requirement.requiresWelcomeMessage && videoData?.page_welcome_message === undefined) {
+    return 'missing_welcome_message';
+  }
+  return 'verified';
 }
 
 function getUrlTagsVerificationStatus(
@@ -379,6 +434,18 @@ function getUrlTagsVerificationWarning(
   }
   if (status === 'mismatch') {
     return 'Creative berhasil dibuat, tetapi url_tags pada read-back Meta tidak sama dengan nilai yang diminta.';
+  }
+  return undefined;
+}
+
+function getVideoCtwaVerificationWarning(
+  status: MetaCreativeVerificationSummary['videoCtwaStatus']
+): string | undefined {
+  if (status === 'missing_cta_link') {
+    return 'Creative video CTWA berhasil dibuat, tetapi CTA WHATSAPP_MESSAGE dengan link api.whatsapp.com/send tidak ditemukan pada read-back Meta.';
+  }
+  if (status === 'missing_welcome_message') {
+    return 'Creative video CTWA berhasil dibuat, tetapi page_welcome_message tidak ditemukan pada read-back Meta.';
   }
   return undefined;
 }
@@ -589,7 +656,10 @@ function buildCreativePayload(options: CreateAdCreativeOptions): Record<string, 
           'objectStorySpec.link_data.link wajib diisi saat collaborativeAppSpec digunakan untuk creative omnichannel.'
         );
       }
-      Object.assign(payload, buildOmnichannelLinkFields(destinationUrl, options.collaborativeAppSpec));
+      Object.assign(
+        payload,
+        buildOmnichannelLinkFields(destinationUrl, options.collaborativeAppSpec)
+      );
     }
   } else if (options.linkData) {
     const pageId = requireLegacyPageId(options.pageId);
