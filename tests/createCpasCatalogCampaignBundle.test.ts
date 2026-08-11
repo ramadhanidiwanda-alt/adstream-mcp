@@ -114,7 +114,8 @@ describe('createCpasCatalogCampaignBundle', () => {
       creativeFormat: 'catalog_single_image',
     });
 
-    const templateData = result.preview.creative.object_story_spec.template_data;
+    const objectStorySpec = result.preview.creative.object_story_spec as Record<string, unknown>;
+    const templateData = objectStorySpec.template_data as Record<string, unknown>;
     expect(result.preview.creative).toMatchObject({ product_set_id: 'ps_1' });
     expect(templateData).toMatchObject({
       multi_share_end_card: true,
