@@ -413,8 +413,8 @@ describe('MetaAdsAdapter', () => {
     });
   }
 
-  const changeHistoryCredentials = {
-    provider: 'meta' as const,
+  const changeHistoryCredentials: CredentialContext = {
+    provider: 'meta',
     accessToken: 'secret-token',
     source: 'test',
   };
