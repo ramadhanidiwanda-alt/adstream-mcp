@@ -302,6 +302,28 @@ export interface MetaCollaborativeAppSpec {
   ios?: { appName: string; appStoreId: string };
 }
 
+/**
+ * Identitas kemitraan untuk Meta Partnership Ads (dulu Branded Content Ads).
+ *
+ * Field dinamai menurut PERAN (partner*), bukan menurut posisi payload (sponsor*).
+ * Alasannya: mana yang menjadi sponsor_page_id di payload Meta berbalik tergantung
+ * primaryIdentity. Nama berbasis posisi akan berubah arti tergantung field lain.
+ *
+ * https://developers.facebook.com/documentation/ads-commerce/marketing-api/ad-creative/partnership-ads
+ */
+export interface MetaPartnershipSpec {
+  /** Facebook Page ID partner/kreator. */
+  partnerPageId?: string;
+  /** Instagram user ID partner/kreator → instagram_branded_content.sponsor_id */
+  partnerInstagramId?: string;
+  /** Handle siapa yang tampil sebagai pengirim iklan. Default 'advertiser'. */
+  primaryIdentity?: 'advertiser' | 'creator';
+  /** Partnership ad code dari kreator → branded_content.instagram_boost_post_access_token */
+  adCode?: string;
+  /** → branded_content.ad_format. Wajib bila adCode diisi. */
+  adFormat?: string;
+}
+
 /** App identity for the standard Meta App Promotion install path. */
 export interface MetaStandardAppSpec {
   applicationId: string;
