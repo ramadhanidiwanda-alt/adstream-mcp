@@ -7,6 +7,7 @@ import {
   type MetaCreativeSpec,
   type MetaCreativeVerification,
   type MetaCreativeVerificationSummary,
+  type MetaPartnershipSpec,
   type MetaStandardAppSpec,
   type StructuredMutationError,
 } from '../types.js';
@@ -15,6 +16,7 @@ import {
   buildOmnichannelLinkFields,
   buildMetaCreativeFormatPayload,
 } from '../providers/meta/buildCreativeFormatPayload.js';
+import { getPartnershipNotes } from '../providers/meta/buildPartnershipFields.js';
 import { listLeadForms } from './listLeadForms.js';
 import {
   resolveMetaObjectiveLaunchSpec,
@@ -68,6 +70,8 @@ export interface CreateAdCreativeOptions {
   catalogOnly?: boolean;
   collaborativeAppSpec?: MetaCollaborativeAppSpec;
   standardAppSpec?: MetaStandardAppSpec;
+  /** Identitas kemitraan untuk Meta Partnership Ads. */
+  partnership?: MetaPartnershipSpec;
   linkData?: {
     link: string;
     message: string;
@@ -117,6 +121,8 @@ export interface CreateAdCreativeResult {
   status: CreateAdCreativeStatus;
   executed: boolean;
   preview: Record<string, unknown>;
+  /** Catatan izin kemitraan. Terisi hanya saat partnership dipakai. */
+  partnershipNotes?: string[];
   id?: string;
   response?: Record<string, unknown>;
   error?: string;
@@ -146,6 +152,9 @@ export async function createAdCreative(
   execOptions: { dryRun?: boolean; confirmed?: boolean; maxRetries?: number } = {}
 ): Promise<CreateAdCreativeResult> {
   const { dryRun = true, confirmed = false, maxRetries = 3 } = execOptions;
+  const partnershipNotes = options.partnership
+    ? getPartnershipNotes(options.partnership)
+    : undefined;
 
   let preview: Record<string, unknown>;
   try {
@@ -162,6 +171,7 @@ export async function createAdCreative(
     const guidance = getMetaCreativeErrorGuidance(structuredError);
     return {
       operation: 'create_adcreative',
+      ...(partnershipNotes ? { partnershipNotes } : {}),
       status: 'failed',
       executed: false,
       preview: { name: options.name.trim() },
@@ -174,6 +184,7 @@ export async function createAdCreative(
   }
   const baseResult: CreateAdCreativeResult = {
     operation: 'create_adcreative',
+    ...(partnershipNotes ? { partnershipNotes } : {}),
     status: 'dry_run',
     executed: false,
     preview,
@@ -634,6 +645,7 @@ function buildCreativePayload(options: CreateAdCreativeOptions): Record<string, 
         catalogOnly: options.catalogOnly,
         collaborativeAppSpec: options.collaborativeAppSpec,
         standardAppSpec: options.standardAppSpec,
+        partnership: options.partnership,
         optOutEnhancements: options.optOutEnhancements,
       })
     );

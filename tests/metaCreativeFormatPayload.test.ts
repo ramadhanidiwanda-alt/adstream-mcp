@@ -1904,4 +1904,80 @@ describe('buildMetaCreativeFormatPayload', () => {
       })
     ).toThrow(/belum didukung.*collaborative ads/i);
   });
+
+  it('menyisipkan identitas partnership ke creative single_image', () => {
+    const payload = buildMetaCreativeFormatPayload({
+      mode: 'standard',
+      pageId: 'brand-page-1',
+      partnership: {
+        partnerPageId: 'creator-page-1',
+        partnerInstagramId: 'creator-ig-1',
+      },
+      creativeFormat: 'single_image',
+      creativeSpec: {
+        imageHash: 'hash-1',
+        primaryText: 'Kolaborasi bareng kreator',
+        destinationUrl: 'https://example.com',
+      },
+    });
+
+    expect(payload).toMatchObject({
+      facebook_branded_content: { sponsor_page_id: 'creator-page-1' },
+      instagram_branded_content: { sponsor_id: 'creator-ig-1' },
+      object_story_spec: { page_id: 'brand-page-1' },
+    });
+  });
+
+  it('memakai Page kreator sebagai page_id ketika primaryIdentity creator', () => {
+    const payload = buildMetaCreativeFormatPayload({
+      mode: 'standard',
+      pageId: 'brand-page-1',
+      partnership: {
+        partnerPageId: 'creator-page-1',
+        partnerInstagramId: 'creator-ig-1',
+        primaryIdentity: 'creator',
+      },
+      creativeFormat: 'single_image',
+      creativeSpec: {
+        imageHash: 'hash-1',
+        primaryText: 'Kolaborasi bareng kreator',
+        destinationUrl: 'https://example.com',
+      },
+    });
+
+    expect(payload).toMatchObject({
+      object_story_spec: { page_id: 'creator-page-1' },
+      facebook_branded_content: { sponsor_page_id: 'brand-page-1' },
+    });
+  });
+
+  it('membawa object_id dan sponsor pada boost existing_post', () => {
+    const payload = buildMetaCreativeFormatPayload({
+      mode: 'standard',
+      pageId: 'brand-page-1',
+      instagramUserId: 'creator-ig-1',
+      partnership: { partnerInstagramId: 'creator-ig-1' },
+      creativeFormat: 'existing_post',
+      creativeSpec: { sourceInstagramMediaId: 'ig-media-1' },
+    });
+
+    expect(payload).toMatchObject({
+      object_id: 'brand-page-1',
+      source_instagram_media_id: 'ig-media-1',
+      instagram_user_id: 'creator-ig-1',
+      instagram_branded_content: { sponsor_id: 'creator-ig-1' },
+    });
+  });
+
+  it('menolak partnership pada format catalog', () => {
+    expect(() =>
+      buildMetaCreativeFormatPayload({
+        mode: 'standard',
+        pageId: 'brand-page-1',
+        partnership: { partnerInstagramId: 'creator-ig-1' },
+        creativeFormat: 'catalog',
+        creativeSpec: { productSetId: 'ps-1', primaryText: 'Katalog' },
+      })
+    ).toThrow(/Format catalog tidak mendukung partnership/);
+  });
 });

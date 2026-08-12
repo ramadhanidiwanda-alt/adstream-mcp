@@ -4,9 +4,11 @@ import type {
   MetaApplinkTreatment,
   MetaCollaborativeAppSpec,
   MetaCreativeSpec,
+  MetaPartnershipSpec,
   MetaStandardAppSpec,
 } from '../../types.js';
 import { assertMetaCreativeCompatibility } from './creativeFormatCompatibility.js';
+import { buildPartnershipFields } from './buildPartnershipFields.js';
 
 const WHATSAPP_SEND_URL = 'https://api.whatsapp.com/send';
 
@@ -19,6 +21,8 @@ export type BuildMetaCreativeFormatPayloadInput = MetaCreativeSpec & {
   catalogOnly?: boolean;
   collaborativeAppSpec?: MetaCollaborativeAppSpec;
   standardAppSpec?: MetaStandardAppSpec;
+  /** Identitas kemitraan (Meta Partnership Ads). Lihat buildPartnershipFields. */
+  partnership?: MetaPartnershipSpec;
   /**
    * Nama-nama fitur degrees_of_freedom_spec yang di-OPT_OUT (disable).
    * Contoh: ['image_auto_crop', 'text_optimizations', 'image_templates'].
@@ -56,6 +60,27 @@ export function buildMetaCreativeFormatPayload(
   }
   assertMetaCreativeCompatibility(input);
 
+  if (!input.partnership) return buildByCreativeFormat(input);
+
+  const partnership = buildPartnershipFields({
+    partnership: input.partnership,
+    creativeFormat: input.creativeFormat,
+    pageId: input.pageId,
+    sourceInstagramMediaId:
+      input.creativeFormat === 'existing_post'
+        ? input.creativeSpec.sourceInstagramMediaId
+        : undefined,
+  });
+
+  // Identitas primer harus sudah terpasang SEBELUM builder format berjalan, karena
+  // builder-lah yang menulis object_story_spec.page_id.
+  const payload = buildByCreativeFormat({ ...input, pageId: partnership.primaryPageId });
+  return { ...payload, ...partnership.payload };
+}
+
+function buildByCreativeFormat(
+  input: BuildMetaCreativeFormatPayloadInput
+): Record<string, unknown> {
   switch (input.creativeFormat) {
     case 'single_image':
       return buildSingleImage(input);

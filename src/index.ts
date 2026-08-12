@@ -249,6 +249,14 @@ export {
 } from './providers/meta/creativeFormatCompatibility.js';
 export { buildMetaCreativeFormatPayload } from './providers/meta/buildCreativeFormatPayload.js';
 export type { BuildMetaCreativeFormatPayloadInput } from './providers/meta/buildCreativeFormatPayload.js';
+export {
+  buildPartnershipFields,
+  getPartnershipNotes,
+} from './providers/meta/buildPartnershipFields.js';
+export type {
+  BuildPartnershipFieldsInput,
+  PartnershipFields,
+} from './providers/meta/buildPartnershipFields.js';
 export type * from './broker/types.js';
 export {
   ADS_PROVIDER_IDS,
