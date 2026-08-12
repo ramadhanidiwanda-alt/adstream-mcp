@@ -2006,4 +2006,53 @@ describe('createAdCreative', () => {
       expect(videoData).not.toHaveProperty('image_url');
     });
   });
+
+  describe('partnership (Meta Partnership Ads)', () => {
+    const partnershipOptions = {
+      ...standardImageOptions,
+      partnership: {
+        partnerPageId: 'creator-page-1',
+        partnerInstagramId: 'creator-ig-1',
+      },
+    };
+
+    it('surfaces partnershipNotes on a dry_run result', async () => {
+      const result = await createAdCreative(mockClient, partnershipOptions);
+
+      expect(result.status).toBe('dry_run');
+      expect(result.preview).toMatchObject({
+        facebook_branded_content: { sponsor_page_id: 'creator-page-1' },
+        instagram_branded_content: { sponsor_id: 'creator-ig-1' },
+      });
+      expect(result.partnershipNotes).toEqual(
+        expect.arrayContaining([expect.stringContaining('pending delivery')])
+      );
+    });
+
+    it('carries partnershipNotes through to an executed result via baseResult', async () => {
+      mockMetaPost.mockResolvedValueOnce({ id: 'creative-partnership-1' });
+      mockMetaGetObject.mockResolvedValueOnce({
+        id: 'creative-partnership-1',
+        object_story_spec: { link_data: { image_hash: 'image-hash-1' } },
+      });
+
+      const result = await createAdCreative(mockClient, partnershipOptions, {
+        dryRun: false,
+        confirmed: true,
+      });
+
+      expect(result.status).toBe('executed');
+      expect(result.id).toBe('creative-partnership-1');
+      expect(result.partnershipNotes).toEqual(
+        expect.arrayContaining([expect.stringContaining('pending delivery')])
+      );
+    });
+
+    it('omits partnershipNotes when partnership is not used', async () => {
+      const result = await createAdCreative(mockClient, standardImageOptions);
+
+      expect(result.status).toBe('dry_run');
+      expect(result.partnershipNotes).toBeUndefined();
+    });
+  });
 });
