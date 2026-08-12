@@ -394,6 +394,162 @@ describe('MetaAdsAdapter', () => {
     expect(capturedPath).toBe('/act_123/activities');
   });
 
+  function createChangeHistoryAdapter(
+    activities: Array<Record<string, unknown>>,
+    capture: { params?: Record<string, unknown> }
+  ): MetaAdsAdapter {
+    return new MetaAdsAdapter({
+      clientFactory: () =>
+        ({
+          metaGet: async (_path: string, params: Record<string, unknown>) => {
+            capture.params = params;
+            return { data: activities, paging: {} };
+          },
+        }) as never,
+    });
+  }
+
+  const changeHistoryCredentials = {
+    provider: 'meta' as const,
+    accessToken: 'secret-token',
+    source: 'test',
+  };
+
+  it('forwards documented Meta activity filters and exposes actor, application, and change details', async () => {
+    const capture: { params?: Record<string, unknown> } = {};
+    const adapter = createChangeHistoryAdapter(
+      [
+        {
+          event_time: '2026-08-01T02:03:04+0000',
+          event_type: 'update_ad_set_budget',
+          object_id: 'adset_1',
+          actor_id: 'user_1',
+          actor_name: 'Media Buyer',
+          application_id: 'app_1',
+          application_name: 'Ads Manager',
+          extra_data: JSON.stringify({
+            daily_budget: { old_value: '100000', new_value: '150000' },
+          }),
+        },
+      ],
+      capture
+    );
+
+    const response = await adapter.getChangeHistory({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {
+        eventCategory: 'budget',
+        userId: 'user_1',
+        startTime: '2026-08-01T00:00:00Z',
+        endTime: '2026-08-02T00:00:00Z',
+        limit: 25,
+        cursor: 'cursor_1',
+        includeDetails: true,
+      },
+      credentials: changeHistoryCredentials,
+    });
+
+    expect(capture.params).toMatchObject({
+      category: 'BUDGET',
+      uid: 'user_1',
+      since: '2026-08-01T00:00:00Z',
+      until: '2026-08-02T00:00:00Z',
+      limit: 25,
+      after: 'cursor_1',
+    });
+    expect(capture.params).not.toHaveProperty('event_category');
+    expect(capture.params).not.toHaveProperty('user_id');
+    expect(response.data?.rows[0]).toMatchObject({
+      actor_name: 'Media Buyer',
+      actorId: 'user_1',
+      actorName: 'Media Buyer',
+      applicationId: 'app_1',
+      applicationName: 'Ads Manager',
+      changes: [{ field: 'daily_budget', oldValue: '100000', newValue: '150000' }],
+    });
+    expect(response.data?.dateRange).toMatchObject({
+      since: '2026-08-01T00:00:00Z',
+      until: '2026-08-02T00:00:00Z',
+    });
+  });
+
+  it('normalizes flat Meta extra_data into a single change keyed by event type', async () => {
+    const capture: { params?: Record<string, unknown> } = {};
+    const adapter = createChangeHistoryAdapter(
+      [
+        {
+          event_type: 'update_campaign_run_status',
+          object_id: 'cmp_1',
+          extra_data: JSON.stringify({ old_value: 'ACTIVE', new_value: 'PAUSED' }),
+        },
+      ],
+      capture
+    );
+
+    const response = await adapter.getChangeHistory({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: { includeDetails: true },
+      credentials: changeHistoryCredentials,
+    });
+
+    expect(response.data?.rows[0]?.changes).toEqual([
+      { field: 'update_campaign_run_status', oldValue: 'ACTIVE', newValue: 'PAUSED' },
+    ]);
+  });
+
+  it('omits change details and raw activity unless explicitly requested', async () => {
+    const capture: { params?: Record<string, unknown> } = {};
+    const adapter = createChangeHistoryAdapter(
+      [
+        {
+          event_type: 'update_campaign_run_status',
+          object_id: 'cmp_1',
+          extra_data: JSON.stringify({ old_value: 'ACTIVE', new_value: 'PAUSED' }),
+        },
+      ],
+      capture
+    );
+
+    const response = await adapter.getChangeHistory({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {},
+      credentials: changeHistoryCredentials,
+    });
+
+    expect(response.data?.rows[0]?.changes).toBeUndefined();
+    expect(response.data?.rows[0]?.raw).toBeUndefined();
+    expect(capture.params).toMatchObject({ limit: 100 });
+    expect(capture.params?.category).toBeUndefined();
+  });
+
+  it('filters change history rows by objectId and warns that filtering happens client side', async () => {
+    const capture: { params?: Record<string, unknown> } = {};
+    const adapter = createChangeHistoryAdapter(
+      [
+        { event_type: 'update_campaign_budget', object_id: 'cmp_1' },
+        { event_type: 'update_ad_set_budget', object_id: 'adset_9' },
+      ],
+      capture
+    );
+
+    const response = await adapter.getChangeHistory({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: { objectId: 'cmp_1' },
+      credentials: changeHistoryCredentials,
+    });
+
+    expect(capture.params).not.toHaveProperty('object_id');
+    expect(response.data?.rows).toHaveLength(1);
+    expect(response.data?.rows[0]?.object_id).toBe('cmp_1');
+    expect(response.data?.warnings.map((warning) => warning.code)).toContain(
+      'OBJECT_ID_FILTERED_CLIENT_SIDE'
+    );
+  });
+
   it('wraps account insights tool and normalizes account-level response', async () => {
     const adapter = new MetaAdsAdapter({
       clientFactory: (config) => ({ config }) as never,
@@ -2178,7 +2334,12 @@ describe('MetaAdsAdapter', () => {
       tools: {
         createAdCreative: async (_client, options) => {
           receivedOptions = options as unknown as Record<string, unknown>;
-          return { operation: 'create_adcreative', status: 'dry_run', executed: false, preview: {} };
+          return {
+            operation: 'create_adcreative',
+            status: 'dry_run',
+            executed: false,
+            preview: {},
+          };
         },
       },
     });

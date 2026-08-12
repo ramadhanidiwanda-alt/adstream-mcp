@@ -173,6 +173,8 @@ interface MetaActivityRecord {
   object_type?: string;
   actor_id?: string;
   actor_name?: string;
+  application_id?: string;
+  application_name?: string;
   extra_data?: unknown;
 }
 
@@ -925,20 +927,31 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       };
     }
 
+    const objectId = optionalTrimmedString(request.params.objectId);
+    const includeDetails = request.params.includeDetails === true;
+    const since = optionalTrimmedString(request.params.startTime) ?? request.since;
+    const until = optionalTrimmedString(request.params.endTime) ?? request.until;
+
     try {
       const response = await this.createClient(context.credential).metaGet<{
         data: MetaActivityRecord[];
         paging?: { cursors?: { after?: string } };
       }>(`/act_${normalizeAccountId(accountId)}/activities`, {
         fields:
-          'event_time,event_type,translated_event_type,object_id,object_name,object_type,actor_id,actor_name,extra_data',
-        since: request.since,
-        until: request.until,
+          'event_time,event_type,translated_event_type,object_id,object_name,object_type,actor_id,actor_name,application_id,application_name,extra_data',
+        since,
+        until,
+        category: normalizeMetaActivityCategory(request.params.eventCategory),
+        uid: optionalTrimmedString(request.params.userId),
         limit: typeof request.params.limit === 'number' ? request.params.limit : 100,
-        after: typeof request.params.cursor === 'string' ? request.params.cursor : undefined,
+        after: optionalTrimmedString(request.params.cursor),
       });
 
-      const rows = (response.data ?? []).map(
+      const activities = (response.data ?? []).filter(
+        (activity) => objectId === undefined || activity.object_id === objectId
+      );
+
+      const rows = activities.map(
         (activity): AdsChangeHistoryRecord => ({
           provider: 'meta',
           account_id: accountId,
@@ -950,9 +963,36 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
           object_type: activity.object_type,
           actor_id: activity.actor_id,
           actor_name: activity.actor_name,
+          application_id: activity.application_id,
+          application_name: activity.application_name,
+          actorId: activity.actor_id,
+          actorName: activity.actor_name,
+          applicationId: activity.application_id,
+          applicationName: activity.application_name,
+          changes: includeDetails
+            ? normalizeMetaActivityChanges(activity.extra_data, activity.event_type)
+            : undefined,
           raw: request.params.includeRaw === true ? activity : undefined,
         })
       );
+
+      const nextCursor = response.paging?.cursors?.after ?? null;
+      const warnings: AdsChangeHistoryEnvelope['warnings'] = [];
+      if (rows.length === 0) {
+        warnings.push({
+          code: 'NO_CHANGE_HISTORY_ROWS',
+          message: 'Meta returned no change history rows for the requested range.',
+          severity: 'info',
+        });
+      }
+      if (objectId !== undefined) {
+        warnings.push({
+          code: 'OBJECT_ID_FILTERED_CLIENT_SIDE',
+          message:
+            'Meta does not filter the account activities edge by object. Rows were filtered after fetching, so a page can be empty while older changes still exist — keep paging with cursor.',
+          severity: 'info',
+        });
+      }
 
       return {
         ok: true,
@@ -960,19 +1000,10 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
         data: {
           provider: 'meta',
           account: { id: accountId },
-          dateRange: { since: request.since, until: request.until },
+          dateRange: { since, until },
           rows,
-          paging: { nextCursor: response.paging?.cursors?.after ?? null },
-          warnings:
-            rows.length === 0
-              ? [
-                  {
-                    code: 'NO_CHANGE_HISTORY_ROWS',
-                    message: 'Meta returned no change history rows for the requested range.',
-                    severity: 'info',
-                  },
-                ]
-              : [],
+          paging: { nextCursor },
+          warnings,
           dataFreshness: { retrievedAt: new Date().toISOString() },
           capabilities: this.capabilities as unknown as Record<string, unknown>,
         },
@@ -1903,7 +1934,8 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
           {
             provider: 'meta',
             code: 'MISSING_REQUIRED_PARAMS',
-            message: 'accountId, name, adSetId, and exactly one of creativeId or multiMedia are required',
+            message:
+              'accountId, name, adSetId, and exactly one of creativeId or multiMedia are required',
           },
         ],
       };
@@ -3951,6 +3983,66 @@ function isMultiMediaAdOptions(
     typeof value.primaryImageHash === 'string' &&
     typeof value.callToAction === 'string'
   );
+}
+
+function optionalTrimmedString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+}
+
+/** Meta activity categories accepted by the /activities edge (documented enum). */
+export const META_ACTIVITY_CATEGORIES = [
+  'ACCOUNT',
+  'AD',
+  'AD_KEYWORDS',
+  'AD_SET',
+  'AUDIENCE',
+  'BID',
+  'BUDGET',
+  'CAMPAIGN',
+  'DATE',
+  'STATUS',
+  'TARGETING',
+] as const;
+
+function normalizeMetaActivityCategory(value: unknown): string | undefined {
+  const category = optionalTrimmedString(value)?.toUpperCase();
+  if (!category) return undefined;
+  return (META_ACTIVITY_CATEGORIES as readonly string[]).includes(category) ? category : undefined;
+}
+
+/**
+ * Meta returns `extra_data` as a JSON-encoded string. Two shapes occur in practice:
+ * a flat `{ old_value, new_value }` describing the event itself, and a nested
+ * `{ field: { old_value, new_value } }` map. Both are normalized to change rows.
+ */
+function normalizeMetaActivityChanges(
+  extraData: unknown,
+  eventType?: string
+): Array<{ field: string; oldValue?: unknown; newValue?: unknown }> | undefined {
+  const parsed = typeof extraData === 'string' ? safeJsonParse(extraData) : extraData;
+  if (!isRecord(parsed)) return undefined;
+
+  if (parsed.old_value !== undefined || parsed.new_value !== undefined) {
+    return [
+      { field: eventType ?? 'value', oldValue: parsed.old_value, newValue: parsed.new_value },
+    ];
+  }
+
+  const changes = Object.entries(parsed).flatMap(([field, value]) => {
+    if (!isRecord(value)) return [];
+    if (value.old_value === undefined && value.new_value === undefined) return [];
+    return [{ field, oldValue: value.old_value, newValue: value.new_value }];
+  });
+
+  return changes.length > 0 ? changes : undefined;
+}
+
+function safeJsonParse(value: string): unknown {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return undefined;
+  }
 }
 
 function isPlacementCustomizedAssetFeedSpec(value: unknown): boolean {

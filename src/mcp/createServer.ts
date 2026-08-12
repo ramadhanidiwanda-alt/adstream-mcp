@@ -43,6 +43,7 @@ import {
   META_ODAX_OBJECTIVES,
 } from '../providers/meta/objectiveLaunchMatrix.js';
 import { META_LAUNCH_WORKFLOW_INPUT_VALUES } from '../tools/checkLaunchReadiness.js';
+import { META_ACTIVITY_CATEGORIES } from '../providers/meta/MetaAdsAdapter.js';
 
 export interface CreateMetaAdsMcpServerOptions {
   client?: MetaClient;
@@ -137,6 +138,41 @@ const adsCreativeInputSchema = {
   ...adsPerformanceInputSchema,
   since: z.string().optional().describe('Optional start date in YYYY-MM-DD format.'),
   until: z.string().optional().describe('Optional end date in YYYY-MM-DD format.'),
+};
+
+const changeHistoryInputSchema = {
+  ...adsBaseInputSchema,
+  objectId: z
+    .string()
+    .optional()
+    .describe(
+      'Meta campaign, ad set, ad, or creative ID to inspect. Filtered after fetching, so keep paging with cursor when a page comes back empty.'
+    ),
+  eventCategory: z
+    .enum(META_ACTIVITY_CATEGORIES)
+    .optional()
+    .describe('Meta activity category used to filter the history.'),
+  userId: z.string().optional().describe('Meta user ID that performed the change.'),
+  startTime: z
+    .string()
+    .optional()
+    .describe('Start time in ISO 8601 format. Takes precedence over since.'),
+  endTime: z
+    .string()
+    .optional()
+    .describe('End time in ISO 8601 format. Takes precedence over until.'),
+  limit: z
+    .number()
+    .int()
+    .min(1)
+    .max(1000)
+    .optional()
+    .describe('Maximum activity rows Meta should return per page.'),
+  cursor: z.string().optional().describe('Pagination cursor from a previous response.'),
+  includeDetails: z
+    .boolean()
+    .optional()
+    .describe('Include normalized old/new values parsed from Meta extra_data.'),
 };
 
 const creativeAssetsInputSchema = {
@@ -1245,6 +1281,8 @@ export function createMetaAdsMcpServer(options: CreateMetaAdsMcpServerOptions = 
       inputSchema = adsCreativeInputSchema;
     } else if (toolDefinition.name === 'ads_resolve_creative_assets') {
       inputSchema = creativeAssetsInputSchema;
+    } else if (toolDefinition.name === 'ads_get_change_history') {
+      inputSchema = changeHistoryInputSchema;
     } else if (toolDefinition.name === 'ads_create_welcome_message_template') {
       inputSchema = createWelcomeMessageTemplateInputSchema;
     } else if (toolDefinition.name === 'ads_list_welcome_message_templates') {

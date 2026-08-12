@@ -590,6 +590,18 @@ export interface AdsChangeHistoryRecord {
   object_type?: string;
   actor_id?: string;
   actor_name?: string;
+  application_id?: string;
+  application_name?: string;
+  /** Camel-case aliases for canonical MCP clients. */
+  actorId?: string;
+  actorName?: string;
+  applicationId?: string;
+  applicationName?: string;
+  changes?: Array<{
+    field: string;
+    oldValue?: unknown;
+    newValue?: unknown;
+  }>;
   raw?: unknown;
 }
 
