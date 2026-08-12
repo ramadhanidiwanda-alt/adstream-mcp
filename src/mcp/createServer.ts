@@ -807,6 +807,31 @@ export const createAdCreativeInputSchema = {
     .describe(
       'Kontrak aplikasi untuk OUTCOME_APP_PROMOTION + APP. Wajib isi applicationId dan objectStoreUrl; deepLinkUrl opsional dipakai untuk CTA install.'
     ),
+  partnership: z
+    .object({
+      partnerPageId: z.string().optional().describe('Facebook Page ID partner/kreator.'),
+      partnerInstagramId: z.string().optional().describe('Instagram user ID partner/kreator.'),
+      primaryIdentity: z
+        .enum(['advertiser', 'creator'])
+        .optional()
+        .describe(
+          "Handle siapa yang tampil sebagai pengirim iklan. Default 'advertiser'. 'creator' mewajibkan partnerPageId."
+        ),
+      adCode: z
+        .string()
+        .optional()
+        .describe(
+          'Partnership ad code dari kreator. Tidak boleh dipakai bersamaan dengan creativeSpec.sourceInstagramMediaId.'
+        ),
+      adFormat: z
+        .string()
+        .optional()
+        .describe('branded_content.ad_format. Wajib bila adCode diisi.'),
+    })
+    .optional()
+    .describe(
+      'Identitas kemitraan untuk Meta Partnership Ads. Berlaku untuk creativeFormat existing_post, single_image, video, dan carousel. pageId (Page brand) wajib diisi bersama field ini.'
+    ),
   link: z
     .string()
     .optional()

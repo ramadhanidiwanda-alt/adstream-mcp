@@ -2121,6 +2121,38 @@ function createCreateAdCreativeInputSchema() {
         required: ['applicationId', 'objectStoreUrl'],
         additionalProperties: false,
       },
+      partnership: {
+        type: 'object',
+        description:
+          'Identitas kemitraan untuk Meta Partnership Ads (iklan kolaborasi dengan kreator/partner; dulu Branded Content Ads). Berlaku untuk creativeFormat existing_post, single_image, video, dan carousel — format lain ditolak. pageId (Page brand) WAJIB diisi bersama field ini karena ad creative selalu di-anchor ke Facebook Page, bahkan untuk partnership ad yang hanya tayang di Instagram. Wajib mengisi minimal satu dari partnerPageId atau partnerInstagramId. Butuh scope instagram_branded_content_ads_brand dan/atau facebook_branded_content_ads_brand, plus instagram_basic — memberi instagram_branded_content_ads_brand tanpa instagram_basic menghasilkan 403. Iklan yang dipublish tanpa izin kemitraan tetap diterima Meta tetapi masuk status pending delivery sampai partner menyetujui.',
+        properties: {
+          partnerPageId: {
+            type: 'string',
+            description: 'Facebook Page ID partner/kreator.',
+          },
+          partnerInstagramId: {
+            type: 'string',
+            description:
+              'Instagram user ID partner/kreator. Bila hanya field ini yang diisi, Meta mencoba me-link Page Facebook terkait; tanpa tautan itu iklan tidak tayang di Facebook.',
+          },
+          primaryIdentity: {
+            type: 'string',
+            enum: ['advertiser', 'creator'],
+            description:
+              "Handle siapa yang tampil sebagai pengirim iklan. Default 'advertiser' (Page brand jadi identitas primer, partner jadi sponsor). 'creator' membalik keduanya dan mewajibkan partnerPageId.",
+          },
+          adCode: {
+            type: 'string',
+            description:
+              'Partnership ad code yang diberikan kreator. Jalur boost alternatif — tidak boleh dipakai bersamaan dengan creativeSpec.sourceInstagramMediaId.',
+          },
+          adFormat: {
+            type: 'string',
+            description:
+              'branded_content.ad_format. Wajib diisi bila adCode diisi. Meta tidak mendokumentasikan daftar nilainya, jadi nilai diteruskan apa adanya dan Meta yang memvalidasi.',
+          },
+        },
+      },
       link: {
         type: 'string',
         description: 'Field legacy/backward-compatible untuk URL tujuan iklan link sederhana.',

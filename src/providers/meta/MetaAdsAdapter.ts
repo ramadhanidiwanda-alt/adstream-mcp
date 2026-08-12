@@ -37,6 +37,7 @@ import type {
   MetaConfig,
   MetaCreativeFormat,
   MetaPageWelcomeMessage,
+  MetaPartnershipSpec,
   MetaStandardAppSpec,
   MetaCreativeSpec,
   PlacementPerformanceReport,
@@ -1738,6 +1739,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
     let collaborativeProductSetId: string | undefined;
     let collaborativeAppSpec: MetaCollaborativeAppSpec | undefined;
     let standardAppSpec: MetaStandardAppSpec | undefined;
+    let partnership: MetaPartnershipSpec | undefined;
     let destinationType: CreativeDestinationType | undefined;
     let objective: MetaOdaxObjective | undefined;
     let conversionLocation: MetaConversionLocation | undefined;
@@ -1759,6 +1761,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       );
       collaborativeAppSpec = parseCollaborativeAppSpec(request.params.collaborativeAppSpec);
       standardAppSpec = parseStandardAppSpec(request.params.standardAppSpec);
+      partnership = parsePartnershipSpec(request.params.partnership);
       if (hasCreativeFormat && hasCreativeSpec) {
         const creativeFormat = parseMetaCreativeFormat(request.params.creativeFormat);
         creative = parseMetaCreativeSpec(
@@ -1890,6 +1893,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
           collaborativeProductSetId,
           collaborativeAppSpec,
           standardAppSpec,
+          partnership,
           linkData,
           objectStorySpec: creative ? undefined : objectStorySpec,
           assetFeedSpec: creative ? undefined : assetFeedSpec,
@@ -3868,6 +3872,7 @@ export const CREATE_AD_CREATIVE_PARAMS = new Set([
   'collaborativeProductSetId',
   'collaborativeAppSpec',
   'standardAppSpec',
+  'partnership',
   'link',
   'message',
   'headline',
@@ -4342,6 +4347,41 @@ function parseStandardAppSpec(value: unknown): MetaStandardAppSpec | undefined {
     applicationId: requireString(app.applicationId, 'standardAppSpec.applicationId'),
     objectStoreUrl: requireString(app.objectStoreUrl, 'standardAppSpec.objectStoreUrl'),
     deepLinkUrl: optionalString(app.deepLinkUrl, 'standardAppSpec.deepLinkUrl'),
+  };
+}
+
+function parsePartnershipSpec(value: unknown): MetaPartnershipSpec | undefined {
+  if (value === undefined) return undefined;
+  const spec = requireRecord(value, 'partnership');
+
+  const primaryIdentity =
+    spec.primaryIdentity === undefined
+      ? undefined
+      : requireString(spec.primaryIdentity, 'partnership.primaryIdentity');
+  if (
+    primaryIdentity !== undefined &&
+    primaryIdentity !== 'advertiser' &&
+    primaryIdentity !== 'creator'
+  ) {
+    throw new Error("partnership.primaryIdentity harus 'advertiser' atau 'creator'.");
+  }
+
+  return {
+    partnerPageId:
+      spec.partnerPageId === undefined
+        ? undefined
+        : requireString(spec.partnerPageId, 'partnership.partnerPageId'),
+    partnerInstagramId:
+      spec.partnerInstagramId === undefined
+        ? undefined
+        : requireString(spec.partnerInstagramId, 'partnership.partnerInstagramId'),
+    primaryIdentity,
+    adCode:
+      spec.adCode === undefined ? undefined : requireString(spec.adCode, 'partnership.adCode'),
+    adFormat:
+      spec.adFormat === undefined
+        ? undefined
+        : requireString(spec.adFormat, 'partnership.adFormat'),
   };
 }
 

@@ -2941,6 +2941,78 @@ describe('MetaAdsAdapter', () => {
     expect(message).toMatch(/sourceInstagramMediaId/);
   });
 
+  it('meneruskan partnership dari params ke tool createAdCreative', async () => {
+    let receivedOptions: Record<string, unknown> | undefined;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        createAdCreative: async (_client, options) => {
+          receivedOptions = options as unknown as Record<string, unknown>;
+          return {
+            operation: 'create_adcreative',
+            status: 'dry_run',
+            executed: false,
+            preview: {},
+          };
+        },
+      },
+    });
+
+    await adapter.createAdCreative({
+      provider: 'meta',
+      accountId: 'act_1',
+      params: {
+        name: 'Partnership creative',
+        pageId: 'brand-page-1',
+        creativeFormat: 'single_image',
+        creativeSpec: {
+          imageHash: 'hash-1',
+          primaryText: 'Kolaborasi',
+          destinationUrl: 'https://example.com',
+        },
+        partnership: {
+          partnerPageId: 'creator-page-1',
+          partnerInstagramId: 'creator-ig-1',
+          primaryIdentity: 'creator',
+        },
+      },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    });
+
+    expect(receivedOptions).toMatchObject({
+      partnership: {
+        partnerPageId: 'creator-page-1',
+        partnerInstagramId: 'creator-ig-1',
+        primaryIdentity: 'creator',
+      },
+    });
+  });
+
+  it('menolak primaryIdentity di luar advertiser dan creator', async () => {
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+    });
+
+    const response = await adapter.createAdCreative({
+      provider: 'meta',
+      accountId: 'act_1',
+      params: {
+        name: 'Partnership creative',
+        pageId: 'brand-page-1',
+        creativeFormat: 'single_image',
+        creativeSpec: {
+          imageHash: 'hash-1',
+          primaryText: 'Kolaborasi',
+          destinationUrl: 'https://example.com',
+        },
+        partnership: { partnerPageId: 'creator-page-1', primaryIdentity: 'sponsor' },
+      },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    });
+
+    expect(response.ok).toBe(false);
+  });
+
   it('forwards the legacy CTWA params into the createAdCreative options', async () => {
     let receivedOptions: Record<string, unknown> | undefined;
     const adapter = new MetaAdsAdapter({
