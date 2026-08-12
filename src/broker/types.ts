@@ -1111,6 +1111,47 @@ export interface InstagramMediaResult {
   mediaUrl?: string;
 }
 
+export interface PartnershipContentAuthor {
+  displayName?: string;
+  igUserId?: string;
+  fbPageId?: string;
+  profilePictureUrl?: string;
+}
+
+export interface PartnershipContentPartnerInfo {
+  adEligibility?: string;
+  taggedPartner?: Record<string, unknown>;
+  permissionStatus?: string;
+  permissionType?: string;
+  adCode?: string;
+  contentTypes?: string[];
+}
+
+export interface PartnershipContentInsights {
+  likes?: number | null;
+  comments?: number | null;
+  views?: number | null;
+  reach?: number | null;
+  shares?: number | null;
+  interaction?: number | null;
+  saves?: number | null;
+}
+
+export interface PartnershipContentResult {
+  contentId: string;
+  platform?: string;
+  mediaType?: string;
+  postType?: string;
+  caption?: string;
+  permalink?: string;
+  creationTime?: string;
+  author?: PartnershipContentAuthor;
+  isRecommended?: boolean;
+  adUsage?: string;
+  partnershipInfo?: PartnershipContentPartnerInfo[];
+  organicInsights?: PartnershipContentInsights;
+}
+
 export interface ThreadsProfileResult {
   threadsId: string;
   username: string;
