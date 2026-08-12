@@ -17,6 +17,15 @@ const PROVIDER_GUIDANCE: Readonly<Record<string, string>> = {
   // IMAGE media is inferred, so only video and Reels hit this.
   '100:1815279':
     'Video/Reel Instagram tidak perlu diunggah ulang ke Page. Isi instagramUserId (ID akun Instagram pemilik media, dari ads_list_instagram_accounts) bersama creativeSpec.sourceInstagramMediaId, lalu ulangi dry-run.',
+  // Partnership Ads gagal paling sering karena scope, bukan karena payload. Meta
+  // mengembalikan "Permissions error" tanpa menyebut scope mana yang kurang, dan
+  // instagram_branded_content_ads_brand tanpa instagram_basic pada akun IG yang
+  // sama menghasilkan 403 — kombinasi itu yang paling sering terlewat.
+  '200:':
+    'Meta menolak karena izin. Untuk Partnership Ads, token butuh ads_management, business_management, instagram_basic, ' +
+    'dan instagram_branded_content_ads_brand dan/atau facebook_branded_content_ads_brand. ' +
+    'instagram_branded_content_ads_brand tanpa instagram_basic pada akun IG yang sama selalu ditolak. ' +
+    'Pastikan juga Page access token punya role ADVERTISE pada Page yang ter-link ke akun IG profesional.',
 };
 
 /** Return user-facing guidance without replacing the provider's original details. */

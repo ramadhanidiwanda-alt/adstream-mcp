@@ -48,4 +48,16 @@ describe('getMetaCreativeErrorGuidance', () => {
       'Terjadi kegagalan internal saat memproses creative. Coba lagi; jika tetap gagal, periksa log server tanpa mengekspos kredensial.'
     );
   });
+
+  it('mengarahkan ke scope branded content saat Meta menolak dengan kode 200', () => {
+    const guidance = getMetaCreativeErrorGuidance({
+      provider: 'meta',
+      providerCode: '200',
+      providerSubcode: '',
+      message: 'Permissions error',
+    });
+
+    expect(guidance).toMatch(/instagram_branded_content_ads_brand/);
+    expect(guidance).toMatch(/instagram_basic/);
+  });
 });
