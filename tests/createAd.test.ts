@@ -62,9 +62,7 @@ describe('createAd', () => {
           },
           {
             imageHash: 'image-2',
-            placementExclusions: [
-              { publisherPlatform: 'instagram', positions: ['stream'] },
-            ],
+            placementExclusions: [{ publisherPlatform: 'instagram', positions: ['stream'] }],
           },
         ],
       },
@@ -84,6 +82,8 @@ describe('createAd', () => {
         },
       },
       media_sourcing_spec: {
+        bodies: [{ text: 'Chat with us' }],
+        titles: [{ text: 'Five images' }],
         images: [
           {
             hash: 'image-1',
@@ -103,6 +103,73 @@ describe('createAd', () => {
           },
         ],
       },
+    });
+  });
+
+  it('emits documented L1 and per-media text for the Meena multi-media reproduction shape', async () => {
+    const r = await createAd(mockClient, {
+      adAccountId: 'act_2086409658377471',
+      name: 'MID MONTH SALE | POSTER | PLACEMENT 1:1 + 9:16 | 15-17 AGUSTUS 2026',
+      adSetId: 'adset-meena',
+      multiMedia: {
+        pageId: 'page-meena',
+        destinationUrl: 'https://api.whatsapp.com/send',
+        primaryImageHash: 'dc83c36b21608b618107f7e88c0f8499',
+        primaryText: 'Full Mid Month copy',
+        headline: 'Mid Month headline',
+        description: 'Mid Month description',
+        callToAction: 'WHATSAPP_MESSAGE',
+        images: [
+          {
+            imageHash: 'dc83c36b21608b618107f7e88c0f8499',
+            placementExclusions: [
+              { publisherPlatform: 'instagram', positions: ['story', 'reels'] },
+            ],
+            textCustomizations: {
+              bodies: [{ text: 'Square primary text' }],
+              titles: [{ text: 'Square headline' }],
+              descriptions: [{ text: 'Square description' }],
+            },
+          },
+          {
+            imageHash: '5962cd721db94f092bded081a699b0bb',
+            textCustomizations: {
+              bodies: [{ text: 'Vertical primary text' }],
+            },
+          },
+        ],
+      },
+    });
+
+    const creative = JSON.parse(r.preview.creative as string);
+    expect(creative.object_story_spec.link_data).toMatchObject({
+      message: 'Full Mid Month copy',
+      name: 'Mid Month headline',
+      image_hash: 'dc83c36b21608b618107f7e88c0f8499',
+    });
+    expect(creative.media_sourcing_spec).toMatchObject({
+      bodies: [{ text: 'Full Mid Month copy' }],
+      titles: [{ text: 'Mid Month headline' }],
+      descriptions: [{ text: 'Mid Month description' }],
+      images: [
+        {
+          hash: 'dc83c36b21608b618107f7e88c0f8499',
+          source: 'multi_media',
+          opt_in_status: 'opt_in',
+          placement_customizations: [
+            { publisher_platform: 'instagram', placement_exclusions: ['story', 'reels'] },
+          ],
+          text_customizations: {
+            bodies: [{ text: 'Square primary text' }],
+            titles: [{ text: 'Square headline' }],
+            descriptions: [{ text: 'Square description' }],
+          },
+        },
+        {
+          hash: '5962cd721db94f092bded081a699b0bb',
+          text_customizations: { bodies: [{ text: 'Vertical primary text' }] },
+        },
+      ],
     });
   });
 

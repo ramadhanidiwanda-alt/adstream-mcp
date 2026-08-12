@@ -1,5 +1,9 @@
 import type { MetaClient } from '../metaClient.js';
-import type { StructuredMutationError } from '../types.js';
+import type {
+  MetaMultiMediaAdOptions,
+  MetaMultiMediaTextCustomizations,
+  StructuredMutationError,
+} from '../types.js';
 import { normalizeAccountPath } from '../utils/normalizeAccountId.js';
 import {
   formatMetaWriteError,
@@ -10,30 +14,14 @@ import { getMessagingDestinationCompatibilityError } from '../providers/meta/mes
 
 export type AdStatus = 'ACTIVE' | 'PAUSED';
 
-export interface MultiMediaPlacementExclusion {
-  publisherPlatform: string;
-  positions: string[];
-}
-
-export interface MetaMultiMediaImage {
-  imageHash: string;
-  placementExclusions?: MultiMediaPlacementExclusion[];
-}
-
-/**
- * Inline, non-Dynamic Meta multi-media creative. Meta stores the asset list in
- * media_sourcing_spec, not asset_feed_spec, so a normal ad set can use it.
- */
-export interface MetaMultiMediaAdOptions {
-  pageId: string;
-  instagramUserId?: string;
-  destinationUrl: string;
-  primaryImageHash: string;
-  primaryText?: string;
-  headline?: string;
-  callToAction: string;
-  images: MetaMultiMediaImage[];
-}
+/** @deprecated Import MetaMultiMediaPlacementExclusion from ../types.js instead. */
+export type MultiMediaPlacementExclusion = import('../types.js').MetaMultiMediaPlacementExclusion;
+export type {
+  MetaMultiMediaAdOptions,
+  MetaMultiMediaImage,
+  MetaMultiMediaTextCustomizations,
+  MetaMultiMediaTextVariant,
+} from '../types.js';
 
 export interface CreateAdOptions {
   adAccountId: string;
@@ -383,7 +371,9 @@ function buildAdPayload(options: CreateAdOptions): Record<string, unknown> {
     name: options.name.trim(),
     adset_id: options.adSetId,
     creative: JSON.stringify(
-      options.multiMedia ? buildMultiMediaCreative(options.multiMedia) : { creative_id: options.creativeId }
+      options.multiMedia
+        ? buildMultiMediaCreative(options.multiMedia)
+        : { creative_id: options.creativeId }
     ),
     status: options.status ?? 'PAUSED',
   };
@@ -403,7 +393,7 @@ function buildAdPayload(options: CreateAdOptions): Record<string, unknown> {
   return payload;
 }
 
-function buildMultiMediaCreative(options: MetaMultiMediaAdOptions): Record<string, unknown> {
+export function buildMultiMediaCreative(options: MetaMultiMediaAdOptions): Record<string, unknown> {
   const pageId = requiredString(options.pageId, 'multiMedia.pageId');
   const primaryImageHash = requiredString(options.primaryImageHash, 'multiMedia.primaryImageHash');
   const destinationUrl = requiredString(options.destinationUrl, 'multiMedia.destinationUrl');
@@ -412,7 +402,9 @@ function buildMultiMediaCreative(options: MetaMultiMediaAdOptions): Record<strin
     throw new Error('multiMedia.images harus berisi 2 sampai 10 gambar.');
   }
 
-  const hashes = options.images.map((image) => requiredString(image.imageHash, 'multiMedia.images[].imageHash'));
+  const hashes = options.images.map((image) =>
+    requiredString(image.imageHash, 'multiMedia.images[].imageHash')
+  );
   if (!hashes.includes(primaryImageHash)) {
     throw new Error('multiMedia.primaryImageHash harus tercantum di multiMedia.images.');
   }
@@ -420,40 +412,93 @@ function buildMultiMediaCreative(options: MetaMultiMediaAdOptions): Record<strin
     throw new Error('multiMedia.images tidak boleh berisi imageHash duplikat.');
   }
 
+  const primaryText = optionalString(options.primaryText);
+  const headline = optionalString(options.headline);
+  const description = optionalString(options.description);
+
   return {
     object_story_spec: {
       page_id: pageId,
-      ...(optionalString(options.instagramUserId) ? { instagram_user_id: options.instagramUserId!.trim() } : {}),
+      ...(optionalString(options.instagramUserId)
+        ? { instagram_user_id: options.instagramUserId!.trim() }
+        : {}),
       link_data: {
         link: destinationUrl,
         image_hash: primaryImageHash,
-        ...(optionalString(options.primaryText) ? { message: options.primaryText!.trim() } : {}),
-        ...(optionalString(options.headline) ? { name: options.headline!.trim() } : {}),
+        ...(primaryText ? { message: primaryText } : {}),
+        ...(headline ? { name: headline } : {}),
+        ...(description ? { description } : {}),
         call_to_action: { type: callToAction },
+        ...(options.pageWelcomeMessage ? { page_welcome_message: options.pageWelcomeMessage } : {}),
       },
     },
     media_sourcing_spec: {
-      images: options.images.map((image) => ({
-        hash: image.imageHash.trim(),
-        source: 'multi_media',
-        opt_in_status: 'opt_in',
-        ...(image.placementExclusions?.length
-          ? {
-              placement_customizations: image.placementExclusions.map((exclusion) => ({
-                publisher_platform: requiredString(
-                  exclusion.publisherPlatform,
-                  'multiMedia.images[].placementExclusions[].publisherPlatform'
-                ),
-                placement_exclusions: nonEmptyStrings(
-                  exclusion.positions,
-                  'multiMedia.images[].placementExclusions[].positions'
-                ),
-              })),
-            }
-          : {}),
-      })),
+      ...(primaryText ? { bodies: [{ text: primaryText }] } : {}),
+      ...(headline ? { titles: [{ text: headline }] } : {}),
+      ...(description ? { descriptions: [{ text: description }] } : {}),
+      images: options.images.map((image) => {
+        const textCustomizations = buildTextCustomizations(image.textCustomizations);
+        return {
+          hash: image.imageHash.trim(),
+          source: 'multi_media',
+          opt_in_status: 'opt_in',
+          ...(image.placementExclusions?.length
+            ? {
+                placement_customizations: image.placementExclusions.map((exclusion) => ({
+                  publisher_platform: requiredString(
+                    exclusion.publisherPlatform,
+                    'multiMedia.images[].placementExclusions[].publisherPlatform'
+                  ),
+                  placement_exclusions: nonEmptyStrings(
+                    exclusion.positions,
+                    'multiMedia.images[].placementExclusions[].positions'
+                  ),
+                })),
+              }
+            : {}),
+          ...(textCustomizations ? { text_customizations: textCustomizations } : {}),
+        };
+      }),
     },
   };
+}
+
+function buildTextCustomizations(
+  customizations: MetaMultiMediaTextCustomizations | undefined
+): Record<string, Array<{ text: string }>> | undefined {
+  if (!customizations) return undefined;
+
+  const titles = normalizeTextVariants(customizations.titles, 'textCustomizations.titles');
+  const bodies = normalizeTextVariants(customizations.bodies, 'textCustomizations.bodies');
+  const descriptions = normalizeTextVariants(
+    customizations.descriptions,
+    'textCustomizations.descriptions'
+  );
+  const result = {
+    ...(titles ? { titles } : {}),
+    ...(bodies ? { bodies } : {}),
+    ...(descriptions ? { descriptions } : {}),
+  };
+
+  if (Object.keys(result).length === 0) {
+    throw new Error(
+      'multiMedia.images[].textCustomizations harus berisi minimal satu text variant.'
+    );
+  }
+
+  return result;
+}
+
+function normalizeTextVariants(
+  variants: Array<{ text: string }> | undefined,
+  field: string
+): Array<{ text: string }> | undefined {
+  if (!variants) return undefined;
+  const normalized = variants
+    .map((variant) => ({ text: requiredString(variant.text, `${field}[].text`) }))
+    .filter((variant) => Boolean(variant.text));
+  if (normalized.length === 0) throw new Error(`${field} harus berisi minimal satu text variant.`);
+  return normalized;
 }
 
 function requiredString(value: string | undefined, field: string): string {

@@ -913,6 +913,7 @@ const createAdInputSchema = {
       primaryImageHash: z.string(),
       primaryText: z.string().optional(),
       headline: z.string().optional(),
+      description: z.string().optional(),
       callToAction: z.string(),
       images: z
         .array(
@@ -925,6 +926,25 @@ const createAdInputSchema = {
                   positions: z.array(z.string()).min(1),
                 })
               )
+              .optional(),
+            textCustomizations: z
+              .object({
+                titles: z
+                  .array(z.object({ text: z.string() }))
+                  .min(1)
+                  .optional(),
+                bodies: z
+                  .array(z.object({ text: z.string() }))
+                  .min(1)
+                  .optional(),
+                descriptions: z
+                  .array(z.object({ text: z.string() }))
+                  .min(1)
+                  .optional(),
+              })
+              .refine((value) => Boolean(value.titles || value.bodies || value.descriptions), {
+                message: 'At least one text customization variant is required.',
+              })
               .optional(),
           })
         )

@@ -3327,6 +3327,52 @@ describe('MetaAdsAdapter', () => {
     });
   });
 
+  it('forwards a multi-media replacement request to ads_update_ad without changing the ad set', async () => {
+    let receivedOptions: Record<string, unknown> | undefined;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        updateAd: async (_client, options) => {
+          receivedOptions = options as unknown as Record<string, unknown>;
+          return {
+            operation: 'replace_ad_media',
+            status: 'dry_run',
+            executed: false,
+            success: true,
+            preview: {},
+          };
+        },
+      },
+    });
+
+    const response = await adapter.updateAd({
+      provider: 'meta',
+      accountId: 'act_2086409658377471',
+      params: {
+        adId: '120252417259930415',
+        multiMedia: {
+          pageId: '215116488342403',
+          destinationUrl: 'https://api.whatsapp.com/send',
+          primaryImageHash: 'square-hash',
+          callToAction: 'WHATSAPP_MESSAGE',
+          images: [{ imageHash: 'square-hash' }, { imageHash: 'vertical-hash' }],
+        },
+      },
+      credentials: { provider: 'meta', accessToken: 'test-token', source: 'test' },
+    });
+
+    expect(response.ok).toBe(true);
+    expect(receivedOptions).toMatchObject({
+      adId: '120252417259930415',
+      adAccountId: 'act_2086409658377471',
+      multiMedia: {
+        primaryImageHash: 'square-hash',
+        images: [{ imageHash: 'square-hash' }, { imageHash: 'vertical-hash' }],
+      },
+    });
+    expect(receivedOptions).not.toHaveProperty('adSetId');
+  });
+
   it('preserves completed IDs when the legacy bundle reports a later partial failure', async () => {
     const adapter = new MetaAdsAdapter({
       clientFactory: (config) => ({ config }) as never,
