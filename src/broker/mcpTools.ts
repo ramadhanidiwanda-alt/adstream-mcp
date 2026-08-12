@@ -102,6 +102,7 @@ export const ADS_MCP_TOOL_NAMES = [
   'ads_list_lead_forms',
   'ads_list_instagram_accounts',
   'ads_list_instagram_media',
+  'ads_list_partnership_content',
   'ads_list_threads_profiles',
   'ads_list_pixels',
   'ads_list_catalogs',
@@ -559,6 +560,12 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
     inputSchema: createInstagramMediaInputSchema(),
   },
   {
+    name: 'ads_list_partnership_content',
+    description:
+      'Discovery konten kemitraan (branded content, UGC, affiliate, Collab post) lintas Instagram dan Facebook dalam satu endpoint. Calls GET /{business-id}/partnership-ads-advertisable-content. Pakai sebelum membuat Partnership Ads untuk menemukan konten kreator yang boleh diiklankan, status izinnya, ad code yang tersedia, dan metrik organiknya. Wajib businessId plus minimal satu dari fbPageId atau igUserId — bila keduanya diisi, kedua akun harus sudah ter-link. Butuh scope business_management plus instagram_branded_content_ads_brand dan/atau facebook_branded_content_ads_brand; hanya satu scope berarti hasil terbatas ke platform itu saja, dan instagram_branded_content_ads_brand tanpa instagram_basic menghasilkan 403. contentId hasilnya dipakai sebagai creativeSpec.sourceInstagramMediaId pada ads_create_adcreative creativeFormat existing_post.',
+    inputSchema: createPartnershipContentInputSchema(),
+  },
+  {
     name: 'ads_list_threads_profiles',
     description: "List Threads profiles connected to the user's Facebook Pages.",
     inputSchema: createAdsInputSchema([]),
@@ -982,6 +989,8 @@ function callBrokerMethod(
       return broker.listInstagramAccounts(request);
     case 'ads_list_instagram_media':
       return broker.listInstagramMedia(request);
+    case 'ads_list_partnership_content':
+      return broker.listPartnershipContent(request);
     case 'ads_list_threads_profiles':
       return broker.listThreadsProfiles(request);
     case 'ads_list_pixels':
@@ -1439,6 +1448,24 @@ function getAdsCapabilities(request: AdsBrokerRequest): AdsBrokerResponse<Record
         description:
           'Separate kill switch for calls that archive or delete a Meta object. Meta treats ARCHIVED and DELETED as equally permanent (neither reverts via the API), so both are gated the same way regardless of which status string is used.',
         gatedTools: ['ads_archive_ad', 'ads_update_ad', 'ads_update_campaign'],
+      },
+      partnershipAds: {
+        supportedProviders: ['meta'],
+        discoveryTool: 'ads_list_partnership_content',
+        creativeParam: 'partnership',
+        creativeFormats: ['existing_post', 'single_image', 'video', 'carousel'],
+        requiredScopes: [
+          'ads_management',
+          'business_management',
+          'instagram_basic',
+          'instagram_branded_content_ads_brand',
+          'facebook_branded_content_ads_brand',
+        ],
+        notes: [
+          'instagram_branded_content_ads_brand tanpa instagram_basic pada akun IG yang sama menghasilkan 403.',
+          'Iklan yang dipublish tanpa izin kemitraan masuk status pending delivery sampai partner menyetujui.',
+          'pageId (Page brand) selalu wajib, termasuk untuk partnership ad yang hanya tayang di Instagram.',
+        ],
       },
       warnings: [
         'ads_get_performance is currently a non-breaking canonical wrapper over legacy level-specific broker methods.',
@@ -3449,6 +3476,35 @@ function createInstagramMediaInputSchema() {
       },
     },
     required: ['igUserId'],
+  };
+}
+
+function createPartnershipContentInputSchema() {
+  const schema = createAdsInputSchema([]);
+  return {
+    type: 'object',
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      businessId: { type: 'string', description: 'Meta Business ID pemilik Page/akun IG brand.' },
+      fbPageId: {
+        type: 'string',
+        description:
+          'Facebook Page ID brand. Isi minimal satu dari fbPageId atau igUserId; bila keduanya diisi, kedua akun harus sudah ter-link.',
+      },
+      igUserId: { type: 'string', description: 'Instagram professional account ID brand.' },
+      creatorUsername: { type: 'string', description: 'Filter konten dari satu kreator.' },
+      adCodes: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'Cari berdasarkan partnership ad code. Maksimal 50.',
+      },
+      platform: { type: 'string', enum: ['INSTAGRAM', 'FACEBOOK'] },
+      mediaType: { type: 'string', enum: ['IMAGE', 'VIDEO', 'CAROUSEL', 'LINK'] },
+      postType: { type: 'string', enum: ['FEED', 'STORY', 'REEL'] },
+      limit: { type: 'number', description: 'Jumlah baris per halaman, 1-50. Default 25.' },
+      cursor: { type: 'string', description: 'Pagination cursor dari panggilan sebelumnya.' },
+    },
+    required: ['businessId'],
   };
 }
 

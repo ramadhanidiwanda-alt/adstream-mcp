@@ -496,6 +496,7 @@ describe('ads MCP broker tools', () => {
       'ads_list_lead_forms',
       'ads_list_instagram_accounts',
       'ads_list_instagram_media',
+      'ads_list_partnership_content',
       'ads_list_threads_profiles',
       'ads_list_pixels',
       'ads_list_catalogs',

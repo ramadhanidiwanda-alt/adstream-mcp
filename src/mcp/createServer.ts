@@ -358,6 +358,26 @@ const instagramMediaInputSchema = {
     ),
 };
 
+const partnershipContentInputSchema = {
+  ...adsBaseInputSchema,
+  businessId: z.string().describe('Meta Business ID pemilik Page/akun IG brand.'),
+  fbPageId: z
+    .string()
+    .optional()
+    .describe('Facebook Page ID brand. Isi minimal satu dari fbPageId atau igUserId.'),
+  igUserId: z.string().optional().describe('Instagram professional account ID brand.'),
+  creatorUsername: z.string().optional().describe('Filter konten dari satu kreator.'),
+  adCodes: z
+    .array(z.string())
+    .optional()
+    .describe('Cari berdasarkan partnership ad code. Maksimal 50.'),
+  platform: z.enum(['INSTAGRAM', 'FACEBOOK']).optional(),
+  mediaType: z.enum(['IMAGE', 'VIDEO', 'CAROUSEL', 'LINK']).optional(),
+  postType: z.enum(['FEED', 'STORY', 'REEL']).optional(),
+  limit: z.number().optional().describe('Jumlah baris per halaman, 1-50. Default 25.'),
+  cursor: z.string().optional().describe('Pagination cursor dari panggilan sebelumnya.'),
+};
+
 const ecommerceLaunchInputSchema = {
   ...adsBaseInputSchema,
   accountId: z.string().describe('Provider account id. Required for ecommerce campaign creation.'),
@@ -1355,6 +1375,8 @@ export function createMetaAdsMcpServer(options: CreateMetaAdsMcpServerOptions = 
       inputSchema = catalogIdInputSchema;
     } else if (toolDefinition.name === 'ads_list_instagram_media') {
       inputSchema = instagramMediaInputSchema;
+    } else if (toolDefinition.name === 'ads_list_partnership_content') {
+      inputSchema = partnershipContentInputSchema;
     } else if (toolDefinition.name === 'ads_create_campaign') {
       inputSchema = createCampaignInputSchema;
     } else if (toolDefinition.name === 'ads_create_adset') {

@@ -109,6 +109,7 @@ import { listPages as listPagesTool } from '../../tools/listPages.js';
 import { listLeadForms as listLeadFormsTool } from '../../tools/listLeadForms.js';
 import { listInstagramAccounts as listInstagramAccountsTool } from '../../tools/listInstagramAccounts.js';
 import { listInstagramMedia as listInstagramMediaTool } from '../../tools/listInstagramMedia.js';
+import { listPartnershipContent as listPartnershipContentTool } from '../../tools/listPartnershipContent.js';
 import { listThreadsProfiles as listThreadsProfilesTool } from '../../tools/listThreadsProfiles.js';
 import { checkLaunchReadiness as checkLaunchReadinessTool } from '../../tools/checkLaunchReadiness.js';
 import { listPixels as listPixelsTool } from '../../tools/listPixels.js';
@@ -145,6 +146,7 @@ import type {
   MetaProductSetResult,
   InstagramAccountResult,
   InstagramMediaResult,
+  PartnershipContentResult,
   ThreadsProfileResult,
   WhatsAppAccountResult,
   WhatsAppPhoneNumberResult,
@@ -413,6 +415,21 @@ export interface MetaAdsAdapterTools {
       permalinkUrls?: string[];
     }
   ): Promise<InstagramMediaResult[]>;
+  listPartnershipContent(
+    client: MetaClient,
+    options: {
+      businessId: string;
+      fbPageId?: string;
+      igUserId?: string;
+      creatorUsername?: string;
+      adCodes?: string[];
+      platform?: string;
+      mediaType?: string;
+      postType?: string;
+      limit?: number;
+      cursor?: string;
+    }
+  ): Promise<PartnershipContentResult[]>;
   listThreadsProfiles(
     client: MetaClient,
     options?: { limit?: number }
@@ -488,6 +505,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       listLeadForms: listLeadFormsTool,
       listInstagramAccounts: listInstagramAccountsTool,
       listInstagramMedia: listInstagramMediaTool,
+      listPartnershipContent: listPartnershipContentTool,
       listThreadsProfiles: listThreadsProfilesTool,
       listWhatsAppAccounts: listWhatsAppAccountsTool,
       listWhatsAppPhoneNumbers: listWhatsAppPhoneNumbersTool,
@@ -3359,6 +3377,46 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
         permalinkUrls,
       });
       return { ok: true, provider: 'meta', data: media };
+    } catch (error) {
+      return this.errorResponse(error);
+    }
+  }
+
+  async listPartnershipContent(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<PartnershipContentResult[]>> {
+    const context = this.getCredentialContext(request);
+    if (!context.ok) return context.response;
+
+    const businessId = optionalPlainString(request.params.businessId);
+    if (!businessId) {
+      return {
+        ok: false,
+        provider: 'meta',
+        errors: [
+          { provider: 'meta', code: 'MISSING_BUSINESS_ID', message: 'businessId is required' },
+        ],
+      };
+    }
+
+    try {
+      const client = this.createClient(context.credential);
+      const adCodes = Array.isArray(request.params.adCodes)
+        ? request.params.adCodes.filter((code): code is string => typeof code === 'string')
+        : undefined;
+      const content = await this.tools.listPartnershipContent(client, {
+        businessId,
+        fbPageId: optionalPlainString(request.params.fbPageId),
+        igUserId: optionalPlainString(request.params.igUserId),
+        creatorUsername: optionalPlainString(request.params.creatorUsername),
+        adCodes,
+        platform: optionalPlainString(request.params.platform),
+        mediaType: optionalPlainString(request.params.mediaType),
+        postType: optionalPlainString(request.params.postType),
+        limit: typeof request.params.limit === 'number' ? request.params.limit : undefined,
+        cursor: optionalPlainString(request.params.cursor),
+      });
+      return { ok: true, provider: 'meta', data: content };
     } catch (error) {
       return this.errorResponse(error);
     }

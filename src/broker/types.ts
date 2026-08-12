@@ -1267,6 +1267,9 @@ export interface AdsProviderAdapter {
   listInstagramMedia?(
     request: AdsBrokerRequest
   ): Promise<AdsBrokerResponse<InstagramMediaResult[]>>;
+  listPartnershipContent?(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<PartnershipContentResult[]>>;
   listThreadsProfiles?(
     request: AdsBrokerRequest
   ): Promise<AdsBrokerResponse<ThreadsProfileResult[]>>;
