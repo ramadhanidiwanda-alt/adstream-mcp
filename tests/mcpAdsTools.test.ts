@@ -926,6 +926,7 @@ describe('ads MCP broker tools', () => {
       endTime: { type: 'string' },
       limit: { type: 'number' },
       cursor: { type: 'string' },
+      maxScanPages: { type: 'number' },
       includeDetails: { type: 'boolean' },
     });
     expect((properties.eventCategory as { enum: string[] }).enum).not.toContain('budget');

@@ -43,7 +43,11 @@ import {
   META_ODAX_OBJECTIVES,
 } from '../providers/meta/objectiveLaunchMatrix.js';
 import { META_LAUNCH_WORKFLOW_INPUT_VALUES } from '../tools/checkLaunchReadiness.js';
-import { META_ACTIVITY_CATEGORIES } from '../providers/meta/MetaAdsAdapter.js';
+import {
+  CHANGE_HISTORY_DEFAULT_SCAN_PAGES,
+  CHANGE_HISTORY_MAX_SCAN_PAGES,
+  META_ACTIVITY_CATEGORIES,
+} from '../providers/meta/MetaAdsAdapter.js';
 
 export interface CreateMetaAdsMcpServerOptions {
   client?: MetaClient;
@@ -169,6 +173,15 @@ const changeHistoryInputSchema = {
     .optional()
     .describe('Maximum activity rows Meta should return per page.'),
   cursor: z.string().optional().describe('Pagination cursor from a previous response.'),
+  maxScanPages: z
+    .number()
+    .int()
+    .min(1)
+    .max(CHANGE_HISTORY_MAX_SCAN_PAGES)
+    .optional()
+    .describe(
+      `Account pages to scan in one call when objectId cannot be filtered by Meta. Defaults to ${CHANGE_HISTORY_DEFAULT_SCAN_PAGES}.`
+    ),
   includeDetails: z
     .boolean()
     .optional()

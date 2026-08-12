@@ -37,7 +37,11 @@ import {
   META_ODAX_OBJECTIVES,
 } from '../providers/meta/objectiveLaunchMatrix.js';
 import { META_LAUNCH_WORKFLOW_INPUT_VALUES } from '../tools/checkLaunchReadiness.js';
-import { META_ACTIVITY_CATEGORIES } from '../providers/meta/MetaAdsAdapter.js';
+import {
+  CHANGE_HISTORY_DEFAULT_SCAN_PAGES,
+  CHANGE_HISTORY_MAX_SCAN_PAGES,
+  META_ACTIVITY_CATEGORIES,
+} from '../providers/meta/MetaAdsAdapter.js';
 import {
   createWelcomeMessageTemplate,
   listWelcomeMessageTemplates,
@@ -3083,6 +3087,12 @@ function createChangeHistoryInputSchema() {
         description: 'Maximum activity rows Meta should return per page. Defaults to 100.',
       },
       cursor: { type: 'string', description: 'Pagination cursor from a previous response.' },
+      maxScanPages: {
+        type: 'number',
+        minimum: 1,
+        maximum: CHANGE_HISTORY_MAX_SCAN_PAGES,
+        description: `Only used when objectId falls back to scanning the account feed: how many account pages to scan in one call. Defaults to ${CHANGE_HISTORY_DEFAULT_SCAN_PAGES}; each page costs roughly two seconds.`,
+      },
       includeDetails: {
         type: 'boolean',
         description:

@@ -2,7 +2,11 @@ import { describe, expect, it, vi } from 'vitest';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { MetaAdsAdapter } from '../src/providers/meta/MetaAdsAdapter.js';
+import {
+  CHANGE_HISTORY_DEFAULT_SCAN_PAGES,
+  CHANGE_HISTORY_MAX_SCAN_PAGES,
+  MetaAdsAdapter,
+} from '../src/providers/meta/MetaAdsAdapter.js';
 import { META_LAUNCH_WORKFLOWS } from '../src/tools/checkLaunchReadiness.js';
 import { MetaApiError } from '../src/utils/metaError.js';
 import type { MetaClient } from '../src/metaClient.js';
@@ -525,15 +529,70 @@ describe('MetaAdsAdapter', () => {
     expect(capture.params?.category).toBeUndefined();
   });
 
-  it('filters change history rows by objectId and warns that filtering happens client side', async () => {
-    const capture: { params?: Record<string, unknown> } = {};
-    const adapter = createChangeHistoryAdapter(
-      [
-        { event_type: 'update_campaign_budget', object_id: 'cmp_1' },
-        { event_type: 'update_ad_set_budget', object_id: 'adset_9' },
-      ],
-      capture
+  function missingActivitiesEdgeError(): MetaApiError {
+    return new MetaApiError({
+      message:
+        '(#100) Tried accessing nonexisting field (activities) on node type (AdCampaignGroup)',
+      code: 100,
+      type: 'OAuthException',
+    });
+  }
+
+  /** Records every metaGet call so edge routing and page scanning can be asserted. */
+  function createRoutingAdapter(
+    handler: (path: string, params: Record<string, unknown>) => Promise<unknown>,
+    calls: Array<{ path: string; params: Record<string, unknown> }>
+  ): MetaAdsAdapter {
+    return new MetaAdsAdapter({
+      clientFactory: () =>
+        ({
+          metaGet: async (path: string, params: Record<string, unknown>) => {
+            calls.push({ path, params });
+            return handler(path, params);
+          },
+        }) as never,
+    });
+  }
+
+  it('routes objectId to the Meta ad set activities edge when that edge exists', async () => {
+    const calls: Array<{ path: string; params: Record<string, unknown> }> = [];
+    const adapter = createRoutingAdapter(
+      async () => ({
+        data: [{ event_type: 'update_ad_set_run_status', object_id: 'adset_1' }],
+        paging: { cursors: { after: 'next_1' }, next: 'https://graph.facebook.com/next' },
+      }),
+      calls
     );
+
+    const response = await adapter.getChangeHistory({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: { objectId: 'adset_1', eventCategory: 'STATUS', limit: 25 },
+      credentials: changeHistoryCredentials,
+    });
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.path).toBe('/adset_1/activities');
+    expect(calls[0]?.params).toMatchObject({ category: 'STATUS', limit: 25 });
+    expect(response.data?.rows).toHaveLength(1);
+    expect(response.data?.paging.nextCursor).toBe('next_1');
+    expect(response.data?.warnings.map((warning) => warning.code)).not.toContain(
+      'OBJECT_ID_FILTERED_CLIENT_SIDE'
+    );
+  });
+
+  it('falls back to scanning the account feed when the object has no activities edge', async () => {
+    const calls: Array<{ path: string; params: Record<string, unknown> }> = [];
+    const adapter = createRoutingAdapter(async (path) => {
+      if (path === '/cmp_1/activities') throw missingActivitiesEdgeError();
+      return {
+        data: [
+          { event_type: 'update_campaign_budget', object_id: 'cmp_1' },
+          { event_type: 'update_ad_set_budget', object_id: 'adset_9' },
+        ],
+        paging: {},
+      };
+    }, calls);
 
     const response = await adapter.getChangeHistory({
       provider: 'meta',
@@ -542,12 +601,119 @@ describe('MetaAdsAdapter', () => {
       credentials: changeHistoryCredentials,
     });
 
-    expect(capture.params).not.toHaveProperty('object_id');
+    expect(calls.map((call) => call.path)).toEqual(['/cmp_1/activities', '/act_123/activities']);
+    expect(calls[1]?.params).not.toHaveProperty('object_id');
     expect(response.data?.rows).toHaveLength(1);
     expect(response.data?.rows[0]?.object_id).toBe('cmp_1');
     expect(response.data?.warnings.map((warning) => warning.code)).toContain(
       'OBJECT_ID_FILTERED_CLIENT_SIDE'
     );
+  });
+
+  it('keeps paging the account feed until it collects enough matching rows', async () => {
+    const calls: Array<{ path: string; params: Record<string, unknown> }> = [];
+    const adapter = createRoutingAdapter(async (path, params) => {
+      if (path === '/cmp_1/activities') throw missingActivitiesEdgeError();
+      const page = typeof params.after === 'string' ? Number(params.after) : 0;
+      return {
+        data: [
+          { event_type: 'update_campaign_budget', object_id: page === 2 ? 'cmp_1' : 'other' },
+          { event_type: 'update_campaign_name', object_id: 'cmp_1' },
+        ],
+        paging: { cursors: { after: String(page + 1) }, next: 'https://graph.facebook.com/next' },
+      };
+    }, calls);
+
+    const response = await adapter.getChangeHistory({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: { objectId: 'cmp_1', limit: 4, maxScanPages: 3 },
+      credentials: changeHistoryCredentials,
+    });
+
+    // Page 0 and 1 yield one match each, page 2 yields two: four matches, no further paging.
+    expect(calls.filter((call) => call.path === '/act_123/activities')).toHaveLength(3);
+    expect(response.data?.rows).toHaveLength(4);
+    expect(response.data?.rows.every((row) => row.object_id === 'cmp_1')).toBe(true);
+  });
+
+  /** Endless account feed where nothing ever matches the requested object. */
+  function createEndlessScanAdapter(
+    calls: Array<{ path: string; params: Record<string, unknown> }>
+  ) {
+    return createRoutingAdapter(async (path, params) => {
+      if (path === '/cmp_1/activities') throw missingActivitiesEdgeError();
+      const page = typeof params.after === 'string' ? Number(params.after) : 0;
+      return {
+        data: [{ event_type: 'update_campaign_budget', object_id: 'unrelated' }],
+        paging: { cursors: { after: String(page + 1) }, next: 'https://graph.facebook.com/next' },
+      };
+    }, calls);
+  }
+
+  it('stops scanning at the default page cap and returns a cursor to continue from', async () => {
+    const calls: Array<{ path: string; params: Record<string, unknown> }> = [];
+    const adapter = createEndlessScanAdapter(calls);
+
+    const response = await adapter.getChangeHistory({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: { objectId: 'cmp_1', limit: 50 },
+      credentials: changeHistoryCredentials,
+    });
+
+    const scanCalls = calls.filter((call) => call.path === '/act_123/activities');
+    expect(scanCalls).toHaveLength(CHANGE_HISTORY_DEFAULT_SCAN_PAGES);
+    // Scanning uses large pages because Meta charges far less per row that way.
+    expect(scanCalls[0]?.params.limit).toBe(500);
+    expect(response.data?.rows).toHaveLength(0);
+    expect(response.data?.paging.nextCursor).toBe(String(CHANGE_HISTORY_DEFAULT_SCAN_PAGES));
+    expect(response.data?.warnings.map((warning) => warning.code)).toContain(
+      'CHANGE_HISTORY_SCAN_INCOMPLETE'
+    );
+  });
+
+  it('honors maxScanPages and clamps it to the supported range', async () => {
+    const deeper: Array<{ path: string; params: Record<string, unknown> }> = [];
+    await createEndlessScanAdapter(deeper).getChangeHistory({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: { objectId: 'cmp_1', limit: 50, maxScanPages: 2 },
+      credentials: changeHistoryCredentials,
+    });
+    expect(deeper.filter((call) => call.path === '/act_123/activities')).toHaveLength(2);
+
+    const clamped: Array<{ path: string; params: Record<string, unknown> }> = [];
+    await createEndlessScanAdapter(clamped).getChangeHistory({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: { objectId: 'cmp_1', limit: 500, maxScanPages: 9999 },
+      credentials: changeHistoryCredentials,
+    });
+    expect(clamped.filter((call) => call.path === '/act_123/activities')).toHaveLength(
+      CHANGE_HISTORY_MAX_SCAN_PAGES
+    );
+  });
+
+  it('does not fall back to the account feed on unrelated Meta errors', async () => {
+    const calls: Array<{ path: string; params: Record<string, unknown> }> = [];
+    const adapter = createRoutingAdapter(async () => {
+      throw new MetaApiError({
+        message: 'Invalid OAuth 2.0 Access Token',
+        code: 190,
+        type: 'OAuthException',
+      });
+    }, calls);
+
+    const response = await adapter.getChangeHistory({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: { objectId: 'adset_1' },
+      credentials: changeHistoryCredentials,
+    });
+
+    expect(calls).toHaveLength(1);
+    expect(response.ok).toBe(false);
   });
 
   it('wraps account insights tool and normalizes account-level response', async () => {

@@ -22,14 +22,22 @@ Public inputs map onto the parameters Meta actually documents for the activities
 | `userId` | `uid` |
 | `limit` | `limit` |
 | `cursor` | `after` |
-| `objectId` | none — filtered client side |
+| `objectId` | ad set edge when available, otherwise a filtered account scan |
+| `maxScanPages` | none — bounds the fallback scan |
 
-Meta documents no object filter on the account activities edge, and the `activities` edge does not exist on the campaign or ad nodes, so `objectId` is applied to the fetched rows and the response carries an `OBJECT_ID_FILTERED_CLIENT_SIDE` warning telling the caller to keep paging when a page comes back empty.
+`objectId` is routed by capability rather than by declared object type, because an ID alone does not reveal what it points at:
+
+1. Try `GET /{objectId}/activities`. Ad sets have this edge and Meta filters there server side, so one request answers the question.
+2. Meta rejects the edge on every other object type with `(#100) Tried accessing nonexisting field (activities)`. That specific rejection — and only that one — falls back to scanning the account feed and filtering locally. Other errors propagate untouched.
+
+The fallback scan pages automatically so a caller does not have to. Page size is 500 because Meta charges far less per row for large pages (500 rows in ~3.8s versus ~10s for five 100-row pages), and `maxScanPages` (default 2, max 25) bounds one call at roughly seven seconds. The response reports `OBJECT_ID_FILTERED_CLIENT_SIDE` with the number of pages scanned, adds `CHANGE_HISTORY_SCAN_INCOMPLETE` when the cap was reached before satisfying `limit`, and returns the cursor to continue from.
 
 Verified live against `act_1417353822551653` on v25.0 (read-only), because the docs page for the account edge claims it takes no parameters at all:
 
 - `category` **is** honored server side (20 rows unfiltered vs 4 for `BUDGET`), so the documented enum is passed through.
 - `object_id` and `add_children` are **ignored** — the same 20 rows come back — which is why `objectId` must be filtered client side.
+- `/{adset_id}/activities` **works** and returns only that ad set's rows, and honors `category` too. `/{campaign_id}/activities` and `/{ad_id}/activities` both fail with `(#100) Tried accessing nonexisting field (activities)`, matching the node reference which lists the edge on ad sets only.
+- Without `since`/`until` Meta returns only about one week (20 rows here). A year-wide range returned 2500 rows across 25 pages without exhausting, reaching back only to 12 May 2026 — history is deep, but it only arrives through paging.
 - `extra_data` arrives as a JSON string using the flat `{old_value,new_value}` shape, with values already localized by Meta (`"Aktif"` / `"Tidak aktif"`), and omits `old_value` on creation-style events such as `ad_account_billing_charge`.
 
 `includeDetails` defaults to false and controls only `changes`, which parses Meta's JSON-encoded `extra_data` (both the flat `{old_value,new_value}` shape and the nested per-field map). Raw activity payloads stay behind the existing `includeRaw` flag, so nothing raw is returned by default.
