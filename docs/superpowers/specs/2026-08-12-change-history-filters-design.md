@@ -26,6 +26,12 @@ Public inputs map onto the parameters Meta actually documents for the activities
 
 Meta documents no object filter on the account activities edge, and the `activities` edge does not exist on the campaign or ad nodes, so `objectId` is applied to the fetched rows and the response carries an `OBJECT_ID_FILTERED_CLIENT_SIDE` warning telling the caller to keep paging when a page comes back empty.
 
+Verified live against `act_1417353822551653` on v25.0 (read-only), because the docs page for the account edge claims it takes no parameters at all:
+
+- `category` **is** honored server side (20 rows unfiltered vs 4 for `BUDGET`), so the documented enum is passed through.
+- `object_id` and `add_children` are **ignored** — the same 20 rows come back — which is why `objectId` must be filtered client side.
+- `extra_data` arrives as a JSON string using the flat `{old_value,new_value}` shape, with values already localized by Meta (`"Aktif"` / `"Tidak aktif"`), and omits `old_value` on creation-style events such as `ad_account_billing_charge`.
+
 `includeDetails` defaults to false and controls only `changes`, which parses Meta's JSON-encoded `extra_data` (both the flat `{old_value,new_value}` shape and the nested per-field map). Raw activity payloads stay behind the existing `includeRaw` flag, so nothing raw is returned by default.
 
 ## Errors and Compatibility
