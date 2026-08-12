@@ -173,6 +173,8 @@ interface MetaActivityRecord {
   object_type?: string;
   actor_id?: string;
   actor_name?: string;
+  application_id?: string;
+  application_name?: string;
   extra_data?: unknown;
 }
 
@@ -925,20 +927,46 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       };
     }
 
-    try {
-      const response = await this.createClient(context.credential).metaGet<{
-        data: MetaActivityRecord[];
-        paging?: { cursors?: { after?: string } };
-      }>(`/act_${normalizeAccountId(accountId)}/activities`, {
-        fields:
-          'event_time,event_type,translated_event_type,object_id,object_name,object_type,actor_id,actor_name,extra_data',
-        since: request.since,
-        until: request.until,
-        limit: typeof request.params.limit === 'number' ? request.params.limit : 100,
-        after: typeof request.params.cursor === 'string' ? request.params.cursor : undefined,
-      });
+    const objectId = optionalTrimmedString(request.params.objectId);
+    const includeDetails = request.params.includeDetails === true;
+    const since = optionalTrimmedString(request.params.startTime) ?? request.since;
+    const until = optionalTrimmedString(request.params.endTime) ?? request.until;
+    const limit = typeof request.params.limit === 'number' ? request.params.limit : 100;
+    const maxScanPages = resolveScanPageBudget(request.params.maxScanPages);
+    const filters = {
+      fields: META_ACTIVITY_FIELDS,
+      since,
+      until,
+      category: normalizeMetaActivityCategory(request.params.eventCategory),
+      uid: optionalTrimmedString(request.params.userId),
+    };
 
-      const rows = (response.data ?? []).map(
+    try {
+      const client = this.createClient(context.credential);
+      const accountPath = `/act_${normalizeAccountId(accountId)}/activities`;
+      const cursor = optionalTrimmedString(request.params.cursor);
+
+      // Meta exposes an /activities edge on ad sets only. Campaigns, ads and creatives
+      // have no such edge and the account edge ignores object_id, so those fall back to
+      // scanning the account feed.
+      const scoped = objectId
+        ? await fetchObjectActivities(client, objectId, { ...filters, limit, after: cursor })
+        : undefined;
+
+      const page =
+        scoped ??
+        (objectId
+          ? await scanAccountActivities(client, accountPath, filters, {
+              objectId,
+              limit,
+              cursor,
+              maxScanPages,
+            })
+          : await fetchActivityPage(client, accountPath, { ...filters, limit, after: cursor }));
+
+      const activities = page.activities;
+
+      const rows = activities.map(
         (activity): AdsChangeHistoryRecord => ({
           provider: 'meta',
           account_id: accountId,
@@ -950,9 +978,41 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
           object_type: activity.object_type,
           actor_id: activity.actor_id,
           actor_name: activity.actor_name,
+          application_id: activity.application_id,
+          application_name: activity.application_name,
+          actorId: activity.actor_id,
+          actorName: activity.actor_name,
+          applicationId: activity.application_id,
+          applicationName: activity.application_name,
+          changes: includeDetails
+            ? normalizeMetaActivityChanges(activity.extra_data, activity.event_type)
+            : undefined,
           raw: request.params.includeRaw === true ? activity : undefined,
         })
       );
+
+      const warnings: AdsChangeHistoryEnvelope['warnings'] = [];
+      if (rows.length === 0) {
+        warnings.push({
+          code: 'NO_CHANGE_HISTORY_ROWS',
+          message: 'Meta returned no change history rows for the requested range.',
+          severity: 'info',
+        });
+      }
+      if (page.scannedPages !== undefined) {
+        warnings.push({
+          code: 'OBJECT_ID_FILTERED_CLIENT_SIDE',
+          message: `Meta has no activities edge for this object and ignores object_id on the account edge, so ${page.scannedPages} account page(s) were scanned and filtered here.`,
+          severity: 'info',
+        });
+      }
+      if (page.scanIncomplete === true) {
+        warnings.push({
+          code: 'CHANGE_HISTORY_SCAN_INCOMPLETE',
+          message: `Stopped after the ${maxScanPages}-page scan cap before satisfying limit. Older changes may exist — call again with the returned cursor, or raise maxScanPages.`,
+          severity: 'warning',
+        });
+      }
 
       return {
         ok: true,
@@ -960,19 +1020,10 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
         data: {
           provider: 'meta',
           account: { id: accountId },
-          dateRange: { since: request.since, until: request.until },
+          dateRange: { since, until },
           rows,
-          paging: { nextCursor: response.paging?.cursors?.after ?? null },
-          warnings:
-            rows.length === 0
-              ? [
-                  {
-                    code: 'NO_CHANGE_HISTORY_ROWS',
-                    message: 'Meta returned no change history rows for the requested range.',
-                    severity: 'info',
-                  },
-                ]
-              : [],
+          paging: { nextCursor: page.nextCursor },
+          warnings,
           dataFreshness: { retrievedAt: new Date().toISOString() },
           capabilities: this.capabilities as unknown as Record<string, unknown>,
         },
@@ -1903,7 +1954,8 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
           {
             provider: 'meta',
             code: 'MISSING_REQUIRED_PARAMS',
-            message: 'accountId, name, adSetId, and exactly one of creativeId or multiMedia are required',
+            message:
+              'accountId, name, adSetId, and exactly one of creativeId or multiMedia are required',
           },
         ],
       };
@@ -3959,6 +4011,169 @@ function isMultiMediaAdOptions(
     typeof value.primaryImageHash === 'string' &&
     typeof value.callToAction === 'string'
   );
+}
+
+function optionalTrimmedString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+}
+
+const META_ACTIVITY_FIELDS =
+  'event_time,event_type,translated_event_type,object_id,object_name,object_type,actor_id,actor_name,application_id,application_name,extra_data';
+
+/**
+ * Account pages scanned when filtering by an object Meta cannot filter on. Measured against
+ * the live API, large pages are far cheaper per row than small ones (500 rows in ~3.8s versus
+ * ~10s for five 100-row pages), so the scan uses big pages and few of them: the default keeps
+ * one tool call near seven seconds, and the caller goes deeper with maxScanPages or the cursor.
+ */
+export const CHANGE_HISTORY_DEFAULT_SCAN_PAGES = 2;
+export const CHANGE_HISTORY_MAX_SCAN_PAGES = 25;
+const CHANGE_HISTORY_SCAN_PAGE_SIZE = 500;
+
+function resolveScanPageBudget(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isFinite(value))
+    return CHANGE_HISTORY_DEFAULT_SCAN_PAGES;
+  return Math.min(Math.max(Math.trunc(value), 1), CHANGE_HISTORY_MAX_SCAN_PAGES);
+}
+
+interface MetaActivityPage {
+  activities: MetaActivityRecord[];
+  nextCursor: string | null;
+  /** Set only when the account feed was scanned and filtered locally. */
+  scannedPages?: number;
+  scanIncomplete?: boolean;
+}
+
+async function fetchActivityPage(
+  client: MetaClient,
+  path: string,
+  params: Record<string, unknown>
+): Promise<MetaActivityPage & { hasNextPage: boolean }> {
+  const response = await client.metaGet<{
+    data: MetaActivityRecord[];
+    paging?: { cursors?: { after?: string }; next?: string };
+  }>(path, params);
+
+  const after = response.paging?.cursors?.after ?? null;
+  return {
+    activities: response.data ?? [],
+    nextCursor: after,
+    hasNextPage: Boolean(response.paging?.next) && after !== null,
+  };
+}
+
+/** True for Meta's "nonexisting field (activities)" rejection on nodes without that edge. */
+function isMissingActivitiesEdgeError(error: unknown): boolean {
+  return (
+    error instanceof MetaApiError &&
+    error.code === 100 &&
+    /nonexisting field \(activities\)/i.test(error.message)
+  );
+}
+
+/**
+ * Ad sets expose /{id}/activities, which filters server side. Every other object type
+ * rejects the edge, and that rejection is the signal to fall back to an account scan.
+ */
+async function fetchObjectActivities(
+  client: MetaClient,
+  objectId: string,
+  params: Record<string, unknown>
+): Promise<MetaActivityPage | undefined> {
+  try {
+    return await fetchActivityPage(client, `/${objectId}/activities`, params);
+  } catch (error) {
+    if (isMissingActivitiesEdgeError(error)) return undefined;
+    throw error;
+  }
+}
+
+async function scanAccountActivities(
+  client: MetaClient,
+  accountPath: string,
+  filters: Record<string, unknown>,
+  options: { objectId: string; limit: number; cursor?: string; maxScanPages: number }
+): Promise<MetaActivityPage> {
+  const matches: MetaActivityRecord[] = [];
+  let after = options.cursor;
+  let scannedPages = 0;
+  let hasNextPage = false;
+
+  while (scannedPages < options.maxScanPages && matches.length < options.limit) {
+    const page = await fetchActivityPage(client, accountPath, {
+      ...filters,
+      limit: CHANGE_HISTORY_SCAN_PAGE_SIZE,
+      after,
+    });
+    scannedPages += 1;
+    matches.push(...page.activities.filter((activity) => activity.object_id === options.objectId));
+    after = page.nextCursor ?? undefined;
+    hasNextPage = page.hasNextPage;
+    if (!hasNextPage) break;
+  }
+
+  return {
+    activities: matches.slice(0, options.limit),
+    nextCursor: hasNextPage ? (after ?? null) : null,
+    scannedPages,
+    scanIncomplete: hasNextPage && matches.length < options.limit,
+  };
+}
+
+/** Meta activity categories accepted by the /activities edge (documented enum). */
+export const META_ACTIVITY_CATEGORIES = [
+  'ACCOUNT',
+  'AD',
+  'AD_KEYWORDS',
+  'AD_SET',
+  'AUDIENCE',
+  'BID',
+  'BUDGET',
+  'CAMPAIGN',
+  'DATE',
+  'STATUS',
+  'TARGETING',
+] as const;
+
+function normalizeMetaActivityCategory(value: unknown): string | undefined {
+  const category = optionalTrimmedString(value)?.toUpperCase();
+  if (!category) return undefined;
+  return (META_ACTIVITY_CATEGORIES as readonly string[]).includes(category) ? category : undefined;
+}
+
+/**
+ * Meta returns `extra_data` as a JSON-encoded string. Two shapes occur in practice:
+ * a flat `{ old_value, new_value }` describing the event itself, and a nested
+ * `{ field: { old_value, new_value } }` map. Both are normalized to change rows.
+ */
+function normalizeMetaActivityChanges(
+  extraData: unknown,
+  eventType?: string
+): Array<{ field: string; oldValue?: unknown; newValue?: unknown }> | undefined {
+  const parsed = typeof extraData === 'string' ? safeJsonParse(extraData) : extraData;
+  if (!isRecord(parsed)) return undefined;
+
+  if (parsed.old_value !== undefined || parsed.new_value !== undefined) {
+    return [
+      { field: eventType ?? 'value', oldValue: parsed.old_value, newValue: parsed.new_value },
+    ];
+  }
+
+  const changes = Object.entries(parsed).flatMap(([field, value]) => {
+    if (!isRecord(value)) return [];
+    if (value.old_value === undefined && value.new_value === undefined) return [];
+    return [{ field, oldValue: value.old_value, newValue: value.new_value }];
+  });
+
+  return changes.length > 0 ? changes : undefined;
+}
+
+function safeJsonParse(value: string): unknown {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return undefined;
+  }
 }
 
 function isPlacementCustomizedAssetFeedSpec(value: unknown): boolean {

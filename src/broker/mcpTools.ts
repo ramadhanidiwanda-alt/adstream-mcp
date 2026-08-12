@@ -38,6 +38,11 @@ import {
 } from '../providers/meta/objectiveLaunchMatrix.js';
 import { META_LAUNCH_WORKFLOW_INPUT_VALUES } from '../tools/checkLaunchReadiness.js';
 import {
+  CHANGE_HISTORY_DEFAULT_SCAN_PAGES,
+  CHANGE_HISTORY_MAX_SCAN_PAGES,
+  META_ACTIVITY_CATEGORIES,
+} from '../providers/meta/MetaAdsAdapter.js';
+import {
   createWelcomeMessageTemplate,
   listWelcomeMessageTemplates,
 } from '../tools/welcomeMessageTemplates.js';
@@ -278,8 +283,8 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
   {
     name: 'ads_get_change_history',
     description:
-      'Canonical read-only change history tool. Meta returns a structured empty-compatible envelope; unsupported providers return NOT_IMPLEMENTED.',
-    inputSchema: createAdsInputSchema([]),
+      'Canonical read-only change history tool. Filter Meta activity by campaign, ad set, ad, creative, category, actor, and time. Returns the actor and originating application when Meta provides them; unsupported providers return NOT_IMPLEMENTED.',
+    inputSchema: createChangeHistoryInputSchema(),
   },
   {
     name: 'ads_get_capabilities',
@@ -3136,6 +3141,57 @@ function createAdsInputSchema(required: string[]) {
       },
     },
     required,
+  };
+}
+
+function createChangeHistoryInputSchema() {
+  const schema = createAdsInputSchema([]);
+  return {
+    type: 'object',
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      objectId: {
+        type: 'string',
+        description:
+          'Meta campaign, ad set, ad, or creative ID to inspect. Meta does not filter its account activities edge by object, so rows are filtered after fetching — a page can be empty while older changes still exist; keep paging with cursor.',
+      },
+      eventCategory: {
+        type: 'string',
+        enum: [...META_ACTIVITY_CATEGORIES],
+        description: 'Meta activity category used to filter the history (Meta category enum).',
+      },
+      userId: {
+        type: 'string',
+        description: 'Meta user ID that performed the change. Sent as the Meta uid filter.',
+      },
+      startTime: {
+        type: 'string',
+        description: 'Start time in ISO 8601 format. Takes precedence over since.',
+      },
+      endTime: {
+        type: 'string',
+        description: 'End time in ISO 8601 format. Takes precedence over until.',
+      },
+      limit: {
+        type: 'number',
+        minimum: 1,
+        maximum: 1000,
+        description: 'Maximum activity rows Meta should return per page. Defaults to 100.',
+      },
+      cursor: { type: 'string', description: 'Pagination cursor from a previous response.' },
+      maxScanPages: {
+        type: 'number',
+        minimum: 1,
+        maximum: CHANGE_HISTORY_MAX_SCAN_PAGES,
+        description: `Only used when objectId falls back to scanning the account feed: how many account pages to scan in one call. Defaults to ${CHANGE_HISTORY_DEFAULT_SCAN_PAGES}; each page costs roughly two seconds.`,
+      },
+      includeDetails: {
+        type: 'boolean',
+        description:
+          'Include normalized old/new values parsed from Meta extra_data. Defaults to false.',
+      },
+    },
+    required: [],
   };
 }
 

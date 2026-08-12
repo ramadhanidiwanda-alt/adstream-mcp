@@ -936,6 +936,24 @@ describe('ads MCP broker tools', () => {
     });
   });
 
+  it('exposes canonical change history filters', () => {
+    const tool = ADS_MCP_TOOL_DEFINITIONS.find((item) => item.name === 'ads_get_change_history');
+    const properties = tool?.inputSchema.properties as Record<string, unknown>;
+
+    expect(properties).toMatchObject({
+      objectId: { type: 'string' },
+      eventCategory: { type: 'string', enum: expect.arrayContaining(['BUDGET', 'STATUS']) },
+      userId: { type: 'string' },
+      startTime: { type: 'string' },
+      endTime: { type: 'string' },
+      limit: { type: 'number' },
+      cursor: { type: 'string' },
+      maxScanPages: { type: 'number' },
+      includeDetails: { type: 'boolean' },
+    });
+    expect((properties.eventCategory as { enum: string[] }).enum).not.toContain('budget');
+  });
+
   it('returns canonical capabilities without requiring provider credentials', async () => {
     const broker = createBrokerStub();
 
