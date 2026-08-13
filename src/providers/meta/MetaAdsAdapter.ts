@@ -3229,6 +3229,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
         videoFilePath: optionalPlainString(request.params.videoFilePath),
         creativeId: optionalPlainString(request.params.creativeId),
         existingPostId: optionalPlainString(request.params.existingPostId),
+        partnershipAdCode: optionalPlainString(request.params.partnershipAdCode),
         sourceAdId: optionalPlainString(request.params.sourceAdId),
         whatsappPhoneNumber: optionalPlainString(request.params.whatsappPhoneNumber),
         whatsappPhoneNumberId: optionalPlainString(request.params.whatsappPhoneNumberId),

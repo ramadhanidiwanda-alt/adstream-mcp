@@ -3386,6 +3386,11 @@ function createLaunchReadinessInputSchema() {
       videoFilePath: { type: 'string', description: 'Local video path for upload.' },
       creativeId: { type: 'string', description: 'Existing creative ID.' },
       existingPostId: { type: 'string', description: 'Existing object_story_id/post ID.' },
+      partnershipAdCode: {
+        type: 'string',
+        description:
+          'Partnership ad code dari kreator. Referensi konten alternatif untuk creativeFormat existing_post — pada jalur ini tidak ada post ID, sehingga mengisi field ini memenuhi kebutuhan existingPostId.',
+      },
       sourceAdId: {
         type: 'string',
         description:

@@ -212,13 +212,14 @@ export interface MetaExistingPostCreativeSpec {
   /**
    * Facebook Page post ID, format {page_id}_{post_id}. Use this when the content
    * was cross-posted to (or natively lives on) the connected Facebook Page.
-   * Exactly one of objectStoryId or sourceInstagramMediaId is required.
+   * Exactly one content reference is required: objectStoryId, sourceInstagramMediaId,
+   * or partnership.adCode (the ad code is itself the content reference).
    */
   objectStoryId?: string;
   /**
    * Instagram media ID (from ads_list_instagram_media) for content that was never
-   * cross-posted to the Facebook Page — e.g. an IG-only Reel. Exactly one of
-   * objectStoryId or sourceInstagramMediaId is required.
+   * cross-posted to the Facebook Page — e.g. an IG-only Reel. Exactly one content
+   * reference is required: objectStoryId, sourceInstagramMediaId, or partnership.adCode.
    */
   sourceInstagramMediaId?: string;
   /**

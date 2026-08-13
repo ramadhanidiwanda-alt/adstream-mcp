@@ -305,6 +305,12 @@ const launchReadinessInputSchema = {
   videoFilePath: z.string().optional().describe('Local video path for upload.'),
   creativeId: z.string().optional().describe('Existing creative ID.'),
   existingPostId: z.string().optional().describe('Existing object_story_id/post ID.'),
+  partnershipAdCode: z
+    .string()
+    .optional()
+    .describe(
+      'Partnership ad code dari kreator. Referensi konten alternatif untuk creativeFormat existing_post — mengisi field ini memenuhi kebutuhan existingPostId.'
+    ),
   sourceAdId: z
     .string()
     .optional()

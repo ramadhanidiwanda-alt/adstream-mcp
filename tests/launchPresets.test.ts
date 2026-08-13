@@ -416,3 +416,37 @@ describe('launch presets', () => {
     });
   });
 });
+
+describe('checkLaunchReadiness — jalur partnership ad code', () => {
+  const baseOptions = {
+    workflow: 'traffic_website',
+    creativeFormat: 'existing_post',
+    pageId: 'page-1',
+    destinationUrl: 'https://example.com',
+    dailyBudget: 50000,
+    countries: ['ID'],
+    specialAdCategories: [],
+    writesEnabled: true,
+  } as const;
+
+  it('menerima partnershipAdCode sebagai pengganti existingPostId', () => {
+    const result = checkLaunchReadiness({ ...baseOptions, partnershipAdCode: 'AD-CODE-XYZ' });
+
+    expect(result.missing).toEqual([]);
+    expect(result.ready).toBe(true);
+  });
+
+  it('tetap menerima existingPostId seperti sebelumnya', () => {
+    const result = checkLaunchReadiness({ ...baseOptions, existingPostId: 'page-1_123' });
+
+    expect(result.missing).toEqual([]);
+    expect(result.ready).toBe(true);
+  });
+
+  it('tetap menandai kurang input bila tidak ada keduanya', () => {
+    const result = checkLaunchReadiness(baseOptions);
+
+    expect(result.missing).toEqual(['existingPostId']);
+    expect(result.nextQuestions.join(' ')).toMatch(/ad code/i);
+  });
+});

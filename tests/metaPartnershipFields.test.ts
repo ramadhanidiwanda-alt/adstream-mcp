@@ -254,3 +254,34 @@ describe('getPartnershipNotes', () => {
     expect(notes.join(' ')).not.toMatch(/tidak ter-link/i);
   });
 });
+
+describe('buildPartnershipFields — batas jalur ad code', () => {
+  it.each(['single_image', 'video', 'carousel'] as const)(
+    'menolak adCode pada format %s karena tidak ada konten lama untuk dirujuk',
+    (creativeFormat) => {
+      expect(() =>
+        buildPartnershipFields({
+          partnership: {
+            partnerInstagramId: 'creator-ig-1',
+            adCode: 'AD-CODE-XYZ',
+            adFormat: 'REELS',
+          },
+          creativeFormat,
+          pageId: 'brand-page-1',
+        })
+      ).toThrow(/adCode hanya berlaku untuk creativeFormat existing_post/);
+    }
+  );
+
+  it('tetap menerima adCode pada existing_post', () => {
+    const result = buildPartnershipFields({
+      partnership: { partnerInstagramId: 'creator-ig-1', adCode: 'AD-CODE-XYZ', adFormat: 'REELS' },
+      creativeFormat: 'existing_post',
+      pageId: 'brand-page-1',
+    });
+
+    expect(result.payload).toMatchObject({
+      branded_content: { instagram_boost_post_access_token: 'AD-CODE-XYZ' },
+    });
+  });
+});

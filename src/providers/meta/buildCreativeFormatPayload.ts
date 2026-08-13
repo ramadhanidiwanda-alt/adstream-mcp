@@ -749,7 +749,20 @@ function buildExistingPostContentReference(
   sourceInstagramMediaId: string | undefined
 ): Record<string, unknown> {
   if (objectStoryId) return { object_story_id: objectStoryId };
-  if (!sourceInstagramMediaId) return {};
+  if (!sourceInstagramMediaId) {
+    // Jalur ad code. Payload ad code yang didokumentasikan Meta tidak memuat
+    // instagram_user_id sama sekali — akun Instagram pemilik konten sudah terikat
+    // pada ad code itu sendiri. Ditolak, bukan dibuang diam-diam, agar pemanggil
+    // tahu field-nya tidak terpakai.
+    if (input.instagramUserId?.trim()) {
+      throw new Error(
+        'instagramUserId tidak dipakai pada jalur partnership.adCode: ad code sudah membawa ' +
+          'akun Instagram pemilik konten. Hapus instagramUserId, atau pakai ' +
+          'creativeSpec.sourceInstagramMediaId bila memang mau mem-boost media IG lewat ID-nya.'
+      );
+    }
+    return {};
+  }
 
   return {
     source_instagram_media_id: sourceInstagramMediaId,

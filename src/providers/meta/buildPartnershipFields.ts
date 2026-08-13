@@ -81,6 +81,17 @@ export function buildPartnershipFields(input: BuildPartnershipFieldsInput): Part
         'Isi salah satu saja agar sumber konten tidak ambigu.'
     );
   }
+  // branded_content.instagram_boost_post_access_token hanya terdokumentasi untuk
+  // mem-boost konten organik yang sudah ada. Pada format creative baru (aset yang
+  // diunggah sendiri) tidak ada konten lama yang bisa dirujuk ad code, sehingga
+  // kombinasi itu tidak punya makna dan lebih baik ditolak di sini daripada
+  // diteruskan ke Meta sebagai payload yang tidak didokumentasikan.
+  if (adCode && creativeFormat !== 'existing_post') {
+    throw new Error(
+      `partnership.adCode hanya berlaku untuk creativeFormat existing_post, bukan ${creativeFormat}. ` +
+        'Ad code merujuk konten organik yang sudah ada; untuk creative baru pakai partnership tanpa adCode.'
+    );
+  }
 
   const primaryIdentity = partnership.primaryIdentity ?? 'advertiser';
   if (primaryIdentity === 'creator' && !partnerPageId) {
