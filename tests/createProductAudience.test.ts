@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import type { MetaClient } from '../src/metaClient.js';
 import { createProductAudience } from '../src/tools/createProductAudience.js';
+import { isAdsMcpToolName, ADS_MCP_TOOL_NAMES } from '../src/broker/mcpTools.js';
 
 function createMockClient(): MetaClient {
   return {
@@ -105,5 +106,12 @@ describe('createProductAudience', () => {
 
     expect(result.status).toBe('failed');
     expect(result.error).toContain('Invalid product_set_id');
+  });
+});
+
+describe('ads_create_product_audience MCP registration', () => {
+  it('is a recognized MCP tool name', () => {
+    expect(ADS_MCP_TOOL_NAMES).toContain('ads_create_product_audience');
+    expect(isAdsMcpToolName('ads_create_product_audience')).toBe(true);
   });
 });

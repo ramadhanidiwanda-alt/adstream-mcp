@@ -87,6 +87,7 @@ import type {
 import type {
   CreateCampaignResult,
   CreateAdSetResult,
+  CreateProductAudienceResult,
   CreateAdCreativeResult,
   CreateAdResult,
   CloneUiAdResult,
@@ -112,6 +113,10 @@ import { listInstagramMedia as listInstagramMediaTool } from '../../tools/listIn
 import { listPartnershipContent as listPartnershipContentTool } from '../../tools/listPartnershipContent.js';
 import { listThreadsProfiles as listThreadsProfilesTool } from '../../tools/listThreadsProfiles.js';
 import { checkLaunchReadiness as checkLaunchReadinessTool } from '../../tools/checkLaunchReadiness.js';
+import {
+  createProductAudience as createProductAudienceTool,
+  type CreateProductAudienceOptions,
+} from '../../tools/createProductAudience.js';
 import { listPixels as listPixelsTool } from '../../tools/listPixels.js';
 import { listCatalogs as listCatalogsTool } from '../../tools/listCatalogs.js';
 import { listProductSets as listProductSetsTool } from '../../tools/listProductSets.js';
@@ -390,6 +395,11 @@ export interface MetaAdsAdapterTools {
     client: MetaClient,
     options: { pageId: string; status?: string[]; limit?: number }
   ): Promise<import('../../tools/listLeadForms.js').MetaLeadFormResult[]>;
+  createProductAudience(
+    client: MetaClient,
+    options: CreateProductAudienceOptions,
+    execOptions?: { dryRun?: boolean; confirmed?: boolean; maxRetries?: number }
+  ): Promise<CreateProductAudienceResult>;
   listPixels(
     client: MetaClient,
     options: { adAccountId: string; limit?: number }
@@ -498,6 +508,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       listAdVideos,
       resolveCreativeAssets: resolveCreativeAssetsTool,
       getAdPreview,
+      createProductAudience: createProductAudienceTool,
       listPixels: listPixelsTool,
       listCatalogs: listCatalogsTool,
       listProductSets: listProductSetsTool,
@@ -1539,6 +1550,70 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
         {
           dryRun: request.params.dryRun !== false,
           confirmed: request.params.confirmed === true,
+        }
+      );
+      return { ok: result.status !== 'failed', provider: 'meta', data: result };
+    } catch (error) {
+      return this.writeErrorResponse(error);
+    }
+  }
+
+  async createProductAudience(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<CreateProductAudienceResult>> {
+    const context = this.getCredentialContext(request);
+    if (!context.ok) return context.response;
+
+    const adAccountId = request.accountId ?? context.credential.accountId;
+    if (!adAccountId) {
+      return {
+        ok: false,
+        provider: 'meta',
+        errors: [
+          {
+            provider: 'meta',
+            code: 'MISSING_ACCOUNT_ID',
+            message: 'accountId is required to create a product audience',
+          },
+        ],
+      };
+    }
+
+    const name = typeof request.params.name === 'string' ? request.params.name : undefined;
+    const productSetId =
+      typeof request.params.productSetId === 'string' ? request.params.productSetId : undefined;
+    const inclusions = Array.isArray(request.params.inclusions)
+      ? (request.params.inclusions as CreateProductAudienceOptions['inclusions'])
+      : undefined;
+
+    if (!name || !productSetId || !inclusions) {
+      return {
+        ok: false,
+        provider: 'meta',
+        errors: [
+          {
+            provider: 'meta',
+            code: 'MISSING_REQUIRED_PARAMS',
+            message: 'name, productSetId, and inclusions are required in request.params',
+          },
+        ],
+      };
+    }
+
+    const exclusions = Array.isArray(request.params.exclusions)
+      ? (request.params.exclusions as CreateProductAudienceOptions['exclusions'])
+      : undefined;
+
+    try {
+      const client = this.createClient(context.credential);
+      const result = await this.tools.createProductAudience(
+        client,
+        { adAccountId, name, productSetId, inclusions, exclusions },
+        {
+          dryRun: request.params.dryRun !== false,
+          confirmed: request.params.confirmed === true,
+          maxRetries:
+            typeof request.params.maxRetries === 'number' ? request.params.maxRetries : undefined,
         }
       );
       return { ok: result.status !== 'failed', provider: 'meta', data: result };

@@ -13,6 +13,7 @@ import type {
   CreateAdCreativeResult,
   CreateAdResult,
   CreateAdSetResult,
+  CreateProductAudienceResult,
   CreateCampaignResult,
   GetTargetingOptionsResult,
   UpdateAdSetResult,
@@ -87,6 +88,7 @@ export const ADS_MCP_TOOL_NAMES = [
   'ads_get_targeting_options',
   'ads_create_ecommerce_campaign_bundle',
   'ads_create_cpas_catalog_bundle',
+  'ads_create_product_audience',
   'ads_get_video_source',
   'ads_get_ad_creative_mapping',
   'ads_upload_image',
@@ -162,6 +164,7 @@ const ADDITIVE_WRITE_TOOLS = new Set<AdsMcpToolName>([
   'ads_clone_ui_ad',
   'ads_create_ecommerce_campaign_bundle',
   'ads_create_cpas_catalog_bundle',
+  'ads_create_product_audience',
   'ads_clone_adset',
   'ads_upload_image',
   'ads_upload_video',
@@ -469,6 +472,12 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
     description:
       'Create a PAUSED Meta Sales CPAS catalog bundle. Dry-run by default; productSetId is verified before any write.',
     inputSchema: createCpasCatalogBundleInputSchema(),
+  },
+  {
+    name: 'ads_create_product_audience',
+    description:
+      'Create a Meta dynamic product audience for CPAS catalog retargeting (e.g. "viewed but did not purchase in 14 days"). Built from productSetId + inclusions (events: ViewContent, AddToCart, Purchase, Search, each with a retentionSeconds window) and optional exclusions. The created audience becomes a Custom Audience — pass its id into ads_create_adset targeting.customAudiences. Dry-run by default; set dryRun=false and confirmed=true to execute.',
+    inputSchema: createProductAudienceInputSchema(),
   },
   {
     name: 'ads_get_video_source',
@@ -971,6 +980,8 @@ function callBrokerMethod(
       return broker.createEcommerceCampaignBundle(request);
     case 'ads_create_cpas_catalog_bundle':
       return broker.createCpasCatalogCampaignBundle(request);
+    case 'ads_create_product_audience':
+      return broker.createProductAudience(request);
     case 'ads_get_video_source':
       return broker.getVideoSource(request);
     case 'ads_get_ad_creative_mapping':
@@ -3145,6 +3156,57 @@ function createCpasCatalogBundleInputSchema() {
       'headline',
       'destinationUrl',
     ],
+  };
+}
+
+function productAudienceRuleSchema() {
+  return {
+    type: 'object',
+    required: ['retentionSeconds', 'event'],
+    properties: {
+      retentionSeconds: {
+        type: 'number',
+        description: 'How long, in seconds, a person stays in/out of the audience.',
+      },
+      event: {
+        type: 'string',
+        enum: ['Search', 'ViewContent', 'AddToCart', 'Purchase'],
+      },
+    },
+  };
+}
+
+function createProductAudienceInputSchema() {
+  const schema = createAdsInputSchema([]);
+
+  return {
+    type: 'object',
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      name: { type: 'string', description: 'Audience name.' },
+      productSetId: {
+        type: 'string',
+        description: 'Catalog product set this audience is built from.',
+      },
+      inclusions: {
+        type: 'array',
+        description:
+          'Events that add a person to the audience. Meta commonly uses ViewContent (14 days) and AddToCart (7 days) for retargeting.',
+        items: productAudienceRuleSchema(),
+      },
+      exclusions: {
+        type: 'array',
+        description:
+          'Events that remove a person from the audience. Meta commonly uses Purchase (30 days) to exclude buyers from retargeting.',
+        items: productAudienceRuleSchema(),
+      },
+      dryRun: { type: 'boolean', description: 'Defaults to true. Set false to execute.' },
+      confirmed: {
+        type: 'boolean',
+        description: 'Must be true together with dryRun=false to execute.',
+      },
+    },
+    required: ['accountId', 'name', 'productSetId', 'inclusions'],
   };
 }
 

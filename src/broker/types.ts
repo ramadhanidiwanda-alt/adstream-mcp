@@ -863,6 +863,23 @@ export interface CreateAdSetResult {
   error?: string;
 }
 
+export type CreateProductAudienceStatus =
+  | 'dry_run'
+  | 'pending_confirmation'
+  | 'executed'
+  | 'failed';
+
+export interface CreateProductAudienceResult {
+  operation: 'create_product_audience';
+  status: CreateProductAudienceStatus;
+  executed: boolean;
+  preview: Record<string, unknown>;
+  id?: string;
+  response?: Record<string, unknown>;
+  error?: string;
+  structuredError?: StructuredMutationError;
+}
+
 export type CreateAdCreativeStatus =
   | 'dry_run'
   | 'pending_confirmation'
@@ -1247,6 +1264,9 @@ export interface AdsProviderAdapter {
   createCpasCatalogCampaignBundle(
     request: AdsBrokerRequest
   ): Promise<AdsBrokerResponse<CpasCatalogCampaignBundleResult>>;
+  createProductAudience(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<CreateProductAudienceResult>>;
   uploadImage(request: AdsBrokerRequest): Promise<AdsBrokerResponse<ImageUploadResult>>;
   uploadVideo(request: AdsBrokerRequest): Promise<AdsBrokerResponse<VideoUploadResult>>;
   getAccountInfo(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AccountInfoResult>>;
