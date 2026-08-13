@@ -56,6 +56,9 @@ The intended public API should stay small:
 | `ads_upload_video`                    | Upload video to Meta Ads Video Library                                                                                        |
 | `ads_create_welcome_message_template` | Save a local reusable Messenger/Instagram welcome message template                                                            |
 | `ads_list_welcome_message_templates`  | List local reusable welcome message templates                                                                                 |
+| `ads_create_product_audience`         | Create a dynamic product (catalog retargeting) audience for CPAS                                                              |
+| `ads_list_audiences`                  | List Meta Custom Audiences, including product audiences                                                                       |
+| `ads_create_custom_audience`          | Create a WEBSITE custom audience (pixel-based retargeting)                                                                    |
 
 ## WhatsApp Discovery Tools (read-only, Meta-specific)
 
@@ -80,6 +83,14 @@ The four creation tools above use dry-run by default and execute only when `dryR
 ### Copy variations vs Dynamic Creative
 
 When a marketer asks for several headline/caption/copy/image/video options, treat that as manual creative testing by default: create separate manual creatives/ads, each with one chosen media asset, one `primaryText`, and one `headline`; or use carousel cards when the intended format is a carousel. Do not switch to Dynamic Creative just because there are multiple copy or media options.
+
+### Audiences (CPAS retargeting)
+
+`ads_create_product_audience` builds the retargeting half of the standard CPAS pattern: a "prospecting" ad set with no audience, plus a "retargeting" ad set targeting people who viewed or added-to-cart a catalog product but did not purchase. It creates the audience via `POST /act_{id}/product_audiences` from a `productSetId` and typed `inclusions`/`exclusions` (event + retention window in seconds); Meta's own examples commonly use 14 days for `ViewContent`, 7 days for `AddToCart`, and a 30-day `Purchase` exclusion, but this connector never applies those as silent defaults — pass them explicitly.
+
+`ads_create_custom_audience` currently supports only `subtype: WEBSITE` (pixel-based website-visitor retargeting); its `rule` field is the raw Website Custom Audience Rule object from Meta's own rule builder/reference, passed through unmodified.
+
+Use `ads_list_audiences` to find an existing audience's `id`, then pass that `id` into `ads_create_adset`'s `targeting.customAudiences` (or `targeting.excludedCustomAudiences` to exclude it) — the same field that already accepts any Custom Audience ID today.
 
 Do not use Dynamic Creative / Flexible asset-feed for new creates. `creativeFormat: "flexible"` and `isDynamicCreative: true` are rejected so the MCP cannot accidentally create a Dynamic Creative family. `assetFeedSpec` and nested `objectStorySpec.asset_feed_spec` are accepted only for placement customization with `asset_customization_rules`, including image/video media tailored per placement. Simple creatives using one media asset, one `primaryText`, and one `headline` remain supported.
 
