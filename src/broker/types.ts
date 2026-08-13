@@ -1094,6 +1094,16 @@ export interface MetaPixelResult {
   last_fired_time?: string;
 }
 
+export interface MetaAudienceResult {
+  id: string;
+  name?: string;
+  subtype?: string;
+  approximate_count_lower_bound?: number;
+  approximate_count_upper_bound?: number;
+  delivery_status?: string;
+  operation_status?: string;
+}
+
 export interface MetaCatalogResult {
   id: string;
   name?: string;
