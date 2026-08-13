@@ -1173,6 +1173,120 @@ describe('buildMetaCreativeFormatPayload', () => {
     expect(result).not.toHaveProperty('omnichannel_link_spec');
   });
 
+  it('builds a catalog template with showMultipleImages, forcing multi_share_end_card false (live-verified pairing requirement)', () => {
+    const result = buildMetaCreativeFormatPayload({
+      mode: 'standard',
+      pageId: 'page-1',
+      creativeFormat: 'catalog',
+      creativeSpec: {
+        productSetId: 'product-set-1',
+        primaryText: 'Produk pilihan',
+        destinationUrl: 'https://example.com/products',
+        callToAction: 'SHOP_NOW',
+        showMultipleImages: true,
+      },
+    });
+
+    const objectStorySpec = result.object_story_spec as Record<string, unknown>;
+    const templateData = objectStorySpec.template_data as Record<string, unknown>;
+    expect(templateData.show_multiple_images).toBe(true);
+    expect(templateData.multi_share_end_card).toBe(false);
+  });
+
+  it('forces multi_share_end_card false when showMultipleImages overrides a single_image presentation', () => {
+    const result = buildMetaCreativeFormatPayload({
+      mode: 'standard',
+      pageId: 'page-1',
+      creativeFormat: 'catalog',
+      creativeSpec: {
+        productSetId: 'product-set-1',
+        primaryText: 'Produk pilihan',
+        destinationUrl: 'https://example.com/products',
+        presentation: 'single_image',
+        showMultipleImages: true,
+      },
+    });
+
+    const objectStorySpec = result.object_story_spec as Record<string, unknown>;
+    const templateData = objectStorySpec.template_data as Record<string, unknown>;
+    expect(templateData.show_multiple_images).toBe(true);
+    expect(templateData.multi_share_end_card).toBe(false);
+  });
+
+  it('builds a catalog template with preferredImageTags', () => {
+    const result = buildMetaCreativeFormatPayload({
+      mode: 'standard',
+      pageId: 'page-1',
+      creativeFormat: 'catalog',
+      creativeSpec: {
+        productSetId: 'product-set-1',
+        primaryText: 'Produk pilihan',
+        destinationUrl: 'https://example.com/products',
+        preferredImageTags: ['lifestyle', 'studio'],
+      },
+    });
+
+    const objectStorySpec = result.object_story_spec as Record<string, unknown>;
+    const templateData = objectStorySpec.template_data as Record<string, unknown>;
+    expect(templateData.preferred_image_tags).toEqual(['lifestyle', 'studio']);
+  });
+
+  it('builds a catalog template with formatOption inside template_data (not asset_feed_spec)', () => {
+    const result = buildMetaCreativeFormatPayload({
+      mode: 'standard',
+      pageId: 'page-1',
+      creativeFormat: 'catalog',
+      creativeSpec: {
+        productSetId: 'product-set-1',
+        primaryText: 'Produk pilihan',
+        destinationUrl: 'https://example.com/products',
+        formatOption: 'carousel_slideshows',
+      },
+    });
+
+    const objectStorySpec = result.object_story_spec as Record<string, unknown>;
+    const templateData = objectStorySpec.template_data as Record<string, unknown>;
+    expect(templateData.format_option).toBe('carousel_slideshows');
+    expect(result).not.toHaveProperty('asset_feed_spec.format_option');
+  });
+
+  it('rejects showMultipleImages combined with formatOption (live-verified ObjectStorySpecRedundant)', () => {
+    expect(() =>
+      buildMetaCreativeFormatPayload({
+        mode: 'standard',
+        pageId: 'page-1',
+        creativeFormat: 'catalog',
+        creativeSpec: {
+          productSetId: 'product-set-1',
+          primaryText: 'Produk pilihan',
+          destinationUrl: 'https://example.com/products',
+          showMultipleImages: true,
+          formatOption: 'carousel_slideshows',
+        },
+      })
+    ).toThrow(/showMultipleImages dan formatOption/);
+  });
+
+  it('builds a catalog template with categorizationCriteria at the top level, not inside object_story_spec', () => {
+    const result = buildMetaCreativeFormatPayload({
+      mode: 'standard',
+      pageId: 'page-1',
+      creativeFormat: 'catalog',
+      creativeSpec: {
+        productSetId: 'product-set-1',
+        primaryText: 'Produk pilihan',
+        destinationUrl: 'https://example.com/products',
+        categorizationCriteria: 'category',
+      },
+    });
+
+    expect(result.categorization_criteria).toBe('category');
+    const objectStorySpec = result.object_story_spec as Record<string, unknown>;
+    expect(objectStorySpec).not.toHaveProperty('categorization_criteria');
+    const templateData = objectStorySpec.template_data as Record<string, unknown>;
+    expect(templateData).not.toHaveProperty('categorization_criteria');
+  });
+
   it('adds omnichannel_link_spec for collaborative catalog creative', () => {
     const result = buildMetaCreativeFormatPayload({
       mode: 'collaborative_ads',

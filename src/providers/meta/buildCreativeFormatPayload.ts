@@ -873,10 +873,39 @@ function buildCatalog(
     templateData.show_multiple_images = false;
   }
 
+  // Live-verified at v25.0: format_option and show_multiple_images are mutually
+  // exclusive — Meta rejects (#100) subcode 1443051 "ObjectStorySpecRedundant"
+  // when both are set on template_data, even though each is valid alone.
+  if (creativeSpec.showMultipleImages && creativeSpec.formatOption) {
+    throw new Error(
+      'showMultipleImages dan formatOption tidak dapat digunakan bersamaan pada catalog template_data — Meta menolaknya sebagai ObjectStorySpecRedundant. Pilih salah satu.'
+    );
+  }
+
+  // Live-verified at v25.0: show_multiple_images=true requires
+  // multi_share_end_card=false, or Meta rejects the create — overrides
+  // whatever the presentation branches above set.
+  if (creativeSpec.showMultipleImages) {
+    templateData.show_multiple_images = true;
+    templateData.multi_share_end_card = false;
+  }
+  if (creativeSpec.preferredImageTags?.length) {
+    templateData.preferred_image_tags = creativeSpec.preferredImageTags;
+  }
+  if (creativeSpec.formatOption) {
+    templateData.format_option = creativeSpec.formatOption;
+  }
+
   return withCollaborativeCatalogContext(
     input,
     {
       product_set_id: productSetId,
+      // Live-verified at v25.0: Meta rejects categorization_criteria inside
+      // object_story_spec.template_data ("tidak didukung"); it belongs at the
+      // top level of the creative payload, sibling to product_set_id.
+      ...(creativeSpec.categorizationCriteria
+        ? { categorization_criteria: creativeSpec.categorizationCriteria }
+        : {}),
       ...(creativeSpec.presentation === 'carousel' || creativeSpec.presentation === 'video_carousel'
         ? {
             asset_feed_spec: {

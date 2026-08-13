@@ -158,6 +158,25 @@ export interface MetaCatalogCreativeSpec extends MetaCreativeCopy {
   presentation?: 'single_image' | 'carousel' | 'video_carousel';
   /** Required only for the catalog video-carousel hybrid presentation. */
   hybridVideo?: { videoId: string; thumbnailUrl: string };
+  /**
+   * Show multiple product images per card instead of one. Meta requires
+   * multi_share_end_card=false whenever this is true (live-verified at v25.0);
+   * buildCatalog sets that automatically, overriding whatever presentation set.
+   * Cannot be combined with formatOption — Meta rejects both set together as
+   * ObjectStorySpecRedundant (live-verified at v25.0); buildCatalog throws first.
+   */
+  showMultipleImages?: boolean;
+  /** Prefer catalog images tagged with any of these tags when Meta selects which image to show. */
+  preferredImageTags?: string[];
+  /**
+   * Category-based dynamic ads instead of per-product. Sent at the top level of
+   * the creative payload, not inside object_story_spec/template_data — Meta
+   * rejects it there (live-verified at v25.0). Requires the catalog to have
+   * enough items per category; Meta rejects the create otherwise, not silently.
+   */
+  categorizationCriteria?: string;
+  /** Presentation variant for the rendered catalog template, e.g. 'carousel_slideshows'. */
+  formatOption?: string;
 }
 
 export interface MetaCollectionCreativeSpec extends MetaCreativeCopy {
