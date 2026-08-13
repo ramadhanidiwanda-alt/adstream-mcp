@@ -82,6 +82,7 @@ export const ADS_MCP_TOOL_NAMES = [
   'ads_create_ad',
   'ads_clone_ui_ad',
   'ads_archive_ad',
+  'ads_delete_audience',
   'ads_update_adset',
   'ads_update_ad',
   'ads_update_campaign',
@@ -148,6 +149,7 @@ const DESTRUCTIVE_WRITE_TOOLS = new Set<AdsMcpToolName>([
   'ads_pause_ad',
   'ads_update_campaign_budget',
   'ads_archive_ad',
+  'ads_delete_audience',
   'ads_update_adset',
   'ads_update_ad',
   'ads_update_campaign',
@@ -235,7 +237,7 @@ export function isIrreversibleAdsCall(
   name: AdsMcpToolName,
   args: Record<string, unknown>
 ): boolean {
-  if (name === 'ads_archive_ad') return true;
+  if (name === 'ads_archive_ad' || name === 'ads_delete_audience') return true;
 
   const irreversibleStatuses = IRREVERSIBLE_STATUS_TOOLS[name];
   return irreversibleStatuses !== undefined && irreversibleStatuses.has(args.status as string);
@@ -411,6 +413,12 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
     description:
       'Archive a Meta ad. Sets status to ARCHIVED — permanent and cannot be reverted via the API (Meta treats ARCHIVED the same as DELETED here). Dry-run by default. Set dryRun=false and confirmed=true to execute. Also requires ADSTREAM_ENABLE_DESTRUCTIVE_ACTIONS=true.',
     inputSchema: createArchiveAdInputSchema(),
+  },
+  {
+    name: 'ads_delete_audience',
+    description:
+      'Permanently delete a Meta Custom Audience (including a dynamic product audience created by ads_create_product_audience — those are Custom Audience objects once created). Cannot be reverted via the API. Dry-run by default. Set dryRun=false and confirmed=true to execute. Also requires ADSTREAM_ENABLE_DESTRUCTIVE_ACTIONS=true.',
+    inputSchema: createDeleteAudienceInputSchema(),
   },
   {
     name: 'ads_pause_ad',
@@ -974,6 +982,8 @@ function callBrokerMethod(
       return broker.cloneUiAd(request);
     case 'ads_archive_ad':
       return broker.archiveAd(request);
+    case 'ads_delete_audience':
+      return broker.deleteAudience(request);
     case 'ads_pause_ad':
       return broker.pauseAd(request);
     case 'ads_resume_ad':
@@ -1478,7 +1488,12 @@ function getAdsCapabilities(request: AdsBrokerRequest): AdsBrokerResponse<Record
         enableFlag: ADS_DESTRUCTIVE_ACTIONS_ENABLE_FLAG,
         description:
           'Separate kill switch for calls that archive or delete a Meta object. Meta treats ARCHIVED and DELETED as equally permanent (neither reverts via the API), so both are gated the same way regardless of which status string is used.',
-        gatedTools: ['ads_archive_ad', 'ads_update_ad', 'ads_update_campaign'],
+        gatedTools: [
+          'ads_archive_ad',
+          'ads_delete_audience',
+          'ads_update_ad',
+          'ads_update_campaign',
+        ],
       },
       partnershipAds: {
         supportedProviders: ['meta'],
@@ -2627,6 +2642,25 @@ function createArchiveAdInputSchema() {
       confirmed: { type: 'boolean', description: 'Must be true to execute after preview.' },
     },
     required: ['adId'],
+  };
+}
+
+function createDeleteAudienceInputSchema() {
+  const schema = createAdsInputSchema([]);
+
+  return {
+    type: 'object',
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      audienceId: {
+        type: 'string',
+        description:
+          'The Custom Audience id to delete permanently (includes product/dynamic audiences).',
+      },
+      dryRun: { type: 'boolean', description: 'Defaults to true. Set false only after preview.' },
+      confirmed: { type: 'boolean', description: 'Must be true to execute after preview.' },
+    },
+    required: ['audienceId'],
   };
 }
 

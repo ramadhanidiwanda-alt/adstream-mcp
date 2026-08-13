@@ -67,6 +67,7 @@ import { getWelcomeMessageTemplate } from '../../tools/welcomeMessageTemplates.j
 import { createAd as createAdTool } from '../../tools/createAd.js';
 import { cloneUiAd as cloneUiAdTool } from '../../tools/cloneUiAd.js';
 import { archiveAd as archiveAdTool } from '../../tools/archiveAd.js';
+import { deleteAudience as deleteAudienceTool } from '../../tools/deleteAudience.js';
 import { pauseAd as pauseAdTool } from '../../tools/pauseAd.js';
 import { resumeAd as resumeAdTool } from '../../tools/resumeAd.js';
 import { pauseAdSet as pauseAdSetTool } from '../../tools/pauseAdSet.js';
@@ -93,6 +94,7 @@ import type {
   CreateAdResult,
   CloneUiAdResult,
   ArchiveAdResult,
+  DeleteAudienceResult,
   CloneAdSetResult,
   UpdateAdSetResult,
   UpdateAdResult,
@@ -339,6 +341,11 @@ export interface MetaAdsAdapterTools {
     options: import('../../tools/archiveAd.js').ArchiveAdOptions,
     execOptions?: { dryRun?: boolean; confirmed?: boolean; maxRetries?: number }
   ): Promise<import('../../tools/archiveAd.js').ArchiveAdResult>;
+  deleteAudience(
+    client: MetaClient,
+    options: import('../../tools/deleteAudience.js').DeleteAudienceOptions,
+    execOptions?: { dryRun?: boolean; confirmed?: boolean; maxRetries?: number }
+  ): Promise<import('../../tools/deleteAudience.js').DeleteAudienceResult>;
   pauseAd(client: MetaClient, adId: string): Promise<MutationResult>;
   resumeAd(client: MetaClient, adId: string): Promise<MutationResult>;
   pauseAdSet(client: MetaClient, adSetId: string): Promise<MutationResult>;
@@ -507,6 +514,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       createAd: createAdTool,
       cloneUiAd: cloneUiAdTool,
       archiveAd: archiveAdTool,
+      deleteAudience: deleteAudienceTool,
       pauseAd: pauseAdTool,
       resumeAd: resumeAdTool,
       pauseAdSet: pauseAdSetTool,
@@ -2271,6 +2279,44 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       const result = await this.tools.archiveAd(
         client,
         { adId },
+        {
+          dryRun: request.params.dryRun !== false,
+          confirmed: request.params.confirmed === true,
+        }
+      );
+      return { ok: result.status !== 'failed', provider: 'meta', data: result };
+    } catch (error) {
+      return this.writeErrorResponse(error);
+    }
+  }
+
+  async deleteAudience(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<DeleteAudienceResult>> {
+    const context = this.getCredentialContext(request);
+    if (!context.ok) return context.response;
+
+    const audienceId =
+      typeof request.params.audienceId === 'string' ? request.params.audienceId : undefined;
+    if (!audienceId) {
+      return {
+        ok: false,
+        provider: 'meta',
+        errors: [
+          {
+            provider: 'meta',
+            code: 'MISSING_AUDIENCE_ID',
+            message: 'audienceId is required in request.params',
+          },
+        ],
+      };
+    }
+
+    try {
+      const client = this.createClient(context.credential);
+      const result = await this.tools.deleteAudience(
+        client,
+        { audienceId },
         {
           dryRun: request.params.dryRun !== false,
           confirmed: request.params.confirmed === true,

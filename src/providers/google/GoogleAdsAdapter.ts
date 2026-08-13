@@ -19,6 +19,7 @@ import type {
   CpasCatalogCampaignBundleResult,
   CreateProductAudienceResult,
   CreateCustomAudienceResult,
+  DeleteAudienceResult,
   AdsProviderAdapter,
   VideoSourceResult,
   AdCreativeMappingResult,
@@ -229,6 +230,12 @@ export class GoogleAdsAdapter implements AdsProviderAdapter {
     _request: AdsBrokerRequest
   ): Promise<AdsBrokerResponse<CreateCustomAudienceResult>> {
     return this.notImplemented('Custom audiences are only supported by Meta Ads');
+  }
+
+  async deleteAudience(
+    _request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<DeleteAudienceResult>> {
+    return this.notImplemented('Audience deletion is only supported by Meta Ads');
   }
 
   async uploadImage(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<ImageUploadResult>> {

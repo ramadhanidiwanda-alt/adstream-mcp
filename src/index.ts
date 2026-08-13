@@ -116,6 +116,8 @@ export type {
 
 export { archiveAd } from './tools/archiveAd.js';
 export type { ArchiveAdOptions, ArchiveAdResult } from './tools/archiveAd.js';
+export { deleteAudience } from './tools/deleteAudience.js';
+export type { DeleteAudienceOptions, DeleteAudienceResult } from './tools/deleteAudience.js';
 
 export { updateAd } from './tools/updateAd.js';
 export type { UpdateAdOptions, UpdateAdResult, UpdateAdStatus } from './tools/updateAd.js';

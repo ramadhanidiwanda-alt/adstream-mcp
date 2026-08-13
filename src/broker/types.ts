@@ -944,6 +944,20 @@ export interface CloneUiAdResult {
   structuredError?: StructuredMutationError;
 }
 
+export type DeleteAudienceStatus = 'dry_run' | 'pending_confirmation' | 'executed' | 'failed';
+
+export interface DeleteAudienceResult {
+  operation: 'delete_audience';
+  status: DeleteAudienceStatus;
+  executed: boolean;
+  preview: Record<string, unknown>;
+  success: boolean;
+  id?: string;
+  response?: Record<string, unknown>;
+  error?: string;
+  structuredError?: StructuredMutationError;
+}
+
 export type ArchiveAdStatus = 'dry_run' | 'pending_confirmation' | 'executed' | 'failed';
 
 export interface ArchiveAdResult {
@@ -1270,6 +1284,7 @@ export interface AdsProviderAdapter {
   createAd(request: AdsBrokerRequest): Promise<AdsBrokerResponse<CreateAdResult>>;
   cloneUiAd(request: AdsBrokerRequest): Promise<AdsBrokerResponse<CloneUiAdResult>>;
   archiveAd(request: AdsBrokerRequest): Promise<AdsBrokerResponse<ArchiveAdResult>>;
+  deleteAudience(request: AdsBrokerRequest): Promise<AdsBrokerResponse<DeleteAudienceResult>>;
   pauseAd(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>>;
   resumeAd(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>>;
   pauseAdSet(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>>;
