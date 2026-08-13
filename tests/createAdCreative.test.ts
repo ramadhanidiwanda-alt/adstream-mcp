@@ -2016,6 +2016,146 @@ describe('createAdCreative', () => {
       },
     };
 
+    // Uji lintas-lapisan: menembak createAdCreative (bukan modul murni) untuk
+    // ketiga jalur pembuatan yang didokumentasikan Meta, dengan bentuk payload
+    // persis seperti contoh resmi. Cacat F1/F2/F4/F6 lolos enam review per-task
+    // justru karena tidak ada uji yang menyeberangi lapisan pada jalur-jalur ini.
+    describe('bentuk payload ketiga jalur pembuatan', () => {
+      it('boost via media ID: object_id + source_instagram_media_id + identitas branded content', async () => {
+        const result = await createAdCreative(mockClient, {
+          adAccountId: 'act_123',
+          name: 'Boost media',
+          pageId: 'brand-page-1',
+          instagramUserId: 'creator-ig-1',
+          creative: {
+            creativeFormat: 'existing_post' as const,
+            creativeSpec: { sourceInstagramMediaId: 'ig-media-1' },
+          },
+          partnership: {
+            partnerPageId: 'creator-page-1',
+            partnerInstagramId: 'creator-ig-1',
+            adFormat: '1',
+          },
+        });
+
+        expect(result.status).toBe('dry_run');
+        expect(result.preview).toEqual({
+          name: 'Boost media',
+          object_id: 'brand-page-1',
+          source_instagram_media_id: 'ig-media-1',
+          instagram_user_id: 'creator-ig-1',
+          facebook_branded_content: { sponsor_page_id: 'creator-page-1' },
+          instagram_branded_content: { sponsor_id: 'creator-ig-1' },
+          branded_content: { ad_format: '1' },
+        });
+      });
+
+      it('boost via ad code: object_id + branded_content, tanpa referensi konten lain', async () => {
+        const result = await createAdCreative(mockClient, {
+          adAccountId: 'act_123',
+          name: 'Boost ad code',
+          pageId: 'brand-page-1',
+          creative: {
+            creativeFormat: 'existing_post' as const,
+            creativeSpec: {},
+          },
+          partnership: {
+            partnerPageId: 'creator-page-1',
+            partnerInstagramId: 'creator-ig-1',
+            adCode: 'AD-CODE-XYZ',
+            adFormat: '1',
+          },
+        });
+
+        expect(result.status).toBe('dry_run');
+        expect(result.preview).toEqual({
+          name: 'Boost ad code',
+          object_id: 'brand-page-1',
+          branded_content: {
+            instagram_boost_post_access_token: 'AD-CODE-XYZ',
+            ad_format: '1',
+          },
+          facebook_branded_content: { sponsor_page_id: 'creator-page-1' },
+          instagram_branded_content: { sponsor_id: 'creator-ig-1' },
+        });
+      });
+
+      it('creative baru dual-identity dengan brand sebagai identitas primer', async () => {
+        const result = await createAdCreative(mockClient, {
+          ...standardImageOptions,
+          pageId: 'brand-page-1',
+          partnership: {
+            partnerPageId: 'creator-page-1',
+            partnerInstagramId: 'creator-ig-1',
+          },
+        });
+
+        expect(result.status).toBe('dry_run');
+        expect(result.preview).toMatchObject({
+          object_story_spec: { page_id: 'brand-page-1' },
+          facebook_branded_content: { sponsor_page_id: 'creator-page-1' },
+          instagram_branded_content: { sponsor_id: 'creator-ig-1' },
+        });
+        expect(result.preview).not.toHaveProperty('object_id');
+        expect(result.preview).not.toHaveProperty('branded_content');
+      });
+
+      it('creative baru dual-identity dengan kreator sebagai identitas primer', async () => {
+        const result = await createAdCreative(mockClient, {
+          ...standardImageOptions,
+          pageId: 'brand-page-1',
+          partnership: {
+            partnerPageId: 'creator-page-1',
+            brandInstagramId: 'brand-ig-1',
+            primaryIdentity: 'creator' as const,
+          },
+        });
+
+        expect(result.status).toBe('dry_run');
+        expect(result.preview).toMatchObject({
+          object_story_spec: { page_id: 'creator-page-1' },
+          facebook_branded_content: { sponsor_page_id: 'brand-page-1' },
+          instagram_branded_content: { sponsor_id: 'brand-ig-1' },
+        });
+        expect(result.partnershipNotes).toEqual(
+          expect.arrayContaining([expect.stringContaining('pending delivery')])
+        );
+      });
+
+      it('existing_post via objectStoryId tidak membawa object_id kedua', async () => {
+        const result = await createAdCreative(mockClient, {
+          adAccountId: 'act_123',
+          name: 'Boost post FB',
+          pageId: 'brand-page-1',
+          creative: {
+            creativeFormat: 'existing_post' as const,
+            creativeSpec: { objectStoryId: 'creator-page-1_123' },
+          },
+          partnership: { partnerPageId: 'creator-page-1' },
+        });
+
+        expect(result.status).toBe('dry_run');
+        expect(result.preview).toEqual({
+          name: 'Boost post FB',
+          object_story_id: 'creator-page-1_123',
+          facebook_branded_content: { sponsor_page_id: 'creator-page-1' },
+        });
+      });
+
+      it('adFormat tanpa adCode tetap menghasilkan branded_content pada creative baru', async () => {
+        const result = await createAdCreative(mockClient, {
+          ...standardImageOptions,
+          pageId: 'brand-page-1',
+          partnership: {
+            partnerPageId: 'creator-page-1',
+            adFormat: '2',
+          },
+        });
+
+        expect(result.preview).toMatchObject({ branded_content: { ad_format: '2' } });
+      });
+    });
+
     it('surfaces partnershipNotes on a dry_run result', async () => {
       const result = await createAdCreative(mockClient, partnershipOptions);
 
