@@ -149,6 +149,8 @@ Ditegakkan sebelum request dikirim ke Meta, supaya kegagalan datang dengan sebab
 5. `primaryIdentity: 'creator'` tanpa `partnerPageId` ditolak — tidak ada Page ID kreator yang bisa dipasang sebagai identitas primer.
 6. `partnerInstagramId` bersamaan dengan `primaryIdentity: 'creator'` ditolak — Meta menurunkan akun IG kreator dari Page kreator pada `object_story_spec.page_id`; mengirim keduanya membuat identitas kreator ambigu.
 7. `brandInstagramId` pada `primaryIdentity: 'advertiser'` ditolak — pada arah itu sponsornya kreator, jadi field sponsor sisi Instagram adalah `partnerInstagramId`.
+8. `partnership` bersamaan dengan `mode: 'collaborative_ads'` (CPAS) ditolak — katalog retailer yang di-share tidak punya identitas kreator, dan Meta tidak mendokumentasikan `omnichannel_link_spec` bersama field branded content.
+9. `partnership` bersamaan dengan `standardAppSpec` ditolak — creative app-install tidak punya bentuk partnership yang terdokumentasi.
 
 ## Perilaku yang wajib disurfacekan
 

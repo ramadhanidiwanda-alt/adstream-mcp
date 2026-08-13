@@ -58,6 +58,15 @@ export function buildMetaCreativeFormatPayload(
   if (input.standardAppSpec && input.mode === 'collaborative_ads') {
     throw new Error('standardAppSpec tidak kompatibel dengan mode collaborative_ads.');
   }
+  if (input.standardAppSpec && input.partnership) {
+    throw new Error('standardAppSpec dan partnership tidak dapat digunakan bersamaan.');
+  }
+  // CPAS (collaborative_ads) adalah katalog retailer yang di-share — tidak ada
+  // identitas kreator di dalamnya, dan Meta tidak mendokumentasikan gabungan
+  // omnichannel_link_spec dengan field branded content.
+  if (input.partnership && input.mode === 'collaborative_ads') {
+    throw new Error('partnership tidak kompatibel dengan mode collaborative_ads.');
+  }
   assertMetaCreativeCompatibility(input);
 
   if (!input.partnership) return buildByCreativeFormat(input);

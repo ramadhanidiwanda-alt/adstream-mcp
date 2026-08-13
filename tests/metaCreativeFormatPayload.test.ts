@@ -2006,6 +2006,43 @@ describe('buildMetaCreativeFormatPayload', () => {
     ).toThrow(/partnership\.adCode/);
   });
 
+  it('menolak partnership bersama mode collaborative_ads', () => {
+    expect(() =>
+      buildMetaCreativeFormatPayload({
+        mode: 'collaborative_ads',
+        pageId: 'brand-page-1',
+        collaborativeProductSetId: 'product-set-1',
+        partnership: { partnerPageId: 'creator-page-1' },
+        creativeFormat: 'single_image',
+        creativeSpec: {
+          imageHash: 'hash-1',
+          primaryText: 'Kolaborasi',
+          destinationUrl: 'https://example.com',
+        },
+      })
+    ).toThrow(/partnership tidak kompatibel dengan mode collaborative_ads/);
+  });
+
+  it('menolak partnership bersama standardAppSpec', () => {
+    expect(() =>
+      buildMetaCreativeFormatPayload({
+        mode: 'standard',
+        pageId: 'brand-page-1',
+        standardAppSpec: {
+          applicationId: 'app-1',
+          objectStoreUrl: 'https://play.google.com/store/apps/details?id=app',
+        },
+        partnership: { partnerPageId: 'creator-page-1' },
+        creativeFormat: 'single_image',
+        creativeSpec: {
+          imageHash: 'hash-1',
+          primaryText: 'Kolaborasi',
+          destinationUrl: 'https://example.com',
+        },
+      })
+    ).toThrow(/standardAppSpec dan partnership tidak dapat digunakan bersamaan/);
+  });
+
   it('menolak partnership pada format catalog', () => {
     expect(() =>
       buildMetaCreativeFormatPayload({
