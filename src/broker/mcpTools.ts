@@ -15,6 +15,7 @@ import type {
   CreateAdSetResult,
   CreateProductAudienceResult,
   CreateCustomAudienceResult,
+  CreatePixelResult,
   CreateCampaignResult,
   GetTargetingOptionsResult,
   UpdateAdSetResult,
@@ -92,6 +93,7 @@ export const ADS_MCP_TOOL_NAMES = [
   'ads_create_cpas_catalog_bundle',
   'ads_create_product_audience',
   'ads_create_custom_audience',
+  'ads_create_pixel',
   'ads_get_video_source',
   'ads_get_ad_creative_mapping',
   'ads_upload_image',
@@ -171,6 +173,7 @@ const ADDITIVE_WRITE_TOOLS = new Set<AdsMcpToolName>([
   'ads_create_cpas_catalog_bundle',
   'ads_create_product_audience',
   'ads_create_custom_audience',
+  'ads_create_pixel',
   'ads_clone_adset',
   'ads_upload_image',
   'ads_upload_video',
@@ -496,6 +499,12 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
     description:
       "Create a Meta WEBSITE custom audience (pixel-based website-visitor retargeting). Only subtype WEBSITE is supported. rule is the raw Website Custom Audience Rule object from Meta's Audience rule builder/API reference — this MCP passes it through as-is rather than reinterpreting it. Dry-run by default; set dryRun=false and confirmed=true to execute. Pastikan pixelId sesuai dengan pixel yang direferensikan di dalam event sources milik rule — Meta tidak melakukan cross-validation antara keduanya, jadi ketidakcocokan tidak akan terdeteksi otomatis.",
     inputSchema: createCustomAudienceInputSchema(),
+  },
+  {
+    name: 'ads_create_pixel',
+    description:
+      'Create a Meta Pixel for conversion tracking (POST /act_{id}/adspixels). Only name is required. An ad account can only have one pixel — creating a second one on an account that already has one fails with a clear error identifying the existing pixel; use ads_list_pixels to find it instead of retrying. Dry-run by default; set dryRun=false and confirmed=true to execute.',
+    inputSchema: createPixelInputSchema(),
   },
   {
     name: 'ads_get_video_source',
@@ -1010,6 +1019,8 @@ function callBrokerMethod(
       return broker.createProductAudience(request);
     case 'ads_create_custom_audience':
       return broker.createCustomAudience(request);
+    case 'ads_create_pixel':
+      return broker.createPixel(request);
     case 'ads_get_video_source':
       return broker.getVideoSource(request);
     case 'ads_get_ad_creative_mapping':
@@ -3290,6 +3301,24 @@ function createCustomAudienceInputSchema() {
       },
     },
     required: ['accountId', 'name', 'pixelId', 'rule'],
+  };
+}
+
+function createPixelInputSchema() {
+  const schema = createAdsInputSchema([]);
+
+  return {
+    type: 'object',
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      name: { type: 'string', description: 'Pixel name.' },
+      dryRun: { type: 'boolean', description: 'Defaults to true. Set false to execute.' },
+      confirmed: {
+        type: 'boolean',
+        description: 'Must be true together with dryRun=false to execute.',
+      },
+    },
+    required: ['accountId', 'name'],
   };
 }
 

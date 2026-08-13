@@ -125,6 +125,7 @@ import {
   type CreateCustomAudienceOptions,
 } from '../../tools/createCustomAudience.js';
 import { listAudiences as listAudiencesTool } from '../../tools/listAudiences.js';
+import { createPixel as createPixelTool, type CreatePixelOptions } from '../../tools/createPixel.js';
 import { listPixels as listPixelsTool } from '../../tools/listPixels.js';
 import { listCatalogs as listCatalogsTool } from '../../tools/listCatalogs.js';
 import { listProductSets as listProductSetsTool } from '../../tools/listProductSets.js';
@@ -155,6 +156,7 @@ import type {
   MetaPageResult,
   MetaLeadFormResult,
   MetaPixelResult,
+  CreatePixelResult,
   MetaAudienceResult,
   MetaCatalogResult,
   MetaProductSetResult,
@@ -419,6 +421,11 @@ export interface MetaAdsAdapterTools {
     options: CreateCustomAudienceOptions,
     execOptions?: { dryRun?: boolean; confirmed?: boolean; maxRetries?: number }
   ): Promise<CreateCustomAudienceResult>;
+  createPixel(
+    client: MetaClient,
+    options: CreatePixelOptions,
+    execOptions?: { dryRun?: boolean; confirmed?: boolean; maxRetries?: number }
+  ): Promise<CreatePixelResult>;
   listPixels(
     client: MetaClient,
     options: { adAccountId: string; limit?: number }
@@ -534,6 +541,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       getAdPreview,
       createProductAudience: createProductAudienceTool,
       createCustomAudience: createCustomAudienceTool,
+      createPixel: createPixelTool,
       listPixels: listPixelsTool,
       listAudiences: listAudiencesTool,
       listCatalogs: listCatalogsTool,
@@ -1707,6 +1715,54 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
           description:
             typeof request.params.description === 'string' ? request.params.description : undefined,
         },
+        {
+          dryRun: request.params.dryRun !== false,
+          confirmed: request.params.confirmed === true,
+          maxRetries:
+            typeof request.params.maxRetries === 'number' ? request.params.maxRetries : undefined,
+        }
+      );
+      return { ok: result.status !== 'failed', provider: 'meta', data: result };
+    } catch (error) {
+      return this.writeErrorResponse(error);
+    }
+  }
+
+  async createPixel(request: AdsBrokerRequest): Promise<AdsBrokerResponse<CreatePixelResult>> {
+    const context = this.getCredentialContext(request);
+    if (!context.ok) return context.response;
+
+    const adAccountId = request.accountId ?? context.credential.accountId;
+    if (!adAccountId) {
+      return {
+        ok: false,
+        provider: 'meta',
+        errors: [
+          {
+            provider: 'meta',
+            code: 'MISSING_ACCOUNT_ID',
+            message: 'accountId is required to create a pixel',
+          },
+        ],
+      };
+    }
+
+    const name = typeof request.params.name === 'string' ? request.params.name : undefined;
+    if (!name) {
+      return {
+        ok: false,
+        provider: 'meta',
+        errors: [
+          { provider: 'meta', code: 'MISSING_REQUIRED_PARAMS', message: 'name is required in request.params' },
+        ],
+      };
+    }
+
+    try {
+      const client = this.createClient(context.credential);
+      const result = await this.tools.createPixel(
+        client,
+        { adAccountId, name },
         {
           dryRun: request.params.dryRun !== false,
           confirmed: request.params.confirmed === true,

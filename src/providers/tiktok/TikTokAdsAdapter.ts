@@ -19,6 +19,7 @@ import type {
   CpasCatalogCampaignBundleResult,
   CreateProductAudienceResult,
   CreateCustomAudienceResult,
+  CreatePixelResult,
   DeleteAudienceResult,
   AdsProviderAdapter,
   VideoSourceResult,
@@ -1033,6 +1034,10 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
     _request: AdsBrokerRequest
   ): Promise<AdsBrokerResponse<CreateCustomAudienceResult>> {
     return this.notImplemented('Custom audiences are only supported by Meta Ads');
+  }
+
+  async createPixel(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<CreatePixelResult>> {
+    return this.notImplemented('Pixel creation is only supported by Meta Ads');
   }
 
   async deleteAudience(

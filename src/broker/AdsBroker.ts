@@ -18,6 +18,7 @@ import type {
   CreateAdSetResult,
   CreateProductAudienceResult,
   CreateCustomAudienceResult,
+  CreatePixelResult,
   CreateCampaignResult,
   GetTargetingOptionsResult,
   UpdateAdSetResult,
@@ -102,6 +103,7 @@ type AdapterWriteMethod =
   | 'createAdSet'
   | 'createProductAudience'
   | 'createCustomAudience'
+  | 'createPixel'
   | 'createAdCreative'
   | 'createAd'
   | 'cloneUiAd'
@@ -580,6 +582,10 @@ export class AdsBroker {
     return this.executeWrite<CreateCustomAudienceResult>(request, 'createCustomAudience');
   }
 
+  createPixel(request: AdsBrokerRequest): Promise<AdsBrokerResponse<CreatePixelResult>> {
+    return this.executeWrite<CreatePixelResult>(request, 'createPixel');
+  }
+
   createAdCreative(request: AdsBrokerRequest): Promise<AdsBrokerResponse<CreateAdCreativeResult>> {
     return this.executeWrite<CreateAdCreativeResult>(request, 'createAdCreative');
   }
@@ -736,6 +742,7 @@ export class AdsBroker {
       | CreateAdSetResult
       | CreateProductAudienceResult
       | CreateCustomAudienceResult
+      | CreatePixelResult
       | CreateAdCreativeResult
       | CreateAdResult
       | CloneUiAdResult

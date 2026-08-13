@@ -1121,6 +1121,19 @@ export interface MetaPixelResult {
   last_fired_time?: string;
 }
 
+export type CreatePixelStatus = 'dry_run' | 'pending_confirmation' | 'executed' | 'failed';
+
+export interface CreatePixelResult {
+  operation: 'create_pixel';
+  status: CreatePixelStatus;
+  executed: boolean;
+  preview: Record<string, unknown>;
+  id?: string;
+  response?: Record<string, unknown>;
+  error?: string;
+  structuredError?: StructuredMutationError;
+}
+
 export interface MetaAudienceResult {
   id: string;
   name?: string;
@@ -1308,6 +1321,7 @@ export interface AdsProviderAdapter {
   createCustomAudience(
     request: AdsBrokerRequest
   ): Promise<AdsBrokerResponse<CreateCustomAudienceResult>>;
+  createPixel(request: AdsBrokerRequest): Promise<AdsBrokerResponse<CreatePixelResult>>;
   uploadImage(request: AdsBrokerRequest): Promise<AdsBrokerResponse<ImageUploadResult>>;
   uploadVideo(request: AdsBrokerRequest): Promise<AdsBrokerResponse<VideoUploadResult>>;
   getAccountInfo(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AccountInfoResult>>;
