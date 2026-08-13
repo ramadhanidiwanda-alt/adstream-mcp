@@ -1970,6 +1970,42 @@ describe('buildMetaCreativeFormatPayload', () => {
     });
   });
 
+  it('membangun jalur ad code tanpa objectStoryId maupun sourceInstagramMediaId', () => {
+    const payload = buildMetaCreativeFormatPayload({
+      mode: 'standard',
+      pageId: 'brand-page-1',
+      partnership: {
+        partnerPageId: 'creator-page-1',
+        partnerInstagramId: 'creator-ig-1',
+        adCode: 'AD-CODE-XYZ',
+        adFormat: '1',
+      },
+      creativeFormat: 'existing_post',
+      creativeSpec: {},
+    });
+
+    expect(payload).toEqual({
+      object_id: 'brand-page-1',
+      branded_content: {
+        instagram_boost_post_access_token: 'AD-CODE-XYZ',
+        ad_format: '1',
+      },
+      facebook_branded_content: { sponsor_page_id: 'creator-page-1' },
+      instagram_branded_content: { sponsor_id: 'creator-ig-1' },
+    });
+  });
+
+  it('menyebut partnership.adCode sebagai opsi ketiga saat existing_post tidak punya sumber konten', () => {
+    expect(() =>
+      buildMetaCreativeFormatPayload({
+        mode: 'standard',
+        pageId: 'brand-page-1',
+        creativeFormat: 'existing_post',
+        creativeSpec: {},
+      })
+    ).toThrow(/partnership\.adCode/);
+  });
+
   it('menolak partnership pada format catalog', () => {
     expect(() =>
       buildMetaCreativeFormatPayload({
