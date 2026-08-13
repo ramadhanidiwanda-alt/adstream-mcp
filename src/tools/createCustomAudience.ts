@@ -129,6 +129,7 @@ export async function createCustomAudience(
 function buildCustomAudiencePayload(
   options: CreateCustomAudienceOptions
 ): Record<string, unknown> {
+  requiredString(options.adAccountId, 'adAccountId');
   const name = requiredString(options.name, 'name');
   const pixelId = requiredString(options.pixelId, 'pixelId');
 

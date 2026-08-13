@@ -95,6 +95,36 @@ describe('createProductAudience', () => {
     expect(result.error).toContain('retentionSeconds');
   });
 
+  it('fails validation when retentionSeconds exceeds the 180-day cap', async () => {
+    const client = createMockClient();
+    const result = await createProductAudience(client, {
+      ...baseOptions,
+      inclusions: [{ retentionSeconds: 20000000, event: 'ViewContent' }],
+    });
+
+    expect(result.status).toBe('failed');
+    expect(result.error).toContain('retentionSeconds');
+  });
+
+  it('fails validation when event is not a recognized value', async () => {
+    const client = createMockClient();
+    const result = await createProductAudience(client, {
+      ...baseOptions,
+      inclusions: [{ retentionSeconds: 1209600, event: 'InvalidEvent' as never }],
+    });
+
+    expect(result.status).toBe('failed');
+    expect(result.error).toContain('event');
+  });
+
+  it('fails validation when adAccountId is empty', async () => {
+    const client = createMockClient();
+    const result = await createProductAudience(client, { ...baseOptions, adAccountId: '' });
+
+    expect(result.status).toBe('failed');
+    expect(result.error).toContain('adAccountId');
+  });
+
   it('surfaces a Meta API error on failed creation', async () => {
     const client = {
       metaPost: vi.fn().mockRejectedValue(new Error('Invalid product_set_id')),

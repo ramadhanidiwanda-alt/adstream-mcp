@@ -100,6 +100,14 @@ describe('createCustomAudience', () => {
     expect(result.error).toContain('WEBSITE');
   });
 
+  it('fails validation when adAccountId is empty', async () => {
+    const client = createMockClient();
+    const result = await createCustomAudience(client, { ...baseOptions, adAccountId: '' });
+
+    expect(result.status).toBe('failed');
+    expect(result.error).toContain('adAccountId');
+  });
+
   it('surfaces a Meta API error on failed creation', async () => {
     const client = {
       metaPost: vi.fn().mockRejectedValue(new Error('Invalid pixel_id')),

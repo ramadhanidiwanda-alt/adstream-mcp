@@ -8,6 +8,16 @@ import {
 
 export type ProductAudienceEvent = 'Search' | 'ViewContent' | 'AddToCart' | 'Purchase';
 
+const PRODUCT_AUDIENCE_EVENTS: readonly ProductAudienceEvent[] = [
+  'Search',
+  'ViewContent',
+  'AddToCart',
+  'Purchase',
+];
+
+/** 180 days, matching Meta's website-audience retention cap. */
+const MAX_RETENTION_SECONDS = 15552000;
+
 export interface ProductAudienceRuleSpec {
   /** How long, in seconds, a person stays in (or out of) this audience after the event. */
   retentionSeconds: number;
@@ -130,6 +140,7 @@ export async function createProductAudience(
 function buildProductAudiencePayload(
   options: CreateProductAudienceOptions
 ): Record<string, unknown> {
+  requiredString(options.adAccountId, 'adAccountId');
   const name = requiredString(options.name, 'name');
   const productSetId = requiredString(options.productSetId, 'productSetId');
 
@@ -152,6 +163,14 @@ function buildProductAudiencePayload(
 function buildRule(spec: ProductAudienceRuleSpec): Record<string, unknown> {
   if (!Number.isFinite(spec.retentionSeconds) || spec.retentionSeconds <= 0) {
     throw new Error('retentionSeconds harus lebih dari 0.');
+  }
+  if (spec.retentionSeconds > MAX_RETENTION_SECONDS) {
+    throw new Error(
+      `retentionSeconds tidak boleh lebih dari ${MAX_RETENTION_SECONDS} (180 hari).`
+    );
+  }
+  if (!PRODUCT_AUDIENCE_EVENTS.includes(spec.event)) {
+    throw new Error('event harus salah satu dari: Search, ViewContent, AddToCart, Purchase.');
   }
   return {
     retention_seconds: Math.trunc(spec.retentionSeconds),
