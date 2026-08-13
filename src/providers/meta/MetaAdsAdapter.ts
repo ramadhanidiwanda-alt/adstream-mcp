@@ -88,6 +88,7 @@ import type {
   CreateCampaignResult,
   CreateAdSetResult,
   CreateProductAudienceResult,
+  CreateCustomAudienceResult,
   CreateAdCreativeResult,
   CreateAdResult,
   CloneUiAdResult,
@@ -117,6 +118,10 @@ import {
   createProductAudience as createProductAudienceTool,
   type CreateProductAudienceOptions,
 } from '../../tools/createProductAudience.js';
+import {
+  createCustomAudience as createCustomAudienceTool,
+  type CreateCustomAudienceOptions,
+} from '../../tools/createCustomAudience.js';
 import { listAudiences as listAudiencesTool } from '../../tools/listAudiences.js';
 import { listPixels as listPixelsTool } from '../../tools/listPixels.js';
 import { listCatalogs as listCatalogsTool } from '../../tools/listCatalogs.js';
@@ -402,6 +407,11 @@ export interface MetaAdsAdapterTools {
     options: CreateProductAudienceOptions,
     execOptions?: { dryRun?: boolean; confirmed?: boolean; maxRetries?: number }
   ): Promise<CreateProductAudienceResult>;
+  createCustomAudience(
+    client: MetaClient,
+    options: CreateCustomAudienceOptions,
+    execOptions?: { dryRun?: boolean; confirmed?: boolean; maxRetries?: number }
+  ): Promise<CreateCustomAudienceResult>;
   listPixels(
     client: MetaClient,
     options: { adAccountId: string; limit?: number }
@@ -515,6 +525,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       resolveCreativeAssets: resolveCreativeAssetsTool,
       getAdPreview,
       createProductAudience: createProductAudienceTool,
+      createCustomAudience: createCustomAudienceTool,
       listPixels: listPixelsTool,
       listAudiences: listAudiencesTool,
       listCatalogs: listCatalogsTool,
@@ -1616,6 +1627,78 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       const result = await this.tools.createProductAudience(
         client,
         { adAccountId, name, productSetId, inclusions, exclusions },
+        {
+          dryRun: request.params.dryRun !== false,
+          confirmed: request.params.confirmed === true,
+          maxRetries:
+            typeof request.params.maxRetries === 'number' ? request.params.maxRetries : undefined,
+        }
+      );
+      return { ok: result.status !== 'failed', provider: 'meta', data: result };
+    } catch (error) {
+      return this.writeErrorResponse(error);
+    }
+  }
+
+  async createCustomAudience(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<CreateCustomAudienceResult>> {
+    const context = this.getCredentialContext(request);
+    if (!context.ok) return context.response;
+
+    const adAccountId = request.accountId ?? context.credential.accountId;
+    if (!adAccountId) {
+      return {
+        ok: false,
+        provider: 'meta',
+        errors: [
+          {
+            provider: 'meta',
+            code: 'MISSING_ACCOUNT_ID',
+            message: 'accountId is required to create a custom audience',
+          },
+        ],
+      };
+    }
+
+    const name = typeof request.params.name === 'string' ? request.params.name : undefined;
+    const pixelId = typeof request.params.pixelId === 'string' ? request.params.pixelId : undefined;
+    const rule =
+      typeof request.params.rule === 'object' && request.params.rule !== null
+        ? (request.params.rule as Record<string, unknown>)
+        : undefined;
+
+    if (!name || !pixelId || !rule) {
+      return {
+        ok: false,
+        provider: 'meta',
+        errors: [
+          {
+            provider: 'meta',
+            code: 'MISSING_REQUIRED_PARAMS',
+            message: 'name, pixelId, and rule are required in request.params',
+          },
+        ],
+      };
+    }
+
+    try {
+      const client = this.createClient(context.credential);
+      const result = await this.tools.createCustomAudience(
+        client,
+        {
+          adAccountId,
+          name,
+          subtype: 'WEBSITE',
+          pixelId,
+          rule,
+          retentionDays:
+            typeof request.params.retentionDays === 'number'
+              ? request.params.retentionDays
+              : undefined,
+          description:
+            typeof request.params.description === 'string' ? request.params.description : undefined,
+        },
         {
           dryRun: request.params.dryRun !== false,
           confirmed: request.params.confirmed === true,

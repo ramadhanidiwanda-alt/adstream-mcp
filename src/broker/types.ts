@@ -880,6 +880,19 @@ export interface CreateProductAudienceResult {
   structuredError?: StructuredMutationError;
 }
 
+export type CreateCustomAudienceStatus = 'dry_run' | 'pending_confirmation' | 'executed' | 'failed';
+
+export interface CreateCustomAudienceResult {
+  operation: 'create_custom_audience';
+  status: CreateCustomAudienceStatus;
+  executed: boolean;
+  preview: Record<string, unknown>;
+  id?: string;
+  response?: Record<string, unknown>;
+  error?: string;
+  structuredError?: StructuredMutationError;
+}
+
 export type CreateAdCreativeStatus =
   | 'dry_run'
   | 'pending_confirmation'
@@ -1277,6 +1290,9 @@ export interface AdsProviderAdapter {
   createProductAudience(
     request: AdsBrokerRequest
   ): Promise<AdsBrokerResponse<CreateProductAudienceResult>>;
+  createCustomAudience(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<CreateCustomAudienceResult>>;
   uploadImage(request: AdsBrokerRequest): Promise<AdsBrokerResponse<ImageUploadResult>>;
   uploadVideo(request: AdsBrokerRequest): Promise<AdsBrokerResponse<VideoUploadResult>>;
   getAccountInfo(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AccountInfoResult>>;

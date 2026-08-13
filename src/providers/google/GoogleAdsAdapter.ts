@@ -18,6 +18,7 @@ import type {
   EcommerceCampaignBundleResult,
   CpasCatalogCampaignBundleResult,
   CreateProductAudienceResult,
+  CreateCustomAudienceResult,
   AdsProviderAdapter,
   VideoSourceResult,
   AdCreativeMappingResult,
@@ -222,6 +223,12 @@ export class GoogleAdsAdapter implements AdsProviderAdapter {
     _request: AdsBrokerRequest
   ): Promise<AdsBrokerResponse<CreateProductAudienceResult>> {
     return this.notImplemented('Product audiences are only supported by Meta Ads');
+  }
+
+  async createCustomAudience(
+    _request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<CreateCustomAudienceResult>> {
+    return this.notImplemented('Custom audiences are only supported by Meta Ads');
   }
 
   async uploadImage(_request: AdsBrokerRequest): Promise<AdsBrokerResponse<ImageUploadResult>> {

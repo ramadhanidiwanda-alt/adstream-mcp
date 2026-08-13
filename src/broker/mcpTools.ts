@@ -14,6 +14,7 @@ import type {
   CreateAdResult,
   CreateAdSetResult,
   CreateProductAudienceResult,
+  CreateCustomAudienceResult,
   CreateCampaignResult,
   GetTargetingOptionsResult,
   UpdateAdSetResult,
@@ -89,6 +90,7 @@ export const ADS_MCP_TOOL_NAMES = [
   'ads_create_ecommerce_campaign_bundle',
   'ads_create_cpas_catalog_bundle',
   'ads_create_product_audience',
+  'ads_create_custom_audience',
   'ads_get_video_source',
   'ads_get_ad_creative_mapping',
   'ads_upload_image',
@@ -166,6 +168,7 @@ const ADDITIVE_WRITE_TOOLS = new Set<AdsMcpToolName>([
   'ads_create_ecommerce_campaign_bundle',
   'ads_create_cpas_catalog_bundle',
   'ads_create_product_audience',
+  'ads_create_custom_audience',
   'ads_clone_adset',
   'ads_upload_image',
   'ads_upload_video',
@@ -479,6 +482,12 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
     description:
       'Create a Meta dynamic product audience for CPAS catalog retargeting (e.g. "viewed but did not purchase in 14 days"). Built from productSetId + inclusions (events: ViewContent, AddToCart, Purchase, Search, each with a retentionSeconds window) and optional exclusions. The created audience becomes a Custom Audience — pass its id into ads_create_adset targeting.customAudiences. Dry-run by default; set dryRun=false and confirmed=true to execute.',
     inputSchema: createProductAudienceInputSchema(),
+  },
+  {
+    name: 'ads_create_custom_audience',
+    description:
+      "Create a Meta WEBSITE custom audience (pixel-based website-visitor retargeting). Only subtype WEBSITE is supported. rule is the raw Website Custom Audience Rule object from Meta's Audience rule builder/API reference — this MCP passes it through as-is rather than reinterpreting it. Dry-run by default; set dryRun=false and confirmed=true to execute.",
+    inputSchema: createCustomAudienceInputSchema(),
   },
   {
     name: 'ads_get_video_source',
@@ -989,6 +998,8 @@ function callBrokerMethod(
       return broker.createCpasCatalogCampaignBundle(request);
     case 'ads_create_product_audience':
       return broker.createProductAudience(request);
+    case 'ads_create_custom_audience':
+      return broker.createCustomAudience(request);
     case 'ads_get_video_source':
       return broker.getVideoSource(request);
     case 'ads_get_ad_creative_mapping':
@@ -3216,6 +3227,35 @@ function createProductAudienceInputSchema() {
       },
     },
     required: ['accountId', 'name', 'productSetId', 'inclusions'],
+  };
+}
+
+function createCustomAudienceInputSchema() {
+  const schema = createAdsInputSchema([]);
+
+  return {
+    type: 'object',
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      name: { type: 'string', description: 'Audience name.' },
+      pixelId: { type: 'string', description: 'Meta pixel ID this audience is built from.' },
+      rule: {
+        type: 'object',
+        description:
+          "Raw Website Custom Audience Rule object, exactly as Meta's Audience rule builder/API reference specifies. Passed through as-is.",
+      },
+      retentionDays: {
+        type: 'number',
+        description: 'How many days a person stays in the audience. Must be between 1 and 180.',
+      },
+      description: { type: 'string', description: 'Optional audience description.' },
+      dryRun: { type: 'boolean', description: 'Defaults to true. Set false to execute.' },
+      confirmed: {
+        type: 'boolean',
+        description: 'Must be true together with dryRun=false to execute.',
+      },
+    },
+    required: ['accountId', 'name', 'pixelId', 'rule'],
   };
 }
 

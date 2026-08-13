@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import type { MetaClient } from '../src/metaClient.js';
 import { createCustomAudience } from '../src/tools/createCustomAudience.js';
+import { isAdsMcpToolName, ADS_MCP_TOOL_NAMES } from '../src/broker/mcpTools.js';
 
 function createMockClient(): MetaClient {
   return {
@@ -13,7 +14,12 @@ const baseOptions = {
   name: 'Website visitors 30d',
   subtype: 'WEBSITE' as const,
   pixelId: '1234567890',
-  rule: { inclusions: { operator: 'or', rules: [{ event_sources: [{ type: 'pixel', id: '1234567890' }], retention_seconds: 2592000 }] } },
+  rule: {
+    inclusions: {
+      operator: 'or',
+      rules: [{ event_sources: [{ type: 'pixel', id: '1234567890' }], retention_seconds: 2592000 }],
+    },
+  },
 };
 
 describe('createCustomAudience', () => {
@@ -105,5 +111,12 @@ describe('createCustomAudience', () => {
 
     expect(result.status).toBe('failed');
     expect(result.error).toContain('Invalid pixel_id');
+  });
+});
+
+describe('ads_create_custom_audience MCP registration', () => {
+  it('is a recognized MCP tool name', () => {
+    expect(ADS_MCP_TOOL_NAMES).toContain('ads_create_custom_audience');
+    expect(isAdsMcpToolName('ads_create_custom_audience')).toBe(true);
   });
 });
