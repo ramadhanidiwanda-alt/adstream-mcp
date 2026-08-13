@@ -2972,7 +2972,7 @@ describe('MetaAdsAdapter', () => {
         },
         partnership: {
           partnerPageId: 'creator-page-1',
-          partnerInstagramId: 'creator-ig-1',
+          brandInstagramId: 'brand-ig-1',
           primaryIdentity: 'creator',
         },
       },
@@ -2982,7 +2982,7 @@ describe('MetaAdsAdapter', () => {
     expect(receivedOptions).toMatchObject({
       partnership: {
         partnerPageId: 'creator-page-1',
-        partnerInstagramId: 'creator-ig-1',
+        brandInstagramId: 'brand-ig-1',
         primaryIdentity: 'creator',
       },
     });

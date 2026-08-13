@@ -314,8 +314,19 @@ export interface MetaCollaborativeAppSpec {
 export interface MetaPartnershipSpec {
   /** Facebook Page ID partner/kreator. */
   partnerPageId?: string;
-  /** Instagram user ID partner/kreator → instagram_branded_content.sponsor_id */
+  /**
+   * Instagram user ID partner/kreator → instagram_branded_content.sponsor_id pada
+   * primaryIdentity 'advertiser'. Tidak boleh diisi pada primaryIdentity 'creator':
+   * di sana Meta menurunkan akun IG kreator dari Page kreator.
+   */
   partnerInstagramId?: string;
+  /**
+   * Instagram user ID milik brand/advertiser → instagram_branded_content.sponsor_id
+   * pada primaryIdentity 'creator'. sponsor_* selalu berarti identitas SEKUNDER, di
+   * kedua platform, jadi field ini adalah pasangan Instagram dari pembalikan
+   * sponsor_page_id. Tidak berlaku pada primaryIdentity 'advertiser'.
+   */
+  brandInstagramId?: string;
   /** Handle siapa yang tampil sebagai pengirim iklan. Default 'advertiser'. */
   primaryIdentity?: 'advertiser' | 'creator';
   /** Partnership ad code dari kreator → branded_content.instagram_boost_post_access_token */

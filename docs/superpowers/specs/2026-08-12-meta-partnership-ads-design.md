@@ -85,8 +85,10 @@ Catatan API: hanya `content_id` yang dikembalikan secara default; semua field la
 export interface MetaPartnershipSpec {
   /** Page ID partner/kreator. Identitas partner, bukan selalu sponsor — lihat resolusi identitas. */
   partnerPageId?: string;
-  /** IG user ID partner/kreator → instagram_branded_content.sponsor_id */
+  /** IG user ID partner/kreator → instagram_branded_content.sponsor_id saat primaryIdentity 'advertiser' */
   partnerInstagramId?: string;
+  /** IG user ID brand/advertiser → instagram_branded_content.sponsor_id saat primaryIdentity 'creator' */
+  brandInstagramId?: string;
   /** Handle siapa yang muncul sebagai pengirim iklan. Default 'advertiser'. */
   primaryIdentity?: 'advertiser' | 'creator';
   /** Partnership ad code dari kreator → branded_content.instagram_boost_post_access_token */
@@ -100,12 +102,18 @@ Field dinamai menurut **peran** (`partner*`), bukan menurut posisi payload (`spo
 
 **Resolusi identitas** — `pageId` di level creative adalah Page brand, `partnerPageId` adalah Page kreator:
 
-| `primaryIdentity` | `page_id` / `object_id` | `facebook_branded_content.sponsor_page_id` |
-|---|---|---|
-| `advertiser` (default) | `pageId` (brand) | `partnerPageId` (kreator) |
-| `creator` | `partnerPageId` (kreator) | `pageId` (brand) |
+| `primaryIdentity` | `page_id` / `object_id` | `facebook_branded_content.sponsor_page_id` | `instagram_branded_content.sponsor_id` |
+|---|---|---|---|
+| `advertiser` (default) | `pageId` (brand) | `partnerPageId` (kreator) | `partnerInstagramId` (kreator) |
+| `creator` | `partnerPageId` (kreator) | `pageId` (brand) | `brandInstagramId` (brand) |
 
-`instagram_branded_content.sponsor_id` selalu diisi `partnerInstagramId`; Meta tidak menyediakan pembalikan yang setara di sisi Instagram.
+`sponsor_*` **selalu** berarti identitas **sekunder**, di sisi Facebook maupun Instagram — bukan selalu kreator. Contoh creator-primary di dokumentasi Meta mengirim `facebook_branded_content.sponsor_page_id` dan `instagram_branded_content.sponsor_id` dua-duanya berisi identitas advertiser, sementara `object_story_spec.page_id` berisi Page kreator. Klaim di revisi awal spec ini ("`sponsor_id` selalu diisi `partnerInstagramId`; Meta tidak menyediakan pembalikan yang setara di sisi Instagram") **salah** dan sudah dikoreksi.
+
+Konsekuensinya:
+
+- `partnerInstagramId` **ditolak** bersama `primaryIdentity: 'creator'`. Meta menurunkan akun Instagram kreator dari Page kreator yang dikirim pada `object_story_spec.page_id`, jadi mengirim keduanya adalah sinyal identitas yang saling bertentangan. Ditolak dengan pesan yang menyebut kedua field, tidak dibuang diam-diam.
+- `brandInstagramId` **ditolak** pada `primaryIdentity: 'advertiser'` dengan alasan cermin: di sana sponsornya kreator.
+- `primaryIdentity: 'creator'` **tanpa** `brandInstagramId` tetap sah — Meta menautkan akun IG advertiser dari `sponsor_page_id`. Kasus ini membawa catatan tambahan pada hasil, satu gaya dengan catatan tautan akun.
 
 **Pemetaan ke payload Graph**
 
@@ -138,6 +146,8 @@ Ditegakkan sebelum request dikirim ke Meta, supaya kegagalan datang dengan sebab
 3. `adCode` tanpa `adFormat` ditolak — `branded_content.ad_format` adalah field wajib pada jalur ad code.
 4. `adCode` bersamaan dengan `sourceInstagramMediaId` ditolak: keduanya adalah dua jalur boost yang berbeda, mengirim keduanya membuat sumber konten ambigu.
 5. `primaryIdentity: 'creator'` tanpa `partnerPageId` ditolak — tidak ada Page ID kreator yang bisa dipasang sebagai identitas primer.
+6. `partnerInstagramId` bersamaan dengan `primaryIdentity: 'creator'` ditolak — Meta menurunkan akun IG kreator dari Page kreator pada `object_story_spec.page_id`; mengirim keduanya membuat identitas kreator ambigu.
+7. `brandInstagramId` pada `primaryIdentity: 'advertiser'` ditolak — pada arah itu sponsornya kreator, jadi field sponsor sisi Instagram adalah `partnerInstagramId`.
 
 ## Perilaku yang wajib disurfacekan
 

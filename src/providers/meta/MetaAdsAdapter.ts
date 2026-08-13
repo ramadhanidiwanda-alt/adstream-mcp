@@ -4433,6 +4433,10 @@ function parsePartnershipSpec(value: unknown): MetaPartnershipSpec | undefined {
       spec.partnerInstagramId === undefined
         ? undefined
         : requireString(spec.partnerInstagramId, 'partnership.partnerInstagramId'),
+    brandInstagramId:
+      spec.brandInstagramId === undefined
+        ? undefined
+        : requireString(spec.brandInstagramId, 'partnership.brandInstagramId'),
     primaryIdentity,
     adCode:
       spec.adCode === undefined ? undefined : requireString(spec.adCode, 'partnership.adCode'),

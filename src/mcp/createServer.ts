@@ -830,12 +830,23 @@ export const createAdCreativeInputSchema = {
   partnership: z
     .object({
       partnerPageId: z.string().optional().describe('Facebook Page ID partner/kreator.'),
-      partnerInstagramId: z.string().optional().describe('Instagram user ID partner/kreator.'),
+      partnerInstagramId: z
+        .string()
+        .optional()
+        .describe(
+          "Instagram user ID partner/kreator → instagram_branded_content.sponsor_id pada primaryIdentity 'advertiser'. Ditolak bersama primaryIdentity 'creator'."
+        ),
+      brandInstagramId: z
+        .string()
+        .optional()
+        .describe(
+          "Instagram user ID brand/advertiser → instagram_branded_content.sponsor_id pada primaryIdentity 'creator'. Ditolak pada primaryIdentity 'advertiser'."
+        ),
       primaryIdentity: z
         .enum(['advertiser', 'creator'])
         .optional()
         .describe(
-          "Handle siapa yang tampil sebagai pengirim iklan. Default 'advertiser'. 'creator' mewajibkan partnerPageId."
+          "Handle siapa yang tampil sebagai pengirim iklan. Default 'advertiser'. 'creator' mewajibkan partnerPageId dan membalik sponsor ke sisi brand."
         ),
       adCode: z
         .string()

@@ -2160,13 +2160,18 @@ function createCreateAdCreativeInputSchema() {
           partnerInstagramId: {
             type: 'string',
             description:
-              'Instagram user ID partner/kreator. Bila hanya field ini yang diisi, Meta mencoba me-link Page Facebook terkait; tanpa tautan itu iklan tidak tayang di Facebook.',
+              "Instagram user ID partner/kreator; menjadi instagram_branded_content.sponsor_id pada primaryIdentity 'advertiser'. Bila hanya field ini yang diisi, Meta mencoba me-link Page Facebook terkait; tanpa tautan itu iklan tidak tayang di Facebook. Ditolak bersama primaryIdentity 'creator' karena di sana Meta menurunkan akun IG kreator dari Page kreator.",
+          },
+          brandInstagramId: {
+            type: 'string',
+            description:
+              "Instagram user ID milik brand/advertiser; menjadi instagram_branded_content.sponsor_id pada primaryIdentity 'creator' (sponsor selalu berarti identitas sekunder). Ditolak pada primaryIdentity 'advertiser'.",
           },
           primaryIdentity: {
             type: 'string',
             enum: ['advertiser', 'creator'],
             description:
-              "Handle siapa yang tampil sebagai pengirim iklan. Default 'advertiser' (Page brand jadi identitas primer, partner jadi sponsor). 'creator' membalik keduanya dan mewajibkan partnerPageId.",
+              "Handle siapa yang tampil sebagai pengirim iklan. Default 'advertiser' (Page brand jadi identitas primer, kreator jadi sponsor lewat partnerPageId/partnerInstagramId). 'creator' membalik keduanya: Page kreator jadi identitas primer, brand jadi sponsor lewat pageId/brandInstagramId. Mewajibkan partnerPageId.",
           },
           adCode: {
             type: 'string',

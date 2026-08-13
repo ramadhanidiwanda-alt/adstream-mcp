@@ -87,9 +87,30 @@ export function buildPartnershipFields(input: BuildPartnershipFieldsInput): Part
     );
   }
 
+  // sponsor_* selalu berarti identitas SEKUNDER, di sisi Facebook maupun Instagram.
+  // Pada primaryIdentity 'creator' sponsornya adalah advertiser, jadi sponsor_id diisi
+  // brandInstagramId — bukan partnerInstagramId.
+  const brandInstagramId = trimmed(partnership.brandInstagramId);
+  if (primaryIdentity === 'creator' && partnerInstagramId) {
+    throw new Error(
+      "partnership.partnerInstagramId tidak boleh diisi bersama primaryIdentity 'creator': " +
+        'Meta menurunkan akun Instagram kreator dari Page kreator yang dikirim pada object_story_spec.page_id, ' +
+        'sehingga mengirim keduanya membuat identitas kreator ambigu. ' +
+        'Isi partnership.brandInstagramId (akun Instagram advertiser, yang menjadi sponsor) bila sisi Instagram perlu sponsor.'
+    );
+  }
+  if (primaryIdentity !== 'creator' && brandInstagramId) {
+    throw new Error(
+      "partnership.brandInstagramId hanya berlaku pada primaryIdentity 'creator'. " +
+        "Pada primaryIdentity 'advertiser' sponsornya adalah kreator, jadi isi partnership.partnerInstagramId " +
+        'dan hapus partnership.brandInstagramId.'
+    );
+  }
+
   // partnerPageId sudah dipastikan ada di cabang 'creator' oleh cek di atas.
   const primaryPageId = primaryIdentity === 'creator' ? (partnerPageId as string) : brandPageId;
   const sponsorPageId = primaryIdentity === 'creator' ? brandPageId : partnerPageId;
+  const sponsorInstagramId = primaryIdentity === 'creator' ? brandInstagramId : partnerInstagramId;
 
   const payload: Record<string, unknown> = {};
 
@@ -102,8 +123,8 @@ export function buildPartnershipFields(input: BuildPartnershipFieldsInput): Part
   if (sponsorPageId) {
     payload.facebook_branded_content = { sponsor_page_id: sponsorPageId };
   }
-  if (partnerInstagramId) {
-    payload.instagram_branded_content = { sponsor_id: partnerInstagramId };
+  if (sponsorInstagramId) {
+    payload.instagram_branded_content = { sponsor_id: sponsorInstagramId };
   }
   if (adCode) {
     payload.branded_content = {
@@ -130,6 +151,14 @@ export function getPartnershipNotes(partnership: MetaPartnershipSpec): string[] 
     notes.push(
       'Hanya identitas Instagram partner yang diisi. Meta akan mencoba me-link Page Facebook terkait, ' +
         'tetapi bila kedua akun tidak ter-link, iklan tidak tayang di Facebook.'
+    );
+  }
+
+  if (partnership.primaryIdentity === 'creator' && !trimmed(partnership.brandInstagramId)) {
+    notes.push(
+      "primaryIdentity 'creator' dipakai tanpa brandInstagramId, sehingga instagram_branded_content tidak dikirim. " +
+        'Meta akan mencoba menautkan akun Instagram advertiser dari sponsor_page_id, ' +
+        'tetapi bila Page dan akun Instagram advertiser tidak ter-link, sisi Instagram iklan tidak membawa identitas sponsor.'
     );
   }
 

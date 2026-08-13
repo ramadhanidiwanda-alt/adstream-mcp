@@ -26,7 +26,6 @@ describe('buildPartnershipFields', () => {
     const result = buildPartnershipFields({
       partnership: {
         partnerPageId: 'creator-page-1',
-        partnerInstagramId: 'creator-ig-1',
         primaryIdentity: 'creator',
       },
       creativeFormat: 'video',
@@ -36,8 +35,54 @@ describe('buildPartnershipFields', () => {
     expect(result.primaryPageId).toBe('creator-page-1');
     expect(result.payload).toMatchObject({
       facebook_branded_content: { sponsor_page_id: 'brand-page-1' },
-      instagram_branded_content: { sponsor_id: 'creator-ig-1' },
     });
+    expect(result.payload).not.toHaveProperty('instagram_branded_content');
+  });
+
+  it('memakai brandInstagramId sebagai sponsor_id ketika primaryIdentity creator', () => {
+    const result = buildPartnershipFields({
+      partnership: {
+        partnerPageId: 'creator-page-1',
+        brandInstagramId: 'brand-ig-1',
+        primaryIdentity: 'creator',
+      },
+      creativeFormat: 'video',
+      pageId: 'brand-page-1',
+    });
+
+    expect(result.primaryPageId).toBe('creator-page-1');
+    expect(result.payload).toEqual({
+      facebook_branded_content: { sponsor_page_id: 'brand-page-1' },
+      instagram_branded_content: { sponsor_id: 'brand-ig-1' },
+    });
+  });
+
+  it('menolak partnerInstagramId bersama primaryIdentity creator', () => {
+    expect(() =>
+      buildPartnershipFields({
+        partnership: {
+          partnerPageId: 'creator-page-1',
+          partnerInstagramId: 'creator-ig-1',
+          primaryIdentity: 'creator',
+        },
+        creativeFormat: 'video',
+        pageId: 'brand-page-1',
+      })
+    ).toThrow(/partnerInstagramId.*primaryIdentity 'creator'/s);
+  });
+
+  it('menolak brandInstagramId pada primaryIdentity advertiser', () => {
+    expect(() =>
+      buildPartnershipFields({
+        partnership: {
+          partnerPageId: 'creator-page-1',
+          partnerInstagramId: 'creator-ig-1',
+          brandInstagramId: 'brand-ig-1',
+        },
+        creativeFormat: 'video',
+        pageId: 'brand-page-1',
+      })
+    ).toThrow(/brandInstagramId.*primaryIdentity 'advertiser'/s);
   });
 
   it('menambahkan object_id pada existing_post karena tidak ada object_story_spec', () => {
@@ -150,6 +195,23 @@ describe('getPartnershipNotes', () => {
   it('menambahkan catatan tautan akun bila hanya identitas Instagram yang diisi', () => {
     const notes = getPartnershipNotes({ partnerInstagramId: 'creator-ig-1' });
     expect(notes.join(' ')).toMatch(/tidak ter-link/i);
+  });
+
+  it('menambahkan catatan bila primaryIdentity creator dipakai tanpa brandInstagramId', () => {
+    const notes = getPartnershipNotes({
+      partnerPageId: 'creator-page-1',
+      primaryIdentity: 'creator',
+    });
+    expect(notes.join(' ')).toMatch(/brandInstagramId/);
+  });
+
+  it('tidak menambahkan catatan brandInstagramId bila field itu diisi', () => {
+    const notes = getPartnershipNotes({
+      partnerPageId: 'creator-page-1',
+      primaryIdentity: 'creator',
+      brandInstagramId: 'brand-ig-1',
+    });
+    expect(notes.join(' ')).not.toMatch(/brandInstagramId/);
   });
 
   it('tidak menambahkan catatan tautan akun bila Page kreator diisi', () => {

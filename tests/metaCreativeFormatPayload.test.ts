@@ -1934,7 +1934,7 @@ describe('buildMetaCreativeFormatPayload', () => {
       pageId: 'brand-page-1',
       partnership: {
         partnerPageId: 'creator-page-1',
-        partnerInstagramId: 'creator-ig-1',
+        brandInstagramId: 'brand-ig-1',
         primaryIdentity: 'creator',
       },
       creativeFormat: 'single_image',
@@ -1948,6 +1948,7 @@ describe('buildMetaCreativeFormatPayload', () => {
     expect(payload).toMatchObject({
       object_story_spec: { page_id: 'creator-page-1' },
       facebook_branded_content: { sponsor_page_id: 'brand-page-1' },
+      instagram_branded_content: { sponsor_id: 'brand-ig-1' },
     });
   });
 
