@@ -70,6 +70,8 @@ export function buildMetaCreativeFormatPayload(
       input.creativeFormat === 'existing_post'
         ? input.creativeSpec.sourceInstagramMediaId
         : undefined,
+    objectStoryId:
+      input.creativeFormat === 'existing_post' ? input.creativeSpec.objectStoryId : undefined,
   });
 
   // Identitas primer harus sudah terpasang SEBELUM builder format berjalan, karena

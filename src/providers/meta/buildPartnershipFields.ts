@@ -20,6 +20,8 @@ export interface BuildPartnershipFieldsInput {
   pageId: string;
   /** Terisi hanya bila jalur boost memakai media IG yang sudah ada. */
   sourceInstagramMediaId?: string;
+  /** Terisi hanya bila jalur boost memakai post Facebook Page yang sudah ada. */
+  objectStoryId?: string;
 }
 
 export interface PartnershipFields {
@@ -116,7 +118,15 @@ export function buildPartnershipFields(input: BuildPartnershipFieldsInput): Part
 
   // existing_post tidak punya object_story_spec sama sekali (pasangan itu ditolak
   // Meta sebagai Ambiguous Promoted Object), jadi identitas dibawa object_id.
-  if (creativeFormat === 'existing_post') {
+  //
+  // Kecuali bila objectStoryId dipakai: post ID ("{page-id}_{post-id}") sudah
+  // meng-anchor Page-nya sendiri, sehingga object_id kedua hanya menambah sinyal
+  // identitas yang bertentangan — keluarga yang sama dengan penolakan Ambiguous
+  // Promoted Object. BELUM diverifikasi terhadap API live: kombinasi
+  // existing_post + objectStoryId + partnership tidak punya contoh resmi di
+  // dokumentasi Meta, jadi bentuk ini adalah pilihan paling tidak kontradiktif,
+  // bukan bentuk yang sudah terbukti.
+  if (creativeFormat === 'existing_post' && !trimmed(input.objectStoryId)) {
     payload.object_id = primaryPageId;
   }
 
@@ -126,11 +136,16 @@ export function buildPartnershipFields(input: BuildPartnershipFieldsInput): Part
   if (sponsorInstagramId) {
     payload.instagram_branded_content = { sponsor_id: sponsorInstagramId };
   }
+  // Contoh boost via media ID di dokumentasi Meta membawa branded_content hanya
+  // berisi ad_format, tanpa ad code. adFormat sendirian karena itu tetap dikirim,
+  // bukan dibuang diam-diam.
   if (adCode) {
     payload.branded_content = {
       instagram_boost_post_access_token: adCode,
       ad_format: adFormat,
     };
+  } else if (adFormat) {
+    payload.branded_content = { ad_format: adFormat };
   }
 
   return { primaryPageId, payload };

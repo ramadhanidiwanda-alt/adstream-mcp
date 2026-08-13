@@ -119,7 +119,8 @@ Konsekuensinya:
 
 | Jalur | Field yang dikirim |
 |---|---|
-| Boost via media ID | `object_id` (hasil resolusi identitas), `source_instagram_media_id`, `instagram_user_id`, `facebook_branded_content`, `instagram_branded_content` |
+| Boost via media ID | `object_id` (hasil resolusi identitas), `source_instagram_media_id`, `instagram_user_id`, `facebook_branded_content`, `instagram_branded_content`, plus `branded_content { ad_format }` bila `adFormat` diisi — contoh Meta pada jalur ini memang mengirim `branded_content` tanpa ad code |
+| Boost post Facebook via `objectStoryId` | `object_story_id`, `facebook_branded_content`, `instagram_branded_content`. **Tanpa** `object_id`: post ID sudah meng-anchor Page-nya, jadi `object_id` kedua hanya menghasilkan dua Page yang mengklaim creative yang sama. Kombinasi ini belum diverifikasi terhadap API live |
 | Boost via ad code | `object_id` (hasil resolusi identitas), `branded_content { instagram_boost_post_access_token, ad_format }`, `facebook_branded_content`, `instagram_branded_content`. **Tanpa** `object_story_id` dan **tanpa** `source_instagram_media_id`: ad code itu sendiri yang menjadi referensi konten, jadi `existing_post` pada jalur ini sah tanpa keduanya. |
 | Creative baru dual-identity | `object_story_spec.page_id` (hasil resolusi identitas), `facebook_branded_content`, `instagram_branded_content` |
 

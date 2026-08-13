@@ -120,6 +120,38 @@ describe('buildPartnershipFields', () => {
     });
   });
 
+  it('mengirim branded_content.ad_format pada jalur media ID tanpa adCode', () => {
+    const result = buildPartnershipFields({
+      partnership: {
+        partnerInstagramId: 'creator-ig-1',
+        adFormat: '1',
+      },
+      creativeFormat: 'existing_post',
+      pageId: 'brand-page-1',
+      sourceInstagramMediaId: 'ig-media-1',
+    });
+
+    expect(result.payload).toMatchObject({
+      object_id: 'brand-page-1',
+      branded_content: { ad_format: '1' },
+    });
+    expect(result.payload.branded_content).not.toHaveProperty('instagram_boost_post_access_token');
+  });
+
+  it('tidak mengirim object_id ketika objectStoryId sudah meng-anchor Page', () => {
+    const result = buildPartnershipFields({
+      partnership: { partnerPageId: 'creator-page-1' },
+      creativeFormat: 'existing_post',
+      pageId: 'brand-page-1',
+      objectStoryId: 'creator-page-1_123',
+    });
+
+    expect(result.payload).not.toHaveProperty('object_id');
+    expect(result.payload).toMatchObject({
+      facebook_branded_content: { sponsor_page_id: 'creator-page-1' },
+    });
+  });
+
   it('menolak pageId kosong', () => {
     expect(() =>
       buildPartnershipFields({
