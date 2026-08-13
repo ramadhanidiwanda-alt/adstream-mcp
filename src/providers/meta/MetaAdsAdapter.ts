@@ -67,6 +67,7 @@ import { getWelcomeMessageTemplate } from '../../tools/welcomeMessageTemplates.j
 import { createAd as createAdTool } from '../../tools/createAd.js';
 import { cloneUiAd as cloneUiAdTool } from '../../tools/cloneUiAd.js';
 import { archiveAd as archiveAdTool } from '../../tools/archiveAd.js';
+import { deleteAudience as deleteAudienceTool } from '../../tools/deleteAudience.js';
 import { pauseAd as pauseAdTool } from '../../tools/pauseAd.js';
 import { resumeAd as resumeAdTool } from '../../tools/resumeAd.js';
 import { pauseAdSet as pauseAdSetTool } from '../../tools/pauseAdSet.js';
@@ -87,10 +88,13 @@ import type {
 import type {
   CreateCampaignResult,
   CreateAdSetResult,
+  CreateProductAudienceResult,
+  CreateCustomAudienceResult,
   CreateAdCreativeResult,
   CreateAdResult,
   CloneUiAdResult,
   ArchiveAdResult,
+  DeleteAudienceResult,
   CloneAdSetResult,
   UpdateAdSetResult,
   UpdateAdResult,
@@ -112,6 +116,15 @@ import { listInstagramMedia as listInstagramMediaTool } from '../../tools/listIn
 import { listPartnershipContent as listPartnershipContentTool } from '../../tools/listPartnershipContent.js';
 import { listThreadsProfiles as listThreadsProfilesTool } from '../../tools/listThreadsProfiles.js';
 import { checkLaunchReadiness as checkLaunchReadinessTool } from '../../tools/checkLaunchReadiness.js';
+import {
+  createProductAudience as createProductAudienceTool,
+  type CreateProductAudienceOptions,
+} from '../../tools/createProductAudience.js';
+import {
+  createCustomAudience as createCustomAudienceTool,
+  type CreateCustomAudienceOptions,
+} from '../../tools/createCustomAudience.js';
+import { listAudiences as listAudiencesTool } from '../../tools/listAudiences.js';
 import { listPixels as listPixelsTool } from '../../tools/listPixels.js';
 import { listCatalogs as listCatalogsTool } from '../../tools/listCatalogs.js';
 import { listProductSets as listProductSetsTool } from '../../tools/listProductSets.js';
@@ -142,6 +155,7 @@ import type {
   MetaPageResult,
   MetaLeadFormResult,
   MetaPixelResult,
+  MetaAudienceResult,
   MetaCatalogResult,
   MetaProductSetResult,
   InstagramAccountResult,
@@ -327,6 +341,11 @@ export interface MetaAdsAdapterTools {
     options: import('../../tools/archiveAd.js').ArchiveAdOptions,
     execOptions?: { dryRun?: boolean; confirmed?: boolean; maxRetries?: number }
   ): Promise<import('../../tools/archiveAd.js').ArchiveAdResult>;
+  deleteAudience(
+    client: MetaClient,
+    options: import('../../tools/deleteAudience.js').DeleteAudienceOptions,
+    execOptions?: { dryRun?: boolean; confirmed?: boolean; maxRetries?: number }
+  ): Promise<import('../../tools/deleteAudience.js').DeleteAudienceResult>;
   pauseAd(client: MetaClient, adId: string): Promise<MutationResult>;
   resumeAd(client: MetaClient, adId: string): Promise<MutationResult>;
   pauseAdSet(client: MetaClient, adSetId: string): Promise<MutationResult>;
@@ -390,10 +409,24 @@ export interface MetaAdsAdapterTools {
     client: MetaClient,
     options: { pageId: string; status?: string[]; limit?: number }
   ): Promise<import('../../tools/listLeadForms.js').MetaLeadFormResult[]>;
+  createProductAudience(
+    client: MetaClient,
+    options: CreateProductAudienceOptions,
+    execOptions?: { dryRun?: boolean; confirmed?: boolean; maxRetries?: number }
+  ): Promise<CreateProductAudienceResult>;
+  createCustomAudience(
+    client: MetaClient,
+    options: CreateCustomAudienceOptions,
+    execOptions?: { dryRun?: boolean; confirmed?: boolean; maxRetries?: number }
+  ): Promise<CreateCustomAudienceResult>;
   listPixels(
     client: MetaClient,
     options: { adAccountId: string; limit?: number }
   ): Promise<MetaPixelResult[]>;
+  listAudiences(
+    client: MetaClient,
+    options: { adAccountId: string; limit?: number }
+  ): Promise<MetaAudienceResult[]>;
   listCatalogs(
     client: MetaClient,
     options: { businessId: string; limit?: number }
@@ -481,6 +514,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       createAd: createAdTool,
       cloneUiAd: cloneUiAdTool,
       archiveAd: archiveAdTool,
+      deleteAudience: deleteAudienceTool,
       pauseAd: pauseAdTool,
       resumeAd: resumeAdTool,
       pauseAdSet: pauseAdSetTool,
@@ -498,7 +532,10 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       listAdVideos,
       resolveCreativeAssets: resolveCreativeAssetsTool,
       getAdPreview,
+      createProductAudience: createProductAudienceTool,
+      createCustomAudience: createCustomAudienceTool,
       listPixels: listPixelsTool,
+      listAudiences: listAudiencesTool,
       listCatalogs: listCatalogsTool,
       listProductSets: listProductSetsTool,
       listPages: listPagesTool,
@@ -1547,6 +1584,142 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
     }
   }
 
+  async createProductAudience(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<CreateProductAudienceResult>> {
+    const context = this.getCredentialContext(request);
+    if (!context.ok) return context.response;
+
+    const adAccountId = request.accountId ?? context.credential.accountId;
+    if (!adAccountId) {
+      return {
+        ok: false,
+        provider: 'meta',
+        errors: [
+          {
+            provider: 'meta',
+            code: 'MISSING_ACCOUNT_ID',
+            message: 'accountId is required to create a product audience',
+          },
+        ],
+      };
+    }
+
+    const name = typeof request.params.name === 'string' ? request.params.name : undefined;
+    const productSetId =
+      typeof request.params.productSetId === 'string' ? request.params.productSetId : undefined;
+    const inclusions = Array.isArray(request.params.inclusions)
+      ? (request.params.inclusions as CreateProductAudienceOptions['inclusions'])
+      : undefined;
+
+    if (!name || !productSetId || !inclusions) {
+      return {
+        ok: false,
+        provider: 'meta',
+        errors: [
+          {
+            provider: 'meta',
+            code: 'MISSING_REQUIRED_PARAMS',
+            message: 'name, productSetId, and inclusions are required in request.params',
+          },
+        ],
+      };
+    }
+
+    const exclusions = Array.isArray(request.params.exclusions)
+      ? (request.params.exclusions as CreateProductAudienceOptions['exclusions'])
+      : undefined;
+
+    try {
+      const client = this.createClient(context.credential);
+      const result = await this.tools.createProductAudience(
+        client,
+        { adAccountId, name, productSetId, inclusions, exclusions },
+        {
+          dryRun: request.params.dryRun !== false,
+          confirmed: request.params.confirmed === true,
+          maxRetries:
+            typeof request.params.maxRetries === 'number' ? request.params.maxRetries : undefined,
+        }
+      );
+      return { ok: result.status !== 'failed', provider: 'meta', data: result };
+    } catch (error) {
+      return this.writeErrorResponse(error);
+    }
+  }
+
+  async createCustomAudience(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<CreateCustomAudienceResult>> {
+    const context = this.getCredentialContext(request);
+    if (!context.ok) return context.response;
+
+    const adAccountId = request.accountId ?? context.credential.accountId;
+    if (!adAccountId) {
+      return {
+        ok: false,
+        provider: 'meta',
+        errors: [
+          {
+            provider: 'meta',
+            code: 'MISSING_ACCOUNT_ID',
+            message: 'accountId is required to create a custom audience',
+          },
+        ],
+      };
+    }
+
+    const name = typeof request.params.name === 'string' ? request.params.name : undefined;
+    const pixelId = typeof request.params.pixelId === 'string' ? request.params.pixelId : undefined;
+    const rule =
+      typeof request.params.rule === 'object' && request.params.rule !== null
+        ? (request.params.rule as Record<string, unknown>)
+        : undefined;
+
+    if (!name || !pixelId || !rule) {
+      return {
+        ok: false,
+        provider: 'meta',
+        errors: [
+          {
+            provider: 'meta',
+            code: 'MISSING_REQUIRED_PARAMS',
+            message: 'name, pixelId, and rule are required in request.params',
+          },
+        ],
+      };
+    }
+
+    try {
+      const client = this.createClient(context.credential);
+      const result = await this.tools.createCustomAudience(
+        client,
+        {
+          adAccountId,
+          name,
+          subtype: 'WEBSITE',
+          pixelId,
+          rule,
+          retentionDays:
+            typeof request.params.retentionDays === 'number'
+              ? request.params.retentionDays
+              : undefined,
+          description:
+            typeof request.params.description === 'string' ? request.params.description : undefined,
+        },
+        {
+          dryRun: request.params.dryRun !== false,
+          confirmed: request.params.confirmed === true,
+          maxRetries:
+            typeof request.params.maxRetries === 'number' ? request.params.maxRetries : undefined,
+        }
+      );
+      return { ok: result.status !== 'failed', provider: 'meta', data: result };
+    } catch (error) {
+      return this.writeErrorResponse(error);
+    }
+  }
+
   async createAdSet(request: AdsBrokerRequest): Promise<AdsBrokerResponse<CreateAdSetResult>> {
     const context = this.getCredentialContext(request);
     if (!context.ok) return context.response;
@@ -2106,6 +2279,44 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       const result = await this.tools.archiveAd(
         client,
         { adId },
+        {
+          dryRun: request.params.dryRun !== false,
+          confirmed: request.params.confirmed === true,
+        }
+      );
+      return { ok: result.status !== 'failed', provider: 'meta', data: result };
+    } catch (error) {
+      return this.writeErrorResponse(error);
+    }
+  }
+
+  async deleteAudience(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<DeleteAudienceResult>> {
+    const context = this.getCredentialContext(request);
+    if (!context.ok) return context.response;
+
+    const audienceId =
+      typeof request.params.audienceId === 'string' ? request.params.audienceId : undefined;
+    if (!audienceId) {
+      return {
+        ok: false,
+        provider: 'meta',
+        errors: [
+          {
+            provider: 'meta',
+            code: 'MISSING_AUDIENCE_ID',
+            message: 'audienceId is required in request.params',
+          },
+        ],
+      };
+    }
+
+    try {
+      const client = this.createClient(context.credential);
+      const result = await this.tools.deleteAudience(
+        client,
+        { audienceId },
         {
           dryRun: request.params.dryRun !== false,
           confirmed: request.params.confirmed === true,
@@ -3277,6 +3488,35 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       const limit = typeof request.params.limit === 'number' ? request.params.limit : undefined;
       const pixels = await this.tools.listPixels(client, { adAccountId, limit });
       return { ok: true, provider: 'meta', data: pixels };
+    } catch (error) {
+      return this.errorResponse(error);
+    }
+  }
+
+  async listAudiences(request: AdsBrokerRequest): Promise<AdsBrokerResponse<MetaAudienceResult[]>> {
+    const context = this.getCredentialContext(request);
+    if (!context.ok) return context.response;
+
+    const adAccountId = request.accountId ?? context.credential.accountId;
+    if (!adAccountId) {
+      return {
+        ok: false,
+        provider: 'meta',
+        errors: [
+          {
+            provider: 'meta',
+            code: 'MISSING_ACCOUNT_ID',
+            message: 'Meta account ID is required to list audiences',
+          },
+        ],
+      };
+    }
+
+    try {
+      const client = this.createClient(context.credential);
+      const limit = typeof request.params.limit === 'number' ? request.params.limit : undefined;
+      const audiences = await this.tools.listAudiences(client, { adAccountId, limit });
+      return { ok: true, provider: 'meta', data: audiences };
     } catch (error) {
       return this.errorResponse(error);
     }

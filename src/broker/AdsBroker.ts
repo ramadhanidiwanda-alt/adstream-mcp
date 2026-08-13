@@ -10,11 +10,14 @@ import type {
   AdDestinationResult,
   CreativeAssetResolution,
   ArchiveAdResult,
+  DeleteAudienceResult,
   CloneUiAdResult,
   CloneAdSetResult,
   CreateAdCreativeResult,
   CreateAdResult,
   CreateAdSetResult,
+  CreateProductAudienceResult,
+  CreateCustomAudienceResult,
   CreateCampaignResult,
   GetTargetingOptionsResult,
   UpdateAdSetResult,
@@ -40,6 +43,7 @@ import type {
   MetaPageResult,
   MetaLeadFormResult,
   MetaPixelResult,
+  MetaAudienceResult,
   MetaCatalogResult,
   MetaProductSetResult,
   InstagramAccountResult,
@@ -96,10 +100,13 @@ type AdapterWriteMethod =
   | 'renameCampaign'
   | 'createCampaign'
   | 'createAdSet'
+  | 'createProductAudience'
+  | 'createCustomAudience'
   | 'createAdCreative'
   | 'createAd'
   | 'cloneUiAd'
   | 'archiveAd'
+  | 'deleteAudience'
   | 'pauseAd'
   | 'resumeAd'
   | 'pauseAdSet'
@@ -220,6 +227,10 @@ export class AdsBroker {
     return this.callOptionalReadMethod(request, 'listPixels');
   }
 
+  listAudiences(request: AdsBrokerRequest): Promise<AdsBrokerResponse<MetaAudienceResult[]>> {
+    return this.callOptionalReadMethod(request, 'listAudiences');
+  }
+
   listCatalogs(request: AdsBrokerRequest): Promise<AdsBrokerResponse<MetaCatalogResult[]>> {
     return this.callOptionalReadMethod(request, 'listCatalogs');
   }
@@ -284,6 +295,7 @@ export class AdsBroker {
       AdsProviderAdapter,
       | 'checkLaunchReadiness'
       | 'listPixels'
+      | 'listAudiences'
       | 'listCatalogs'
       | 'listProductSets'
       | 'listPages'
@@ -556,6 +568,18 @@ export class AdsBroker {
     return this.executeWrite<CreateAdSetResult>(request, 'createAdSet');
   }
 
+  createProductAudience(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<CreateProductAudienceResult>> {
+    return this.executeWrite<CreateProductAudienceResult>(request, 'createProductAudience');
+  }
+
+  createCustomAudience(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<CreateCustomAudienceResult>> {
+    return this.executeWrite<CreateCustomAudienceResult>(request, 'createCustomAudience');
+  }
+
   createAdCreative(request: AdsBrokerRequest): Promise<AdsBrokerResponse<CreateAdCreativeResult>> {
     return this.executeWrite<CreateAdCreativeResult>(request, 'createAdCreative');
   }
@@ -570,6 +594,10 @@ export class AdsBroker {
 
   archiveAd(request: AdsBrokerRequest): Promise<AdsBrokerResponse<ArchiveAdResult>> {
     return this.executeWrite<ArchiveAdResult>(request, 'archiveAd');
+  }
+
+  deleteAudience(request: AdsBrokerRequest): Promise<AdsBrokerResponse<DeleteAudienceResult>> {
+    return this.executeWrite<DeleteAudienceResult>(request, 'deleteAudience');
   }
 
   pauseAd(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>> {
@@ -706,10 +734,13 @@ export class AdsBroker {
       | CpasCatalogCampaignBundleResult
       | CreateCampaignResult
       | CreateAdSetResult
+      | CreateProductAudienceResult
+      | CreateCustomAudienceResult
       | CreateAdCreativeResult
       | CreateAdResult
       | CloneUiAdResult
       | ArchiveAdResult
+      | DeleteAudienceResult
       | CloneAdSetResult
       | UpdateAdSetResult
       | UpdateAdResult

@@ -27,16 +27,16 @@ MCP provides structured data. AI and skills provide reasoning.
 
 The intended public API should stay small:
 
-| Tool                       | Purpose                                                               |
-| -------------------------- | --------------------------------------------------------------------- |
-| `ads_list_accounts`        | List accessible ads accounts                                          |
-| `ads_list_campaigns`       | List campaign identity/status metadata                                |
-| `ads_get_performance`      | Fetch normalized ads performance rows across levels                   |
-| `ads_get_creatives`        | Fetch creative metadata and creative metrics                          |
-| `ads_resolve_creative_assets` | Resolve ranked image/video thumbnail URLs for creatives (Meta)     |
-| `ads_get_change_history`   | Fetch provider change history when available                          |
-| `ads_get_capabilities`     | Discover supported providers, metrics, breakdowns, levels, and writes |
-| `commerce_get_performance` | Fetch commerce/SKU/product/order performance when available           |
+| Tool                          | Purpose                                                               |
+| ----------------------------- | --------------------------------------------------------------------- |
+| `ads_list_accounts`           | List accessible ads accounts                                          |
+| `ads_list_campaigns`          | List campaign identity/status metadata                                |
+| `ads_get_performance`         | Fetch normalized ads performance rows across levels                   |
+| `ads_get_creatives`           | Fetch creative metadata and creative metrics                          |
+| `ads_resolve_creative_assets` | Resolve ranked image/video thumbnail URLs for creatives (Meta)        |
+| `ads_get_change_history`      | Fetch provider change history when available                          |
+| `ads_get_capabilities`        | Discover supported providers, metrics, breakdowns, levels, and writes |
+| `commerce_get_performance`    | Fetch commerce/SKU/product/order performance when available           |
 
 ## Write tools (scoped mutations; creation tools use dry-run + confirmation):
 
@@ -52,10 +52,14 @@ The intended public API should stay small:
 | `ads_update_campaign_budget`          | Change campaign daily budget                                                                                                  |
 | `ads_rename_campaign`                 | Rename a campaign                                                                                                             |
 | `ads_archive_ad`                      | Archive an ad or campaign                                                                                                     |
+| `ads_delete_audience`                 | Permanently delete a Meta Custom Audience (including product/dynamic audiences)                                               |
 | `ads_upload_image`                    | Upload image to Meta Ads Image Library                                                                                        |
 | `ads_upload_video`                    | Upload video to Meta Ads Video Library                                                                                        |
 | `ads_create_welcome_message_template` | Save a local reusable Messenger/Instagram welcome message template                                                            |
 | `ads_list_welcome_message_templates`  | List local reusable welcome message templates                                                                                 |
+| `ads_create_product_audience`         | Create a dynamic product (catalog retargeting) audience for CPAS                                                              |
+| `ads_list_audiences`                  | List Meta Custom Audiences, including product audiences                                                                       |
+| `ads_create_custom_audience`          | Create a WEBSITE custom audience (pixel-based retargeting)                                                                    |
 
 ## WhatsApp Discovery Tools (read-only, Meta-specific)
 
@@ -81,11 +85,21 @@ The four creation tools above use dry-run by default and execute only when `dryR
 
 When a marketer asks for several headline/caption/copy/image/video options, treat that as manual creative testing by default: create separate manual creatives/ads, each with one chosen media asset, one `primaryText`, and one `headline`; or use carousel cards when the intended format is a carousel. Do not switch to Dynamic Creative just because there are multiple copy or media options.
 
+### Audiences (CPAS retargeting)
+
+`ads_create_product_audience` builds the retargeting half of the standard CPAS pattern: a "prospecting" ad set with no audience, plus a "retargeting" ad set targeting people who viewed or added-to-cart a catalog product but did not purchase. It creates the audience via `POST /act_{id}/product_audiences` from a `productSetId` and typed `inclusions`/`exclusions` (event + retention window in seconds); Meta's own examples commonly use 14 days for `ViewContent`, 7 days for `AddToCart`, and a 30-day `Purchase` exclusion, but this connector never applies those as silent defaults — pass them explicitly.
+
+`ads_create_custom_audience` currently supports only `subtype: WEBSITE` (pixel-based website-visitor retargeting); its `rule` field is the raw Website Custom Audience Rule object from Meta's own rule builder/reference, passed through unmodified.
+
+Use `ads_list_audiences` to find an existing audience's `id`, then pass that `id` into `ads_create_adset`'s `targeting.customAudiences` (or `targeting.excludedCustomAudiences` to exclude it) — the same field that already accepts any Custom Audience ID today.
+
+`ads_delete_audience` permanently deletes a Custom Audience (including product/dynamic audiences). Like `ads_archive_ad`, deletion cannot be undone via the API, so it requires `ADSTREAM_ENABLE_DESTRUCTIVE_ACTIONS=true` in addition to `ADSTREAM_ENABLE_WRITES=true`.
+
 Do not use Dynamic Creative / Flexible asset-feed for new creates. `creativeFormat: "flexible"` and `isDynamicCreative: true` are rejected so the MCP cannot accidentally create a Dynamic Creative family. `assetFeedSpec` and nested `objectStorySpec.asset_feed_spec` are accepted only for placement customization with `asset_customization_rules`, including image/video media tailored per placement. Simple creatives using one media asset, one `primaryText`, and one `headline` remain supported.
 
 Write tools are turned off by default for safety, so only read tools appear until you enable them. Set `ADSTREAM_ENABLE_WRITES=true` to expose the write tools above. While they are off, calling one returns a `WRITE_TOOLS_DISABLED` error that explains how to enable them, and `ads_get_capabilities` reports `writes.enabled: false`.
 
-Archiving or deleting a campaign, ad set, or ad is permanent — Meta treats `ARCHIVED` and `DELETED` as equally irreversible (neither can be reverted via the API). These calls (`ads_archive_ad`, and `ads_update_ad`/`ads_update_campaign` when setting status to `ARCHIVED` or `DELETED`) need a second, separate flag: `ADSTREAM_ENABLE_DESTRUCTIVE_ACTIONS=true`, off by default. Without it they fail with `DESTRUCTIVE_ACTIONS_DISABLED` even if `ADSTREAM_ENABLE_WRITES` is on.
+Archiving or deleting a campaign, ad set, ad, or audience is permanent — Meta treats `ARCHIVED` and `DELETED` as equally irreversible (neither can be reverted via the API), and Custom Audience deletion is a real object delete with no undo. These calls (`ads_archive_ad`, `ads_delete_audience`, and `ads_update_ad`/`ads_update_campaign` when setting status to `ARCHIVED` or `DELETED`) need a second, separate flag: `ADSTREAM_ENABLE_DESTRUCTIVE_ACTIONS=true`, off by default. Without it they fail with `DESTRUCTIVE_ACTIONS_DISABLED` even if `ADSTREAM_ENABLE_WRITES` is on.
 
 Legacy and provider-specific tools remain available for compatibility, but new report-specific tools should be avoided. Daily reports, weekly reports, creative audits, KPI scoring, and recommendations should be implemented as AI/skill workflows over the same canonical data tools.
 
@@ -190,16 +204,16 @@ See [Remote Mode](#configuration--remote-mode-with-cuan-insight) for full setup.
 
 ### Environment Variables
 
-| Variable                              | Required | Default | Description                                                                                                                                      |
-| ------------------------------------- | -------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `META_ACCESS_TOKEN`                   | ✅       | —       | Meta Ads access token                                                                                                                            |
-| `META_AD_ACCOUNT_ID`                  | ❌       | —       | Default ad account (optional, AI can pick via `ads_list_accounts`)                                                                               |
-| `META_API_VERSION`                    | ❌       | `v25.0` | Meta Graph API version                                                                                                                           |
-| `TIKTOK_ACCESS_TOKEN`                 | ❌       | —       | TikTok Ads access token                                                                                                                          |
-| `MCP_HTTP_ENABLED`                    | ❌       | `false` | Enable HTTP transport                                                                                                                            |
-| `ADSTREAM_ENABLE_WRITES`              | ❌       | `false` | Expose the optional write tools; off by default so only read tools appear                                                                        |
-| `ADSTREAM_ENABLE_DESTRUCTIVE_ACTIONS` | ❌       | `false` | Separate kill switch for archive/delete calls (`ads_archive_ad`, `ARCHIVED`/`DELETED` status changes); off by default even if writes are enabled |
-| `CUAN_INSIGHT_AUTH_MODE`              | ❌       | —       | Set to `connection_key` for remote mode                                                                                                          |
+| Variable                              | Required | Default | Description                                                                                                                                                             |
+| ------------------------------------- | -------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `META_ACCESS_TOKEN`                   | ✅       | —       | Meta Ads access token                                                                                                                                                   |
+| `META_AD_ACCOUNT_ID`                  | ❌       | —       | Default ad account (optional, AI can pick via `ads_list_accounts`)                                                                                                      |
+| `META_API_VERSION`                    | ❌       | `v25.0` | Meta Graph API version                                                                                                                                                  |
+| `TIKTOK_ACCESS_TOKEN`                 | ❌       | —       | TikTok Ads access token                                                                                                                                                 |
+| `MCP_HTTP_ENABLED`                    | ❌       | `false` | Enable HTTP transport                                                                                                                                                   |
+| `ADSTREAM_ENABLE_WRITES`              | ❌       | `false` | Expose the optional write tools; off by default so only read tools appear                                                                                               |
+| `ADSTREAM_ENABLE_DESTRUCTIVE_ACTIONS` | ❌       | `false` | Separate kill switch for archive/delete calls (`ads_archive_ad`, `ads_delete_audience`, `ARCHIVED`/`DELETED` status changes); off by default even if writes are enabled |
+| `CUAN_INSIGHT_AUTH_MODE`              | ❌       | —       | Set to `connection_key` for remote mode                                                                                                                                 |
 
 ---
 

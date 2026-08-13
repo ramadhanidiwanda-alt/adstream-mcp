@@ -68,6 +68,22 @@ export type {
   OptimizationGoal,
 } from './tools/createAdSet.js';
 
+export { createProductAudience } from './tools/createProductAudience.js';
+export type {
+  CreateProductAudienceOptions,
+  CreateProductAudienceResult,
+  CreateProductAudienceStatus,
+  ProductAudienceEvent,
+  ProductAudienceRuleSpec,
+} from './tools/createProductAudience.js';
+
+export { createCustomAudience } from './tools/createCustomAudience.js';
+export type {
+  CreateCustomAudienceOptions,
+  CreateCustomAudienceResult,
+  CreateCustomAudienceStatus,
+} from './tools/createCustomAudience.js';
+
 export { createAdCreative } from './tools/createAdCreative.js';
 export {
   createWelcomeMessageTemplate,
@@ -100,6 +116,8 @@ export type {
 
 export { archiveAd } from './tools/archiveAd.js';
 export type { ArchiveAdOptions, ArchiveAdResult } from './tools/archiveAd.js';
+export { deleteAudience } from './tools/deleteAudience.js';
+export type { DeleteAudienceOptions, DeleteAudienceResult } from './tools/deleteAudience.js';
 
 export { updateAd } from './tools/updateAd.js';
 export type { UpdateAdOptions, UpdateAdResult, UpdateAdStatus } from './tools/updateAd.js';
@@ -139,6 +157,8 @@ export { getLaunchPreset, inferLaunchWorkflow } from './tools/launchPresets.js';
 export type * from './tools/launchPresets.js';
 export { listPixels } from './tools/listPixels.js';
 export type { ListPixelsOptions } from './tools/listPixels.js';
+export { listAudiences } from './tools/listAudiences.js';
+export type { ListAudiencesOptions } from './tools/listAudiences.js';
 export { listCatalogs } from './tools/listCatalogs.js';
 export type { ListCatalogsOptions } from './tools/listCatalogs.js';
 export { listProductSets } from './tools/listProductSets.js';

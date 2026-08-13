@@ -13,6 +13,8 @@ import type {
   CreateAdCreativeResult,
   CreateAdResult,
   CreateAdSetResult,
+  CreateProductAudienceResult,
+  CreateCustomAudienceResult,
   CreateCampaignResult,
   GetTargetingOptionsResult,
   UpdateAdSetResult,
@@ -80,6 +82,7 @@ export const ADS_MCP_TOOL_NAMES = [
   'ads_create_ad',
   'ads_clone_ui_ad',
   'ads_archive_ad',
+  'ads_delete_audience',
   'ads_update_adset',
   'ads_update_ad',
   'ads_update_campaign',
@@ -87,6 +90,8 @@ export const ADS_MCP_TOOL_NAMES = [
   'ads_get_targeting_options',
   'ads_create_ecommerce_campaign_bundle',
   'ads_create_cpas_catalog_bundle',
+  'ads_create_product_audience',
+  'ads_create_custom_audience',
   'ads_get_video_source',
   'ads_get_ad_creative_mapping',
   'ads_upload_image',
@@ -105,6 +110,7 @@ export const ADS_MCP_TOOL_NAMES = [
   'ads_list_partnership_content',
   'ads_list_threads_profiles',
   'ads_list_pixels',
+  'ads_list_audiences',
   'ads_list_catalogs',
   'ads_list_product_sets',
   // --- WhatsApp Discovery ---
@@ -143,6 +149,7 @@ const DESTRUCTIVE_WRITE_TOOLS = new Set<AdsMcpToolName>([
   'ads_pause_ad',
   'ads_update_campaign_budget',
   'ads_archive_ad',
+  'ads_delete_audience',
   'ads_update_adset',
   'ads_update_ad',
   'ads_update_campaign',
@@ -162,6 +169,8 @@ const ADDITIVE_WRITE_TOOLS = new Set<AdsMcpToolName>([
   'ads_clone_ui_ad',
   'ads_create_ecommerce_campaign_bundle',
   'ads_create_cpas_catalog_bundle',
+  'ads_create_product_audience',
+  'ads_create_custom_audience',
   'ads_clone_adset',
   'ads_upload_image',
   'ads_upload_video',
@@ -228,7 +237,7 @@ export function isIrreversibleAdsCall(
   name: AdsMcpToolName,
   args: Record<string, unknown>
 ): boolean {
-  if (name === 'ads_archive_ad') return true;
+  if (name === 'ads_archive_ad' || name === 'ads_delete_audience') return true;
 
   const irreversibleStatuses = IRREVERSIBLE_STATUS_TOOLS[name];
   return irreversibleStatuses !== undefined && irreversibleStatuses.has(args.status as string);
@@ -406,6 +415,12 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
     inputSchema: createArchiveAdInputSchema(),
   },
   {
+    name: 'ads_delete_audience',
+    description:
+      'Permanently delete a Meta Custom Audience (including a dynamic product audience created by ads_create_product_audience — those are Custom Audience objects once created). Cannot be reverted via the API. Dry-run by default. Set dryRun=false and confirmed=true to execute. Also requires ADSTREAM_ENABLE_DESTRUCTIVE_ACTIONS=true.',
+    inputSchema: createDeleteAudienceInputSchema(),
+  },
+  {
     name: 'ads_pause_ad',
     description: 'Pause a Meta ad (sets status to PAUSED). Reversible with ads_resume_ad.',
     inputSchema: createAdIdInputSchema(),
@@ -469,6 +484,18 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
     description:
       'Create a PAUSED Meta Sales CPAS catalog bundle. Dry-run by default; productSetId is verified before any write.',
     inputSchema: createCpasCatalogBundleInputSchema(),
+  },
+  {
+    name: 'ads_create_product_audience',
+    description:
+      'Create a Meta dynamic product audience for CPAS catalog retargeting (e.g. "viewed but did not purchase in 14 days"). Built from productSetId + inclusions (events: ViewContent, AddToCart, Purchase, Search, each with a retentionSeconds window) and optional exclusions. The created audience becomes a Custom Audience — pass its id into ads_create_adset targeting.customAudiences. Dry-run by default; set dryRun=false and confirmed=true to execute.',
+    inputSchema: createProductAudienceInputSchema(),
+  },
+  {
+    name: 'ads_create_custom_audience',
+    description:
+      "Create a Meta WEBSITE custom audience (pixel-based website-visitor retargeting). Only subtype WEBSITE is supported. rule is the raw Website Custom Audience Rule object from Meta's Audience rule builder/API reference — this MCP passes it through as-is rather than reinterpreting it. Dry-run by default; set dryRun=false and confirmed=true to execute. Pastikan pixelId sesuai dengan pixel yang direferensikan di dalam event sources milik rule — Meta tidak melakukan cross-validation antara keduanya, jadi ketidakcocokan tidak akan terdeteksi otomatis.",
+    inputSchema: createCustomAudienceInputSchema(),
   },
   {
     name: 'ads_get_video_source',
@@ -574,6 +601,12 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
     name: 'ads_list_pixels',
     description:
       'List Meta Pixels connected to an ad account. Use before website sales, lead, or CPAS workflows when the user does not know their pixel ID. Calls GET /act_{id}/adspixels.',
+    inputSchema: createAdsInputSchema([]),
+  },
+  {
+    name: 'ads_list_audiences',
+    description:
+      'List Meta Custom Audiences (including dynamic product audiences created by ads_create_product_audience) connected to an ad account. Use to find an audience id before passing it into ads_create_adset targeting.customAudiences, or to check an audience is ready (delivery_status) before targeting it. Calls GET /act_{id}/customaudiences.',
     inputSchema: createAdsInputSchema([]),
   },
   {
@@ -949,6 +982,8 @@ function callBrokerMethod(
       return broker.cloneUiAd(request);
     case 'ads_archive_ad':
       return broker.archiveAd(request);
+    case 'ads_delete_audience':
+      return broker.deleteAudience(request);
     case 'ads_pause_ad':
       return broker.pauseAd(request);
     case 'ads_resume_ad':
@@ -971,6 +1006,10 @@ function callBrokerMethod(
       return broker.createEcommerceCampaignBundle(request);
     case 'ads_create_cpas_catalog_bundle':
       return broker.createCpasCatalogCampaignBundle(request);
+    case 'ads_create_product_audience':
+      return broker.createProductAudience(request);
+    case 'ads_create_custom_audience':
+      return broker.createCustomAudience(request);
     case 'ads_get_video_source':
       return broker.getVideoSource(request);
     case 'ads_get_ad_creative_mapping':
@@ -995,6 +1034,8 @@ function callBrokerMethod(
       return broker.listThreadsProfiles(request);
     case 'ads_list_pixels':
       return broker.listPixels(request);
+    case 'ads_list_audiences':
+      return broker.listAudiences(request);
     case 'ads_list_catalogs':
       return broker.listCatalogs(request);
     case 'ads_list_product_sets':
@@ -1447,7 +1488,12 @@ function getAdsCapabilities(request: AdsBrokerRequest): AdsBrokerResponse<Record
         enableFlag: ADS_DESTRUCTIVE_ACTIONS_ENABLE_FLAG,
         description:
           'Separate kill switch for calls that archive or delete a Meta object. Meta treats ARCHIVED and DELETED as equally permanent (neither reverts via the API), so both are gated the same way regardless of which status string is used.',
-        gatedTools: ['ads_archive_ad', 'ads_update_ad', 'ads_update_campaign'],
+        gatedTools: [
+          'ads_archive_ad',
+          'ads_delete_audience',
+          'ads_update_ad',
+          'ads_update_campaign',
+        ],
       },
       partnershipAds: {
         supportedProviders: ['meta'],
@@ -2599,6 +2645,25 @@ function createArchiveAdInputSchema() {
   };
 }
 
+function createDeleteAudienceInputSchema() {
+  const schema = createAdsInputSchema([]);
+
+  return {
+    type: 'object',
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      audienceId: {
+        type: 'string',
+        description:
+          'The Custom Audience id to delete permanently (includes product/dynamic audiences).',
+      },
+      dryRun: { type: 'boolean', description: 'Defaults to true. Set false only after preview.' },
+      confirmed: { type: 'boolean', description: 'Must be true to execute after preview.' },
+    },
+    required: ['audienceId'],
+  };
+}
+
 function createAdIdInputSchema() {
   const schema = createAdsInputSchema([]);
 
@@ -3145,6 +3210,86 @@ function createCpasCatalogBundleInputSchema() {
       'headline',
       'destinationUrl',
     ],
+  };
+}
+
+function productAudienceRuleSchema() {
+  return {
+    type: 'object',
+    required: ['retentionSeconds', 'event'],
+    properties: {
+      retentionSeconds: {
+        type: 'number',
+        description: 'How long, in seconds, a person stays in/out of the audience.',
+      },
+      event: {
+        type: 'string',
+        enum: ['Search', 'ViewContent', 'AddToCart', 'Purchase'],
+      },
+    },
+  };
+}
+
+function createProductAudienceInputSchema() {
+  const schema = createAdsInputSchema([]);
+
+  return {
+    type: 'object',
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      name: { type: 'string', description: 'Audience name.' },
+      productSetId: {
+        type: 'string',
+        description: 'Catalog product set this audience is built from.',
+      },
+      inclusions: {
+        type: 'array',
+        description:
+          'Events that add a person to the audience. Meta commonly uses ViewContent (14 days) and AddToCart (7 days) for retargeting.',
+        items: productAudienceRuleSchema(),
+      },
+      exclusions: {
+        type: 'array',
+        description:
+          'Events that remove a person from the audience. Meta commonly uses Purchase (30 days) to exclude buyers from retargeting.',
+        items: productAudienceRuleSchema(),
+      },
+      dryRun: { type: 'boolean', description: 'Defaults to true. Set false to execute.' },
+      confirmed: {
+        type: 'boolean',
+        description: 'Must be true together with dryRun=false to execute.',
+      },
+    },
+    required: ['accountId', 'name', 'productSetId', 'inclusions'],
+  };
+}
+
+function createCustomAudienceInputSchema() {
+  const schema = createAdsInputSchema([]);
+
+  return {
+    type: 'object',
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      name: { type: 'string', description: 'Audience name.' },
+      pixelId: { type: 'string', description: 'Meta pixel ID this audience is built from.' },
+      rule: {
+        type: 'object',
+        description:
+          "Raw Website Custom Audience Rule object, exactly as Meta's Audience rule builder/API reference specifies. Passed through as-is.",
+      },
+      retentionDays: {
+        type: 'number',
+        description: 'How many days a person stays in the audience. Must be between 1 and 180.',
+      },
+      description: { type: 'string', description: 'Optional audience description.' },
+      dryRun: { type: 'boolean', description: 'Defaults to true. Set false to execute.' },
+      confirmed: {
+        type: 'boolean',
+        description: 'Must be true together with dryRun=false to execute.',
+      },
+    },
+    required: ['accountId', 'name', 'pixelId', 'rule'],
   };
 }
 

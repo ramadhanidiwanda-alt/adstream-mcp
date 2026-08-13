@@ -17,6 +17,9 @@ import type {
   UpdateCampaignResult,
   EcommerceCampaignBundleResult,
   CpasCatalogCampaignBundleResult,
+  CreateProductAudienceResult,
+  CreateCustomAudienceResult,
+  DeleteAudienceResult,
   AdsProviderAdapter,
   VideoSourceResult,
   AdCreativeMappingResult,
@@ -1018,6 +1021,24 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
     _request: AdsBrokerRequest
   ): Promise<AdsBrokerResponse<CpasCatalogCampaignBundleResult>> {
     return this.notImplemented('CPAS catalog bundle is only supported by Meta Ads');
+  }
+
+  async createProductAudience(
+    _request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<CreateProductAudienceResult>> {
+    return this.notImplemented('Product audiences are only supported by Meta Ads');
+  }
+
+  async createCustomAudience(
+    _request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<CreateCustomAudienceResult>> {
+    return this.notImplemented('Custom audiences are only supported by Meta Ads');
+  }
+
+  async deleteAudience(
+    _request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<DeleteAudienceResult>> {
+    return this.notImplemented('Audience deletion is only supported by Meta Ads');
   }
 
   // ── TikTok GMV Max specific methods ──

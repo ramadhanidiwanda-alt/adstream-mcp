@@ -436,6 +436,8 @@ describe('MCP server builder', () => {
       ...canonicalCreateToolNames,
       'ads_create_ecommerce_campaign_bundle',
       'ads_create_cpas_catalog_bundle',
+      'ads_create_product_audience',
+      'ads_create_custom_audience',
     ]);
 
     expect(campaignProperties.mode).toMatchObject({

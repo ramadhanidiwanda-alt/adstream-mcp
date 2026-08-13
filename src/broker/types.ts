@@ -863,6 +863,36 @@ export interface CreateAdSetResult {
   error?: string;
 }
 
+export type CreateProductAudienceStatus =
+  | 'dry_run'
+  | 'pending_confirmation'
+  | 'executed'
+  | 'failed';
+
+export interface CreateProductAudienceResult {
+  operation: 'create_product_audience';
+  status: CreateProductAudienceStatus;
+  executed: boolean;
+  preview: Record<string, unknown>;
+  id?: string;
+  response?: Record<string, unknown>;
+  error?: string;
+  structuredError?: StructuredMutationError;
+}
+
+export type CreateCustomAudienceStatus = 'dry_run' | 'pending_confirmation' | 'executed' | 'failed';
+
+export interface CreateCustomAudienceResult {
+  operation: 'create_custom_audience';
+  status: CreateCustomAudienceStatus;
+  executed: boolean;
+  preview: Record<string, unknown>;
+  id?: string;
+  response?: Record<string, unknown>;
+  error?: string;
+  structuredError?: StructuredMutationError;
+}
+
 export type CreateAdCreativeStatus =
   | 'dry_run'
   | 'pending_confirmation'
@@ -908,6 +938,20 @@ export interface CloneUiAdResult {
   executed: boolean;
   preview: Record<string, unknown>;
   warnings: string[];
+  id?: string;
+  response?: Record<string, unknown>;
+  error?: string;
+  structuredError?: StructuredMutationError;
+}
+
+export type DeleteAudienceStatus = 'dry_run' | 'pending_confirmation' | 'executed' | 'failed';
+
+export interface DeleteAudienceResult {
+  operation: 'delete_audience';
+  status: DeleteAudienceStatus;
+  executed: boolean;
+  preview: Record<string, unknown>;
+  success: boolean;
   id?: string;
   response?: Record<string, unknown>;
   error?: string;
@@ -1077,6 +1121,16 @@ export interface MetaPixelResult {
   last_fired_time?: string;
 }
 
+export interface MetaAudienceResult {
+  id: string;
+  name?: string;
+  subtype?: string;
+  approximate_count_lower_bound?: number;
+  approximate_count_upper_bound?: number;
+  delivery_status?: string;
+  operation_status?: string;
+}
+
 export interface MetaCatalogResult {
   id: string;
   name?: string;
@@ -1230,6 +1284,7 @@ export interface AdsProviderAdapter {
   createAd(request: AdsBrokerRequest): Promise<AdsBrokerResponse<CreateAdResult>>;
   cloneUiAd(request: AdsBrokerRequest): Promise<AdsBrokerResponse<CloneUiAdResult>>;
   archiveAd(request: AdsBrokerRequest): Promise<AdsBrokerResponse<ArchiveAdResult>>;
+  deleteAudience(request: AdsBrokerRequest): Promise<AdsBrokerResponse<DeleteAudienceResult>>;
   pauseAd(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>>;
   resumeAd(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>>;
   pauseAdSet(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdsMutationResult>>;
@@ -1247,6 +1302,12 @@ export interface AdsProviderAdapter {
   createCpasCatalogCampaignBundle(
     request: AdsBrokerRequest
   ): Promise<AdsBrokerResponse<CpasCatalogCampaignBundleResult>>;
+  createProductAudience(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<CreateProductAudienceResult>>;
+  createCustomAudience(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<CreateCustomAudienceResult>>;
   uploadImage(request: AdsBrokerRequest): Promise<AdsBrokerResponse<ImageUploadResult>>;
   uploadVideo(request: AdsBrokerRequest): Promise<AdsBrokerResponse<VideoUploadResult>>;
   getAccountInfo(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AccountInfoResult>>;
@@ -1257,6 +1318,7 @@ export interface AdsProviderAdapter {
     request: AdsBrokerRequest
   ): Promise<AdsBrokerResponse<LaunchReadinessResult>>;
   listPixels?(request: AdsBrokerRequest): Promise<AdsBrokerResponse<MetaPixelResult[]>>;
+  listAudiences?(request: AdsBrokerRequest): Promise<AdsBrokerResponse<MetaAudienceResult[]>>;
   listCatalogs?(request: AdsBrokerRequest): Promise<AdsBrokerResponse<MetaCatalogResult[]>>;
   listProductSets?(request: AdsBrokerRequest): Promise<AdsBrokerResponse<MetaProductSetResult[]>>;
   listPages?(request: AdsBrokerRequest): Promise<AdsBrokerResponse<MetaPageResult[]>>;
