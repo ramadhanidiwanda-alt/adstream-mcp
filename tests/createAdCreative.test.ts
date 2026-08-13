@@ -2048,6 +2048,34 @@ describe('createAdCreative', () => {
       );
     });
 
+    it('menolak partnership pada jalur legacy linkData alih-alih membuangnya diam-diam', async () => {
+      const result = await createAdCreative(mockClient, {
+        ...baseOpts,
+        partnership: { partnerPageId: 'creator-page-1' },
+      });
+
+      expect(result.status).toBe('failed');
+      expect(result.error).toMatch(/partnership/);
+      expect(result.error).toMatch(/creativeSpec|creativeFormat/);
+      expect(result.preview).not.toHaveProperty('facebook_branded_content');
+    });
+
+    it('menolak partnership pada jalur legacy objectStorySpec', async () => {
+      const result = await createAdCreative(mockClient, {
+        adAccountId: 'act_123',
+        name: 'Legacy story spec',
+        pageId: '1001',
+        objectStorySpec: {
+          link_data: { link: 'https://example.com', message: 'Halo' },
+        },
+        partnership: { partnerPageId: 'creator-page-1' },
+      });
+
+      expect(result.status).toBe('failed');
+      expect(result.error).toMatch(/partnership/);
+      expect(result.preview).not.toHaveProperty('facebook_branded_content');
+    });
+
     it('omits partnershipNotes when partnership is not used', async () => {
       const result = await createAdCreative(mockClient, standardImageOptions);
 

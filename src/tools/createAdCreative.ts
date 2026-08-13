@@ -626,6 +626,17 @@ function buildCreativePayload(options: CreateAdCreativeOptions): Record<string, 
       'Konten creative wajib diisi melalui creative, objectStorySpec, atau linkData.'
     );
   }
+  // Hanya jalur creative yang menulis field branded content. Jalur legacy
+  // objectStorySpec dan linkData mengabaikan partnership sepenuhnya, sehingga
+  // dulu mengembalikan creative tanpa satu pun field kemitraan — lengkap dengan
+  // partnershipNotes yang menyiratkan sebaliknya. Sukses menyesatkan seperti itu
+  // persis yang hendak dicegah fitur ini.
+  if (options.partnership && !options.creative) {
+    throw new Error(
+      'partnership hanya didukung pada jalur creative (creativeFormat + creativeSpec) dengan format existing_post, single_image, video, atau carousel. ' +
+        'Jalur legacy objectStorySpec dan linkData tidak menulis field branded content sama sekali; pindahkan konten iklan ke creative agar identitas kemitraan ikut terkirim.'
+    );
+  }
   assertNoDynamicCreativeCreatePath(options);
   assertSupportedCreativeFeatureOptOuts(options.optOutEnhancements);
 
