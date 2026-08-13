@@ -119,7 +119,7 @@ export function buildCpasCatalogBundlePreview(
         ? 'carousel'
         : creativeFormat === 'catalog_video_carousel'
           ? 'video_carousel'
-        : undefined;
+          : undefined;
   return {
     campaign: {
       name: payload.campaignName.trim(),
@@ -174,7 +174,7 @@ export function buildCpasCatalogBundlePreview(
     },
     creative:
       creativeFormat === 'collection'
-          ? {
+        ? {
             name: payload.adName.trim() + ' Creative',
             object_story_spec: {
               page_id: payload.pageId.trim(),
@@ -217,7 +217,9 @@ export function buildCpasCatalogBundlePreview(
                       link: `https://fb.com/canvas_doc/${video?.instantExperienceId.trim() ?? ''}`,
                     },
                   },
-                  retailer_item_ids: video?.retailerItemIds?.map((id) => id.trim()).filter(Boolean) ?? ['0', '0', '0', '0'],
+                  retailer_item_ids: video?.retailerItemIds
+                    ?.map((id) => id.trim())
+                    .filter(Boolean) ?? ['0', '0', '0', '0'],
                   post_click_configuration: {
                     post_click_item_headline: '{{product.name}}',
                     post_click_item_description: '{{product.current_price strip_zeros}}',
@@ -226,63 +228,65 @@ export function buildCpasCatalogBundlePreview(
               },
             }
           : {
-            name: payload.adName.trim() + ' Creative',
-            product_set_id: productSetId,
-            object_story_spec: {
-              page_id: payload.pageId.trim(),
-              ...(payload.instagramUserId?.trim()
-                ? { instagram_user_id: payload.instagramUserId.trim() }
-                : {}),
-              template_data: {
-                message: payload.primaryText.trim(),
-                name: payload.headline.trim(),
-                ...(payload.description?.trim() ? { description: payload.description.trim() } : {}),
-                link: payload.templateUrl?.trim() || destinationUrl,
-                call_to_action: {
-                  type: payload.callToAction ?? 'SHOP_NOW',
-                  ...(appOmnichannel ? { value: { link: destinationUrl } } : {}),
-                },
-                ...(catalogPresentation === 'single_image'
-                  ? {
-                      multi_share_end_card: true,
-                      show_multiple_images: false,
-                      force_single_link: true,
-                    }
-                  : catalogPresentation === 'carousel'
-                    ? { multi_share_end_card: false, show_multiple_images: false }
-                    : catalogPresentation === 'video_carousel'
-                      ? {
-                          child_attachments: [
-                            {
-                              link: payload.templateUrl?.trim() || destinationUrl,
-                              picture: payload.hybridVideo?.thumbnailUrl.trim() ?? '',
-                              name: payload.headline.trim(),
-                              call_to_action: { type: payload.callToAction ?? 'SHOP_NOW' },
-                              video_id: payload.hybridVideo?.videoId.trim() ?? '',
-                              static_card: true,
-                            },
-                            {
-                              link: payload.templateUrl?.trim() || destinationUrl,
-                              name: '{{product.name}}',
-                              call_to_action: { type: payload.callToAction ?? 'SHOP_NOW' },
-                            },
-                          ],
-                          multi_share_end_card: false,
-                          show_multiple_images: false,
-                        }
+              name: payload.adName.trim() + ' Creative',
+              product_set_id: productSetId,
+              object_story_spec: {
+                page_id: payload.pageId.trim(),
+                ...(payload.instagramUserId?.trim()
+                  ? { instagram_user_id: payload.instagramUserId.trim() }
+                  : {}),
+                template_data: {
+                  message: payload.primaryText.trim(),
+                  name: payload.headline.trim(),
+                  ...(payload.description?.trim()
+                    ? { description: payload.description.trim() }
                     : {}),
-              },
-            },
-            ...(catalogPresentation === 'carousel' || catalogPresentation === 'video_carousel'
-              ? {
-                  asset_feed_spec: {
-                    bodies: [{ text: payload.primaryText.trim() }],
-                    ad_formats: ['CAROUSEL', 'COLLECTION'],
-                    optimization_type: 'FORMAT_AUTOMATION',
+                  link: payload.templateUrl?.trim() || destinationUrl,
+                  call_to_action: {
+                    type: payload.callToAction ?? 'SHOP_NOW',
+                    ...(appOmnichannel ? { value: { link: destinationUrl } } : {}),
                   },
-                }
-              : {}),
-          },
+                  ...(catalogPresentation === 'single_image'
+                    ? {
+                        multi_share_end_card: true,
+                        show_multiple_images: false,
+                        force_single_link: true,
+                      }
+                    : catalogPresentation === 'carousel'
+                      ? { multi_share_end_card: false, show_multiple_images: false }
+                      : catalogPresentation === 'video_carousel'
+                        ? {
+                            child_attachments: [
+                              {
+                                link: payload.templateUrl?.trim() || destinationUrl,
+                                picture: payload.hybridVideo?.thumbnailUrl.trim() ?? '',
+                                name: payload.headline.trim(),
+                                call_to_action: { type: payload.callToAction ?? 'SHOP_NOW' },
+                                video_id: payload.hybridVideo?.videoId.trim() ?? '',
+                                static_card: true,
+                              },
+                              {
+                                link: payload.templateUrl?.trim() || destinationUrl,
+                                name: '{{product.name}}',
+                                call_to_action: { type: payload.callToAction ?? 'SHOP_NOW' },
+                              },
+                            ],
+                            multi_share_end_card: false,
+                            show_multiple_images: false,
+                          }
+                        : {}),
+                },
+              },
+              ...(catalogPresentation === 'carousel' || catalogPresentation === 'video_carousel'
+                ? {
+                    asset_feed_spec: {
+                      bodies: [{ text: payload.primaryText.trim() }],
+                      ad_formats: ['CAROUSEL', 'COLLECTION'],
+                      optimization_type: 'FORMAT_AUTOMATION',
+                    },
+                  }
+                : {}),
+            },
     ad: { name: payload.adName.trim(), status: 'PAUSED' },
   };
 }
@@ -339,21 +343,37 @@ export async function createCpasCatalogCampaignBundle(
     return failure('preflight', 'INVALID_CPAS_CATALOG_BUDGET', 'dailyBudget harus lebih dari 0.');
   }
   if (payload.countries.length === 0 || payload.countries.some((country) => !country.trim())) {
-    return failure('preflight', 'INVALID_CPAS_CATALOG_COUNTRIES', 'countries harus berisi minimal satu negara.');
+    return failure(
+      'preflight',
+      'INVALID_CPAS_CATALOG_COUNTRIES',
+      'countries harus berisi minimal satu negara.'
+    );
   }
   const creativeFormat = payload.creativeFormat ?? 'catalog';
   if (creativeFormat === 'collection') {
     const collection = payload.collection;
     if (!collection?.instantExperienceId.trim()) {
-      return failure('preflight', 'MISSING_CPAS_COLLECTION_INSTANT_EXPERIENCE', 'Collection memerlukan instantExperienceId.');
+      return failure(
+        'preflight',
+        'MISSING_CPAS_COLLECTION_INSTANT_EXPERIENCE',
+        'Collection memerlukan instantExperienceId.'
+      );
     }
     if (Boolean(collection.coverImageHash?.trim()) === Boolean(collection.coverVideoId?.trim())) {
-      return failure('preflight', 'INVALID_CPAS_COLLECTION_COVER', 'Collection memerlukan tepat satu coverImageHash atau coverVideoId.');
+      return failure(
+        'preflight',
+        'INVALID_CPAS_COLLECTION_COVER',
+        'Collection memerlukan tepat satu coverImageHash atau coverVideoId.'
+      );
     }
   }
   if (creativeFormat === 'catalog_video') {
     const video = payload.video;
-    if (!video?.videoId.trim() || !video.instantExperienceId.trim() || !video.retailerAppId.trim()) {
+    if (
+      !video?.videoId.trim() ||
+      !video.instantExperienceId.trim() ||
+      !video.retailerAppId.trim()
+    ) {
       return failure(
         'preflight',
         'MISSING_CPAS_CATALOG_VIDEO_FIELD',
@@ -361,7 +381,11 @@ export async function createCpasCatalogCampaignBundle(
       );
     }
     if (video.retailerItemIds?.some((id) => !id.trim())) {
-      return failure('preflight', 'INVALID_CPAS_CATALOG_VIDEO_ITEMS', 'retailerItemIds tidak boleh kosong.');
+      return failure(
+        'preflight',
+        'INVALID_CPAS_CATALOG_VIDEO_ITEMS',
+        'retailerItemIds tidak boleh kosong.'
+      );
     }
   }
   if (creativeFormat === 'catalog_video_carousel') {
@@ -399,10 +423,18 @@ export async function createCpasCatalogCampaignBundle(
     return failure('preflight', 'UNREADABLE_CPAS_PRODUCT_SET', formatMetaWriteError(error));
   }
   if (productSet.id?.trim() !== payload.productSetId.trim()) {
-    return failure('preflight', 'UNREADABLE_CPAS_PRODUCT_SET', 'Product set CPAS tidak dapat diverifikasi.');
+    return failure(
+      'preflight',
+      'UNREADABLE_CPAS_PRODUCT_SET',
+      'Product set CPAS tidak dapat diverifikasi.'
+    );
   }
   if (!Number.isFinite(productSet.product_count) || Number(productSet.product_count) <= 0) {
-    return failure('preflight', 'EMPTY_CPAS_PRODUCT_SET', 'Product set CPAS tidak memiliki produk yang siap diiklankan.');
+    return failure(
+      'preflight',
+      'EMPTY_CPAS_PRODUCT_SET',
+      'Product set CPAS tidak memiliki produk yang siap diiklankan.'
+    );
   }
 
   const productCatalogId =
@@ -420,7 +452,9 @@ export async function createCpasCatalogCampaignBundle(
     ...(productCatalogId?.trim() ? { catalogId: productCatalogId.trim() } : {}),
     productCount: Number(productSet.product_count),
   };
-  const withEvidence = (result: CpasCatalogCampaignBundleResult): CpasCatalogCampaignBundleResult => ({
+  const withEvidence = (
+    result: CpasCatalogCampaignBundleResult
+  ): CpasCatalogCampaignBundleResult => ({
     ...result,
     productSet: productSetEvidence,
   });
@@ -460,7 +494,8 @@ export async function createCpasCatalogCampaignBundle(
     },
     { dryRun: false, confirmed: true, maxRetries: options.maxRetries }
   );
-  if (!campaign.id) return failedAfterCreate('campaign', campaign.error ?? 'Campaign CPAS gagal dibuat.');
+  if (!campaign.id)
+    return failedAfterCreate('campaign', campaign.error ?? 'Campaign CPAS gagal dibuat.');
   ids.campaignId = campaign.id;
 
   const adSet = await createAdSet(
@@ -550,38 +585,39 @@ export async function createCpasCatalogCampaignBundle(
                   templateUrlSpec: { applicationId: payload.video?.retailerAppId ?? '' },
                 },
               }
-          : {
-              creativeFormat: 'catalog',
-              creativeSpec: {
-                productSetId: payload.productSetId,
-                primaryText: payload.primaryText,
-                headline: payload.headline,
-                description: payload.description,
-                destinationUrl: payload.destinationUrl,
-                templateUrl: payload.templateUrl,
-                fallbackImageHash: payload.fallbackImageHash,
-                callToAction: payload.callToAction ?? 'SHOP_NOW',
-                ...(creativeFormat === 'catalog_single_image'
-                  ? { presentation: 'single_image' as const }
-                  : creativeFormat === 'catalog_carousel'
-                    ? { presentation: 'carousel' as const }
-                    : creativeFormat === 'catalog_video_carousel'
-                      ? {
-                          presentation: 'video_carousel' as const,
-                          hybridVideo: {
-                            videoId: payload.hybridVideo?.videoId ?? '',
-                            thumbnailUrl: payload.hybridVideo?.thumbnailUrl ?? '',
-                          },
-                        }
-                    : {}),
+            : {
+                creativeFormat: 'catalog',
+                creativeSpec: {
+                  productSetId: payload.productSetId,
+                  primaryText: payload.primaryText,
+                  headline: payload.headline,
+                  description: payload.description,
+                  destinationUrl: payload.destinationUrl,
+                  templateUrl: payload.templateUrl,
+                  fallbackImageHash: payload.fallbackImageHash,
+                  callToAction: payload.callToAction ?? 'SHOP_NOW',
+                  ...(creativeFormat === 'catalog_single_image'
+                    ? { presentation: 'single_image' as const }
+                    : creativeFormat === 'catalog_carousel'
+                      ? { presentation: 'carousel' as const }
+                      : creativeFormat === 'catalog_video_carousel'
+                        ? {
+                            presentation: 'video_carousel' as const,
+                            hybridVideo: {
+                              videoId: payload.hybridVideo?.videoId ?? '',
+                              thumbnailUrl: payload.hybridVideo?.thumbnailUrl ?? '',
+                            },
+                          }
+                        : {}),
+                },
               },
-            },
       instagramUserId: payload.instagramUserId,
       threadsProfileId: payload.threadsProfileId,
     },
     { dryRun: false, confirmed: true, maxRetries: options.maxRetries }
   );
-  if (!creative.id) return failedAfterCreate('creative', creative.error ?? 'Creative katalog gagal dibuat.');
+  if (!creative.id)
+    return failedAfterCreate('creative', creative.error ?? 'Creative katalog gagal dibuat.');
   ids.creativeId = creative.id;
 
   const ad = await createAd(
