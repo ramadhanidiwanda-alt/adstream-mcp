@@ -76,6 +76,7 @@ export function providerAdapterStub(
     createCpasCatalogCampaignBundle: notImplemented,
     createProductAudience: notImplemented,
     createCustomAudience: notImplemented,
+    createPixel: notImplemented,
     uploadImage: notImplemented,
     uploadVideo: notImplemented,
     getAccountInfo: notImplemented,
