@@ -60,6 +60,7 @@ The intended public API should stay small:
 | `ads_create_product_audience`         | Create a dynamic product (catalog retargeting) audience for CPAS                                                              |
 | `ads_list_audiences`                  | List Meta Custom Audiences, including product audiences                                                                       |
 | `ads_create_custom_audience`          | Create a WEBSITE custom audience (pixel-based retargeting)                                                                    |
+| `ads_create_pixel`                    | Create a Meta Pixel for conversion tracking (an ad account can only have one)                                                 |
 
 ## WhatsApp Discovery Tools (read-only, Meta-specific)
 

@@ -484,6 +484,7 @@ describe('ads MCP broker tools', () => {
       'ads_create_cpas_catalog_bundle',
       'ads_create_product_audience',
       'ads_create_custom_audience',
+      'ads_create_pixel',
       'ads_get_video_source',
       'ads_get_ad_creative_mapping',
       'ads_upload_image',
