@@ -31,10 +31,13 @@ describe('createCustomAudience', () => {
     expect(client.metaPost).not.toHaveBeenCalled();
     expect(result.preview).toMatchObject({
       name: baseOptions.name,
-      subtype: 'WEBSITE',
       pixel_id: '1234567890',
       rule: baseOptions.rule,
     });
+    // Meta rejects an explicit subtype for pixel/rule-based audiences as of
+    // API v25.0 (confirmed live: subcode 1870053) — it must be inferred by
+    // Meta from pixel_id + rule, not sent on create.
+    expect(result.preview).not.toHaveProperty('subtype');
   });
 
   it('requires confirmed=true before executing', async () => {
@@ -54,9 +57,12 @@ describe('createCustomAudience', () => {
 
     expect(result.status).toBe('executed');
     expect(result.id).toBe('700111222333');
+    const [, sentPayload] = (client.metaPost as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(sentPayload).toMatchObject({ pixel_id: '1234567890' });
+    expect(sentPayload).not.toHaveProperty('subtype');
     expect(client.metaPost).toHaveBeenCalledWith(
       '/act_123456789/customaudiences',
-      expect.objectContaining({ subtype: 'WEBSITE', pixel_id: '1234567890' }),
+      expect.objectContaining({ pixel_id: '1234567890' }),
       3
     );
   });

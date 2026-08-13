@@ -148,7 +148,11 @@ function buildCustomAudiencePayload(
 
   return {
     name,
-    subtype: 'WEBSITE',
+    // Deliberately NOT sending subtype: Meta rejects it for pixel/rule-based
+    // audiences as of API v25.0 ("(#2654) Parameter tidak didukung dalam versi
+    // API saat ini", subcode 1870053, confirmed live against a real ad account).
+    // Meta infers WEBSITE from pixel_id + rule and reports subtype=WEBSITE on
+    // read-back even though it was never sent on create.
     pixel_id: pixelId,
     rule: options.rule,
     ...(options.retentionDays !== undefined ? { retention_days: options.retentionDays } : {}),
