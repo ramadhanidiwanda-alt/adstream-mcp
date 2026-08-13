@@ -3013,6 +3013,33 @@ describe('MetaAdsAdapter', () => {
     expect(response.ok).toBe(false);
   });
 
+  it('menolak entri adCodes non-string pada listPartnershipContent', async () => {
+    let called = false;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        listPartnershipContent: async () => {
+          called = true;
+          return [];
+        },
+      },
+    });
+
+    const response = await adapter.listPartnershipContent({
+      provider: 'meta',
+      params: {
+        businessId: 'biz-1',
+        igUserId: 'brand-ig-1',
+        adCodes: ['AD-1', 42],
+      },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    });
+
+    expect(response.ok).toBe(false);
+    expect(JSON.stringify(response)).toMatch(/adCodes/);
+    expect(called).toBe(false);
+  });
+
   it('forwards the legacy CTWA params into the createAdCreative options', async () => {
     let receivedOptions: Record<string, unknown> | undefined;
     const adapter = new MetaAdsAdapter({

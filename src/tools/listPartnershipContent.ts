@@ -168,6 +168,13 @@ export async function listPartnershipContent(
     throw new Error('adCodes maksimal 50 entri per panggilan.');
   }
 
+  if (
+    options.limit !== undefined &&
+    (!Number.isInteger(options.limit) || options.limit < 1 || options.limit > 50)
+  ) {
+    throw new Error('limit harus bilangan bulat 1-50.');
+  }
+
   const response = await client.metaGet<{ data: PartnershipContentRaw[] }>(
     `/${businessId}/partnership-ads-advertisable-content`,
     {

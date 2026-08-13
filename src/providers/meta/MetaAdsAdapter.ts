@@ -3401,9 +3401,9 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
 
     try {
       const client = this.createClient(context.credential);
-      const adCodes = Array.isArray(request.params.adCodes)
-        ? request.params.adCodes.filter((code): code is string => typeof code === 'string')
-        : undefined;
+      // Entri non-string ditolak, bukan disaring diam-diam: ad code yang hilang
+      // tanpa kabar membuat hasil discovery tampak lengkap padahal tidak.
+      const adCodes = optionalStringArray(request.params.adCodes, 'adCodes');
       const content = await this.tools.listPartnershipContent(client, {
         businessId,
         fbPageId: optionalPlainString(request.params.fbPageId),

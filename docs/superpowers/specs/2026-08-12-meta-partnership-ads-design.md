@@ -156,7 +156,7 @@ Ditegakkan sebelum request dikirim ke Meta, supaya kegagalan datang dengan sebab
 
 **Pending delivery.** Dokumentasi Meta: iklan yang dipublish tanpa izin kemitraan tetap diterima, tapi masuk *pending delivery state* sampai kreator menyetujui permintaan izin. Artinya `ads_create_ad` bisa mengembalikan sukses padahal iklan tidak tayang.
 
-Karena itu hasil creative partnership membawa `permissionNote` yang menjelaskan kondisi ini setiap kali `partnership` dipakai. Sukses yang menyesatkan lebih berbahaya daripada gagal yang jelas.
+Karena itu hasil creative partnership membawa `partnershipNotes: string[]` yang menjelaskan kondisi ini setiap kali `partnership` dipakai. Sukses yang menyesatkan lebih berbahaya daripada gagal yang jelas.
 
 **Ketergantungan tautan akun.** Bila hanya `partnerInstagramId` yang diisi, Meta otomatis me-link Page Facebook terkait — tapi bila tidak ada hard link antara akun IG dan Page FB, iklan tidak dikirim ke platform yang tidak ter-link. Hasil dry-run memuat catatan ini agar user tidak menyimpulkan jangkauan lintas-platform dari field yang terisi.
 

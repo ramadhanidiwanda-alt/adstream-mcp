@@ -148,6 +148,19 @@ describe('listPartnershipContent', () => {
     );
   });
 
+  it('menolak limit di luar rentang 1-50', async () => {
+    const { client } = clientReturning({ data: [] });
+    await expect(
+      listPartnershipContent(client, { businessId: 'biz-1', igUserId: 'brand-ig-1', limit: 51 })
+    ).rejects.toThrow(/limit/);
+    await expect(
+      listPartnershipContent(client, { businessId: 'biz-1', igUserId: 'brand-ig-1', limit: 0 })
+    ).rejects.toThrow(/limit/);
+    await expect(
+      listPartnershipContent(client, { businessId: 'biz-1', igUserId: 'brand-ig-1', limit: 2.5 })
+    ).rejects.toThrow(/limit/);
+  });
+
   it('menolak adCodes lebih dari 50', async () => {
     const { client } = clientReturning({ data: [] });
     await expect(
