@@ -1136,6 +1136,10 @@ export interface MetaCatalogResult {
   name?: string;
   product_count?: number;
   vertical?: string;
+  /** Whether this business owns the catalog directly, or a retailer shared this segment with it. */
+  source: 'owned' | 'client';
+  /** Roles this business may exercise on a client-shared catalog segment (e.g. ADVERTISE). Only present for source: 'client'. */
+  permitted_roles?: string[];
 }
 
 export interface MetaProductSetResult {

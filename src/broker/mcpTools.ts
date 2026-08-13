@@ -612,7 +612,7 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
   {
     name: 'ads_list_catalogs',
     description:
-      'List product catalogs owned by a Meta Business. Use before CPAS/catalog sales workflows when the user does not know the catalog ID. Requires businessId.',
+      'List product catalogs a Meta Business can use: catalogs it owns, plus catalog segments a retailer has shared with it via Collaborative Ads (CPAS) — a CPAS brand typically owns none, only the shared segments. Each result is tagged source: owned | client; client rows include permitted_roles. Use before CPAS/catalog sales workflows when the user does not know the catalog ID. Requires businessId.',
     inputSchema: createBusinessIdInputSchema(),
   },
   {

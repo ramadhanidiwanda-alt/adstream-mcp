@@ -204,6 +204,18 @@ describe('MetaAdsAdapter', () => {
             if (path === '/business-1/owned_product_catalogs') {
               return { data: [{ id: 'catalog-1', name: 'Catalog 1', product_count: 10 }] };
             }
+            if (path === '/business-1/client_product_catalogs') {
+              return {
+                data: [
+                  {
+                    id: 'catalog-2',
+                    name: 'Shared Segment',
+                    product_count: 5,
+                    permitted_roles: ['ADVERTISE'],
+                  },
+                ],
+              };
+            }
             if (path === '/catalog-1/product_sets') {
               return {
                 data: [
@@ -240,7 +252,16 @@ describe('MetaAdsAdapter', () => {
       adapter.listCatalogs({ ...baseRequest, params: { businessId: 'business-1' } })
     ).resolves.toMatchObject({
       ok: true,
-      data: [{ id: 'catalog-1', name: 'Catalog 1', product_count: 10 }],
+      data: [
+        { id: 'catalog-1', name: 'Catalog 1', product_count: 10, source: 'owned' },
+        {
+          id: 'catalog-2',
+          name: 'Shared Segment',
+          product_count: 5,
+          source: 'client',
+          permitted_roles: ['ADVERTISE'],
+        },
+      ],
     });
     await expect(
       adapter.listProductSets({ ...baseRequest, params: { catalogId: 'catalog-1' } })
@@ -252,6 +273,7 @@ describe('MetaAdsAdapter', () => {
     expect(captured.map(({ path }) => path)).toEqual([
       '/act_123/adspixels',
       '/business-1/owned_product_catalogs',
+      '/business-1/client_product_catalogs',
       '/catalog-1/product_sets',
     ]);
     expect(JSON.stringify(captured)).not.toContain('secret-token');
