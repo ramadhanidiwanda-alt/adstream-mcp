@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { checkLaunchReadiness } from '../src/tools/checkLaunchReadiness.js';
+import {
+  checkLaunchReadiness,
+  type LaunchReadinessOptions,
+} from '../src/tools/checkLaunchReadiness.js';
 import { getLaunchPreset, inferLaunchWorkflow } from '../src/tools/launchPresets.js';
 
 const CANONICAL_WORKFLOWS = [
@@ -418,7 +421,7 @@ describe('launch presets', () => {
 });
 
 describe('checkLaunchReadiness — jalur partnership ad code', () => {
-  const baseOptions = {
+  const baseOptions: LaunchReadinessOptions = {
     workflow: 'traffic_website',
     creativeFormat: 'existing_post',
     pageId: 'page-1',
@@ -427,7 +430,7 @@ describe('checkLaunchReadiness — jalur partnership ad code', () => {
     countries: ['ID'],
     specialAdCategories: [],
     writesEnabled: true,
-  } as const;
+  };
 
   it('menerima partnershipAdCode sebagai pengganti existingPostId', () => {
     const result = checkLaunchReadiness({ ...baseOptions, partnershipAdCode: 'AD-CODE-XYZ' });
