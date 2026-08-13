@@ -1211,6 +1211,10 @@ describe('buildMetaCreativeFormatPayload', () => {
     const templateData = objectStorySpec.template_data as Record<string, unknown>;
     expect(templateData.show_multiple_images).toBe(true);
     expect(templateData.multi_share_end_card).toBe(false);
+    // single_image's force_single_link=true is semantically contradictory with
+    // showMultipleImages — Meta's API accepts the combination (live-verified),
+    // but this override should still win, matching multi_share_end_card above.
+    expect(templateData.force_single_link).toBe(false);
   });
 
   it('builds a catalog template with preferredImageTags', () => {
@@ -1231,6 +1235,42 @@ describe('buildMetaCreativeFormatPayload', () => {
     expect(templateData.preferred_image_tags).toEqual(['lifestyle', 'studio']);
   });
 
+  it('drops blank entries from preferredImageTags instead of sending them to Meta', () => {
+    const result = buildMetaCreativeFormatPayload({
+      mode: 'standard',
+      pageId: 'page-1',
+      creativeFormat: 'catalog',
+      creativeSpec: {
+        productSetId: 'product-set-1',
+        primaryText: 'Produk pilihan',
+        destinationUrl: 'https://example.com/products',
+        preferredImageTags: ['', '  lifestyle  ', '   '],
+      },
+    });
+
+    const objectStorySpec = result.object_story_spec as Record<string, unknown>;
+    const templateData = objectStorySpec.template_data as Record<string, unknown>;
+    expect(templateData.preferred_image_tags).toEqual(['lifestyle']);
+  });
+
+  it('omits preferred_image_tags entirely when all entries are blank', () => {
+    const result = buildMetaCreativeFormatPayload({
+      mode: 'standard',
+      pageId: 'page-1',
+      creativeFormat: 'catalog',
+      creativeSpec: {
+        productSetId: 'product-set-1',
+        primaryText: 'Produk pilihan',
+        destinationUrl: 'https://example.com/products',
+        preferredImageTags: ['', '  '],
+      },
+    });
+
+    const objectStorySpec = result.object_story_spec as Record<string, unknown>;
+    const templateData = objectStorySpec.template_data as Record<string, unknown>;
+    expect(templateData).not.toHaveProperty('preferred_image_tags');
+  });
+
   it('builds a catalog template with formatOption inside template_data (not asset_feed_spec)', () => {
     const result = buildMetaCreativeFormatPayload({
       mode: 'standard',
@@ -1247,7 +1287,66 @@ describe('buildMetaCreativeFormatPayload', () => {
     const objectStorySpec = result.object_story_spec as Record<string, unknown>;
     const templateData = objectStorySpec.template_data as Record<string, unknown>;
     expect(templateData.format_option).toBe('carousel_slideshows');
-    expect(result).not.toHaveProperty('asset_feed_spec.format_option');
+    expect(result).not.toHaveProperty('asset_feed_spec');
+  });
+
+  it('keeps format_option out of asset_feed_spec when combined with a carousel presentation', () => {
+    const result = buildMetaCreativeFormatPayload({
+      mode: 'standard',
+      pageId: 'page-1',
+      creativeFormat: 'catalog',
+      creativeSpec: {
+        productSetId: 'product-set-1',
+        primaryText: 'Produk pilihan',
+        destinationUrl: 'https://example.com/products',
+        presentation: 'carousel',
+        formatOption: 'carousel_slideshows',
+      },
+    });
+
+    const assetFeedSpec = result.asset_feed_spec as Record<string, unknown>;
+    expect(assetFeedSpec).not.toHaveProperty('format_option');
+    const objectStorySpec = result.object_story_spec as Record<string, unknown>;
+    const templateData = objectStorySpec.template_data as Record<string, unknown>;
+    expect(templateData.format_option).toBe('carousel_slideshows');
+  });
+
+  it('combines preferredImageTags with formatOption (documented as compatible)', () => {
+    const result = buildMetaCreativeFormatPayload({
+      mode: 'standard',
+      pageId: 'page-1',
+      creativeFormat: 'catalog',
+      creativeSpec: {
+        productSetId: 'product-set-1',
+        primaryText: 'Produk pilihan',
+        destinationUrl: 'https://example.com/products',
+        preferredImageTags: ['lifestyle'],
+        formatOption: 'carousel_slideshows',
+      },
+    });
+
+    const objectStorySpec = result.object_story_spec as Record<string, unknown>;
+    const templateData = objectStorySpec.template_data as Record<string, unknown>;
+    expect(templateData.preferred_image_tags).toEqual(['lifestyle']);
+    expect(templateData.format_option).toBe('carousel_slideshows');
+  });
+
+  it('combines categorizationCriteria with mode: collaborative_ads', () => {
+    const result = buildMetaCreativeFormatPayload({
+      mode: 'collaborative_ads',
+      pageId: 'page-1',
+      collaborativeProductSetId: 'product-set-1',
+      creativeFormat: 'catalog',
+      creativeSpec: {
+        productSetId: 'product-set-1',
+        primaryText: 'Produk pilihan',
+        destinationUrl: 'https://example.com/products',
+        categorizationCriteria: 'category',
+      },
+    });
+
+    expect(result.categorization_criteria).toBe('category');
+    expect(result.product_set_id).toBe('product-set-1');
   });
 
   it('rejects showMultipleImages combined with formatOption (live-verified ObjectStorySpecRedundant)', () => {

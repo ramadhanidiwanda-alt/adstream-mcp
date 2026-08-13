@@ -884,13 +884,19 @@ function buildCatalog(
 
   // Live-verified at v25.0: show_multiple_images=true requires
   // multi_share_end_card=false, or Meta rejects the create — overrides
-  // whatever the presentation branches above set.
+  // whatever the presentation branches above set. force_single_link is also
+  // reset: Meta's API accepts it alongside show_multiple_images (verified
+  // live), but the two are semantically contradictory, so an explicit
+  // showMultipleImages override should win over presentation's single_image
+  // default rather than leave a stale force_single_link=true behind.
   if (creativeSpec.showMultipleImages) {
     templateData.show_multiple_images = true;
     templateData.multi_share_end_card = false;
+    templateData.force_single_link = false;
   }
-  if (creativeSpec.preferredImageTags?.length) {
-    templateData.preferred_image_tags = creativeSpec.preferredImageTags;
+  const preferredImageTags = nonBlankValues(creativeSpec.preferredImageTags);
+  if (preferredImageTags.length > 0) {
+    templateData.preferred_image_tags = preferredImageTags;
   }
   if (creativeSpec.formatOption) {
     templateData.format_option = creativeSpec.formatOption;
