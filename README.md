@@ -84,6 +84,12 @@ For an existing Instagram post/Reel that clicks to Instagram Direct, keep the po
 
 The four creation tools above use dry-run by default and execute only when `dryRun=false` and `confirmed=true` are both supplied. Created campaigns, ad sets, and ads default to `PAUSED`, so review the returned preview and IDs in Meta Ads Manager before activation.
 
+#### Catalog creative format options
+
+For `creativeFormat: 'catalog'`, `creativeSpec` also accepts (all live-verified at v25.0): `showMultipleImages` (show multiple product photos per card — Meta requires `multi_share_end_card: false` alongside it, applied automatically), `preferredImageTags` (prioritize catalog images by tag), `formatOption` (e.g. `carousel_slideshows`), and `categorizationCriteria` (category-based dynamic ads instead of per-product — the catalog needs enough items per category or Meta rejects the create with a clear error, not silently). **`showMultipleImages` and `formatOption` cannot be combined** — Meta rejects both together as `ObjectStorySpecRedundant`; this connector validates that before calling Meta.
+
+Meta's catalog ads also auto-generate video from product images by default (`media_type_automation`, `enroll_status: OPT_IN`) since October 2025 — no code or extra field is needed here to get it; every catalog creative already created through this connector has it live-verified as active. To opt out for a specific creative, pass `optOutEnhancements: ['media_type_automation']` on `ads_create_adcreative` (the existing generic Advantage+ opt-out mechanism), though note that catalog-format creatives don't currently route `optOutEnhancements` into `degrees_of_freedom_spec` the way single_image/video/carousel do.
+
 ### Copy variations vs Dynamic Creative
 
 When a marketer asks for several headline/caption/copy/image/video options, treat that as manual creative testing by default: create separate manual creatives/ads, each with one chosen media asset, one `primaryText`, and one `headline`; or use carousel cards when the intended format is a carousel. Do not switch to Dynamic Creative just because there are multiple copy or media options.

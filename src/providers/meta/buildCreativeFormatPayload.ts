@@ -873,10 +873,45 @@ function buildCatalog(
     templateData.show_multiple_images = false;
   }
 
+  // Live-verified at v25.0: format_option and show_multiple_images are mutually
+  // exclusive — Meta rejects (#100) subcode 1443051 "ObjectStorySpecRedundant"
+  // when both are set on template_data, even though each is valid alone.
+  if (creativeSpec.showMultipleImages && creativeSpec.formatOption) {
+    throw new Error(
+      'showMultipleImages dan formatOption tidak dapat digunakan bersamaan pada catalog template_data — Meta menolaknya sebagai ObjectStorySpecRedundant. Pilih salah satu.'
+    );
+  }
+
+  // Live-verified at v25.0: show_multiple_images=true requires
+  // multi_share_end_card=false, or Meta rejects the create — overrides
+  // whatever the presentation branches above set. force_single_link is also
+  // reset: Meta's API accepts it alongside show_multiple_images (verified
+  // live), but the two are semantically contradictory, so an explicit
+  // showMultipleImages override should win over presentation's single_image
+  // default rather than leave a stale force_single_link=true behind.
+  if (creativeSpec.showMultipleImages) {
+    templateData.show_multiple_images = true;
+    templateData.multi_share_end_card = false;
+    templateData.force_single_link = false;
+  }
+  const preferredImageTags = nonBlankValues(creativeSpec.preferredImageTags);
+  if (preferredImageTags.length > 0) {
+    templateData.preferred_image_tags = preferredImageTags;
+  }
+  if (creativeSpec.formatOption) {
+    templateData.format_option = creativeSpec.formatOption;
+  }
+
   return withCollaborativeCatalogContext(
     input,
     {
       product_set_id: productSetId,
+      // Live-verified at v25.0: Meta rejects categorization_criteria inside
+      // object_story_spec.template_data ("tidak didukung"); it belongs at the
+      // top level of the creative payload, sibling to product_set_id.
+      ...(creativeSpec.categorizationCriteria
+        ? { categorization_criteria: creativeSpec.categorizationCriteria }
+        : {}),
       ...(creativeSpec.presentation === 'carousel' || creativeSpec.presentation === 'video_carousel'
         ? {
             asset_feed_spec: {
