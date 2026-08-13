@@ -2076,6 +2076,44 @@ describe('createAdCreative', () => {
       expect(result.preview).not.toHaveProperty('facebook_branded_content');
     });
 
+    it('menyarankan scope branded content saat creative partnership ditolak dengan kode 200', async () => {
+      mockMetaPost.mockRejectedValueOnce(
+        new MetaApiError({
+          message: 'Permissions error',
+          type: 'OAuthException',
+          code: 200,
+          fbtrace_id: 'trace-partnership-200',
+        })
+      );
+
+      const result = await createAdCreative(mockClient, partnershipOptions, {
+        dryRun: false,
+        confirmed: true,
+      });
+
+      expect(result.status).toBe('failed');
+      expect(result.error).toMatch(/instagram_branded_content_ads_brand/);
+    });
+
+    it('tidak menyarankan scope branded content saat creative biasa ditolak dengan kode 200', async () => {
+      mockMetaPost.mockRejectedValueOnce(
+        new MetaApiError({
+          message: 'Permissions error',
+          type: 'OAuthException',
+          code: 200,
+          fbtrace_id: 'trace-plain-200',
+        })
+      );
+
+      const result = await createAdCreative(mockClient, standardImageOptions, {
+        dryRun: false,
+        confirmed: true,
+      });
+
+      expect(result.status).toBe('failed');
+      expect(result.error).not.toMatch(/branded_content/);
+    });
+
     it('omits partnershipNotes when partnership is not used', async () => {
       const result = await createAdCreative(mockClient, standardImageOptions);
 

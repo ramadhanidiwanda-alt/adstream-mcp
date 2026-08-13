@@ -168,7 +168,9 @@ export async function createAdCreative(
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     const structuredError = validationError(message);
-    const guidance = getMetaCreativeErrorGuidance(structuredError);
+    const guidance = getMetaCreativeErrorGuidance(structuredError, {
+      usedPartnership: Boolean(options.partnership),
+    });
     return {
       operation: 'create_adcreative',
       ...(partnershipNotes ? { partnershipNotes } : {}),
@@ -288,7 +290,9 @@ export async function createAdCreative(
   } catch (error) {
     const original = formatMetaWriteError(error);
     const structuredError = formatStructuredMetaWriteError(error);
-    const guidance = getMetaCreativeErrorGuidance(structuredError);
+    const guidance = getMetaCreativeErrorGuidance(structuredError, {
+      usedPartnership: Boolean(options.partnership),
+    });
     const detailLabel = structuredError.provider === 'meta' ? 'Detail Meta' : 'Detail error';
     return {
       ...baseResult,
