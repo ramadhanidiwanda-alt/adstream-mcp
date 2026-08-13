@@ -48,4 +48,34 @@ describe('getMetaCreativeErrorGuidance', () => {
       'Terjadi kegagalan internal saat memproses creative. Coba lagi; jika tetap gagal, periksa log server tanpa mengekspos kredensial.'
     );
   });
+
+  it('mengarahkan ke scope branded content saat creative partnership ditolak dengan kode 200', () => {
+    const guidance = getMetaCreativeErrorGuidance(
+      {
+        provider: 'meta',
+        providerCode: '200',
+        providerSubcode: '',
+        message: 'Permissions error',
+      },
+      { usedPartnership: true }
+    );
+
+    expect(guidance).toMatch(/instagram_branded_content_ads_brand/);
+    expect(guidance).toMatch(/instagram_basic/);
+  });
+
+  // Kode 200 tanpa subcode adalah error izin Meta yang paling umum — katalog CPAS
+  // yang belum di-share, ads_management yang kurang. Menyarankan scope branded
+  // content di sana mengirim user ke jalur yang salah.
+  it('tidak menyebut scope branded content saat creative non-partnership ditolak dengan kode 200', () => {
+    const guidance = getMetaCreativeErrorGuidance({
+      provider: 'meta',
+      providerCode: '200',
+      providerSubcode: '',
+      message: 'Permissions error',
+    });
+
+    expect(guidance).not.toMatch(/branded_content/);
+    expect(guidance).toMatch(/Meta menolak/i);
+  });
 });

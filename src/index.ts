@@ -151,6 +151,8 @@ export { listInstagramAccounts } from './tools/listInstagramAccounts.js';
 export type { InstagramAccountResult } from './tools/listInstagramAccounts.js';
 export { listInstagramMedia } from './tools/listInstagramMedia.js';
 export type { ListInstagramMediaOptions } from './tools/listInstagramMedia.js';
+export { listPartnershipContent } from './tools/listPartnershipContent.js';
+export type { ListPartnershipContentOptions } from './tools/listPartnershipContent.js';
 export { listThreadsProfiles } from './tools/listThreadsProfiles.js';
 export type { ThreadsProfileResult } from './tools/listThreadsProfiles.js';
 
@@ -249,6 +251,14 @@ export {
 } from './providers/meta/creativeFormatCompatibility.js';
 export { buildMetaCreativeFormatPayload } from './providers/meta/buildCreativeFormatPayload.js';
 export type { BuildMetaCreativeFormatPayloadInput } from './providers/meta/buildCreativeFormatPayload.js';
+export {
+  buildPartnershipFields,
+  getPartnershipNotes,
+} from './providers/meta/buildPartnershipFields.js';
+export type {
+  BuildPartnershipFieldsInput,
+  PartnershipFields,
+} from './providers/meta/buildPartnershipFields.js';
 export type * from './broker/types.js';
 export {
   ADS_PROVIDER_IDS,

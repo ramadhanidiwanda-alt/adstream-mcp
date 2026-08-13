@@ -37,6 +37,7 @@ import type {
   MetaConfig,
   MetaCreativeFormat,
   MetaPageWelcomeMessage,
+  MetaPartnershipSpec,
   MetaStandardAppSpec,
   MetaCreativeSpec,
   PlacementPerformanceReport,
@@ -108,6 +109,7 @@ import { listPages as listPagesTool } from '../../tools/listPages.js';
 import { listLeadForms as listLeadFormsTool } from '../../tools/listLeadForms.js';
 import { listInstagramAccounts as listInstagramAccountsTool } from '../../tools/listInstagramAccounts.js';
 import { listInstagramMedia as listInstagramMediaTool } from '../../tools/listInstagramMedia.js';
+import { listPartnershipContent as listPartnershipContentTool } from '../../tools/listPartnershipContent.js';
 import { listThreadsProfiles as listThreadsProfilesTool } from '../../tools/listThreadsProfiles.js';
 import { checkLaunchReadiness as checkLaunchReadinessTool } from '../../tools/checkLaunchReadiness.js';
 import { listPixels as listPixelsTool } from '../../tools/listPixels.js';
@@ -144,6 +146,7 @@ import type {
   MetaProductSetResult,
   InstagramAccountResult,
   InstagramMediaResult,
+  PartnershipContentResult,
   ThreadsProfileResult,
   WhatsAppAccountResult,
   WhatsAppPhoneNumberResult,
@@ -412,6 +415,21 @@ export interface MetaAdsAdapterTools {
       permalinkUrls?: string[];
     }
   ): Promise<InstagramMediaResult[]>;
+  listPartnershipContent(
+    client: MetaClient,
+    options: {
+      businessId: string;
+      fbPageId?: string;
+      igUserId?: string;
+      creatorUsername?: string;
+      adCodes?: string[];
+      platform?: string;
+      mediaType?: string;
+      postType?: string;
+      limit?: number;
+      cursor?: string;
+    }
+  ): Promise<PartnershipContentResult[]>;
   listThreadsProfiles(
     client: MetaClient,
     options?: { limit?: number }
@@ -487,6 +505,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       listLeadForms: listLeadFormsTool,
       listInstagramAccounts: listInstagramAccountsTool,
       listInstagramMedia: listInstagramMediaTool,
+      listPartnershipContent: listPartnershipContentTool,
       listThreadsProfiles: listThreadsProfilesTool,
       listWhatsAppAccounts: listWhatsAppAccountsTool,
       listWhatsAppPhoneNumbers: listWhatsAppPhoneNumbersTool,
@@ -1738,6 +1757,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
     let collaborativeProductSetId: string | undefined;
     let collaborativeAppSpec: MetaCollaborativeAppSpec | undefined;
     let standardAppSpec: MetaStandardAppSpec | undefined;
+    let partnership: MetaPartnershipSpec | undefined;
     let destinationType: CreativeDestinationType | undefined;
     let objective: MetaOdaxObjective | undefined;
     let conversionLocation: MetaConversionLocation | undefined;
@@ -1759,6 +1779,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       );
       collaborativeAppSpec = parseCollaborativeAppSpec(request.params.collaborativeAppSpec);
       standardAppSpec = parseStandardAppSpec(request.params.standardAppSpec);
+      partnership = parsePartnershipSpec(request.params.partnership);
       if (hasCreativeFormat && hasCreativeSpec) {
         const creativeFormat = parseMetaCreativeFormat(request.params.creativeFormat);
         creative = parseMetaCreativeSpec(
@@ -1890,6 +1911,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
           collaborativeProductSetId,
           collaborativeAppSpec,
           standardAppSpec,
+          partnership,
           linkData,
           objectStorySpec: creative ? undefined : objectStorySpec,
           assetFeedSpec: creative ? undefined : assetFeedSpec,
@@ -3207,6 +3229,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
         videoFilePath: optionalPlainString(request.params.videoFilePath),
         creativeId: optionalPlainString(request.params.creativeId),
         existingPostId: optionalPlainString(request.params.existingPostId),
+        partnershipAdCode: optionalPlainString(request.params.partnershipAdCode),
         sourceAdId: optionalPlainString(request.params.sourceAdId),
         whatsappPhoneNumber: optionalPlainString(request.params.whatsappPhoneNumber),
         whatsappPhoneNumberId: optionalPlainString(request.params.whatsappPhoneNumberId),
@@ -3355,6 +3378,46 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
         permalinkUrls,
       });
       return { ok: true, provider: 'meta', data: media };
+    } catch (error) {
+      return this.errorResponse(error);
+    }
+  }
+
+  async listPartnershipContent(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<PartnershipContentResult[]>> {
+    const context = this.getCredentialContext(request);
+    if (!context.ok) return context.response;
+
+    const businessId = optionalPlainString(request.params.businessId);
+    if (!businessId) {
+      return {
+        ok: false,
+        provider: 'meta',
+        errors: [
+          { provider: 'meta', code: 'MISSING_BUSINESS_ID', message: 'businessId is required' },
+        ],
+      };
+    }
+
+    try {
+      const client = this.createClient(context.credential);
+      // Entri non-string ditolak, bukan disaring diam-diam: ad code yang hilang
+      // tanpa kabar membuat hasil discovery tampak lengkap padahal tidak.
+      const adCodes = optionalStringArray(request.params.adCodes, 'adCodes');
+      const content = await this.tools.listPartnershipContent(client, {
+        businessId,
+        fbPageId: optionalPlainString(request.params.fbPageId),
+        igUserId: optionalPlainString(request.params.igUserId),
+        creatorUsername: optionalPlainString(request.params.creatorUsername),
+        adCodes,
+        platform: optionalPlainString(request.params.platform),
+        mediaType: optionalPlainString(request.params.mediaType),
+        postType: optionalPlainString(request.params.postType),
+        limit: typeof request.params.limit === 'number' ? request.params.limit : undefined,
+        cursor: optionalPlainString(request.params.cursor),
+      });
+      return { ok: true, provider: 'meta', data: content };
     } catch (error) {
       return this.errorResponse(error);
     }
@@ -3868,6 +3931,7 @@ export const CREATE_AD_CREATIVE_PARAMS = new Set([
   'collaborativeProductSetId',
   'collaborativeAppSpec',
   'standardAppSpec',
+  'partnership',
   'link',
   'message',
   'headline',
@@ -4342,6 +4406,45 @@ function parseStandardAppSpec(value: unknown): MetaStandardAppSpec | undefined {
     applicationId: requireString(app.applicationId, 'standardAppSpec.applicationId'),
     objectStoreUrl: requireString(app.objectStoreUrl, 'standardAppSpec.objectStoreUrl'),
     deepLinkUrl: optionalString(app.deepLinkUrl, 'standardAppSpec.deepLinkUrl'),
+  };
+}
+
+function parsePartnershipSpec(value: unknown): MetaPartnershipSpec | undefined {
+  if (value === undefined) return undefined;
+  const spec = requireRecord(value, 'partnership');
+
+  const primaryIdentity =
+    spec.primaryIdentity === undefined
+      ? undefined
+      : requireString(spec.primaryIdentity, 'partnership.primaryIdentity');
+  if (
+    primaryIdentity !== undefined &&
+    primaryIdentity !== 'advertiser' &&
+    primaryIdentity !== 'creator'
+  ) {
+    throw new Error("partnership.primaryIdentity harus 'advertiser' atau 'creator'.");
+  }
+
+  return {
+    partnerPageId:
+      spec.partnerPageId === undefined
+        ? undefined
+        : requireString(spec.partnerPageId, 'partnership.partnerPageId'),
+    partnerInstagramId:
+      spec.partnerInstagramId === undefined
+        ? undefined
+        : requireString(spec.partnerInstagramId, 'partnership.partnerInstagramId'),
+    brandInstagramId:
+      spec.brandInstagramId === undefined
+        ? undefined
+        : requireString(spec.brandInstagramId, 'partnership.brandInstagramId'),
+    primaryIdentity,
+    adCode:
+      spec.adCode === undefined ? undefined : requireString(spec.adCode, 'partnership.adCode'),
+    adFormat:
+      spec.adFormat === undefined
+        ? undefined
+        : requireString(spec.adFormat, 'partnership.adFormat'),
   };
 }
 

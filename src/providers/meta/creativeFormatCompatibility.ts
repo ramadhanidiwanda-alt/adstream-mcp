@@ -30,7 +30,7 @@ const REQUIREMENTS: Record<MetaCreativeFormat, string[]> = {
     'destinationUrl',
   ],
   existing_post: [
-    'objectStoryId or sourceInstagramMediaId',
+    'objectStoryId, sourceInstagramMediaId, or partnership.adCode',
     'destinationUrl (wajib jika collaborativeAppSpec diisi)',
   ],
 };

@@ -72,6 +72,13 @@ export interface LaunchReadinessOptions {
   videoFilePath?: string;
   creativeId?: string;
   existingPostId?: string;
+  /**
+   * Partnership ad code dari kreator. Referensi konten alternatif untuk
+   * creativeFormat existing_post: pada jalur ini tidak ada post ID sama sekali,
+   * ad code itu sendiri yang menunjuk kontennya. Mengisi ini memenuhi kebutuhan
+   * existingPostId.
+   */
+  partnershipAdCode?: string;
   sourceAdId?: string;
   whatsappPhoneNumberId?: string;
   productSetId?: string;
@@ -243,6 +250,13 @@ function inputValue(key: string, options: LaunchReadinessOptions): unknown {
     );
   }
   if (key === 'countries') return options.countries?.length ? 'set' : undefined;
+  // Jalur partnership ad code tidak punya post ID: ad code-lah referensi kontennya,
+  // dan ads_create_adcreative menerimanya. Tanpa cabang ini readiness check menuntut
+  // existingPostId yang memang tidak akan pernah ada, sehingga dua tool saling
+  // bertentangan untuk launch yang sama.
+  if (key === 'existingPostId') {
+    return options.existingPostId?.trim() || options.partnershipAdCode?.trim();
+  }
   return options[key as keyof LaunchReadinessOptions];
 }
 
@@ -284,7 +298,8 @@ function questionForMissing(key: string): string {
     primaryText: 'Teks utama iklannya apa?',
     headline: 'Headline iklannya apa?',
     creativeAsset: 'Pakai gambar/video mana? Bisa kirim file lokal, image hash, atau video ID.',
-    existingPostId: 'Postingan existing mana yang mau dipakai?',
+    existingPostId:
+      'Postingan existing mana yang mau dipakai? Untuk partnership ads tanpa post ID, isi partnershipAdCode (ad code dari kreator) sebagai gantinya.',
     sourceAdId:
       'Source UI ad mana yang dibuat di Ads Manager untuk konten ini? Pakai ad ID sumber agar ads_clone_ui_ad bisa preserve state CTWA.',
     videoId: 'Video Meta mana yang mau dipakai?',

@@ -1904,4 +1904,186 @@ describe('buildMetaCreativeFormatPayload', () => {
       })
     ).toThrow(/belum didukung.*collaborative ads/i);
   });
+
+  it('menyisipkan identitas partnership ke creative single_image', () => {
+    const payload = buildMetaCreativeFormatPayload({
+      mode: 'standard',
+      pageId: 'brand-page-1',
+      partnership: {
+        partnerPageId: 'creator-page-1',
+        partnerInstagramId: 'creator-ig-1',
+      },
+      creativeFormat: 'single_image',
+      creativeSpec: {
+        imageHash: 'hash-1',
+        primaryText: 'Kolaborasi bareng kreator',
+        destinationUrl: 'https://example.com',
+      },
+    });
+
+    expect(payload).toMatchObject({
+      facebook_branded_content: { sponsor_page_id: 'creator-page-1' },
+      instagram_branded_content: { sponsor_id: 'creator-ig-1' },
+      object_story_spec: { page_id: 'brand-page-1' },
+    });
+  });
+
+  it('memakai Page kreator sebagai page_id ketika primaryIdentity creator', () => {
+    const payload = buildMetaCreativeFormatPayload({
+      mode: 'standard',
+      pageId: 'brand-page-1',
+      partnership: {
+        partnerPageId: 'creator-page-1',
+        brandInstagramId: 'brand-ig-1',
+        primaryIdentity: 'creator',
+      },
+      creativeFormat: 'single_image',
+      creativeSpec: {
+        imageHash: 'hash-1',
+        primaryText: 'Kolaborasi bareng kreator',
+        destinationUrl: 'https://example.com',
+      },
+    });
+
+    expect(payload).toMatchObject({
+      object_story_spec: { page_id: 'creator-page-1' },
+      facebook_branded_content: { sponsor_page_id: 'brand-page-1' },
+      instagram_branded_content: { sponsor_id: 'brand-ig-1' },
+    });
+  });
+
+  it('membawa object_id dan sponsor pada boost existing_post', () => {
+    const payload = buildMetaCreativeFormatPayload({
+      mode: 'standard',
+      pageId: 'brand-page-1',
+      instagramUserId: 'creator-ig-1',
+      partnership: { partnerInstagramId: 'creator-ig-1' },
+      creativeFormat: 'existing_post',
+      creativeSpec: { sourceInstagramMediaId: 'ig-media-1' },
+    });
+
+    expect(payload).toMatchObject({
+      object_id: 'brand-page-1',
+      source_instagram_media_id: 'ig-media-1',
+      instagram_user_id: 'creator-ig-1',
+      instagram_branded_content: { sponsor_id: 'creator-ig-1' },
+    });
+  });
+
+  it('membangun jalur ad code tanpa objectStoryId maupun sourceInstagramMediaId', () => {
+    const payload = buildMetaCreativeFormatPayload({
+      mode: 'standard',
+      pageId: 'brand-page-1',
+      partnership: {
+        partnerPageId: 'creator-page-1',
+        partnerInstagramId: 'creator-ig-1',
+        adCode: 'AD-CODE-XYZ',
+        adFormat: '1',
+      },
+      creativeFormat: 'existing_post',
+      creativeSpec: {},
+    });
+
+    expect(payload).toEqual({
+      object_id: 'brand-page-1',
+      branded_content: {
+        instagram_boost_post_access_token: 'AD-CODE-XYZ',
+        ad_format: '1',
+      },
+      facebook_branded_content: { sponsor_page_id: 'creator-page-1' },
+      instagram_branded_content: { sponsor_id: 'creator-ig-1' },
+    });
+  });
+
+  it('menyebut partnership.adCode sebagai opsi ketiga saat existing_post tidak punya sumber konten', () => {
+    expect(() =>
+      buildMetaCreativeFormatPayload({
+        mode: 'standard',
+        pageId: 'brand-page-1',
+        creativeFormat: 'existing_post',
+        creativeSpec: {},
+      })
+    ).toThrow(/partnership\.adCode/);
+  });
+
+  it('menolak partnership bersama mode collaborative_ads', () => {
+    expect(() =>
+      buildMetaCreativeFormatPayload({
+        mode: 'collaborative_ads',
+        pageId: 'brand-page-1',
+        collaborativeProductSetId: 'product-set-1',
+        partnership: { partnerPageId: 'creator-page-1' },
+        creativeFormat: 'single_image',
+        creativeSpec: {
+          imageHash: 'hash-1',
+          primaryText: 'Kolaborasi',
+          destinationUrl: 'https://example.com',
+        },
+      })
+    ).toThrow(/partnership tidak kompatibel dengan mode collaborative_ads/);
+  });
+
+  it('menolak partnership bersama standardAppSpec', () => {
+    expect(() =>
+      buildMetaCreativeFormatPayload({
+        mode: 'standard',
+        pageId: 'brand-page-1',
+        standardAppSpec: {
+          applicationId: 'app-1',
+          objectStoreUrl: 'https://play.google.com/store/apps/details?id=app',
+        },
+        partnership: { partnerPageId: 'creator-page-1' },
+        creativeFormat: 'single_image',
+        creativeSpec: {
+          imageHash: 'hash-1',
+          primaryText: 'Kolaborasi',
+          destinationUrl: 'https://example.com',
+        },
+      })
+    ).toThrow(/standardAppSpec dan partnership tidak dapat digunakan bersamaan/);
+  });
+
+  it('menolak partnership pada format catalog', () => {
+    expect(() =>
+      buildMetaCreativeFormatPayload({
+        mode: 'standard',
+        pageId: 'brand-page-1',
+        partnership: { partnerInstagramId: 'creator-ig-1' },
+        creativeFormat: 'catalog',
+        creativeSpec: { productSetId: 'ps-1', primaryText: 'Katalog' },
+      })
+    ).toThrow(/Format catalog tidak mendukung partnership/);
+  });
+});
+
+describe('buildMetaCreativeFormatPayload — instagramUserId pada jalur ad code', () => {
+  it('menolak instagramUserId bersama partnership.adCode alih-alih membuangnya diam-diam', () => {
+    expect(() =>
+      buildMetaCreativeFormatPayload({
+        mode: 'standard',
+        pageId: 'brand-page-1',
+        instagramUserId: 'creator-ig-1',
+        partnership: {
+          partnerInstagramId: 'creator-ig-1',
+          adCode: 'AD-CODE-XYZ',
+          adFormat: 'REELS',
+        },
+        creativeFormat: 'existing_post',
+        creativeSpec: {},
+      })
+    ).toThrow(/instagramUserId tidak dipakai pada jalur partnership\.adCode/);
+  });
+
+  it('tetap mengirim instagram_user_id pada boost via sourceInstagramMediaId', () => {
+    const payload = buildMetaCreativeFormatPayload({
+      mode: 'standard',
+      pageId: 'brand-page-1',
+      instagramUserId: 'creator-ig-1',
+      partnership: { partnerInstagramId: 'creator-ig-1' },
+      creativeFormat: 'existing_post',
+      creativeSpec: { sourceInstagramMediaId: 'ig-media-1' },
+    });
+
+    expect(payload).toMatchObject({ instagram_user_id: 'creator-ig-1' });
+  });
 });

@@ -7,6 +7,7 @@ import {
   type MetaCreativeSpec,
   type MetaCreativeVerification,
   type MetaCreativeVerificationSummary,
+  type MetaPartnershipSpec,
   type MetaStandardAppSpec,
   type StructuredMutationError,
 } from '../types.js';
@@ -15,6 +16,7 @@ import {
   buildOmnichannelLinkFields,
   buildMetaCreativeFormatPayload,
 } from '../providers/meta/buildCreativeFormatPayload.js';
+import { getPartnershipNotes } from '../providers/meta/buildPartnershipFields.js';
 import { listLeadForms } from './listLeadForms.js';
 import {
   resolveMetaObjectiveLaunchSpec,
@@ -68,6 +70,8 @@ export interface CreateAdCreativeOptions {
   catalogOnly?: boolean;
   collaborativeAppSpec?: MetaCollaborativeAppSpec;
   standardAppSpec?: MetaStandardAppSpec;
+  /** Identitas kemitraan untuk Meta Partnership Ads. */
+  partnership?: MetaPartnershipSpec;
   linkData?: {
     link: string;
     message: string;
@@ -117,6 +121,8 @@ export interface CreateAdCreativeResult {
   status: CreateAdCreativeStatus;
   executed: boolean;
   preview: Record<string, unknown>;
+  /** Catatan izin kemitraan. Terisi hanya saat partnership dipakai. */
+  partnershipNotes?: string[];
   id?: string;
   response?: Record<string, unknown>;
   error?: string;
@@ -146,6 +152,9 @@ export async function createAdCreative(
   execOptions: { dryRun?: boolean; confirmed?: boolean; maxRetries?: number } = {}
 ): Promise<CreateAdCreativeResult> {
   const { dryRun = true, confirmed = false, maxRetries = 3 } = execOptions;
+  const partnershipNotes = options.partnership
+    ? getPartnershipNotes(options.partnership)
+    : undefined;
 
   let preview: Record<string, unknown>;
   try {
@@ -159,9 +168,12 @@ export async function createAdCreative(
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     const structuredError = validationError(message);
-    const guidance = getMetaCreativeErrorGuidance(structuredError);
+    const guidance = getMetaCreativeErrorGuidance(structuredError, {
+      usedPartnership: Boolean(options.partnership),
+    });
     return {
       operation: 'create_adcreative',
+      ...(partnershipNotes ? { partnershipNotes } : {}),
       status: 'failed',
       executed: false,
       preview: { name: options.name.trim() },
@@ -174,6 +186,7 @@ export async function createAdCreative(
   }
   const baseResult: CreateAdCreativeResult = {
     operation: 'create_adcreative',
+    ...(partnershipNotes ? { partnershipNotes } : {}),
     status: 'dry_run',
     executed: false,
     preview,
@@ -277,7 +290,9 @@ export async function createAdCreative(
   } catch (error) {
     const original = formatMetaWriteError(error);
     const structuredError = formatStructuredMetaWriteError(error);
-    const guidance = getMetaCreativeErrorGuidance(structuredError);
+    const guidance = getMetaCreativeErrorGuidance(structuredError, {
+      usedPartnership: Boolean(options.partnership),
+    });
     const detailLabel = structuredError.provider === 'meta' ? 'Detail Meta' : 'Detail error';
     return {
       ...baseResult,
@@ -615,6 +630,17 @@ function buildCreativePayload(options: CreateAdCreativeOptions): Record<string, 
       'Konten creative wajib diisi melalui creative, objectStorySpec, atau linkData.'
     );
   }
+  // Hanya jalur creative yang menulis field branded content. Jalur legacy
+  // objectStorySpec dan linkData mengabaikan partnership sepenuhnya, sehingga
+  // dulu mengembalikan creative tanpa satu pun field kemitraan — lengkap dengan
+  // partnershipNotes yang menyiratkan sebaliknya. Sukses menyesatkan seperti itu
+  // persis yang hendak dicegah fitur ini.
+  if (options.partnership && !options.creative) {
+    throw new Error(
+      'partnership hanya didukung pada jalur creative (creativeFormat + creativeSpec) dengan format existing_post, single_image, video, atau carousel. ' +
+        'Jalur legacy objectStorySpec dan linkData tidak menulis field branded content sama sekali; pindahkan konten iklan ke creative agar identitas kemitraan ikut terkirim.'
+    );
+  }
   assertNoDynamicCreativeCreatePath(options);
   assertSupportedCreativeFeatureOptOuts(options.optOutEnhancements);
 
@@ -634,6 +660,7 @@ function buildCreativePayload(options: CreateAdCreativeOptions): Record<string, 
         catalogOnly: options.catalogOnly,
         collaborativeAppSpec: options.collaborativeAppSpec,
         standardAppSpec: options.standardAppSpec,
+        partnership: options.partnership,
         optOutEnhancements: options.optOutEnhancements,
       })
     );

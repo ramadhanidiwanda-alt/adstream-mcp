@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { checkLaunchReadiness } from '../src/tools/checkLaunchReadiness.js';
+import {
+  checkLaunchReadiness,
+  type LaunchReadinessOptions,
+} from '../src/tools/checkLaunchReadiness.js';
 import { getLaunchPreset, inferLaunchWorkflow } from '../src/tools/launchPresets.js';
 
 const CANONICAL_WORKFLOWS = [
@@ -414,5 +417,39 @@ describe('launch presets', () => {
         defaultCallToAction: 'WHATSAPP_MESSAGE',
       },
     });
+  });
+});
+
+describe('checkLaunchReadiness — jalur partnership ad code', () => {
+  const baseOptions: LaunchReadinessOptions = {
+    workflow: 'traffic_website',
+    creativeFormat: 'existing_post',
+    pageId: 'page-1',
+    destinationUrl: 'https://example.com',
+    dailyBudget: 50000,
+    countries: ['ID'],
+    specialAdCategories: [],
+    writesEnabled: true,
+  };
+
+  it('menerima partnershipAdCode sebagai pengganti existingPostId', () => {
+    const result = checkLaunchReadiness({ ...baseOptions, partnershipAdCode: 'AD-CODE-XYZ' });
+
+    expect(result.missing).toEqual([]);
+    expect(result.ready).toBe(true);
+  });
+
+  it('tetap menerima existingPostId seperti sebelumnya', () => {
+    const result = checkLaunchReadiness({ ...baseOptions, existingPostId: 'page-1_123' });
+
+    expect(result.missing).toEqual([]);
+    expect(result.ready).toBe(true);
+  });
+
+  it('tetap menandai kurang input bila tidak ada keduanya', () => {
+    const result = checkLaunchReadiness(baseOptions);
+
+    expect(result.missing).toEqual(['existingPostId']);
+    expect(result.nextQuestions.join(' ')).toMatch(/ad code/i);
   });
 });

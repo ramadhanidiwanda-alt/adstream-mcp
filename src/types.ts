@@ -212,13 +212,14 @@ export interface MetaExistingPostCreativeSpec {
   /**
    * Facebook Page post ID, format {page_id}_{post_id}. Use this when the content
    * was cross-posted to (or natively lives on) the connected Facebook Page.
-   * Exactly one of objectStoryId or sourceInstagramMediaId is required.
+   * Exactly one content reference is required: objectStoryId, sourceInstagramMediaId,
+   * or partnership.adCode (the ad code is itself the content reference).
    */
   objectStoryId?: string;
   /**
    * Instagram media ID (from ads_list_instagram_media) for content that was never
-   * cross-posted to the Facebook Page — e.g. an IG-only Reel. Exactly one of
-   * objectStoryId or sourceInstagramMediaId is required.
+   * cross-posted to the Facebook Page — e.g. an IG-only Reel. Exactly one content
+   * reference is required: objectStoryId, sourceInstagramMediaId, or partnership.adCode.
    */
   sourceInstagramMediaId?: string;
   /**
@@ -300,6 +301,39 @@ export interface MetaCollaborativeAppSpec {
   applicationId: string;
   android?: { appName: string; packageName: string };
   ios?: { appName: string; appStoreId: string };
+}
+
+/**
+ * Identitas kemitraan untuk Meta Partnership Ads (dulu Branded Content Ads).
+ *
+ * Field dinamai menurut PERAN (partner*), bukan menurut posisi payload (sponsor*).
+ * Alasannya: mana yang menjadi sponsor_page_id di payload Meta berbalik tergantung
+ * primaryIdentity. Nama berbasis posisi akan berubah arti tergantung field lain.
+ *
+ * https://developers.facebook.com/documentation/ads-commerce/marketing-api/ad-creative/partnership-ads
+ */
+export interface MetaPartnershipSpec {
+  /** Facebook Page ID partner/kreator. */
+  partnerPageId?: string;
+  /**
+   * Instagram user ID partner/kreator → instagram_branded_content.sponsor_id pada
+   * primaryIdentity 'advertiser'. Tidak boleh diisi pada primaryIdentity 'creator':
+   * di sana Meta menurunkan akun IG kreator dari Page kreator.
+   */
+  partnerInstagramId?: string;
+  /**
+   * Instagram user ID milik brand/advertiser → instagram_branded_content.sponsor_id
+   * pada primaryIdentity 'creator'. sponsor_* selalu berarti identitas SEKUNDER, di
+   * kedua platform, jadi field ini adalah pasangan Instagram dari pembalikan
+   * sponsor_page_id. Tidak berlaku pada primaryIdentity 'advertiser'.
+   */
+  brandInstagramId?: string;
+  /** Handle siapa yang tampil sebagai pengirim iklan. Default 'advertiser'. */
+  primaryIdentity?: 'advertiser' | 'creator';
+  /** Partnership ad code dari kreator → branded_content.instagram_boost_post_access_token */
+  adCode?: string;
+  /** → branded_content.ad_format. Wajib bila adCode diisi. */
+  adFormat?: string;
 }
 
 /** App identity for the standard Meta App Promotion install path. */

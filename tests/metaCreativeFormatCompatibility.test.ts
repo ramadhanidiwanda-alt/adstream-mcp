@@ -53,3 +53,14 @@ describe('Meta creative format compatibility', () => {
     ).toContain('productSetId');
   });
 });
+
+describe('getMetaCreativeRequirements — existing_post', () => {
+  it('menyebut partnership.adCode sebagai referensi konten ketiga', () => {
+    const required = getMetaCreativeRequirements({
+      mode: 'standard',
+      creativeFormat: 'existing_post',
+    });
+
+    expect(required.join(' ')).toMatch(/partnership\.adCode/);
+  });
+});

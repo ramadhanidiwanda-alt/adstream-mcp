@@ -44,6 +44,7 @@ import type {
   MetaProductSetResult,
   InstagramAccountResult,
   InstagramMediaResult,
+  PartnershipContentResult,
   ThreadsProfileResult,
   WhatsAppAccountResult,
   WhatsAppPhoneNumberResult,
@@ -247,6 +248,12 @@ export class AdsBroker {
     return this.callOptionalReadMethod(request, 'listInstagramMedia');
   }
 
+  listPartnershipContent(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<PartnershipContentResult[]>> {
+    return this.callOptionalReadMethod(request, 'listPartnershipContent');
+  }
+
   listThreadsProfiles(
     request: AdsBrokerRequest
   ): Promise<AdsBrokerResponse<ThreadsProfileResult[]>> {
@@ -283,6 +290,7 @@ export class AdsBroker {
       | 'listLeadForms'
       | 'listInstagramAccounts'
       | 'listInstagramMedia'
+      | 'listPartnershipContent'
       | 'listThreadsProfiles'
       | 'listWhatsAppAccounts'
       | 'listWhatsAppPhoneNumbers'

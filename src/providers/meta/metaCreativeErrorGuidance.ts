@@ -19,9 +19,33 @@ const PROVIDER_GUIDANCE: Readonly<Record<string, string>> = {
     'Video/Reel Instagram tidak perlu diunggah ulang ke Page. Isi instagramUserId (ID akun Instagram pemilik media, dari ads_list_instagram_accounts) bersama creativeSpec.sourceInstagramMediaId, lalu ulangi dry-run.',
 };
 
+/**
+ * Partnership Ads gagal paling sering karena scope, bukan karena payload. Meta
+ * mengembalikan "Permissions error" tanpa menyebut scope mana yang kurang, dan
+ * instagram_branded_content_ads_brand tanpa instagram_basic pada akun IG yang
+ * sama menghasilkan 403 — kombinasi itu yang paling sering terlewat.
+ *
+ * Hanya dipakai bila creative yang gagal memang memakai partnership. Kode 200
+ * tanpa subcode adalah error izin Meta yang paling umum (katalog CPAS belum
+ * di-share, ads_management kurang), jadi memasang saran scope branded content
+ * pada semua kode 200 akan menyesatkan mayoritas pemanggil.
+ */
+const PARTNERSHIP_PERMISSION_GUIDANCE =
+  'Meta menolak karena izin. Untuk Partnership Ads, token butuh ads_management, business_management, instagram_basic, ' +
+  'dan instagram_branded_content_ads_brand dan/atau facebook_branded_content_ads_brand. ' +
+  'instagram_branded_content_ads_brand tanpa instagram_basic pada akun IG yang sama selalu ditolak. ' +
+  'Pastikan juga Page access token punya role ADVERTISE pada Page yang ter-link ke akun IG profesional.';
+
+/** Konteks creative yang gagal, untuk guidance yang tidak bisa disimpulkan dari error saja. */
+export interface MetaCreativeErrorContext {
+  /** True bila creative yang gagal memakai field partnership. */
+  usedPartnership?: boolean;
+}
+
 /** Return user-facing guidance without replacing the provider's original details. */
 export function getMetaCreativeErrorGuidance(
-  error: Partial<CreativeErrorDetails> & Pick<CreativeErrorDetails, 'message'>
+  error: Partial<CreativeErrorDetails> & Pick<CreativeErrorDetails, 'message'>,
+  context: MetaCreativeErrorContext = {}
 ): string {
   if (error.code === 'INTERNAL_ERROR' || (!error.provider && error.code !== 'VALIDATION_ERROR')) {
     return 'Terjadi kegagalan internal saat memproses creative. Coba lagi; jika tetap gagal, periksa log server tanpa mengekspos kredensial.';
@@ -30,6 +54,10 @@ export function getMetaCreativeErrorGuidance(
   const providerKey = `${error.providerCode ?? ''}:${error.providerSubcode ?? ''}`;
   const providerGuidance = error.provider === 'meta' ? PROVIDER_GUIDANCE[providerKey] : undefined;
   if (providerGuidance) return providerGuidance;
+
+  if (error.provider === 'meta' && error.providerCode === '200' && context.usedPartnership) {
+    return PARTNERSHIP_PERMISSION_GUIDANCE;
+  }
 
   if (error.code === 'VALIDATION_ERROR') {
     if (/product set|katalog/i.test(error.message)) {

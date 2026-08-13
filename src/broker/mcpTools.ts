@@ -102,6 +102,7 @@ export const ADS_MCP_TOOL_NAMES = [
   'ads_list_lead_forms',
   'ads_list_instagram_accounts',
   'ads_list_instagram_media',
+  'ads_list_partnership_content',
   'ads_list_threads_profiles',
   'ads_list_pixels',
   'ads_list_catalogs',
@@ -559,6 +560,12 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
     inputSchema: createInstagramMediaInputSchema(),
   },
   {
+    name: 'ads_list_partnership_content',
+    description:
+      'Discovery konten kemitraan (branded content, UGC, affiliate, Collab post) lintas Instagram dan Facebook dalam satu endpoint. Calls GET /{business-id}/partnership-ads-advertisable-content. Pakai sebelum membuat Partnership Ads untuk menemukan konten kreator yang boleh diiklankan, status izinnya, ad code yang tersedia, dan metrik organiknya. Wajib businessId plus minimal satu dari fbPageId atau igUserId — bila keduanya diisi, kedua akun harus sudah ter-link. Butuh scope business_management plus instagram_branded_content_ads_brand dan/atau facebook_branded_content_ads_brand; hanya satu scope berarti hasil terbatas ke platform itu saja, dan instagram_branded_content_ads_brand tanpa instagram_basic menghasilkan 403. contentId hasilnya dipakai sebagai creativeSpec.sourceInstagramMediaId pada ads_create_adcreative creativeFormat existing_post HANYA untuk baris ber-platform INSTAGRAM; baris ber-platform FACEBOOK adalah post ID Facebook, yang masuk lewat creativeSpec.objectStoryId.',
+    inputSchema: createPartnershipContentInputSchema(),
+  },
+  {
     name: 'ads_list_threads_profiles',
     description: "List Threads profiles connected to the user's Facebook Pages.",
     inputSchema: createAdsInputSchema([]),
@@ -982,6 +989,8 @@ function callBrokerMethod(
       return broker.listInstagramAccounts(request);
     case 'ads_list_instagram_media':
       return broker.listInstagramMedia(request);
+    case 'ads_list_partnership_content':
+      return broker.listPartnershipContent(request);
     case 'ads_list_threads_profiles':
       return broker.listThreadsProfiles(request);
     case 'ads_list_pixels':
@@ -1439,6 +1448,24 @@ function getAdsCapabilities(request: AdsBrokerRequest): AdsBrokerResponse<Record
         description:
           'Separate kill switch for calls that archive or delete a Meta object. Meta treats ARCHIVED and DELETED as equally permanent (neither reverts via the API), so both are gated the same way regardless of which status string is used.',
         gatedTools: ['ads_archive_ad', 'ads_update_ad', 'ads_update_campaign'],
+      },
+      partnershipAds: {
+        supportedProviders: ['meta'],
+        discoveryTool: 'ads_list_partnership_content',
+        creativeParam: 'partnership',
+        creativeFormats: ['existing_post', 'single_image', 'video', 'carousel'],
+        requiredScopes: [
+          'ads_management',
+          'business_management',
+          'instagram_basic',
+          'instagram_branded_content_ads_brand',
+          'facebook_branded_content_ads_brand',
+        ],
+        notes: [
+          'instagram_branded_content_ads_brand tanpa instagram_basic pada akun IG yang sama menghasilkan 403.',
+          'Iklan yang dipublish tanpa izin kemitraan masuk status pending delivery sampai partner menyetujui.',
+          'pageId (Page brand) selalu wajib, termasuk untuk partnership ad yang hanya tayang di Instagram.',
+        ],
       },
       warnings: [
         'ads_get_performance is currently a non-breaking canonical wrapper over legacy level-specific broker methods.',
@@ -2049,7 +2076,7 @@ function createCreateAdCreativeInputSchema() {
       creativeSpec: {
         type: 'object',
         description:
-          'Detail materi sesuai creativeFormat. Jika user memberi opsi headline/caption/copy/image/video untuk testing manual, jangan isi primaryTexts/headlines; buat beberapa manual creative/ad terpisah dengan creativeFormat single_image/video/carousel dan satu media + satu primaryText + satu headline per creative, atau pakai carousel cards untuk beberapa media dalam satu carousel. Dynamic Creative/Flexible asset-feed untuk create baru disabled; assetFeedSpec hanya untuk placement customization dengan asset_customization_rules. Field per format: single_image memakai imageHash, primaryText, destinationUrl, headline, description, callToAction, pageWelcomeMessage (opsional, untuk Click-to-WhatsApp/Messenger), dan applinkTreatment (opsional, lihat properti applinkTreatment); video memakai videoId, thumbnailImageHash (opsional — kalau kosong, otomatis diisi dari thumbnail bawaan video via GET /{videoId}?fields=picture; hanya berbahaya diabaikan kalau video belum selesai diproses Meta dan tidak punya thumbnail sama sekali), primaryText, destinationUrl, headline, description, callToAction, pageWelcomeMessage (opsional, untuk Click-to-WhatsApp/Messenger), dan applinkTreatment (opsional, lihat properti applinkTreatment); carousel memakai primaryText, destinationUrl, cards (imageHash atau videoId, headline, description, destinationUrl); catalog memakai productSetId, primaryText, destinationUrl, templateUrl, fallbackImageHash; collection memakai instantExperienceId, coverImageHash atau coverVideoId, productSetId, primaryText, destinationUrl; placement_image memakai asset_feed_spec khusus placement; placement_customized_ctwa memakai feedImageHash, verticalImageHash, primaryText, headline, destinationUrl, pageWelcomeMessage di link_data, platform_customizations, dan Advantage+ opt-out; existing_post memakai objectStoryId (post id Facebook Page, format {page_id}_{post_id}) ATAU sourceInstagramMediaId (media id IG yang tidak di-cross-post ke Page — dapatkan dari ads_list_instagram_media, cocokkan permalink-nya ke URL instagram.com/reel atau /p yang dimiliki user; wajib isi tepat satu dari dua field ini; untuk media VIDEO/Reel WAJIB juga mengisi instagramUserId tingkat atas, kalau tidak Meta menolak dengan (#100) subcode 1815279 yang keliru menyuruh mengunggah video ke Facebook — tidak perlu diunggah, Meta hanya tidak tahu akun IG pemiliknya; media IMAGE disimpulkan sendiri oleh Meta sehingga tidak butuh field itu), plus destinationUrl, callToAction, dan applinkTreatment (opsional). Untuk mengarahkan post yang di-boost ke landing page eksternal dengan tombol CTA: isi destinationUrl + callToAction (mis. LEARN_MORE). Keduanya dikirim sebagai call_to_action di LEVEL ATAS creative (call_to_action.value.link), BUKAN di dalam object_story_spec — object_story_spec bareng source_instagram_media_id ditolak Meta dengan (#100) subcode 1487929 Ambiguous Promoted Object (terverifikasi live di v25.0). Tujuan post Instagram bisa diganti bebas; post Facebook Page yang sudah punya link sendiri mungkin tetap memakai link lamanya — nilainya diteruskan dan Meta yang memutuskan. Pakai urlTags untuk tracking UTM; itu tersimpan bersama call_to_action. destinationUrl juga wajib diisi kalau collaborativeAppSpec diisi, dipakai untuk omnichannel_link_spec.web.url (CATATAN: itu pun tidak bisa memperbaiki object_store_urls yang hilang dari call_to_action post lama yang sudah dipublikasikan; untuk ad set CPAS omnichannel disarankan pakai creativeFormat video langsung). destinationUrl tanpa callToAction maupun collaborativeAppSpec akan DITOLAK, bukan diabaikan diam-diam. Untuk iklan click-to-message (Click-to-Instagram-Direct / Click-to-WhatsApp) pada existing_post: isi callToAction messaging (INSTAGRAM_MESSAGE, MESSAGE_PAGE, atau WHATSAPP_MESSAGE), appDestination (INSTAGRAM_DIRECT, MESSENGER, atau WHATSAPP), dan destinationUrl (untuk Instagram Direct gunakan https://www.instagram.com/). Kombinasi appDestination + destinationUrl dikirim sebagai call_to_action.value.app_destination dan call_to_action.value.link; Meta Graph menolak appDestination tanpa link untuk existing-post Instagram messaging. destinationUrl dengan CTA messaging tetapi tanpa appDestination tetap DITOLAK agar URL tidak ter-drop diam-diam. pageWelcomeMessage boleh berupa objek page_welcome_message VISUAL_EDITOR penuh ({ type, version, landing_screen_type, media_type, text_format.message.ice_breakers }) atau string; dikirim sebagai page_welcome_message di LEVEL ATAS creative, persis seperti yang ditulis Ads Manager, dan hanya berlaku bersama callToAction messaging. Field creativeSpec di luar daftar per format di atas DITOLAK dengan error yang menyebut field-nya, bukan dibuang diam-diam.',
+          'Detail materi sesuai creativeFormat. Jika user memberi opsi headline/caption/copy/image/video untuk testing manual, jangan isi primaryTexts/headlines; buat beberapa manual creative/ad terpisah dengan creativeFormat single_image/video/carousel dan satu media + satu primaryText + satu headline per creative, atau pakai carousel cards untuk beberapa media dalam satu carousel. Dynamic Creative/Flexible asset-feed untuk create baru disabled; assetFeedSpec hanya untuk placement customization dengan asset_customization_rules. Field per format: single_image memakai imageHash, primaryText, destinationUrl, headline, description, callToAction, pageWelcomeMessage (opsional, untuk Click-to-WhatsApp/Messenger), dan applinkTreatment (opsional, lihat properti applinkTreatment); video memakai videoId, thumbnailImageHash (opsional — kalau kosong, otomatis diisi dari thumbnail bawaan video via GET /{videoId}?fields=picture; hanya berbahaya diabaikan kalau video belum selesai diproses Meta dan tidak punya thumbnail sama sekali), primaryText, destinationUrl, headline, description, callToAction, pageWelcomeMessage (opsional, untuk Click-to-WhatsApp/Messenger), dan applinkTreatment (opsional, lihat properti applinkTreatment); carousel memakai primaryText, destinationUrl, cards (imageHash atau videoId, headline, description, destinationUrl); catalog memakai productSetId, primaryText, destinationUrl, templateUrl, fallbackImageHash; collection memakai instantExperienceId, coverImageHash atau coverVideoId, productSetId, primaryText, destinationUrl; placement_image memakai asset_feed_spec khusus placement; placement_customized_ctwa memakai feedImageHash, verticalImageHash, primaryText, headline, destinationUrl, pageWelcomeMessage di link_data, platform_customizations, dan Advantage+ opt-out; existing_post memakai objectStoryId (post id Facebook Page, format {page_id}_{post_id}) ATAU sourceInstagramMediaId (media id IG yang tidak di-cross-post ke Page — dapatkan dari ads_list_instagram_media, cocokkan permalink-nya ke URL instagram.com/reel atau /p yang dimiliki user; wajib isi tepat satu dari dua field ini, KECUALI pada jalur partnership ad code (partnership.adCode) yang tidak memakai keduanya karena ad code sendiri yang menjadi referensi konten; untuk media VIDEO/Reel WAJIB juga mengisi instagramUserId tingkat atas, kalau tidak Meta menolak dengan (#100) subcode 1815279 yang keliru menyuruh mengunggah video ke Facebook — tidak perlu diunggah, Meta hanya tidak tahu akun IG pemiliknya; media IMAGE disimpulkan sendiri oleh Meta sehingga tidak butuh field itu), plus destinationUrl, callToAction, dan applinkTreatment (opsional). Untuk mengarahkan post yang di-boost ke landing page eksternal dengan tombol CTA: isi destinationUrl + callToAction (mis. LEARN_MORE). Keduanya dikirim sebagai call_to_action di LEVEL ATAS creative (call_to_action.value.link), BUKAN di dalam object_story_spec — object_story_spec bareng source_instagram_media_id ditolak Meta dengan (#100) subcode 1487929 Ambiguous Promoted Object (terverifikasi live di v25.0). Tujuan post Instagram bisa diganti bebas; post Facebook Page yang sudah punya link sendiri mungkin tetap memakai link lamanya — nilainya diteruskan dan Meta yang memutuskan. Pakai urlTags untuk tracking UTM; itu tersimpan bersama call_to_action. destinationUrl juga wajib diisi kalau collaborativeAppSpec diisi, dipakai untuk omnichannel_link_spec.web.url (CATATAN: itu pun tidak bisa memperbaiki object_store_urls yang hilang dari call_to_action post lama yang sudah dipublikasikan; untuk ad set CPAS omnichannel disarankan pakai creativeFormat video langsung). destinationUrl tanpa callToAction maupun collaborativeAppSpec akan DITOLAK, bukan diabaikan diam-diam. Untuk iklan click-to-message (Click-to-Instagram-Direct / Click-to-WhatsApp) pada existing_post: isi callToAction messaging (INSTAGRAM_MESSAGE, MESSAGE_PAGE, atau WHATSAPP_MESSAGE), appDestination (INSTAGRAM_DIRECT, MESSENGER, atau WHATSAPP), dan destinationUrl (untuk Instagram Direct gunakan https://www.instagram.com/). Kombinasi appDestination + destinationUrl dikirim sebagai call_to_action.value.app_destination dan call_to_action.value.link; Meta Graph menolak appDestination tanpa link untuk existing-post Instagram messaging. destinationUrl dengan CTA messaging tetapi tanpa appDestination tetap DITOLAK agar URL tidak ter-drop diam-diam. pageWelcomeMessage boleh berupa objek page_welcome_message VISUAL_EDITOR penuh ({ type, version, landing_screen_type, media_type, text_format.message.ice_breakers }) atau string; dikirim sebagai page_welcome_message di LEVEL ATAS creative, persis seperti yang ditulis Ads Manager, dan hanya berlaku bersama callToAction messaging. Field creativeSpec di luar daftar per format di atas DITOLAK dengan error yang menyebut field-nya, bukan dibuang diam-diam.',
         properties: {
           messageExtensions: {
             type: 'array',
@@ -2120,6 +2147,43 @@ function createCreateAdCreativeInputSchema() {
         },
         required: ['applicationId', 'objectStoreUrl'],
         additionalProperties: false,
+      },
+      partnership: {
+        type: 'object',
+        description:
+          'Identitas kemitraan untuk Meta Partnership Ads (iklan kolaborasi dengan kreator/partner; dulu Branded Content Ads). Berlaku untuk creativeFormat existing_post, single_image, video, dan carousel — format lain ditolak. pageId (Page brand) WAJIB diisi bersama field ini karena ad creative selalu di-anchor ke Facebook Page, bahkan untuk partnership ad yang hanya tayang di Instagram. Wajib mengisi minimal satu dari partnerPageId atau partnerInstagramId. Butuh scope instagram_branded_content_ads_brand dan/atau facebook_branded_content_ads_brand, plus instagram_basic — memberi instagram_branded_content_ads_brand tanpa instagram_basic menghasilkan 403. Iklan yang dipublish tanpa izin kemitraan tetap diterima Meta tetapi masuk status pending delivery sampai partner menyetujui.',
+        properties: {
+          partnerPageId: {
+            type: 'string',
+            description: 'Facebook Page ID partner/kreator.',
+          },
+          partnerInstagramId: {
+            type: 'string',
+            description:
+              "Instagram user ID partner/kreator; menjadi instagram_branded_content.sponsor_id pada primaryIdentity 'advertiser'. Bila hanya field ini yang diisi, Meta mencoba me-link Page Facebook terkait; tanpa tautan itu iklan tidak tayang di Facebook. Ditolak bersama primaryIdentity 'creator' karena di sana Meta menurunkan akun IG kreator dari Page kreator.",
+          },
+          brandInstagramId: {
+            type: 'string',
+            description:
+              "Instagram user ID milik brand/advertiser; menjadi instagram_branded_content.sponsor_id pada primaryIdentity 'creator' (sponsor selalu berarti identitas sekunder). Ditolak pada primaryIdentity 'advertiser'.",
+          },
+          primaryIdentity: {
+            type: 'string',
+            enum: ['advertiser', 'creator'],
+            description:
+              "Handle siapa yang tampil sebagai pengirim iklan. Default 'advertiser' (Page brand jadi identitas primer, kreator jadi sponsor lewat partnerPageId/partnerInstagramId). 'creator' membalik keduanya: Page kreator jadi identitas primer, brand jadi sponsor lewat pageId/brandInstagramId. Mewajibkan partnerPageId.",
+          },
+          adCode: {
+            type: 'string',
+            description:
+              'Partnership ad code yang diberikan kreator. Jalur boost alternatif — tidak boleh dipakai bersamaan dengan creativeSpec.sourceInstagramMediaId. Pada jalur ini creativeFormat existing_post justru diisi tanpa objectStoryId maupun sourceInstagramMediaId: ad code sendiri yang menjadi referensi konten.',
+          },
+          adFormat: {
+            type: 'string',
+            description:
+              'branded_content.ad_format. Wajib diisi bila adCode diisi. Meta tidak mendokumentasikan daftar nilainya, jadi nilai diteruskan apa adanya dan Meta yang memvalidasi.',
+          },
+        },
       },
       link: {
         type: 'string',
@@ -3322,6 +3386,11 @@ function createLaunchReadinessInputSchema() {
       videoFilePath: { type: 'string', description: 'Local video path for upload.' },
       creativeId: { type: 'string', description: 'Existing creative ID.' },
       existingPostId: { type: 'string', description: 'Existing object_story_id/post ID.' },
+      partnershipAdCode: {
+        type: 'string',
+        description:
+          'Partnership ad code dari kreator. Referensi konten alternatif untuk creativeFormat existing_post — pada jalur ini tidak ada post ID, sehingga mengisi field ini memenuhi kebutuhan existingPostId.',
+      },
       sourceAdId: {
         type: 'string',
         description:
@@ -3417,6 +3486,35 @@ function createInstagramMediaInputSchema() {
       },
     },
     required: ['igUserId'],
+  };
+}
+
+function createPartnershipContentInputSchema() {
+  const schema = createAdsInputSchema([]);
+  return {
+    type: 'object',
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      businessId: { type: 'string', description: 'Meta Business ID pemilik Page/akun IG brand.' },
+      fbPageId: {
+        type: 'string',
+        description:
+          'Facebook Page ID brand. Isi minimal satu dari fbPageId atau igUserId; bila keduanya diisi, kedua akun harus sudah ter-link.',
+      },
+      igUserId: { type: 'string', description: 'Instagram professional account ID brand.' },
+      creatorUsername: { type: 'string', description: 'Filter konten dari satu kreator.' },
+      adCodes: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'Cari berdasarkan partnership ad code. Maksimal 50.',
+      },
+      platform: { type: 'string', enum: ['INSTAGRAM', 'FACEBOOK'] },
+      mediaType: { type: 'string', enum: ['IMAGE', 'VIDEO', 'CAROUSEL', 'LINK'] },
+      postType: { type: 'string', enum: ['FEED', 'STORY', 'REEL'] },
+      limit: { type: 'number', description: 'Jumlah baris per halaman, 1-50. Default 25.' },
+      cursor: { type: 'string', description: 'Pagination cursor dari panggilan sebelumnya.' },
+    },
+    required: ['businessId'],
   };
 }
 

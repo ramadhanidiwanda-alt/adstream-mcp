@@ -4,9 +4,11 @@ import type {
   MetaApplinkTreatment,
   MetaCollaborativeAppSpec,
   MetaCreativeSpec,
+  MetaPartnershipSpec,
   MetaStandardAppSpec,
 } from '../../types.js';
 import { assertMetaCreativeCompatibility } from './creativeFormatCompatibility.js';
+import { buildPartnershipFields } from './buildPartnershipFields.js';
 
 const WHATSAPP_SEND_URL = 'https://api.whatsapp.com/send';
 
@@ -19,6 +21,8 @@ export type BuildMetaCreativeFormatPayloadInput = MetaCreativeSpec & {
   catalogOnly?: boolean;
   collaborativeAppSpec?: MetaCollaborativeAppSpec;
   standardAppSpec?: MetaStandardAppSpec;
+  /** Identitas kemitraan (Meta Partnership Ads). Lihat buildPartnershipFields. */
+  partnership?: MetaPartnershipSpec;
   /**
    * Nama-nama fitur degrees_of_freedom_spec yang di-OPT_OUT (disable).
    * Contoh: ['image_auto_crop', 'text_optimizations', 'image_templates'].
@@ -54,8 +58,40 @@ export function buildMetaCreativeFormatPayload(
   if (input.standardAppSpec && input.mode === 'collaborative_ads') {
     throw new Error('standardAppSpec tidak kompatibel dengan mode collaborative_ads.');
   }
+  if (input.standardAppSpec && input.partnership) {
+    throw new Error('standardAppSpec dan partnership tidak dapat digunakan bersamaan.');
+  }
+  // CPAS (collaborative_ads) adalah katalog retailer yang di-share — tidak ada
+  // identitas kreator di dalamnya, dan Meta tidak mendokumentasikan gabungan
+  // omnichannel_link_spec dengan field branded content.
+  if (input.partnership && input.mode === 'collaborative_ads') {
+    throw new Error('partnership tidak kompatibel dengan mode collaborative_ads.');
+  }
   assertMetaCreativeCompatibility(input);
 
+  if (!input.partnership) return buildByCreativeFormat(input);
+
+  const partnership = buildPartnershipFields({
+    partnership: input.partnership,
+    creativeFormat: input.creativeFormat,
+    pageId: input.pageId,
+    sourceInstagramMediaId:
+      input.creativeFormat === 'existing_post'
+        ? input.creativeSpec.sourceInstagramMediaId
+        : undefined,
+    objectStoryId:
+      input.creativeFormat === 'existing_post' ? input.creativeSpec.objectStoryId : undefined,
+  });
+
+  // Identitas primer harus sudah terpasang SEBELUM builder format berjalan, karena
+  // builder-lah yang menulis object_story_spec.page_id.
+  const payload = buildByCreativeFormat({ ...input, pageId: partnership.primaryPageId });
+  return { ...payload, ...partnership.payload };
+}
+
+function buildByCreativeFormat(
+  input: BuildMetaCreativeFormatPayloadInput
+): Record<string, unknown> {
   switch (input.creativeFormat) {
     case 'single_image':
       return buildSingleImage(input);
@@ -591,26 +627,29 @@ function buildExistingPost(
     'sourceInstagramMediaId'
   );
 
-  if (Boolean(objectStoryId) === Boolean(sourceInstagramMediaId)) {
+  // Jalur ad code adalah jalur boost ketiga: ad code ITU SENDIRI yang menjadi
+  // referensi konten, jadi payload Meta pada jalur ini tidak membawa
+  // object_story_id maupun source_instagram_media_id sama sekali. Referensi
+  // kontennya masuk lewat branded_content.instagram_boost_post_access_token
+  // yang ditambahkan buildPartnershipFields.
+  const hasPartnershipAdCode = Boolean(input.partnership?.adCode?.trim());
+  const contentReferenceCount =
+    Number(Boolean(objectStoryId)) +
+    Number(Boolean(sourceInstagramMediaId)) +
+    Number(hasPartnershipAdCode);
+
+  if (contentReferenceCount !== 1) {
     throw new Error(
-      'Pilih salah satu objectStoryId (post di Facebook Page) atau sourceInstagramMediaId (media IG yang tidak di-cross-post) untuk existing_post.'
+      'Pilih salah satu objectStoryId (post di Facebook Page), sourceInstagramMediaId (media IG yang tidak di-cross-post), ' +
+        'atau partnership.adCode (partnership ad code dari kreator; ad code itu sendiri yang menjadi referensi konten) untuk existing_post.'
     );
   }
 
-  const payload: Record<string, unknown> = objectStoryId
-    ? { object_story_id: objectStoryId }
-    : {
-        source_instagram_media_id: sourceInstagramMediaId,
-        // TOP-LEVEL, alongside source_instagram_media_id rather than inside
-        // object_story_spec (that pairing is the Ambiguous Promoted Object
-        // rejection described below). Without it Meta cannot tell which IG
-        // account owns the media, and an existing IG VIDEO/REEL is refused with
-        // (#100) subcode 1815279 claiming it "must be uploaded to Facebook" —
-        // it need not be. Verified live against v25.0: the same create succeeds
-        // as soon as instagram_user_id is present. IMAGE media is inferred, so
-        // photo posts work without it.
-        ...instagramIdentity(input),
-      };
+  const payload: Record<string, unknown> = buildExistingPostContentReference(
+    input,
+    objectStoryId,
+    sourceInstagramMediaId
+  );
 
   const callToAction = optional(creativeSpec.callToAction, 'callToAction');
   const appDestination = optional(creativeSpec.appDestination, 'appDestination');
@@ -695,6 +734,47 @@ function buildExistingPost(
       input.collaborativeAppSpec,
       creativeSpec.applinkTreatment
     ),
+  };
+}
+
+/**
+ * Referensi konten existing_post: object_story_id, source_instagram_media_id, atau
+ * — pada jalur partnership ad code — tidak keduanya. Payload ad code yang
+ * didokumentasikan Meta hanya membawa object_id + branded_content + objek identitas
+ * branded content; ad code-lah referensi kontennya.
+ */
+function buildExistingPostContentReference(
+  input: Extract<BuildMetaCreativeFormatPayloadInput, { creativeFormat: 'existing_post' }>,
+  objectStoryId: string | undefined,
+  sourceInstagramMediaId: string | undefined
+): Record<string, unknown> {
+  if (objectStoryId) return { object_story_id: objectStoryId };
+  if (!sourceInstagramMediaId) {
+    // Jalur ad code. Payload ad code yang didokumentasikan Meta tidak memuat
+    // instagram_user_id sama sekali — akun Instagram pemilik konten sudah terikat
+    // pada ad code itu sendiri. Ditolak, bukan dibuang diam-diam, agar pemanggil
+    // tahu field-nya tidak terpakai.
+    if (input.instagramUserId?.trim()) {
+      throw new Error(
+        'instagramUserId tidak dipakai pada jalur partnership.adCode: ad code sudah membawa ' +
+          'akun Instagram pemilik konten. Hapus instagramUserId, atau pakai ' +
+          'creativeSpec.sourceInstagramMediaId bila memang mau mem-boost media IG lewat ID-nya.'
+      );
+    }
+    return {};
+  }
+
+  return {
+    source_instagram_media_id: sourceInstagramMediaId,
+    // TOP-LEVEL, alongside source_instagram_media_id rather than inside
+    // object_story_spec (that pairing is the Ambiguous Promoted Object
+    // rejection described below). Without it Meta cannot tell which IG
+    // account owns the media, and an existing IG VIDEO/REEL is refused with
+    // (#100) subcode 1815279 claiming it "must be uploaded to Facebook" —
+    // it need not be. Verified live against v25.0: the same create succeeds
+    // as soon as instagram_user_id is present. IMAGE media is inferred, so
+    // photo posts work without it.
+    ...instagramIdentity(input),
   };
 }
 

@@ -843,6 +843,52 @@ describe('MCP server builder', () => {
     );
   });
 
+  it('mendaftarkan ads_list_partnership_content dengan businessId wajib', () => {
+    const tool = ADS_MCP_TOOL_DEFINITIONS.find(
+      (item) => item.name === 'ads_list_partnership_content'
+    );
+
+    expect(tool).toBeDefined();
+    expect(tool?.inputSchema).toMatchObject({
+      required: ['businessId'],
+      properties: {
+        businessId: { type: 'string' },
+        fbPageId: { type: 'string' },
+        igUserId: { type: 'string' },
+      },
+    });
+  });
+
+  it('melaporkan dukungan partnership ads di capabilities', async () => {
+    const adsBroker = createBrokerStub();
+    const { client, server } = await createConnectedClient({
+      config: metaConfig({ adAccountId: 'act_123' }),
+      adsBroker,
+    });
+
+    try {
+      const response = await client.callTool({
+        name: 'ads_get_capabilities',
+        arguments: { provider: 'meta' },
+      });
+
+      expect(response.isError).not.toBe(true);
+      const data = JSON.parse(toolResultText(response));
+      expect(data).toMatchObject({
+        ok: true,
+        data: {
+          partnershipAds: {
+            supportedProviders: ['meta'],
+            discoveryTool: 'ads_list_partnership_content',
+            creativeFormats: ['existing_post', 'single_image', 'video', 'carousel'],
+          },
+        },
+      });
+    } finally {
+      await Promise.all([client.close(), server.close()]);
+    }
+  });
+
   it('keeps local mode requiring legacy Meta env at initialization', () => {
     delete process.env.BROKER_RUNTIME_MODE;
     delete process.env.META_ACCESS_TOKEN;
