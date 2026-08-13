@@ -1287,6 +1287,7 @@ export interface AdsProviderAdapter {
     request: AdsBrokerRequest
   ): Promise<AdsBrokerResponse<LaunchReadinessResult>>;
   listPixels?(request: AdsBrokerRequest): Promise<AdsBrokerResponse<MetaPixelResult[]>>;
+  listAudiences?(request: AdsBrokerRequest): Promise<AdsBrokerResponse<MetaAudienceResult[]>>;
   listCatalogs?(request: AdsBrokerRequest): Promise<AdsBrokerResponse<MetaCatalogResult[]>>;
   listProductSets?(request: AdsBrokerRequest): Promise<AdsBrokerResponse<MetaProductSetResult[]>>;
   listPages?(request: AdsBrokerRequest): Promise<AdsBrokerResponse<MetaPageResult[]>>;

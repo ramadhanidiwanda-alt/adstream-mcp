@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import type { MetaClient } from '../src/metaClient.js';
 import { listAudiences } from '../src/tools/listAudiences.js';
+import { ADS_MCP_TOOL_NAMES, isAdsMcpToolName } from '../src/broker/mcpTools.js';
 
 describe('listAudiences', () => {
   it('lists audiences for an ad account and maps status objects to strings', async () => {
@@ -66,5 +67,12 @@ describe('listAudiences', () => {
       '/act_123456789/customaudiences',
       expect.objectContaining({ limit: 25 })
     );
+  });
+});
+
+describe('ads_list_audiences MCP registration', () => {
+  it('is a recognized, non-write MCP tool name', () => {
+    expect(ADS_MCP_TOOL_NAMES).toContain('ads_list_audiences');
+    expect(isAdsMcpToolName('ads_list_audiences')).toBe(true);
   });
 });

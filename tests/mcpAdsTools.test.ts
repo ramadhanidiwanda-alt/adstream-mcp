@@ -500,6 +500,7 @@ describe('ads MCP broker tools', () => {
       'ads_list_partnership_content',
       'ads_list_threads_profiles',
       'ads_list_pixels',
+      'ads_list_audiences',
       'ads_list_catalogs',
       'ads_list_product_sets',
       'ads_list_whatsapp_accounts',

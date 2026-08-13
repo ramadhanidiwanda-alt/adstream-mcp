@@ -41,6 +41,7 @@ import type {
   MetaPageResult,
   MetaLeadFormResult,
   MetaPixelResult,
+  MetaAudienceResult,
   MetaCatalogResult,
   MetaProductSetResult,
   InstagramAccountResult,
@@ -222,6 +223,10 @@ export class AdsBroker {
     return this.callOptionalReadMethod(request, 'listPixels');
   }
 
+  listAudiences(request: AdsBrokerRequest): Promise<AdsBrokerResponse<MetaAudienceResult[]>> {
+    return this.callOptionalReadMethod(request, 'listAudiences');
+  }
+
   listCatalogs(request: AdsBrokerRequest): Promise<AdsBrokerResponse<MetaCatalogResult[]>> {
     return this.callOptionalReadMethod(request, 'listCatalogs');
   }
@@ -286,6 +291,7 @@ export class AdsBroker {
       AdsProviderAdapter,
       | 'checkLaunchReadiness'
       | 'listPixels'
+      | 'listAudiences'
       | 'listCatalogs'
       | 'listProductSets'
       | 'listPages'

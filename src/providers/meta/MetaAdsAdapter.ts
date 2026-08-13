@@ -117,6 +117,7 @@ import {
   createProductAudience as createProductAudienceTool,
   type CreateProductAudienceOptions,
 } from '../../tools/createProductAudience.js';
+import { listAudiences as listAudiencesTool } from '../../tools/listAudiences.js';
 import { listPixels as listPixelsTool } from '../../tools/listPixels.js';
 import { listCatalogs as listCatalogsTool } from '../../tools/listCatalogs.js';
 import { listProductSets as listProductSetsTool } from '../../tools/listProductSets.js';
@@ -147,6 +148,7 @@ import type {
   MetaPageResult,
   MetaLeadFormResult,
   MetaPixelResult,
+  MetaAudienceResult,
   MetaCatalogResult,
   MetaProductSetResult,
   InstagramAccountResult,
@@ -404,6 +406,10 @@ export interface MetaAdsAdapterTools {
     client: MetaClient,
     options: { adAccountId: string; limit?: number }
   ): Promise<MetaPixelResult[]>;
+  listAudiences(
+    client: MetaClient,
+    options: { adAccountId: string; limit?: number }
+  ): Promise<MetaAudienceResult[]>;
   listCatalogs(
     client: MetaClient,
     options: { businessId: string; limit?: number }
@@ -510,6 +516,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       getAdPreview,
       createProductAudience: createProductAudienceTool,
       listPixels: listPixelsTool,
+      listAudiences: listAudiencesTool,
       listCatalogs: listCatalogsTool,
       listProductSets: listProductSetsTool,
       listPages: listPagesTool,
@@ -3352,6 +3359,35 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       const limit = typeof request.params.limit === 'number' ? request.params.limit : undefined;
       const pixels = await this.tools.listPixels(client, { adAccountId, limit });
       return { ok: true, provider: 'meta', data: pixels };
+    } catch (error) {
+      return this.errorResponse(error);
+    }
+  }
+
+  async listAudiences(request: AdsBrokerRequest): Promise<AdsBrokerResponse<MetaAudienceResult[]>> {
+    const context = this.getCredentialContext(request);
+    if (!context.ok) return context.response;
+
+    const adAccountId = request.accountId ?? context.credential.accountId;
+    if (!adAccountId) {
+      return {
+        ok: false,
+        provider: 'meta',
+        errors: [
+          {
+            provider: 'meta',
+            code: 'MISSING_ACCOUNT_ID',
+            message: 'Meta account ID is required to list audiences',
+          },
+        ],
+      };
+    }
+
+    try {
+      const client = this.createClient(context.credential);
+      const limit = typeof request.params.limit === 'number' ? request.params.limit : undefined;
+      const audiences = await this.tools.listAudiences(client, { adAccountId, limit });
+      return { ok: true, provider: 'meta', data: audiences };
     } catch (error) {
       return this.errorResponse(error);
     }

@@ -107,6 +107,7 @@ export const ADS_MCP_TOOL_NAMES = [
   'ads_list_partnership_content',
   'ads_list_threads_profiles',
   'ads_list_pixels',
+  'ads_list_audiences',
   'ads_list_catalogs',
   'ads_list_product_sets',
   // --- WhatsApp Discovery ---
@@ -586,6 +587,12 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
     inputSchema: createAdsInputSchema([]),
   },
   {
+    name: 'ads_list_audiences',
+    description:
+      'List Meta Custom Audiences (including dynamic product audiences created by ads_create_product_audience) connected to an ad account. Use to find an audience id before passing it into ads_create_adset targeting.customAudiences, or to check an audience is ready (delivery_status) before targeting it. Calls GET /act_{id}/customaudiences.',
+    inputSchema: createAdsInputSchema([]),
+  },
+  {
     name: 'ads_list_catalogs',
     description:
       'List product catalogs owned by a Meta Business. Use before CPAS/catalog sales workflows when the user does not know the catalog ID. Requires businessId.',
@@ -1006,6 +1013,8 @@ function callBrokerMethod(
       return broker.listThreadsProfiles(request);
     case 'ads_list_pixels':
       return broker.listPixels(request);
+    case 'ads_list_audiences':
+      return broker.listAudiences(request);
     case 'ads_list_catalogs':
       return broker.listCatalogs(request);
     case 'ads_list_product_sets':
