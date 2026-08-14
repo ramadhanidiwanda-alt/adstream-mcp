@@ -82,6 +82,11 @@ docker-compose.yml
 
 # Local markdown artifacts from previous agent/dev sessions
 docs/superpowers/plans/
+docs/superpowers/specs/
+docs/PLAN.md
+docs/PROJECT_STATUS.md
+docs/REMOTE_MCP_HTTP_EVALUATION.md
+docs/REMOTE_MCP_TRANSPORT_DESIGN.md
 *_COMPLETE.md
 *_SUMMARY.md
 PROJECT_SUMMARY.md

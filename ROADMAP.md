@@ -185,8 +185,6 @@ and `ads_create_ad` tools create a reviewable structure in `PAUSED` status.
 - [ ] **Docs sweep:** ensure all new tools are documented in MCP_API_DESIGN.md.
 - [ ] **Whitelist/blacklist guardrails:** optional campaign allow/block lists for write tools.
 
-**See also:** `docs/PLAN.md` for the full multi-platform master plan.
-
 ---
 
 ## Planned 📅
