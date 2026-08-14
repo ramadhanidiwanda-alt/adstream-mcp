@@ -623,10 +623,9 @@ import { MetaClient } from './metaClient';
 
 ### Dokumentasi Project
 
-- [Arsitektur](docs/ARSITEKTUR.md) - Deep dive tentang desain dan struktur
-- [Keamanan](docs/KEAMANAN.md) - Security best practices dan token management
+- [Architecture](docs/ARCHITECTURE.md) - Deep dive tentang desain dan struktur
+- [Write Safety Contract](docs/WRITE_SAFETY_CONTRACT.md) - Security best practices dan token management
 - [Testing](docs/TESTING.md) - Panduan testing dan coverage
-- [Kontribusi](docs/KONTRIBUSI.md) - Cara berkontribusi ke project
 
 ### Dokumentasi External
 

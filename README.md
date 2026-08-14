@@ -466,7 +466,7 @@ npm run lint
 - Do not print `providerToken`, connection keys, or `Authorization` headers
 - Use `redactErrorMessage` / `redactTokenLikeValues` for safe error surfacing
 - Run `gitleaks detect --source . --redact` if available
-- See [`docs/KEAMANAN.md`](docs/KEAMANAN.md) for full security guidelines
+- See [`docs/WRITE_SAFETY_CONTRACT.md`](docs/WRITE_SAFETY_CONTRACT.md) for full write-safety guidelines
 
 ---
 
@@ -526,4 +526,3 @@ MIT License - see [LICENSE](LICENSE) file for details.
 - **"Can I self-host everything?"** — Yes, no external dependencies
 - **"Connection Key vs MCP Token?"** — Connection Key is recommended for end-user AI connector setups; MCP Token for developer self-host
 
-See [`SKILL_MIGRATION.md`](SKILL_MIGRATION.md) for more details on the architecture.

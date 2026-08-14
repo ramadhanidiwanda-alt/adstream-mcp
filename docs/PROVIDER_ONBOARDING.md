@@ -61,8 +61,7 @@ Do not add write/create operations until read, normalization, redaction, and cap
    - Capability matrix test to confirm expected categories and operations.
 
 8. **Update docs**
-   - Update `docs/PLAN.md` capability matrix if provider status changes.
-   - Update `ROADMAP.md` and `docs/PROJECT_STATUS.md` when capability ships.
+   - Update `ROADMAP.md` when capability ships.
    - Add provider setup notes if credentials require special handling.
 
 ---
