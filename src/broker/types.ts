@@ -213,6 +213,8 @@ export interface AdsCreativeMetadata {
   description?: string;
   call_to_action?: string;
   destination_url?: string;
+  instagram_user_id?: string;
+  threads_user_id?: string;
   setup_compliance?: AdsCreativeSetupCompliance;
 }
 

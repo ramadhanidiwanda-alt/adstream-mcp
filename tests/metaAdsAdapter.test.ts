@@ -1550,6 +1550,47 @@ describe('MetaAdsAdapter', () => {
     expect(response.data?.[0]?.creative?.setup_compliance?.related_media.status).toBe('UNKNOWN');
   });
 
+  it('surfaces object_story_spec identities on the normalized creative', async () => {
+    // Identity was previously reachable only via includeRaw, so a user checking
+    // whether their Threads/Instagram identity landed had nowhere to look.
+    const adapter = new MetaAdsAdapter({
+      clientFactory: () =>
+        ({
+          metaGet: async () => ({
+            data: [
+              {
+                id: '2080446776238802',
+                name: 'IG identity creative',
+                object_story_spec: {
+                  page_id: '1001',
+                  instagram_user_id: '17841439260136409',
+                  threads_user_id: '9876543210',
+                },
+              },
+            ],
+            paging: { cursors: {} },
+          }),
+        }) as never,
+    });
+
+    const response = await adapter.getCreativePerformance({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {},
+      credentials: {
+        provider: 'meta',
+        accessToken: 'secret-token',
+        accountId: 'act_123',
+        apiVersion: 'v23.0',
+        source: 'test',
+      },
+    });
+
+    expect(response.ok).toBe(true);
+    expect(response.data?.[0]?.creative?.instagram_user_id).toBe('17841439260136409');
+    expect(response.data?.[0]?.creative?.threads_user_id).toBe('9876543210');
+  });
+
   it('audits active ads with their ad set placement targeting', async () => {
     let capturedPath: string | undefined;
     let capturedParams: Record<string, unknown> | undefined;

@@ -890,6 +890,8 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
         primary_text: creative.body,
         call_to_action: callToAction?.type,
         destination_url: destinationUrl,
+        instagram_user_id: creative.object_story_spec?.instagram_user_id,
+        threads_user_id: creative.object_story_spec?.threads_user_id,
         setup_compliance: evaluateMetaCreativeCompliance({
           ...creative,
           requested_fields: auditContext?.requestedFields,
