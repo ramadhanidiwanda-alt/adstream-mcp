@@ -455,14 +455,66 @@ describe('evaluateMetaCreativeCompliance', () => {
     expect(identity.threads_identity_source).toBe('derived_from_instagram');
   });
 
-  it('fails a creative whose object_story_spec carries only a page_id', () => {
+  it('flags a creative whose object_story_spec carries only a page_id for manual review, not FAIL', () => {
+    // NOT a FAIL: live evidence from act_1417353822551653 shows Meta falls back
+    // to the Facebook Page's connected Instagram account when instagram_user_id
+    // isn't pinned. Creative 1922703931759714 (no instagram_user_id) and
+    // creative 2080446776238802 (explicit instagram_user_id) are structurally
+    // identical siblings under the same page_id, both ACTIVE, and both carry a
+    // Meta-issued instagram_permalink_url — proof of a real Instagram rendering
+    // on the one with no pinned instagram_user_id. Delivery works; the
+    // advertiser only loses explicit control over which account posts. Do not
+    // "fix" this back to FAIL.
     const { identity } = evaluateMetaCreativeCompliance({
       object_story_spec: { page_id: '1001' },
     });
 
-    expect(identity.status).toBe('FAIL');
-    expect(identity.threads_identity_source).toBe('none');
+    expect(identity.status).toBe('MANUAL_REVIEW');
+    expect(identity.threads_identity_source).toBe('derived_from_page');
     expect(identity.reasons.join(' ')).toContain('instagram_user_id');
+  });
+
+  it('flags a creative with an explicit Threads identity but no Instagram identity for manual review', () => {
+    // An explicitly pinned Threads ID is still explicit, even though the
+    // Instagram side falls back to the Page — only the status becomes
+    // MANUAL_REVIEW, not the Threads source.
+    const { identity } = evaluateMetaCreativeCompliance({
+      object_story_spec: { page_id: '1001', threads_user_id: '9876543210' },
+    });
+
+    expect(identity.status).toBe('MANUAL_REVIEW');
+    expect(identity.threads_user_id).toBe('9876543210');
+    expect(identity.threads_identity_source).toBe('explicit');
+  });
+
+  it('reads a numeric instagram_user_id as a valid identity', () => {
+    // Kept within Number.MAX_SAFE_INTEGER so the literal round-trips exactly;
+    // real Meta IDs are transported as strings, not numbers.
+    const { identity } = evaluateMetaCreativeCompliance({
+      object_story_spec: { page_id: '1001', instagram_user_id: 123456789 },
+    });
+
+    expect(identity.status).toBe('PASS');
+    expect(identity.instagram_user_id).toBe('123456789');
+    expect(identity.threads_identity_source).toBe('derived_from_instagram');
+  });
+
+  it('treats an empty-string instagram_user_id as absent', () => {
+    const { identity } = evaluateMetaCreativeCompliance({
+      object_story_spec: { page_id: '1001', instagram_user_id: '' },
+    });
+
+    expect(identity.status).toBe('MANUAL_REVIEW');
+    expect(identity.instagram_user_id).toBeUndefined();
+  });
+
+  it('treats a whitespace-only instagram_user_id as absent', () => {
+    const { identity } = evaluateMetaCreativeCompliance({
+      object_story_spec: { page_id: '1001', instagram_user_id: '   ' },
+    });
+
+    expect(identity.status).toBe('MANUAL_REVIEW');
+    expect(identity.instagram_user_id).toBeUndefined();
   });
 
   it('does not fault an existing-post creative for having no inline identity', () => {

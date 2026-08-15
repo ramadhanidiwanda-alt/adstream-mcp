@@ -253,20 +253,26 @@ function evaluateRelatedMedia(
 }
 
 /**
- * A creative with no instagram_user_id cannot deliver to Instagram or Threads at
- * all — a far more severe delivery defect than any placement rule, and one the
- * audit used to pass silently.
+ * A creative with no instagram_user_id is NOT a delivery failure: Meta falls
+ * back to the Facebook Page's connected Instagram account, so Instagram (and
+ * Threads, which follows from Instagram) still deliver. Live evidence from
+ * act_1417353822551653 confirms this — creative 1922703931759714 (no
+ * instagram_user_id) and creative 2080446776238802 (explicit instagram_user_id)
+ * are structurally identical siblings under the same page_id, both ACTIVE, and
+ * both carry a Meta-issued instagram_permalink_url, which Meta only mints for a
+ * creative with a real Instagram rendering. What the advertiser loses is
+ * explicit control over which Instagram account posts, and resilience if the
+ * Page's IG link ever changes — a configuration gap worth a human look, not a
+ * delivery defect. It is reported as MANUAL_REVIEW, never FAIL.
  *
- * A creative with instagram_user_id but no threads_user_id is NOT a defect: Meta
- * derives Threads delivery from an Instagram-associated Threads account, so the
- * field is legitimately absent on creatives that are demonstrably serving on
- * Threads. Reporting that as missing would be a new false alarm in place of the
- * old blind spot, so it gets its own state rather than a pass/fail verdict.
+ * A creative with instagram_user_id but no threads_user_id is likewise NOT a
+ * defect: Meta derives Threads delivery from an Instagram-associated Threads
+ * account, so the field is legitimately absent on creatives that are
+ * demonstrably serving on Threads. Reporting that as missing would be a new
+ * false alarm in place of the old blind spot, so it gets its own state rather
+ * than a pass/fail verdict.
  */
-function evaluateIdentity(
-  objectStorySpec: unknown,
-  objectStoryId: unknown
-): AdsIdentityCompliance {
+function evaluateIdentity(objectStorySpec: unknown, objectStoryId: unknown): AdsIdentityCompliance {
   if (!isRecord(objectStorySpec)) {
     // An existing-post creative carries identity on the post itself.
     if (typeof objectStoryId === 'string' && objectStoryId.trim().length > 0) {
@@ -290,11 +296,11 @@ function evaluateIdentity(
 
   if (instagramUserId === undefined) {
     return {
-      status: 'FAIL',
+      status: 'MANUAL_REVIEW',
       threads_user_id: threadsUserId,
-      threads_identity_source: threadsUserId === undefined ? 'none' : 'explicit',
+      threads_identity_source: threadsUserId === undefined ? 'derived_from_page' : 'explicit',
       reasons: [
-        'object_story_spec has no instagram_user_id, so this creative cannot deliver to Instagram or Threads.',
+        "object_story_spec has no instagram_user_id pinned, so Meta will use the Facebook Page's connected Instagram account. Confirm that account is the intended one.",
       ],
     };
   }

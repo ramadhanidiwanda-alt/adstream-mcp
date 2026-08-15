@@ -1281,6 +1281,7 @@ describe('MetaAdsAdapter', () => {
       'platform_customizations',
       'portrait_customizations',
       'image_crops',
+      'object_story_id',
     ]) {
       expect(capturedParams).toMatchObject({ fields: expect.stringContaining(field) });
     }
@@ -1836,6 +1837,7 @@ describe('MetaAdsAdapter', () => {
       'platform_customizations',
       'portrait_customizations',
       'image_crops',
+      'object_story_id',
     ]) {
       expect(capturedParams).toMatchObject({ fields: expect.stringContaining(field) });
     }
