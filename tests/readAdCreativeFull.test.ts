@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { MetaClient } from '../src/metaClient.js';
-import { readAdCreativeFull } from '../src/tools/readAdCreativeFull.js';
+import {
+  AD_CREATIVE_FULL_FIELDS,
+  FIELD_BATCHES,
+  readAdCreativeFull,
+} from '../src/tools/readAdCreativeFull.js';
 import { readNested } from './support/json.js';
 
 function createMockClient(results: Record<string, Record<string, unknown>> = {}): MetaClient {
@@ -227,7 +231,7 @@ describe('readAdCreativeFull', () => {
       creativeId: 'cr_fail',
     });
 
-    expect(result.unreadable_fields).toHaveLength(17);
+    expect(result.unreadable_fields).toHaveLength(18);
     expect(result.id).toBeUndefined();
   });
 
@@ -264,5 +268,31 @@ describe('readAdCreativeFull', () => {
     expect(result.branded_content).toBeDefined();
     expect(result.contextual_multi_ads).toBeDefined();
     expect(result.id).toBe('cr_full');
+  });
+
+  it('requests instagram_user_id and threads_user_id as their own batch', async () => {
+    const requestedFieldSets: string[] = [];
+    const client = {
+      metaGetObject: vi.fn().mockImplementation(async (_path: string, opts: { fields?: string }) => {
+        requestedFieldSets.push(opts.fields ?? '');
+        return {};
+      }),
+      metaGet: vi.fn(),
+      metaPost: vi.fn(),
+      metaDelete: vi.fn(),
+    } as unknown as MetaClient;
+
+    await readAdCreativeFull(client, { creativeId: '123' });
+
+    // Own batch: a capability gate on one identity field must not hide the rest.
+    expect(requestedFieldSets).toContain('instagram_user_id,threads_user_id');
+  });
+
+  it('exposes a derived field list that matches every batch exactly', () => {
+    const flattened = FIELD_BATCHES.flat();
+
+    expect([...AD_CREATIVE_FULL_FIELDS]).toEqual(flattened);
+    // Guards against a duplicate field being introduced into two batches.
+    expect(new Set(flattened).size).toBe(flattened.length);
   });
 });

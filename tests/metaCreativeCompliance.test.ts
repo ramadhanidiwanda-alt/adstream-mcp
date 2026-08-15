@@ -424,4 +424,166 @@ describe('evaluateMetaCreativeCompliance', () => {
       story: 'PASS',
     });
   });
+
+  it('passes a creative that carries both identities explicitly', () => {
+    const { identity } = evaluateMetaCreativeCompliance({
+      object_story_spec: {
+        page_id: '1001',
+        instagram_user_id: '17841439260136409',
+        threads_user_id: '9876543210',
+      },
+    });
+
+    expect(identity.status).toBe('PASS');
+    expect(identity.instagram_user_id).toBe('17841439260136409');
+    expect(identity.threads_user_id).toBe('9876543210');
+    expect(identity.threads_identity_source).toBe('explicit');
+  });
+
+  it('passes an Instagram-only creative and marks Threads as derived', () => {
+    // Meta derives the Threads identity from an Instagram-associated Threads
+    // account. Absent threads_user_id here is correct, not a defect.
+    const { identity } = evaluateMetaCreativeCompliance({
+      object_story_spec: {
+        page_id: '1001',
+        instagram_user_id: '17841439260136409',
+      },
+    });
+
+    expect(identity.status).toBe('PASS');
+    expect(identity.threads_user_id).toBeUndefined();
+    expect(identity.threads_identity_source).toBe('derived_from_instagram');
+  });
+
+  it('reads an explicit Threads identity from the payload root when object_story_spec has none', () => {
+    // The existing_post sourceInstagramMediaId path writes instagram_user_id and
+    // threads_user_id at the payload root, not inside object_story_spec (no
+    // object_story_spec at all on that path). A creative built there must still
+    // report the identity as explicit, not derived_from_instagram — otherwise a
+    // Threads identity that was deliberately pinned would read back as unpinned.
+    const { identity } = evaluateMetaCreativeCompliance({
+      instagram_user_id: '17841439260136409',
+      threads_user_id: '9876543210',
+    });
+
+    expect(identity.status).toBe('PASS');
+    expect(identity.instagram_user_id).toBe('17841439260136409');
+    expect(identity.threads_user_id).toBe('9876543210');
+    expect(identity.threads_identity_source).toBe('explicit');
+  });
+
+  it('flags a creative whose object_story_spec carries only a page_id for manual review, not FAIL', () => {
+    // NOT a FAIL: live evidence from act_1417353822551653 shows Meta falls back
+    // to the Facebook Page's connected Instagram account when instagram_user_id
+    // isn't pinned. Creative 1922703931759714 (no instagram_user_id) and
+    // creative 2080446776238802 (explicit instagram_user_id) are structurally
+    // identical siblings under the same page_id, both ACTIVE, and both carry a
+    // Meta-issued instagram_permalink_url — proof of a real Instagram rendering
+    // on the one with no pinned instagram_user_id. Delivery works; the
+    // advertiser only loses explicit control over which account posts. Do not
+    // "fix" this back to FAIL.
+    const { identity } = evaluateMetaCreativeCompliance({
+      object_story_spec: { page_id: '1001' },
+    });
+
+    expect(identity.status).toBe('MANUAL_REVIEW');
+    expect(identity.threads_identity_source).toBe('derived_from_page');
+    expect(identity.reasons.join(' ')).toContain('instagram_user_id');
+  });
+
+  it('flags a creative with an explicit Threads identity but no Instagram identity for manual review', () => {
+    // An explicitly pinned Threads ID is still explicit, even though the
+    // Instagram side falls back to the Page — only the status becomes
+    // MANUAL_REVIEW, not the Threads source.
+    const { identity } = evaluateMetaCreativeCompliance({
+      object_story_spec: { page_id: '1001', threads_user_id: '9876543210' },
+    });
+
+    expect(identity.status).toBe('MANUAL_REVIEW');
+    expect(identity.threads_user_id).toBe('9876543210');
+    expect(identity.threads_identity_source).toBe('explicit');
+  });
+
+  it('reads a numeric instagram_user_id as a valid identity', () => {
+    // Kept within Number.MAX_SAFE_INTEGER so the literal round-trips exactly;
+    // real Meta IDs are transported as strings, not numbers.
+    const { identity } = evaluateMetaCreativeCompliance({
+      object_story_spec: { page_id: '1001', instagram_user_id: 123456789 },
+    });
+
+    expect(identity.status).toBe('PASS');
+    expect(identity.instagram_user_id).toBe('123456789');
+    expect(identity.threads_identity_source).toBe('derived_from_instagram');
+  });
+
+  it('treats an empty-string instagram_user_id as absent', () => {
+    const { identity } = evaluateMetaCreativeCompliance({
+      object_story_spec: { page_id: '1001', instagram_user_id: '' },
+    });
+
+    expect(identity.status).toBe('MANUAL_REVIEW');
+    expect(identity.instagram_user_id).toBeUndefined();
+  });
+
+  it('treats a whitespace-only instagram_user_id as absent', () => {
+    const { identity } = evaluateMetaCreativeCompliance({
+      object_story_spec: { page_id: '1001', instagram_user_id: '   ' },
+    });
+
+    expect(identity.status).toBe('MANUAL_REVIEW');
+    expect(identity.instagram_user_id).toBeUndefined();
+  });
+
+  it('does not fault an existing-post creative for having no inline identity', () => {
+    // An existing post already carries its own identity; object_story_spec is absent.
+    const { identity } = evaluateMetaCreativeCompliance({
+      object_story_id: '1001_2002',
+    });
+
+    expect(identity.status).toBe('NOT_APPLICABLE');
+  });
+
+  it('honors a root-level identity even when object_story_id is also present', () => {
+    // Meta can return both. NOT_APPLICABLE here would drop identity IDs that the
+    // same creative record reports, leaving one record with two contradictory
+    // answers about its own identity.
+    const { identity } = evaluateMetaCreativeCompliance({
+      object_story_id: '1001_2002',
+      instagram_user_id: '17841439260136409',
+      threads_user_id: '9876543210',
+    });
+
+    expect(identity.status).toBe('PASS');
+    expect(identity.instagram_user_id).toBe('17841439260136409');
+    expect(identity.threads_user_id).toBe('9876543210');
+    expect(identity.threads_identity_source).toBe('explicit');
+  });
+
+  it('honors a root-level threads_user_id alone alongside object_story_id', () => {
+    const { identity } = evaluateMetaCreativeCompliance({
+      object_story_id: '1001_2002',
+      threads_user_id: '9876543210',
+    });
+
+    expect(identity.status).toBe('MANUAL_REVIEW');
+    expect(identity.threads_user_id).toBe('9876543210');
+    expect(identity.threads_identity_source).toBe('explicit');
+  });
+
+  it('still reports NOT_APPLICABLE when the root identity fields are blank', () => {
+    const { identity } = evaluateMetaCreativeCompliance({
+      object_story_id: '1001_2002',
+      instagram_user_id: '   ',
+      threads_user_id: '',
+    });
+
+    expect(identity.status).toBe('NOT_APPLICABLE');
+    expect(identity.threads_identity_source).toBe('none');
+  });
+
+  it('reports UNKNOWN when object_story_spec was never fetched', () => {
+    const { identity } = evaluateMetaCreativeCompliance({});
+
+    expect(identity.status).toBe('UNKNOWN');
+  });
 });

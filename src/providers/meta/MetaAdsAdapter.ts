@@ -1,6 +1,9 @@
 import { getAdCreativeMapping } from '../../tools/getAdCreativeMapping.js';
 import { resolveCreativeAssets as resolveCreativeAssetsTool } from '../../tools/resolveCreativeAssets.js';
-import { readAdCreativeFull as readAdCreativeFullTool } from '../../tools/readAdCreativeFull.js';
+import {
+  AD_CREATIVE_FULL_FIELDS,
+  readAdCreativeFull as readAdCreativeFullTool,
+} from '../../tools/readAdCreativeFull.js';
 import {
   readAdSetFull as readAdSetFullTool,
   listAdSetsFull as listAdSetsFullTool,
@@ -51,6 +54,7 @@ import {
   type MetaMessagingDestination,
   type MetaOdaxObjective,
 } from './objectiveLaunchMatrix.js';
+import { supportsThreadsUserIdField } from './metaApiVersionSupport.js';
 import type { MutationResult } from '../../types.js';
 import type { LocationBreakdown } from '../../types.js';
 import { pauseCampaign as pauseCampaignTool } from '../../tools/pauseCampaign.js';
@@ -114,7 +118,10 @@ import { listLeadForms as listLeadFormsTool } from '../../tools/listLeadForms.js
 import { listInstagramAccounts as listInstagramAccountsTool } from '../../tools/listInstagramAccounts.js';
 import { listInstagramMedia as listInstagramMediaTool } from '../../tools/listInstagramMedia.js';
 import { listPartnershipContent as listPartnershipContentTool } from '../../tools/listPartnershipContent.js';
-import { listThreadsProfiles as listThreadsProfilesTool } from '../../tools/listThreadsProfiles.js';
+import {
+  listThreadsProfiles as listThreadsProfilesTool,
+  type ThreadsProfileListResult,
+} from '../../tools/listThreadsProfiles.js';
 import { checkLaunchReadiness as checkLaunchReadinessTool } from '../../tools/checkLaunchReadiness.js';
 import {
   createProductAudience as createProductAudienceTool,
@@ -215,7 +222,17 @@ interface MetaCreativeRecord {
   platform_customizations?: unknown;
   portrait_customizations?: unknown;
   image_crops?: unknown;
+  object_story_id?: string;
+  /**
+   * Root-level identity fallback. Most creative formats write these inside
+   * object_story_spec, but the existing_post sourceInstagramMediaId path writes
+   * them at the payload root instead (no object_story_spec at all there).
+   */
+  instagram_user_id?: string;
+  threads_user_id?: string;
   object_story_spec?: {
+    instagram_user_id?: string;
+    threads_user_id?: string;
     link_data?: {
       link?: string;
       call_to_action?: { type?: string; value?: { link?: string } };
@@ -473,7 +490,7 @@ export interface MetaAdsAdapterTools {
   listThreadsProfiles(
     client: MetaClient,
     options?: { limit?: number }
-  ): Promise<ThreadsProfileResult[]>;
+  ): Promise<ThreadsProfileListResult>;
   listWhatsAppAccounts(
     client: MetaClient,
     options?: { businessId?: string; limit?: number }
@@ -708,7 +725,8 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
     try {
       const client = this.createClient(context.credential);
       const mediaSourcingSupported = supportsMediaSourcingSpec(context.credential.apiVersion);
-      const creativeFields = getMetaCreativeFields(mediaSourcingSupported);
+      const threadsUserIdSupported = supportsThreadsUserIdField(context.credential.apiVersion);
+      const creativeFields = getMetaCreativeFields(mediaSourcingSupported, threadsUserIdSupported);
       const fields = creativeFields.join(',');
       const auditContext: MetaCreativeAuditContext = {
         requestedFields: {
@@ -884,6 +902,9 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
         primary_text: creative.body,
         call_to_action: callToAction?.type,
         destination_url: destinationUrl,
+        instagram_user_id:
+          creative.object_story_spec?.instagram_user_id ?? creative.instagram_user_id,
+        threads_user_id: creative.object_story_spec?.threads_user_id ?? creative.threads_user_id,
         setup_compliance: evaluateMetaCreativeCompliance({
           ...creative,
           requested_fields: auditContext?.requestedFields,
@@ -3213,44 +3234,27 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
     }
 
     try {
+      assertKnownParams(request.params, READ_CREATIVE_FULL_PARAMS, READ_CREATIVE_FULL_PARAM_HINTS);
+    } catch (error) {
+      return {
+        ok: false,
+        provider: 'meta',
+        errors: [
+          {
+            provider: 'meta',
+            code: 'UNKNOWN_PARAM',
+            message: error instanceof Error ? error.message : String(error),
+          },
+        ],
+      };
+    }
+
+    try {
       const client = this.createClient(context.credential);
       const rawCreative = await readAdCreativeFullTool(client, { creativeId });
 
       // Determine which fields were retrieved vs missing
-      const allRequestedFields = [
-        'id',
-        'name',
-        'status',
-        'object_type',
-        'object_story_id',
-        'effective_object_story_id',
-        'actor_id',
-        'instagram_actor_id',
-        'instagram_permalink_url',
-        'authorization_category',
-        'destination_type',
-        'thumbnail_url',
-        'title',
-        'body',
-        'link',
-        'url_tags',
-        'image_hash',
-        'image_url',
-        'video_id',
-        'object_story_spec',
-        'asset_feed_spec',
-        'call_to_action',
-        'degrees_of_freedom_spec',
-        'tracking_specs',
-        'branded_content',
-        'contextual_multi_ads',
-        'asset_customization_rules',
-        'template_data',
-        'link_data',
-        'photo_data',
-        'video_data',
-        'page_welcome_message',
-      ];
+      const allRequestedFields = AD_CREATIVE_FULL_FIELDS;
 
       const fieldsRetrieved = allRequestedFields.filter((f) => rawCreative[f] !== undefined);
       const fieldsMissing = allRequestedFields.filter((f) => rawCreative[f] === undefined);
@@ -3759,8 +3763,13 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
     try {
       const client = this.createClient(context.credential);
       const limit = typeof request.params.limit === 'number' ? request.params.limit : undefined;
-      const profiles = await this.tools.listThreadsProfiles(client, { limit });
-      return { ok: true, provider: 'meta', data: profiles };
+      const { profiles, warnings } = await this.tools.listThreadsProfiles(client, { limit });
+      return {
+        ok: true,
+        provider: 'meta',
+        data: profiles,
+        ...(warnings.length > 0 ? { meta: { warnings } } : {}),
+      };
     } catch (error) {
       return this.errorResponse(error);
     }
@@ -4299,7 +4308,9 @@ const CREATE_AD_CREATIVE_PARAM_HINTS: Record<string, string> = {
   video_id: 'videoId',
   call_to_action_type: 'callToActionType',
   instagram_user_id: 'instagramUserId',
-  threads_profile_id: 'threadsProfileId',
+  threads_user_id: 'threadsProfileId',
+  threads_profile_id:
+    'threadsProfileId (catatan: threads_profile_id bukan field Graph API — nama yang benar adalah threads_user_id)',
   degrees_of_freedom_spec: 'optOutEnhancements',
 };
 
@@ -4322,6 +4333,25 @@ function assertKnownParams(
     `Field berikut tidak dikenali dan TIDAK dikirim ke Meta: ${detail}. params bukan passthrough mentah ke Graph API — pakai field bertipe yang sesuai, atau hapus field ini.`
   );
 }
+
+// Read tools accept the shared envelope plus their own id. Everything else was
+// previously swallowed, so params.fields looked like a field-selection override
+// and quietly did nothing at all.
+const READ_CREATIVE_FULL_PARAMS = new Set([
+  'provider',
+  'providers',
+  'accountId',
+  'since',
+  'until',
+  'creativeId',
+]);
+
+const READ_CREATIVE_FULL_PARAM_HINTS: Record<string, string> = {
+  fields:
+    'tool ini selalu membaca seluruh field yang didukung; tidak ada override fields. Lihat AD_CREATIVE_FULL_FIELDS di src/tools/readAdCreativeFull.ts',
+  creative_id: 'creativeId',
+  id: 'creativeId',
+};
 
 /**
  * attribution_spec override for a clone. Accepts Meta's own array shape; null and []
@@ -5278,7 +5308,10 @@ function supportsMediaSourcingSpec(apiVersion: string | undefined): boolean {
   return match !== null && Number(match[1]) >= 23;
 }
 
-function getMetaCreativeFields(mediaSourcingSupported: boolean): string[] {
+function getMetaCreativeFields(
+  mediaSourcingSupported: boolean,
+  threadsUserIdSupported: boolean
+): string[] {
   const fields = [
     'id',
     'name',
@@ -5290,6 +5323,8 @@ function getMetaCreativeFields(mediaSourcingSupported: boolean): string[] {
     'video_id',
     'object_type',
     'object_story_spec',
+    'object_story_id',
+    'instagram_user_id',
     'status',
     'degrees_of_freedom_spec',
     'asset_feed_spec',
@@ -5297,6 +5332,7 @@ function getMetaCreativeFields(mediaSourcingSupported: boolean): string[] {
     'portrait_customizations',
     'image_crops',
   ];
+  if (threadsUserIdSupported) fields.push('threads_user_id');
   if (mediaSourcingSupported) fields.push('media_sourcing_spec');
   return fields;
 }

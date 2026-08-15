@@ -181,6 +181,9 @@ export function buildCpasCatalogBundlePreview(
               ...(payload.instagramUserId?.trim()
                 ? { instagram_user_id: payload.instagramUserId.trim() }
                 : {}),
+              ...(payload.threadsProfileId?.trim()
+                ? { threads_user_id: payload.threadsProfileId.trim() }
+                : {}),
               link_data: {
                 ...(collection?.coverImageHash?.trim()
                   ? { image_hash: collection.coverImageHash.trim() }
@@ -201,6 +204,9 @@ export function buildCpasCatalogBundlePreview(
                 page_id: payload.pageId.trim(),
                 ...(payload.instagramUserId?.trim()
                   ? { instagram_user_id: payload.instagramUserId.trim() }
+                  : {}),
+                ...(payload.threadsProfileId?.trim()
+                  ? { threads_user_id: payload.threadsProfileId.trim() }
                   : {}),
                 video_data: {
                   video_id: video?.videoId.trim() ?? '',
@@ -234,6 +240,9 @@ export function buildCpasCatalogBundlePreview(
                 page_id: payload.pageId.trim(),
                 ...(payload.instagramUserId?.trim()
                   ? { instagram_user_id: payload.instagramUserId.trim() }
+                  : {}),
+                ...(payload.threadsProfileId?.trim()
+                  ? { threads_user_id: payload.threadsProfileId.trim() }
                   : {}),
                 template_data: {
                   message: payload.primaryText.trim(),

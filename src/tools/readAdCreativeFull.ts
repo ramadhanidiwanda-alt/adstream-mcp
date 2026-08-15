@@ -21,7 +21,7 @@ export interface UnreadableAdCreativeFields {
 // (e.g. field not applicable to this creative type), the others still succeed.
 // Each batch is attempted independently and merged.
 
-const FIELD_BATCHES: string[][] = [
+export const FIELD_BATCHES: string[][] = [
   // Batch 0: Absolute core — always available
   ['id', 'name', 'status', 'object_type'],
 
@@ -31,47 +31,64 @@ const FIELD_BATCHES: string[][] = [
   // Batch 2: Instagram
   ['instagram_actor_id', 'instagram_permalink_url'],
 
-  // Batch 3: Compliance & type
+  // Batch 3: Ad identity. instagram_actor_id above is the legacy actor field and is
+  // NOT the same as instagram_user_id — reading it back told users nothing about the
+  // identity they actually configured. Kept in its own batch so a capability gate on
+  // one identity field cannot take the other down with it.
+  ['instagram_user_id', 'threads_user_id'],
+
+  // Batch 4: Compliance & type
   ['authorization_category', 'destination_type'],
 
-  // Batch 4: Visual assets
+  // Batch 5: Visual assets
   ['thumbnail_url', 'image_hash', 'image_url', 'video_id'],
 
-  // Batch 5: Text fields (may fail for some creative types)
+  // Batch 6: Text fields (may fail for some creative types)
   ['title', 'body'],
 
-  // Batch 6-7: URL fields. Keep url_tags separate so Meta rejecting link
+  // Batch 7-8: URL fields. Keep url_tags separate so Meta rejecting link
   // for a creative type does not hide configured URL parameters.
   ['link'],
   ['url_tags'],
 
-  // Batch 8: Object story spec (core structured data)
+  // Batch 9: Object story spec (core structured data)
   ['object_story_spec'],
 
-  // Batch 9: Asset feed spec (Dynamic Creative)
+  // Batch 10: Asset feed spec (Dynamic Creative)
   ['asset_feed_spec'],
 
-  // Batch 10: CTA & Welcome Message (CTWA)
+  // Batch 11: CTA & Welcome Message (CTWA)
   ['call_to_action', 'page_welcome_message'],
 
-  // Batch 11: Dynamic Creative internals
+  // Batch 12: Dynamic Creative internals
   ['degrees_of_freedom_spec', 'asset_customization_rules'],
 
-  // Batch 12: Tracking & Context
+  // Batch 13: Tracking & Context
   ['tracking_specs', 'contextual_multi_ads'],
 
-  // Batch 13: Branded content
+  // Batch 14: Branded content
   ['branded_content'],
 
-  // Batch 14: Template/raw data
+  // Batch 15: Template/raw data
   ['template_data', 'link_data', 'photo_data', 'video_data'],
 
-  // Batch 15: Placement customization fields used by Ads Manager for mixed placements
+  // Batch 16: Placement customization fields used by Ads Manager for mixed placements
   ['platform_customizations', 'portrait_customizations'],
 
-  // Batch 16: Capability-gated creative/media sourcing fields
+  // Batch 17: Capability-gated creative/media sourcing fields
   ['media_sourcing_spec', 'creative_sourcing_spec'],
 ];
+
+/**
+ * Every field this tool asks Meta for, flattened from FIELD_BATCHES.
+ *
+ * Derived rather than hand-written: this list previously existed as a second
+ * hardcoded copy in MetaAdsAdapter and a third in docs/meta/, and all three had
+ * drifted apart — the adapter's fields_retrieved/fields_missing pair silently
+ * omitted four fields the tool really does fetch, so the tool misreported its
+ * own coverage. One source, no drift.
+ */
+export const AD_CREATIVE_FULL_FIELDS: readonly string[] = FIELD_BATCHES.flat();
 
 /**
  * Read the full configuration of a Meta Ad Creative.

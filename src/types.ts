@@ -522,6 +522,13 @@ export interface MetaCreativeVerificationSummary {
   hasDegreesOfFreedomSpec?: boolean;
   hasMediaSourcingSpec?: boolean;
   urlTagsStatus?: 'not_requested' | 'verified' | 'missing' | 'mismatch';
+  /**
+   * Did the Instagram/Threads identity the payload sent actually land? Meta
+   * drops creative fields it does not recognize without any error, so an
+   * identity can only be trusted once it is read back. Compared against both
+   * placements Meta accepts: inside object_story_spec and at the payload root.
+   */
+  identityStatus?: 'not_requested' | 'verified' | 'missing' | 'mismatch';
   videoCtwaStatus?: 'not_requested' | 'verified' | 'missing_cta_link' | 'missing_welcome_message';
   placementImageCount?: number;
   placementRuleCount?: number;

@@ -17,9 +17,18 @@ Tool ini mengembalikan **semua field** dari endpoint Graph API `GET /{creative_i
 
 ## Cara Kerja
 
-1. Panggil `GET /{creative_id}?fields=[semua field yang dikenal]`
-2. Jika request pertama gagal (URL terlalu panjang / field limit), fallback ke **dua request paralel** dan merge hasilnya.
-3. Kembalikan seluruh payload dalam format JSON lengkap.
+1. Field dibagi menjadi beberapa **batch kecil**, lalu setiap batch dipanggil
+   terpisah lewat `GET /{creative_id}?fields=<batch>`.
+2. Batch yang gagal (mis. field tidak berlaku untuk tipe creative ini, atau
+   ter-gate oleh capability) **tidak menggagalkan batch lain** — kegagalannya
+   dicatat di `unreadable_fields`.
+3. Hasil semua batch di-merge menjadi satu payload JSON.
+
+Daftar field yang diminta didefinisikan **satu kali** di `FIELD_BATCHES`
+(`src/tools/readAdCreativeFull.ts`) dan diekspor sebagai `AD_CREATIVE_FULL_FIELDS`.
+Laporan `fields_retrieved` / `fields_missing` diturunkan dari konstanta yang sama.
+Jangan menyalin daftar ini secara manual ke tempat lain — tiga salinan manual
+sebelumnya sudah melenceng satu sama lain.
 
 ### Field yang Diminta
 
@@ -27,20 +36,44 @@ Tool ini mengembalikan **semua field** dari endpoint Graph API `GET /{creative_i
 |----------|-------|
 | **Core Identity** | `id`, `name`, `status`, `object_type`, `object_story_id`, `effective_object_story_id` |
 | **Ad Account** | `actor_id`, `instagram_actor_id`, `instagram_permalink_url` |
+| **Ad Identity** | `instagram_user_id`, `threads_user_id` |
 | **Compliance** | `authorization_category`, `destination_type` |
 | **Assets** | `thumbnail_url`, `title`, `body`, `link`, `url_tags`, `image_hash`, `image_url`, `video_id` |
 | **Structured Data** | `object_story_spec`, `asset_feed_spec`, `call_to_action`, `page_welcome_message` |
 | **Dynamic Creative** | `degrees_of_freedom_spec`, `asset_customization_rules`, `contextual_multi_ads` |
 | **Tracking** | `tracking_specs`, `branded_content` |
 | **Raw Data** | `template_data`, `link_data`, `photo_data`, `video_data` |
+| **Placement Customization** | `platform_customizations`, `portrait_customizations` |
+| **Media Sourcing** | `media_sourcing_spec`, `creative_sourcing_spec` |
+
+> `instagram_actor_id` (baris **Ad Account**) adalah field lama dan **bukan**
+> `instagram_user_id`. Keduanya berbeda; hanya `instagram_user_id` yang menentukan
+> identitas Instagram/Threads pada `object_story_spec`.
+>
+> `threads_user_id` sering kosong walau iklan **memang tayang di Threads** — Meta
+> menurunkan identitas Threads dari akun Instagram yang terhubung. Kosong di sini
+> bukan berarti gagal. Untuk nama field wire yang benar (`threads_user_id`, bukan
+> `threads_profile_id`), penempatannya di `object_story_spec` vs level root, dan
+> aturan turunan identitas Instagram/Threads (termasuk turunan dari Facebook Page),
+> lihat `docs/meta/threads-ads-identity.md`.
 
 ---
 
 ## Contoh Request
 
+Tool ini **tidak** mengirim satu request gabungan — setiap batch di
+`FIELD_BATCHES` dipanggil sebagai request terpisah, contoh:
+
 ```
-GET /v21.0/{creative_id}?fields=id,name,status,object_type,object_story_spec,asset_feed_spec,...
+GET /v21.0/{creative_id}?fields=id,name,status,object_type
+GET /v21.0/{creative_id}?fields=instagram_user_id,threads_user_id
+GET /v21.0/{creative_id}?fields=object_story_spec
+...dan seterusnya untuk tiap batch di FIELD_BATCHES
 ```
+
+Hasil dari semua batch yang berhasil di-merge menjadi satu payload JSON.
+Batch yang gagal **tidak** menghentikan batch lain — kegagalannya dicatat
+di `unreadable_fields` pada hasil akhir.
 
 ---
 
@@ -204,6 +237,6 @@ GET /v21.0/{creative_id}?fields=id,name,status,object_type,object_story_spec,ass
 
 - Tool ini **read-only** — tidak mengubah apapun.
 - Tidak memerlukan `adAccountId` — cukup `creativeId`.
-- Meta API field limit: tidak ada batasan ketat per-request, tapi URL length limited (~8K chars). Field list kita ~400 chars — aman.
+- Field diminta lewat batch-batch kecil (`FIELD_BATCHES`), bukan satu request gabungan — jadi panjang URL per-request bukan masalah secara struktural. Batch dipecah untuk isolasi kegagalan per-field (lihat `## Cara Kerja`), bukan untuk menghindari limit panjang URL.
 - Jika field tidak tersedia untuk creative tertentu, field tersebut tidak muncul di response (Meta tidak mengembalikan `null` untuk field yang tidak relevan).
 - Field `ad_format` (preview) tidak termasuk — gunakan `ads_get_ad_preview` untuk itu.

@@ -167,7 +167,35 @@ export interface AdsPlacementCustomizationCompliance extends AdsComplianceCheck 
   preview_required: boolean;
 }
 
+/**
+ * Where the Threads identity comes from.
+ * - `explicit`: threads_user_id is set on the creative.
+ * - `derived_from_instagram`: no threads_user_id, but instagram_user_id is set —
+ *   Meta derives Threads delivery from an Instagram-associated Threads account.
+ *   This is a normal, working configuration, NOT a missing field.
+ * - `derived_from_page`: neither instagram_user_id nor threads_user_id is pinned
+ *   on the creative — Meta falls back to the Facebook Page's connected Instagram
+ *   account, and Threads delivery follows from there. Delivery still works; the
+ *   advertiser has simply not pinned an explicit account, so they lose control
+ *   over which account posts and resilience if the Page's IG link ever changes.
+ * - `none`: not a real derivation path — used as a placeholder value on results
+ *   where Threads identity doesn't apply at all (NOT_APPLICABLE existing-post
+ *   creatives, or UNKNOWN when object_story_spec was never fetched).
+ */
+export type AdsThreadsIdentitySource =
+  | 'explicit'
+  | 'derived_from_instagram'
+  | 'derived_from_page'
+  | 'none';
+
+export interface AdsIdentityCompliance extends AdsComplianceCheck {
+  instagram_user_id?: string;
+  threads_user_id?: string;
+  threads_identity_source: AdsThreadsIdentitySource;
+}
+
 export interface AdsCreativeSetupCompliance {
+  identity: AdsIdentityCompliance;
   ai_creative: AdsAiCreativeCompliance;
   related_media: AdsComplianceCheck;
   placement_customization: AdsPlacementCustomizationCompliance;
@@ -185,6 +213,8 @@ export interface AdsCreativeMetadata {
   description?: string;
   call_to_action?: string;
   destination_url?: string;
+  instagram_user_id?: string;
+  threads_user_id?: string;
   setup_compliance?: AdsCreativeSetupCompliance;
 }
 

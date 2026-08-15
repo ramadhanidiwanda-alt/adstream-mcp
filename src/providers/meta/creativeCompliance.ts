@@ -2,6 +2,7 @@ import type {
   AdsComplianceCheck,
   AdsComplianceStatus,
   AdsCreativeSetupCompliance,
+  AdsIdentityCompliance,
   AdsPlacementCustomizationCompliance,
 } from '../../broker/types.js';
 
@@ -12,6 +13,18 @@ export interface MetaCreativeComplianceInput {
   platform_customizations?: unknown;
   portrait_customizations?: unknown;
   image_crops?: unknown;
+  object_story_spec?: unknown;
+  object_story_id?: unknown;
+  /**
+   * Root-level identity fallback. Most creative formats write instagram_user_id
+   * / threads_user_id inside object_story_spec, but the existing_post
+   * sourceInstagramMediaId path writes them at the payload root instead (no
+   * object_story_spec at all on that path). Meta documents both placements as
+   * valid, so evaluateIdentity checks object_story_spec first and falls back
+   * here before concluding the identity is absent.
+   */
+  instagram_user_id?: unknown;
+  threads_user_id?: unknown;
   requested_fields?: {
     degrees_of_freedom_spec?: boolean;
     media_sourcing_spec?: boolean;
@@ -72,6 +85,12 @@ export function evaluateMetaCreativeCompliance(
   input: MetaCreativeComplianceInput
 ): AdsCreativeSetupCompliance {
   return {
+    identity: evaluateIdentity(
+      input.object_story_spec,
+      input.object_story_id,
+      input.instagram_user_id,
+      input.threads_user_id
+    ),
     ai_creative: evaluateAiCreative(
       input.degrees_of_freedom_spec,
       input.requested_fields?.degrees_of_freedom_spec === true
@@ -246,6 +265,125 @@ function evaluateRelatedMedia(
         status: 'PASS',
         reasons: ['Meta returned an empty related media list.'],
       };
+}
+
+/**
+ * A creative with no instagram_user_id is NOT a delivery failure: Meta falls
+ * back to the Facebook Page's connected Instagram account, so Instagram (and
+ * Threads, which follows from Instagram) still deliver. Live evidence from
+ * act_1417353822551653 confirms this — creative 1922703931759714 (no
+ * instagram_user_id) and creative 2080446776238802 (explicit instagram_user_id)
+ * are structurally identical siblings under the same page_id, both ACTIVE, and
+ * both carry a Meta-issued instagram_permalink_url, which Meta only mints for a
+ * creative with a real Instagram rendering. What the advertiser loses is
+ * explicit control over which Instagram account posts, and resilience if the
+ * Page's IG link ever changes — a configuration gap worth a human look, not a
+ * delivery defect. It is reported as MANUAL_REVIEW, never FAIL.
+ *
+ * A creative with instagram_user_id but no threads_user_id is likewise NOT a
+ * defect: Meta derives Threads delivery from an Instagram-associated Threads
+ * account, so the field is legitimately absent on creatives that are
+ * demonstrably serving on Threads. Reporting that as missing would be a new
+ * false alarm in place of the old blind spot, so it gets its own state rather
+ * than a pass/fail verdict.
+ */
+function evaluateIdentity(
+  objectStorySpec: unknown,
+  objectStoryId: unknown,
+  topLevelInstagramUserId: unknown,
+  topLevelThreadsUserId: unknown
+): AdsIdentityCompliance {
+  if (!isRecord(objectStorySpec)) {
+    // Some creatives (the existing_post sourceInstagramMediaId path, among
+    // others) carry instagram_user_id/threads_user_id at the payload root
+    // instead of inside object_story_spec — Meta documents both placements as
+    // valid. A root-level identity is real identity and is honored first: a
+    // creative that returns both object_story_id and a root-level identity must
+    // not be reported as NOT_APPLICABLE with the IDs dropped, or this audit
+    // would contradict the same IDs echoed by the creative record itself.
+    const rootInstagramUserId = readIdentityId(topLevelInstagramUserId);
+    const rootThreadsUserId = readIdentityId(topLevelThreadsUserId);
+    if (rootInstagramUserId !== undefined || rootThreadsUserId !== undefined) {
+      return evaluateIdentityFromIds(rootInstagramUserId, rootThreadsUserId);
+    }
+
+    // No identity anywhere: an existing-post creative carries identity on the
+    // post itself, so there is nothing here to audit.
+    if (typeof objectStoryId === 'string' && objectStoryId.trim().length > 0) {
+      return {
+        status: 'NOT_APPLICABLE',
+        threads_identity_source: 'none',
+        reasons: [
+          'This creative promotes an existing post, which already carries its own identity.',
+        ],
+      };
+    }
+
+    return evaluateIdentityFromIds(
+      rootInstagramUserId,
+      rootThreadsUserId,
+      'Meta did not return object_story_spec.'
+    );
+  }
+
+  const instagramUserId =
+    readIdentityId(objectStorySpec.instagram_user_id) ?? readIdentityId(topLevelInstagramUserId);
+  const threadsUserId =
+    readIdentityId(objectStorySpec.threads_user_id) ?? readIdentityId(topLevelThreadsUserId);
+
+  return evaluateIdentityFromIds(instagramUserId, threadsUserId);
+}
+
+function evaluateIdentityFromIds(
+  instagramUserId: string | undefined,
+  threadsUserId: string | undefined,
+  unknownReason?: string
+): AdsIdentityCompliance {
+  if (instagramUserId === undefined && threadsUserId === undefined && unknownReason) {
+    return {
+      status: 'UNKNOWN',
+      threads_identity_source: 'none',
+      reasons: [unknownReason],
+    };
+  }
+
+  if (instagramUserId === undefined) {
+    return {
+      status: 'MANUAL_REVIEW',
+      threads_user_id: threadsUserId,
+      threads_identity_source: threadsUserId === undefined ? 'derived_from_page' : 'explicit',
+      reasons: [
+        "This creative has no instagram_user_id pinned, so Meta will use the Facebook Page's connected Instagram account. Confirm that account is the intended one.",
+      ],
+    };
+  }
+
+  if (threadsUserId === undefined) {
+    return {
+      status: 'PASS',
+      instagram_user_id: instagramUserId,
+      threads_identity_source: 'derived_from_instagram',
+      reasons: [
+        'instagram_user_id is set and no threads_user_id is configured; Meta derives Threads delivery from the associated Instagram account.',
+      ],
+    };
+  }
+
+  return {
+    status: 'PASS',
+    instagram_user_id: instagramUserId,
+    threads_user_id: threadsUserId,
+    threads_identity_source: 'explicit',
+    reasons: [
+      'Both instagram_user_id and threads_user_id are set on this creative (inside object_story_spec or at the payload root).',
+    ],
+  };
+}
+
+function readIdentityId(value: unknown): string | undefined {
+  if (typeof value === 'string') return value.trim() === '' ? undefined : value.trim();
+  if (typeof value === 'number') return String(value);
+  return undefined;
 }
 
 function evaluatePlacementCustomization(

@@ -1281,6 +1281,7 @@ describe('MetaAdsAdapter', () => {
       'platform_customizations',
       'portrait_customizations',
       'image_crops',
+      'object_story_id',
     ]) {
       expect(capturedParams).toMatchObject({ fields: expect.stringContaining(field) });
     }
@@ -1547,6 +1548,155 @@ describe('MetaAdsAdapter', () => {
 
     expect(capturedParams?.fields).not.toContain('media_sourcing_spec');
     expect(response.data?.[0]?.creative?.setup_compliance?.related_media.status).toBe('UNKNOWN');
+  });
+
+  it('omits threads_user_id on Meta API versions below the supported floor', async () => {
+    // Creative fields go out as ONE combined request, so an unsupported field
+    // 400s the entire call (code 100), compliance audit included. Losing the
+    // read-back field on an old version is the cheaper failure.
+    let capturedParams: Record<string, unknown> | undefined;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: () =>
+        ({
+          metaGet: async (_path: string, params: Record<string, unknown>) => {
+            capturedParams = params;
+            return { data: [{ id: 'creative_legacy', name: 'Legacy Creative' }] };
+          },
+        }) as never,
+    });
+
+    await adapter.getCreativePerformance({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {},
+      credentials: {
+        provider: 'meta',
+        accessToken: 'secret-token',
+        accountId: 'act_123',
+        apiVersion: 'v20.0',
+        source: 'test',
+      },
+    });
+
+    expect(capturedParams?.fields).not.toContain('threads_user_id');
+    // instagram_user_id is long-established and stays ungated.
+    expect(capturedParams?.fields).toContain('instagram_user_id');
+  });
+
+  it('requests threads_user_id at and above the supported floor', async () => {
+    const captured: string[] = [];
+    const adapter = new MetaAdsAdapter({
+      clientFactory: () =>
+        ({
+          metaGet: async (_path: string, params: Record<string, unknown>) => {
+            captured.push(String(params.fields));
+            return { data: [{ id: 'creative_modern', name: 'Modern Creative' }] };
+          },
+        }) as never,
+    });
+
+    for (const apiVersion of ['v23.0', 'v25.0']) {
+      await adapter.getCreativePerformance({
+        provider: 'meta',
+        accountId: 'act_123',
+        params: {},
+        credentials: {
+          provider: 'meta',
+          accessToken: 'secret-token',
+          accountId: 'act_123',
+          apiVersion,
+          source: 'test',
+        },
+      });
+    }
+
+    expect(captured).toHaveLength(2);
+    for (const fields of captured) {
+      expect(fields).toContain('threads_user_id');
+    }
+  });
+
+  it('surfaces object_story_spec identities on the normalized creative', async () => {
+    // Identity was previously reachable only via includeRaw, so a user checking
+    // whether their Threads/Instagram identity landed had nowhere to look.
+    const adapter = new MetaAdsAdapter({
+      clientFactory: () =>
+        ({
+          metaGet: async () => ({
+            data: [
+              {
+                id: '2080446776238802',
+                name: 'IG identity creative',
+                object_story_spec: {
+                  page_id: '1001',
+                  instagram_user_id: '17841439260136409',
+                  threads_user_id: '9876543210',
+                },
+              },
+            ],
+            paging: { cursors: {} },
+          }),
+        }) as never,
+    });
+
+    const response = await adapter.getCreativePerformance({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {},
+      credentials: {
+        provider: 'meta',
+        accessToken: 'secret-token',
+        accountId: 'act_123',
+        apiVersion: 'v23.0',
+        source: 'test',
+      },
+    });
+
+    expect(response.ok).toBe(true);
+    expect(response.data?.[0]?.creative?.instagram_user_id).toBe('17841439260136409');
+    expect(response.data?.[0]?.creative?.threads_user_id).toBe('9876543210');
+  });
+
+  it('falls back to root-level identity fields when object_story_spec has none', async () => {
+    // The existing_post sourceInstagramMediaId path writes instagram_user_id and
+    // threads_user_id at the payload root, not inside object_story_spec. Without
+    // this fallback, a creative built there would surface no identity at all.
+    const adapter = new MetaAdsAdapter({
+      clientFactory: () =>
+        ({
+          metaGet: async () => ({
+            data: [
+              {
+                id: '2080446776238899',
+                name: 'Root identity creative',
+                instagram_user_id: '17841439260136409',
+                threads_user_id: '9876543210',
+              },
+            ],
+            paging: { cursors: {} },
+          }),
+        }) as never,
+    });
+
+    const response = await adapter.getCreativePerformance({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {},
+      credentials: {
+        provider: 'meta',
+        accessToken: 'secret-token',
+        accountId: 'act_123',
+        apiVersion: 'v23.0',
+        source: 'test',
+      },
+    });
+
+    expect(response.ok).toBe(true);
+    expect(response.data?.[0]?.creative?.instagram_user_id).toBe('17841439260136409');
+    expect(response.data?.[0]?.creative?.threads_user_id).toBe('9876543210');
+    expect(response.data?.[0]?.creative?.setup_compliance?.identity.threads_identity_source).toBe(
+      'explicit'
+    );
   });
 
   it('audits active ads with their ad set placement targeting', async () => {
@@ -1836,6 +1986,7 @@ describe('MetaAdsAdapter', () => {
       'platform_customizations',
       'portrait_customizations',
       'image_crops',
+      'object_story_id',
     ]) {
       expect(capturedParams).toMatchObject({ fields: expect.stringContaining(field) });
     }
@@ -4759,6 +4910,45 @@ describe('MetaAdsAdapter', () => {
     });
 
     expect(response.ok).toBe(false);
+  });
+});
+
+describe('MetaAdsAdapter — ads_read_creative_full param validation', () => {
+  function createAdapterWithMockClient() {
+    return new MetaAdsAdapter({
+      clientFactory: () =>
+        ({
+          metaGetObject: async () => ({ id: '123', name: 'Test Creative' }),
+          metaGet: async () => ({}),
+          metaPost: async () => ({}),
+          metaDelete: async () => ({}),
+        }) as never,
+    });
+  }
+
+  it('rejects a params.fields override instead of ignoring it', async () => {
+    // params.fields reads as a field-selection override; it never was one.
+    // Silently dropping it is the worst of the available options.
+    const adapter = createAdapterWithMockClient();
+    const response = await adapter.readAdCreativeFull({
+      provider: 'meta',
+      params: { creativeId: '123', fields: 'id,name,threads_user_id' },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    } as never);
+
+    expect(response.ok).toBe(false);
+    expect(JSON.stringify(response)).toContain('fields');
+  });
+
+  it('still accepts the documented params', async () => {
+    const adapter = createAdapterWithMockClient();
+    const response = await adapter.readAdCreativeFull({
+      provider: 'meta',
+      params: { creativeId: '123', accountId: 'act_1' },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    } as never);
+
+    expect(response.ok).toBe(true);
   });
 });
 

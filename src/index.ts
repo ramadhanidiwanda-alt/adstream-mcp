@@ -174,7 +174,10 @@ export type { ListInstagramMediaOptions } from './tools/listInstagramMedia.js';
 export { listPartnershipContent } from './tools/listPartnershipContent.js';
 export type { ListPartnershipContentOptions } from './tools/listPartnershipContent.js';
 export { listThreadsProfiles } from './tools/listThreadsProfiles.js';
-export type { ThreadsProfileResult } from './tools/listThreadsProfiles.js';
+export type {
+  ThreadsProfileResult,
+  ThreadsProfileListResult,
+} from './tools/listThreadsProfiles.js';
 
 // --- WhatsApp Discovery ---
 export { listWhatsAppAccounts } from './tools/listWhatsAppAccounts.js';

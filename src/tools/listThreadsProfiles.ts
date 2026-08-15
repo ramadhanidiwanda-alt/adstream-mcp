@@ -1,5 +1,6 @@
 import type { MetaClient } from '../metaClient.js';
 import { listPages } from './listPages.js';
+import { MetaApiError } from '../utils/metaError.js';
 
 export interface ThreadsProfileResult {
   threadsId: string;
@@ -8,6 +9,16 @@ export interface ThreadsProfileResult {
   profilePic?: string;
   pageId: string;
   pageName: string;
+}
+
+export interface ThreadsProfileListResult {
+  profiles: ThreadsProfileResult[];
+  /**
+   * Non-fatal problems encountered while enumerating. A permission failure and a
+   * genuine absence both produce an empty profile list, and only this field tells
+   * them apart.
+   */
+  warnings: string[];
 }
 
 /**
@@ -20,9 +31,11 @@ export interface ThreadsProfileResult {
 export async function listThreadsProfiles(
   client: MetaClient,
   options: { limit?: number } = {}
-): Promise<ThreadsProfileResult[]> {
+): Promise<ThreadsProfileListResult> {
   const pages = await listPages(client, { limit: options.limit });
   const results: ThreadsProfileResult[] = [];
+  const warnings: string[] = [];
+  let warnedForPermission = false;
 
   for (const page of pages) {
     try {
@@ -48,11 +61,32 @@ export async function listThreadsProfiles(
           pageName: page.name,
         });
       }
-    } catch {
-      // Skip pages that don't have a connected Threads profile
+    } catch (error) {
+      // A page with no Threads profile and a token that cannot see Threads
+      // profiles both land here. Only the first is a genuine "none". A missing
+      // scope applies identically to every page, so warn once rather than once
+      // per page (30 pages with the same missing scope should read as ONE
+      // problem, not 30 copies of the same message).
+      if (isThreadsPermissionError(error) && !warnedForPermission) {
+        warnedForPermission = true;
+        warnings.push(
+          `Page ${page.id} (${page.name}): Meta menolak pembacaan threads_profile — token kemungkinan belum punya scope threads_business_basic. Hasil kosong di sini BUKAN berarti tidak ada Threads profile.`
+        );
+      }
       continue;
     }
   }
 
-  return results;
+  return { profiles: results, warnings };
+}
+
+function isThreadsPermissionError(error: unknown): boolean {
+  if (!(error instanceof MetaApiError)) return false;
+  return (
+    [3, 10, 200].includes(error.code) ||
+    error.type === 'OAuthException' ||
+    /permission|scope|not authorized|threads_business/i.test(
+      [error.message, error.userTitle, error.userMessage].filter(Boolean).join(' ')
+    )
+  );
 }

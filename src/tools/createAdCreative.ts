@@ -25,6 +25,7 @@ import {
   type MetaOdaxObjective,
 } from '../providers/meta/objectiveLaunchMatrix.js';
 import { getMetaCreativeErrorGuidance } from '../providers/meta/metaCreativeErrorGuidance.js';
+import { supportsThreadsUserIdField } from '../providers/meta/metaApiVersionSupport.js';
 import { normalizeAccountPath } from '../utils/normalizeAccountId.js';
 import {
   formatMetaWriteError,
@@ -239,6 +240,7 @@ export async function createAdCreative(
 
     const intendedFormat = resolveVerificationFormat(options);
     const videoCtwaRequirement = getVideoCtwaReadBackRequirement(preview);
+    const intendedIdentity = readCreativeIdentity(preview);
     const verification = intendedFormat
       ? await verifyCreatedCreative(
           client,
@@ -246,6 +248,7 @@ export async function createAdCreative(
           intendedFormat,
           options.urlTags,
           videoCtwaRequirement,
+          intendedIdentity,
           maxRetries
         )
       : undefined;
@@ -304,7 +307,22 @@ export async function createAdCreative(
 }
 
 const CREATIVE_READ_BACK_FIELDS =
-  'id,name,object_story_id,object_story_spec,asset_feed_spec,platform_customizations,portrait_customizations,degrees_of_freedom_spec,media_sourcing_spec,product_set_id,omnichannel_link_spec,effective_object_story_id,source_instagram_media_id,url_tags';
+  'id,name,object_story_id,object_story_spec,asset_feed_spec,platform_customizations,portrait_customizations,degrees_of_freedom_spec,media_sourcing_spec,product_set_id,omnichannel_link_spec,effective_object_story_id,source_instagram_media_id,url_tags,instagram_user_id';
+
+/**
+ * This list goes out as ONE combined Graph request, exactly like
+ * getMetaCreativeFields, so an unsupported field 400s the whole read-back —
+ * which this tool catches into a warning. threads_user_id therefore gets the
+ * same version gate, reusing the single shared predicate.
+ *
+ * media_sourcing_spec above is ungated; that predates this change and is left
+ * as it was found.
+ */
+function getCreativeReadBackFields(apiVersion: string | undefined): string {
+  return supportsThreadsUserIdField(apiVersion)
+    ? `${CREATIVE_READ_BACK_FIELDS},threads_user_id`
+    : CREATIVE_READ_BACK_FIELDS;
+}
 
 async function verifyCreatedCreative(
   client: MetaClient,
@@ -312,25 +330,43 @@ async function verifyCreatedCreative(
   intendedFormat: MetaCreativeFormat,
   intendedUrlTags: string | undefined,
   videoCtwaRequirement: VideoCtwaReadBackRequirement | undefined,
+  intendedIdentity: CreativeIdentity,
   maxRetries: number
 ): Promise<MetaCreativeVerification> {
   try {
     const fields = await client.metaGetObject<Record<string, unknown>>(
       `/${creativeId}`,
-      { fields: CREATIVE_READ_BACK_FIELDS },
+      { fields: getCreativeReadBackFields(client.apiVersion) },
       maxRetries
     );
     const matchesIntendedFormat = matchesCreativeFormat(fields, intendedFormat);
-    const summary = summarizeCreativeVerification(fields, intendedUrlTags, videoCtwaRequirement);
+    const summary = summarizeCreativeVerification(
+      fields,
+      intendedUrlTags,
+      videoCtwaRequirement,
+      intendedIdentity
+    );
     const urlTagsWarning = getUrlTagsVerificationWarning(summary.urlTagsStatus);
     const videoCtwaWarning = getVideoCtwaVerificationWarning(summary.videoCtwaStatus);
+    const identityWarning = getIdentityVerificationWarning(summary.identityStatus);
 
+    // identityWarning is deliberately NOT part of this gate. Callers escalate a
+    // non-'verified' verification to status 'failed' on the strict paths
+    // (placement_image, video CTWA), and Meta legitimately declines to echo
+    // threads_user_id on creatives that really are serving on Threads — see
+    // docs/meta/threads-ads-identity.md ("akan terbaca kosong ... kosong di sini
+    // bukan berarti gagal", with live delivery evidence). Hard-failing that
+    // would report a create that succeeded as failed, pushing callers to retry
+    // and duplicate a creative that already exists. The identity stays a
+    // reported signal — summary.identityStatus plus the warning text — and never
+    // a verdict. Do not fold it back into this condition.
     if (matchesIntendedFormat && !urlTagsWarning && !videoCtwaWarning) {
       return {
         status: 'verified',
         creativeId,
         effectiveFormat: intendedFormat,
         summary,
+        ...(identityWarning ? { warning: identityWarning } : {}),
       };
     }
 
@@ -347,6 +383,7 @@ async function verifyCreatedCreative(
       warning:
         urlTagsWarning ??
         videoCtwaWarning ??
+        identityWarning ??
         (effectiveFormat
           ? `Creative berhasil dibuat, tetapi format hasil read-back (${effectiveFormat}) tidak cocok dengan format yang diminta (${intendedFormat}).`
           : `Creative berhasil dibuat, tetapi field read-back belum cukup untuk memverifikasi format ${intendedFormat}.`),
@@ -364,7 +401,8 @@ async function verifyCreatedCreative(
 function summarizeCreativeVerification(
   fields: Record<string, unknown>,
   intendedUrlTags?: string,
-  videoCtwaRequirement?: VideoCtwaReadBackRequirement
+  videoCtwaRequirement?: VideoCtwaReadBackRequirement,
+  intendedIdentity: CreativeIdentity = {}
 ): MetaCreativeVerificationSummary {
   const storySpec = isRecord(fields.object_story_spec) ? fields.object_story_spec : undefined;
   const linkData = storySpec && isRecord(storySpec.link_data) ? storySpec.link_data : undefined;
@@ -390,6 +428,7 @@ function summarizeCreativeVerification(
     hasDegreesOfFreedomSpec: isRecord(fields.degrees_of_freedom_spec),
     hasMediaSourcingSpec: isRecord(fields.media_sourcing_spec),
     urlTagsStatus: getUrlTagsVerificationStatus(fields.url_tags, intendedUrlTags),
+    identityStatus: getIdentityVerificationStatus(fields, intendedIdentity),
     videoCtwaStatus: getVideoCtwaVerificationStatus(videoData, videoCtwaRequirement),
     ...placementSummary,
     hasOmnichannelLinkSpec: isRecord(fields.omnichannel_link_spec),
@@ -439,6 +478,73 @@ function getUrlTagsVerificationStatus(
   if (!intendedUrlTags) return 'not_requested';
   if (!hasNonBlankString(readBackUrlTags)) return 'missing';
   return readBackUrlTags === intendedUrlTags ? 'verified' : 'mismatch';
+}
+
+interface CreativeIdentity {
+  instagramUserId?: string;
+  threadsUserId?: string;
+}
+
+/**
+ * Identity lives in one of the two placements Meta accepts: inside
+ * object_story_spec, or at the payload root (the sourceInstagramMediaId path
+ * builds no object_story_spec at all). Read both, on the payload we sent and on
+ * the payload Meta returns.
+ */
+function readCreativeIdentity(fields: Record<string, unknown>): CreativeIdentity {
+  const storySpec = isRecord(fields.object_story_spec) ? fields.object_story_spec : undefined;
+  const instagramUserId = firstNonBlankString(
+    storySpec?.instagram_user_id,
+    fields.instagram_user_id
+  );
+  const threadsUserId = firstNonBlankString(storySpec?.threads_user_id, fields.threads_user_id);
+  return {
+    ...(instagramUserId ? { instagramUserId } : {}),
+    ...(threadsUserId ? { threadsUserId } : {}),
+  };
+}
+
+function firstNonBlankString(...values: unknown[]): string | undefined {
+  for (const value of values) {
+    if (hasNonBlankString(value)) return value.trim();
+  }
+  return undefined;
+}
+
+/**
+ * Meta drops creative fields it does not recognize without any error, so an
+ * identity that was sent is not an identity that landed. Same shape as
+ * getUrlTagsVerificationStatus: nothing intended means nothing to check.
+ */
+function getIdentityVerificationStatus(
+  fields: Record<string, unknown>,
+  intended: CreativeIdentity
+): NonNullable<MetaCreativeVerificationSummary['identityStatus']> {
+  if (!intended.instagramUserId && !intended.threadsUserId) return 'not_requested';
+  const readBack = readCreativeIdentity(fields);
+  const pairs: [string | undefined, string | undefined][] = [
+    [intended.instagramUserId, readBack.instagramUserId],
+    [intended.threadsUserId, readBack.threadsUserId],
+  ];
+  let mismatched = false;
+  for (const [wanted, got] of pairs) {
+    if (!wanted) continue;
+    if (!got) return 'missing';
+    if (got !== wanted) mismatched = true;
+  }
+  return mismatched ? 'mismatch' : 'verified';
+}
+
+function getIdentityVerificationWarning(
+  status: MetaCreativeVerificationSummary['identityStatus']
+): string | undefined {
+  if (status === 'missing') {
+    return 'Creative berhasil dibuat, tetapi identitas Instagram/Threads yang diminta tidak ditemukan pada read-back Meta.';
+  }
+  if (status === 'mismatch') {
+    return 'Creative berhasil dibuat, tetapi identitas Instagram/Threads pada read-back Meta tidak sama dengan nilai yang diminta.';
+  }
+  return undefined;
 }
 
 function getUrlTagsVerificationWarning(
@@ -656,6 +762,7 @@ function buildCreativePayload(options: CreateAdCreativeOptions): Record<string, 
         pageId: options.pageId ?? '',
         ...options.creative,
         instagramUserId: options.instagramUserId,
+        threadsProfileId: options.threadsProfileId,
         collaborativeProductSetId: options.collaborativeProductSetId,
         catalogOnly: options.catalogOnly,
         collaborativeAppSpec: options.collaborativeAppSpec,
@@ -727,7 +834,7 @@ function buildCreativePayload(options: CreateAdCreativeOptions): Record<string, 
       objectStorySpec.instagram_user_id = options.instagramUserId.trim();
     }
     if (options.threadsProfileId?.trim()) {
-      objectStorySpec.threads_profile_id = options.threadsProfileId.trim();
+      objectStorySpec.threads_user_id = options.threadsProfileId.trim();
     }
 
     payload.object_story_spec = objectStorySpec;

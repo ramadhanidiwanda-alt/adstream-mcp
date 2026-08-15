@@ -390,7 +390,7 @@ function buildPreview(
     objectStorySpec.instagram_user_id = payload.instagramUserId.trim();
   }
   if (payload.threadsProfileId?.trim()) {
-    objectStorySpec.threads_profile_id = payload.threadsProfileId.trim();
+    objectStorySpec.threads_user_id = payload.threadsProfileId.trim();
   }
 
   return {

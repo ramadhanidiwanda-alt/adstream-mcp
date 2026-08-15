@@ -32,6 +32,17 @@ describe('updateAd', () => {
     expect(mockMetaPost).not.toHaveBeenCalled();
   });
 
+  it('states plainly that a dry run wrote nothing', async () => {
+    // success: true on a dry run is deliberate (false reads as a failed update),
+    // so the response has to say in words what the boolean cannot.
+    const result = await updateAd(mockClient, { adId: '123', name: 'Renamed' });
+
+    expect(result.status).toBe('dry_run');
+    expect(result.executed).toBe(false);
+    expect(result.notice).toContain('DRY RUN');
+    expect(result.notice).toContain('dryRun=false');
+  });
+
   it('builds a creative payload from creativeId', async () => {
     const r = await updateAd(mockClient, { ...baseOpts, creativeId: 'creative123' });
     expect(r.preview.creative).toEqual({ creative_id: 'creative123' });
@@ -79,6 +90,9 @@ describe('updateAd', () => {
         ],
       },
     });
+
+    // replaceAdMedia is the second dry-run path — it needs the same notice as updateAd's.
+    expect(r.notice).toContain('DRY RUN');
 
     expect(r).toMatchObject({
       operation: 'replace_ad_media',
@@ -165,6 +179,8 @@ describe('updateAd', () => {
       confirmedCreativeId: 'creative-multi-media',
       verification: { status: 'verified' },
     });
+    // The dry-run notice must not survive into a real execution.
+    expect(r.notice).toBeUndefined();
     expect(mockMetaPost).toHaveBeenNthCalledWith(
       1,
       '/act_123/adcreatives',
@@ -263,6 +279,33 @@ describe('updateAd', () => {
     expect(mockMetaPost).toHaveBeenNthCalledWith(1, '/ad789', { status: 'PAUSED' }, 3);
   });
 
+  it('returns pending_confirmation for a multi-media replacement without a dry-run notice', async () => {
+    const r = await updateAd(
+      mockClient,
+      {
+        ...baseOpts,
+        adAccountId: 'act_123',
+        multiMedia: {
+          pageId: 'page-1',
+          destinationUrl: 'https://api.whatsapp.com/send',
+          primaryImageHash: 'square-hash',
+          callToAction: 'WHATSAPP_MESSAGE',
+          images: [{ imageHash: 'square-hash' }, { imageHash: 'vertical-hash' }],
+        },
+      },
+      { dryRun: false, confirmed: false }
+    );
+
+    expect(r.status).toBe('pending_confirmation');
+    expect(r.success).toBe(false);
+    expect(mockMetaPost).not.toHaveBeenCalled();
+    // Same requirement as updateAd's pending_confirmation: dryRun=false was already
+    // passed, and this is not a dry run, so neither phrase belongs in the notice.
+    expect(r.notice).toContain('confirmed=true');
+    expect(r.notice).not.toContain('DRY RUN');
+    expect(r.notice).not.toContain('dryRun=false');
+  });
+
   it('requires an account id and forbids combining multi-media replacement with a second update', async () => {
     const multiMedia = {
       pageId: 'page-1',
@@ -326,6 +369,8 @@ describe('updateAd', () => {
       },
     });
     expect(r.error).toMatch(/Do not activate/i);
+    // The dry-run notice must not survive into a real (even failed) execution.
+    expect(r.notice).toBeUndefined();
   });
 
   it('surfaces an orphaned creative if creation succeeds but the ad swap is rejected', async () => {
@@ -389,6 +434,12 @@ describe('updateAd', () => {
     // Unlike a dry-run, this is a refusal — nothing was asked for and granted.
     expect(r.success).toBe(false);
     expect(mockMetaPost).not.toHaveBeenCalled();
+    // pending_confirmation is only reachable with dryRun=false already passed, so its
+    // notice must not tell the caller to do that again — and must not call itself a
+    // dry run, since by definition it is not one.
+    expect(r.notice).toContain('confirmed=true');
+    expect(r.notice).not.toContain('DRY RUN');
+    expect(r.notice).not.toContain('dryRun=false');
   });
 
   it('executes update on success without creative swap', async () => {
@@ -404,6 +455,8 @@ describe('updateAd', () => {
     expect(mockMetaPost.mock.calls[0][0]).toBe('/ad789');
     expect(mockMetaPost.mock.calls[0][1]).toEqual({ name: 'New Name', status: 'PAUSED' });
     expect(mockMetaGetObject).not.toHaveBeenCalled();
+    // The dry-run notice must not survive into a real execution.
+    expect(r.notice).toBeUndefined();
   });
 
   it('reads back the creative id after a creative swap and reports it', async () => {
@@ -443,5 +496,7 @@ describe('updateAd', () => {
       { dryRun: false, confirmed: true }
     );
     expect(r.status).toBe('failed');
+    // The dry-run notice must not survive into a real (even failed) execution.
+    expect(r.notice).toBeUndefined();
   });
 });
