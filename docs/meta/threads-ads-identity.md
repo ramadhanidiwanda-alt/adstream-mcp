@@ -39,7 +39,7 @@ dibuat. Kode sekarang punya guard eksplisit untuk ini: kalau caller mengirim
 `threads_user_id` atau `threads_profile_id` secara raw ke
 `ads_create_adcreative`, adapter menolaknya dengan hint yang menunjuk ke
 nama parameter MCP yang benar (lihat
-`CREATE_AD_CREATIVE_PARAM_HINTS` di `src/providers/meta/MetaAdsAdapter.ts:4285-4287`):
+`CREATE_AD_CREATIVE_PARAM_HINTS` di `src/providers/meta/MetaAdsAdapter.ts:4310-4312`):
 
 ```ts
 threads_user_id: 'threadsProfileId',
@@ -60,7 +60,7 @@ ke Graph API.
 | Field Graph API di payload | `threads_user_id` |
 
 Pemetaan ini terjadi di helper `socialIdentity`
-(`src/providers/meta/buildCreativeFormatPayload.ts:1396-1404`):
+(`src/providers/meta/buildCreativeFormatPayload.ts:1419-1428`):
 
 ```ts
 function socialIdentity(
