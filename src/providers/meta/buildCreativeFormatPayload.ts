@@ -1382,11 +1382,16 @@ function addMessageExtensions(
 }
 
 /**
- * Identity block for object_story_spec. Threads was previously omitted here, so
- * every creative built through a creativeFormat lost its threadsProfileId
- * without a word — Meta accepts the creative and simply never stores the
- * identity. Both identities now travel together through the one helper that
- * every format already spreads.
+ * Identity block for instagram_user_id / threads_user_id. Threads was previously
+ * omitted here, so every creative built through a creativeFormat lost its
+ * threadsProfileId without a word — Meta accepts the creative and simply never
+ * stores the identity. Both identities now travel together through this one
+ * helper.
+ *
+ * Most formats spread the result into object_story_spec. The existing_post
+ * content-reference path (buildExistingPostContentReference, the
+ * sourceInstagramMediaId branch) spreads it at the payload root instead — Meta
+ * documents both placements as valid, and that placement predates this change.
  */
 function socialIdentity(
   input: Pick<BuildMetaCreativeFormatPayloadInput, 'instagramUserId' | 'threadsProfileId'>

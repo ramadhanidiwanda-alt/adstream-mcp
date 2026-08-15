@@ -15,6 +15,16 @@ export interface MetaCreativeComplianceInput {
   image_crops?: unknown;
   object_story_spec?: unknown;
   object_story_id?: unknown;
+  /**
+   * Root-level identity fallback. Most creative formats write instagram_user_id
+   * / threads_user_id inside object_story_spec, but the existing_post
+   * sourceInstagramMediaId path writes them at the payload root instead (no
+   * object_story_spec at all on that path). Meta documents both placements as
+   * valid, so evaluateIdentity checks object_story_spec first and falls back
+   * here before concluding the identity is absent.
+   */
+  instagram_user_id?: unknown;
+  threads_user_id?: unknown;
   requested_fields?: {
     degrees_of_freedom_spec?: boolean;
     media_sourcing_spec?: boolean;
@@ -75,7 +85,12 @@ export function evaluateMetaCreativeCompliance(
   input: MetaCreativeComplianceInput
 ): AdsCreativeSetupCompliance {
   return {
-    identity: evaluateIdentity(input.object_story_spec, input.object_story_id),
+    identity: evaluateIdentity(
+      input.object_story_spec,
+      input.object_story_id,
+      input.instagram_user_id,
+      input.threads_user_id
+    ),
     ai_creative: evaluateAiCreative(
       input.degrees_of_freedom_spec,
       input.requested_fields?.degrees_of_freedom_spec === true
@@ -272,7 +287,12 @@ function evaluateRelatedMedia(
  * false alarm in place of the old blind spot, so it gets its own state rather
  * than a pass/fail verdict.
  */
-function evaluateIdentity(objectStorySpec: unknown, objectStoryId: unknown): AdsIdentityCompliance {
+function evaluateIdentity(
+  objectStorySpec: unknown,
+  objectStoryId: unknown,
+  topLevelInstagramUserId: unknown,
+  topLevelThreadsUserId: unknown
+): AdsIdentityCompliance {
   if (!isRecord(objectStorySpec)) {
     // An existing-post creative carries identity on the post itself.
     if (typeof objectStoryId === 'string' && objectStoryId.trim().length > 0) {
@@ -284,15 +304,38 @@ function evaluateIdentity(objectStorySpec: unknown, objectStoryId: unknown): Ads
         ],
       };
     }
+
+    // Some existing_post creatives (creativeSpec.sourceInstagramMediaId) carry
+    // instagram_user_id/threads_user_id at the payload root instead of inside
+    // object_story_spec — Meta documents both placements as valid. Fall back to
+    // the root fields before concluding the identity is unknown.
+    return evaluateIdentityFromIds(
+      readIdentityId(topLevelInstagramUserId),
+      readIdentityId(topLevelThreadsUserId),
+      'Meta did not return object_story_spec.'
+    );
+  }
+
+  const instagramUserId =
+    readIdentityId(objectStorySpec.instagram_user_id) ?? readIdentityId(topLevelInstagramUserId);
+  const threadsUserId =
+    readIdentityId(objectStorySpec.threads_user_id) ?? readIdentityId(topLevelThreadsUserId);
+
+  return evaluateIdentityFromIds(instagramUserId, threadsUserId);
+}
+
+function evaluateIdentityFromIds(
+  instagramUserId: string | undefined,
+  threadsUserId: string | undefined,
+  unknownReason?: string
+): AdsIdentityCompliance {
+  if (instagramUserId === undefined && threadsUserId === undefined && unknownReason) {
     return {
       status: 'UNKNOWN',
       threads_identity_source: 'none',
-      reasons: ['Meta did not return object_story_spec.'],
+      reasons: [unknownReason],
     };
   }
-
-  const instagramUserId = readIdentityId(objectStorySpec.instagram_user_id);
-  const threadsUserId = readIdentityId(objectStorySpec.threads_user_id);
 
   if (instagramUserId === undefined) {
     return {

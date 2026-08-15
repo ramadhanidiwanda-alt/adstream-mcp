@@ -1591,6 +1591,48 @@ describe('MetaAdsAdapter', () => {
     expect(response.data?.[0]?.creative?.threads_user_id).toBe('9876543210');
   });
 
+  it('falls back to root-level identity fields when object_story_spec has none', async () => {
+    // The existing_post sourceInstagramMediaId path writes instagram_user_id and
+    // threads_user_id at the payload root, not inside object_story_spec. Without
+    // this fallback, a creative built there would surface no identity at all.
+    const adapter = new MetaAdsAdapter({
+      clientFactory: () =>
+        ({
+          metaGet: async () => ({
+            data: [
+              {
+                id: '2080446776238899',
+                name: 'Root identity creative',
+                instagram_user_id: '17841439260136409',
+                threads_user_id: '9876543210',
+              },
+            ],
+            paging: { cursors: {} },
+          }),
+        }) as never,
+    });
+
+    const response = await adapter.getCreativePerformance({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {},
+      credentials: {
+        provider: 'meta',
+        accessToken: 'secret-token',
+        accountId: 'act_123',
+        apiVersion: 'v23.0',
+        source: 'test',
+      },
+    });
+
+    expect(response.ok).toBe(true);
+    expect(response.data?.[0]?.creative?.instagram_user_id).toBe('17841439260136409');
+    expect(response.data?.[0]?.creative?.threads_user_id).toBe('9876543210');
+    expect(response.data?.[0]?.creative?.setup_compliance?.identity.threads_identity_source).toBe(
+      'explicit'
+    );
+  });
+
   it('audits active ads with their ad set placement targeting', async () => {
     let capturedPath: string | undefined;
     let capturedParams: Record<string, unknown> | undefined;

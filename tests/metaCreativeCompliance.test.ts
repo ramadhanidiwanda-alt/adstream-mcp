@@ -455,6 +455,23 @@ describe('evaluateMetaCreativeCompliance', () => {
     expect(identity.threads_identity_source).toBe('derived_from_instagram');
   });
 
+  it('reads an explicit Threads identity from the payload root when object_story_spec has none', () => {
+    // The existing_post sourceInstagramMediaId path writes instagram_user_id and
+    // threads_user_id at the payload root, not inside object_story_spec (no
+    // object_story_spec at all on that path). A creative built there must still
+    // report the identity as explicit, not derived_from_instagram — otherwise a
+    // Threads identity that was deliberately pinned would read back as unpinned.
+    const { identity } = evaluateMetaCreativeCompliance({
+      instagram_user_id: '17841439260136409',
+      threads_user_id: '9876543210',
+    });
+
+    expect(identity.status).toBe('PASS');
+    expect(identity.instagram_user_id).toBe('17841439260136409');
+    expect(identity.threads_user_id).toBe('9876543210');
+    expect(identity.threads_identity_source).toBe('explicit');
+  });
+
   it('flags a creative whose object_story_spec carries only a page_id for manual review, not FAIL', () => {
     // NOT a FAIL: live evidence from act_1417353822551653 shows Meta falls back
     // to the Facebook Page's connected Instagram account when instagram_user_id

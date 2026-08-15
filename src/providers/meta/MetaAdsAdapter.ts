@@ -219,6 +219,13 @@ interface MetaCreativeRecord {
   portrait_customizations?: unknown;
   image_crops?: unknown;
   object_story_id?: string;
+  /**
+   * Root-level identity fallback. Most creative formats write these inside
+   * object_story_spec, but the existing_post sourceInstagramMediaId path writes
+   * them at the payload root instead (no object_story_spec at all there).
+   */
+  instagram_user_id?: string;
+  threads_user_id?: string;
   object_story_spec?: {
     instagram_user_id?: string;
     threads_user_id?: string;
@@ -890,8 +897,9 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
         primary_text: creative.body,
         call_to_action: callToAction?.type,
         destination_url: destinationUrl,
-        instagram_user_id: creative.object_story_spec?.instagram_user_id,
-        threads_user_id: creative.object_story_spec?.threads_user_id,
+        instagram_user_id:
+          creative.object_story_spec?.instagram_user_id ?? creative.instagram_user_id,
+        threads_user_id: creative.object_story_spec?.threads_user_id ?? creative.threads_user_id,
         setup_compliance: evaluateMetaCreativeCompliance({
           ...creative,
           requested_fields: auditContext?.requestedFields,
@@ -5268,6 +5276,8 @@ function getMetaCreativeFields(mediaSourcingSupported: boolean): string[] {
     'object_type',
     'object_story_spec',
     'object_story_id',
+    'instagram_user_id',
+    'threads_user_id',
     'status',
     'degrees_of_freedom_spec',
     'asset_feed_spec',
