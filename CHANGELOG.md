@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — Ad set spend controls & audience segments
+
+- **`ads_create_adset`** and **`ads_update_adset`** — new `dailySpendCap`,
+  `dailyMinSpendTarget`, `lifetimeSpendCap`, and `lifetimeMinSpendTarget`
+  parameters, mapping to Meta's `daily_spend_cap`, `daily_min_spend_target`,
+  `lifetime_spend_cap`, and `lifetime_min_spend_target`. Carried through by
+  **`ads_read_adset_full`** and **`ads_clone_adset`**.
+- **`ads_get_account_info`** — now returns `existing_customers`, the ad
+  account's audience-segment custom audience IDs (Ads Manager: Advertising
+  settings → Segmen pemirsa). Optional and absent when segments were never
+  configured; read-only.
+- New reference doc,
+  `skills/meta-ads/shared/references/ui-label-to-api-field.md`, mapping Ads
+  Manager UI labels to Marketing API field names, including the deprecated
+  `existing_customer_budget_percentage`.
+
 ### Added — Creative asset resolution
 
 - **`ads_resolve_creative_assets`** — read-only Meta tool that resolves the best
