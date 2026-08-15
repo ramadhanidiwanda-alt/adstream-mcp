@@ -48,9 +48,9 @@ describe('social account discovery tools', () => {
       }),
     } as unknown as MetaClient;
 
-    const profiles = await listThreadsProfiles(client);
+    const result = await listThreadsProfiles(client);
 
-    expect(profiles).toEqual([
+    expect(result.profiles).toEqual([
       {
         threadsId: 'threads_1',
         username: 'brandone',
@@ -59,6 +59,7 @@ describe('social account discovery tools', () => {
         pageName: 'Page One',
       },
     ]);
+    expect(result.warnings).toEqual([]);
     expect(client.metaGetObject).toHaveBeenCalledWith('/page_1', {
       fields: 'threads_profile{id,username,name,profile_picture_url}',
     });

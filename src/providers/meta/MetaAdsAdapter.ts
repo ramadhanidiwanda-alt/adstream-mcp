@@ -117,7 +117,10 @@ import { listLeadForms as listLeadFormsTool } from '../../tools/listLeadForms.js
 import { listInstagramAccounts as listInstagramAccountsTool } from '../../tools/listInstagramAccounts.js';
 import { listInstagramMedia as listInstagramMediaTool } from '../../tools/listInstagramMedia.js';
 import { listPartnershipContent as listPartnershipContentTool } from '../../tools/listPartnershipContent.js';
-import { listThreadsProfiles as listThreadsProfilesTool } from '../../tools/listThreadsProfiles.js';
+import {
+  listThreadsProfiles as listThreadsProfilesTool,
+  type ThreadsProfileListResult,
+} from '../../tools/listThreadsProfiles.js';
 import { checkLaunchReadiness as checkLaunchReadinessTool } from '../../tools/checkLaunchReadiness.js';
 import {
   createProductAudience as createProductAudienceTool,
@@ -486,7 +489,7 @@ export interface MetaAdsAdapterTools {
   listThreadsProfiles(
     client: MetaClient,
     options?: { limit?: number }
-  ): Promise<ThreadsProfileResult[]>;
+  ): Promise<ThreadsProfileListResult>;
   listWhatsAppAccounts(
     client: MetaClient,
     options?: { businessId?: string; limit?: number }
@@ -3758,8 +3761,13 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
     try {
       const client = this.createClient(context.credential);
       const limit = typeof request.params.limit === 'number' ? request.params.limit : undefined;
-      const profiles = await this.tools.listThreadsProfiles(client, { limit });
-      return { ok: true, provider: 'meta', data: profiles };
+      const { profiles, warnings } = await this.tools.listThreadsProfiles(client, { limit });
+      return {
+        ok: true,
+        provider: 'meta',
+        data: profiles,
+        ...(warnings.length > 0 ? { meta: { warnings } } : {}),
+      };
     } catch (error) {
       return this.errorResponse(error);
     }
