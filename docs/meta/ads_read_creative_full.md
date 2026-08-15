@@ -58,9 +58,19 @@ sebelumnya sudah melenceng satu sama lain.
 
 ## Contoh Request
 
+Tool ini **tidak** mengirim satu request gabungan — setiap batch di
+`FIELD_BATCHES` dipanggil sebagai request terpisah, contoh:
+
 ```
-GET /v21.0/{creative_id}?fields=id,name,status,object_type,object_story_spec,asset_feed_spec,...
+GET /v21.0/{creative_id}?fields=id,name,status,object_type
+GET /v21.0/{creative_id}?fields=instagram_user_id,threads_user_id
+GET /v21.0/{creative_id}?fields=object_story_spec
+...dan seterusnya untuk tiap batch di FIELD_BATCHES
 ```
+
+Hasil dari semua batch yang berhasil di-merge menjadi satu payload JSON.
+Batch yang gagal **tidak** menghentikan batch lain — kegagalannya dicatat
+di `unreadable_fields` pada hasil akhir.
 
 ---
 
@@ -224,6 +234,6 @@ GET /v21.0/{creative_id}?fields=id,name,status,object_type,object_story_spec,ass
 
 - Tool ini **read-only** — tidak mengubah apapun.
 - Tidak memerlukan `adAccountId` — cukup `creativeId`.
-- Meta API field limit: tidak ada batasan ketat per-request, tapi URL length limited (~8K chars). Field list kita ~400 chars — aman.
+- Field diminta lewat batch-batch kecil (`FIELD_BATCHES`), bukan satu request gabungan — jadi panjang URL per-request bukan masalah secara struktural. Batch dipecah untuk isolasi kegagalan per-field (lihat `## Cara Kerja`), bukan untuk menghindari limit panjang URL.
 - Jika field tidak tersedia untuk creative tertentu, field tersebut tidak muncul di response (Meta tidak mengembalikan `null` untuk field yang tidak relevan).
 - Field `ad_format` (preview) tidak termasuk — gunakan `ads_get_ad_preview` untuk itu.
