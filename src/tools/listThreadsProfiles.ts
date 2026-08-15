@@ -85,6 +85,8 @@ function isThreadsPermissionError(error: unknown): boolean {
   return (
     [3, 10, 200].includes(error.code) ||
     error.type === 'OAuthException' ||
-    /permission|scope|not authorized|threads_business/i.test(error.message)
+    /permission|scope|not authorized|threads_business/i.test(
+      [error.message, error.userTitle, error.userMessage].filter(Boolean).join(' ')
+    )
   );
 }
