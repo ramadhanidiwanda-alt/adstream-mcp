@@ -30,6 +30,9 @@ export interface UpdateAdOptions {
 
 export type UpdateAdStatus = 'dry_run' | 'pending_confirmation' | 'executed' | 'failed';
 
+const DRY_RUN_NOTICE =
+  'DRY RUN — tidak ada perubahan yang dikirim ke Meta. Tinjau preview, lalu panggil ulang dengan dryRun=false dan confirmed=true untuk mengeksekusi.';
+
 export interface UpdateAdResult {
   operation: 'update_ad' | 'replace_ad_media';
   status: UpdateAdStatus;
@@ -59,6 +62,13 @@ export interface UpdateAdResult {
   adPausedForVerification?: boolean;
   /** A no-retry transport failure can be ambiguous: Meta may have created the creative. */
   ambiguousCreativeCreation?: boolean;
+  /**
+   * Human-readable statement of what did or did not reach Meta. success stays
+   * true on a dry run because the call did what was asked — but a caller reading
+   * only that boolean concludes the update landed, so the prose has to carry the
+   * part the boolean cannot.
+   */
+  notice?: string;
 }
 
 /**
@@ -88,6 +98,7 @@ export async function updateAd(
     executed: false,
     preview,
     success: true,
+    notice: DRY_RUN_NOTICE,
   };
 
   if (dryRun) return baseResult;
@@ -117,6 +128,7 @@ export async function updateAd(
       status: 'executed',
       executed: true,
       success: true,
+      notice: undefined,
       id: options.adId,
       response,
       ...(confirmedCreativeId ? { confirmedCreativeId } : {}),
@@ -126,6 +138,7 @@ export async function updateAd(
       ...baseResult,
       status: 'failed',
       success: false,
+      notice: undefined,
       error: formatMetaWriteError(error),
       structuredError: formatStructuredMetaWriteError(error),
     };
@@ -167,6 +180,7 @@ async function replaceAdMedia(
     success: true,
     id: options.adId,
     preview,
+    notice: DRY_RUN_NOTICE,
   };
 
   if (execOptions.dryRun) return baseResult;
@@ -203,6 +217,7 @@ async function replaceAdMedia(
         ...baseResult,
         status: 'failed',
         success: false,
+        notice: undefined,
         error: 'Meta did not return an id for the replacement multi-media creative.',
       };
     }
@@ -240,6 +255,7 @@ async function replaceAdMedia(
         status: 'failed',
         executed: true,
         success: false,
+        notice: undefined,
         createdCreativeId,
         ...(adPausedForVerification ? { adPausedForVerification } : {}),
         confirmedCreativeId: readBack.creativeId,
@@ -261,6 +277,7 @@ async function replaceAdMedia(
       status: 'executed',
       executed: true,
       success: true,
+      notice: undefined,
       createdCreativeId,
       ...(adPausedForVerification ? { adPausedForVerification } : {}),
       confirmedCreativeId: readBack.creativeId,
@@ -278,6 +295,7 @@ async function replaceAdMedia(
       ...baseResult,
       status: 'failed',
       success: false,
+      notice: undefined,
       ...(createdCreativeId ? { createdCreativeId } : {}),
       ...(adPausedForVerification ? { adPausedForVerification } : {}),
       ...(!createdCreativeId ? { ambiguousCreativeCreation: true } : {}),
