@@ -1,6 +1,9 @@
 import { getAdCreativeMapping } from '../../tools/getAdCreativeMapping.js';
 import { resolveCreativeAssets as resolveCreativeAssetsTool } from '../../tools/resolveCreativeAssets.js';
-import { readAdCreativeFull as readAdCreativeFullTool } from '../../tools/readAdCreativeFull.js';
+import {
+  AD_CREATIVE_FULL_FIELDS,
+  readAdCreativeFull as readAdCreativeFullTool,
+} from '../../tools/readAdCreativeFull.js';
 import {
   readAdSetFull as readAdSetFullTool,
   listAdSetsFull as listAdSetsFullTool,
@@ -3217,40 +3220,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       const rawCreative = await readAdCreativeFullTool(client, { creativeId });
 
       // Determine which fields were retrieved vs missing
-      const allRequestedFields = [
-        'id',
-        'name',
-        'status',
-        'object_type',
-        'object_story_id',
-        'effective_object_story_id',
-        'actor_id',
-        'instagram_actor_id',
-        'instagram_permalink_url',
-        'authorization_category',
-        'destination_type',
-        'thumbnail_url',
-        'title',
-        'body',
-        'link',
-        'url_tags',
-        'image_hash',
-        'image_url',
-        'video_id',
-        'object_story_spec',
-        'asset_feed_spec',
-        'call_to_action',
-        'degrees_of_freedom_spec',
-        'tracking_specs',
-        'branded_content',
-        'contextual_multi_ads',
-        'asset_customization_rules',
-        'template_data',
-        'link_data',
-        'photo_data',
-        'video_data',
-        'page_welcome_message',
-      ];
+      const allRequestedFields = AD_CREATIVE_FULL_FIELDS;
 
       const fieldsRetrieved = allRequestedFields.filter((f) => rawCreative[f] !== undefined);
       const fieldsMissing = allRequestedFields.filter((f) => rawCreative[f] === undefined);
