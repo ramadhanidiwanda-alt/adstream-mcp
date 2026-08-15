@@ -1550,6 +1550,72 @@ describe('MetaAdsAdapter', () => {
     expect(response.data?.[0]?.creative?.setup_compliance?.related_media.status).toBe('UNKNOWN');
   });
 
+  it('omits threads_user_id on Meta API versions below the supported floor', async () => {
+    // Creative fields go out as ONE combined request, so an unsupported field
+    // 400s the entire call (code 100), compliance audit included. Losing the
+    // read-back field on an old version is the cheaper failure.
+    let capturedParams: Record<string, unknown> | undefined;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: () =>
+        ({
+          metaGet: async (_path: string, params: Record<string, unknown>) => {
+            capturedParams = params;
+            return { data: [{ id: 'creative_legacy', name: 'Legacy Creative' }] };
+          },
+        }) as never,
+    });
+
+    await adapter.getCreativePerformance({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {},
+      credentials: {
+        provider: 'meta',
+        accessToken: 'secret-token',
+        accountId: 'act_123',
+        apiVersion: 'v20.0',
+        source: 'test',
+      },
+    });
+
+    expect(capturedParams?.fields).not.toContain('threads_user_id');
+    // instagram_user_id is long-established and stays ungated.
+    expect(capturedParams?.fields).toContain('instagram_user_id');
+  });
+
+  it('requests threads_user_id at and above the supported floor', async () => {
+    const captured: string[] = [];
+    const adapter = new MetaAdsAdapter({
+      clientFactory: () =>
+        ({
+          metaGet: async (_path: string, params: Record<string, unknown>) => {
+            captured.push(String(params.fields));
+            return { data: [{ id: 'creative_modern', name: 'Modern Creative' }] };
+          },
+        }) as never,
+    });
+
+    for (const apiVersion of ['v23.0', 'v25.0']) {
+      await adapter.getCreativePerformance({
+        provider: 'meta',
+        accountId: 'act_123',
+        params: {},
+        credentials: {
+          provider: 'meta',
+          accessToken: 'secret-token',
+          accountId: 'act_123',
+          apiVersion,
+          source: 'test',
+        },
+      });
+    }
+
+    expect(captured).toHaveLength(2);
+    for (const fields of captured) {
+      expect(fields).toContain('threads_user_id');
+    }
+  });
+
   it('surfaces object_story_spec identities on the normalized creative', async () => {
     // Identity was previously reachable only via includeRaw, so a user checking
     // whether their Threads/Instagram identity landed had nowhere to look.

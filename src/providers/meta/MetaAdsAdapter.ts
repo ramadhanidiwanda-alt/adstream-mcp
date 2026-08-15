@@ -724,7 +724,8 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
     try {
       const client = this.createClient(context.credential);
       const mediaSourcingSupported = supportsMediaSourcingSpec(context.credential.apiVersion);
-      const creativeFields = getMetaCreativeFields(mediaSourcingSupported);
+      const threadsUserIdSupported = supportsThreadsUserIdField(context.credential.apiVersion);
+      const creativeFields = getMetaCreativeFields(mediaSourcingSupported, threadsUserIdSupported);
       const fields = creativeFields.join(',');
       const auditContext: MetaCreativeAuditContext = {
         requestedFields: {
@@ -5306,7 +5307,32 @@ function supportsMediaSourcingSpec(apiVersion: string | undefined): boolean {
   return match !== null && Number(match[1]) >= 23;
 }
 
-function getMetaCreativeFields(mediaSourcingSupported: boolean): string[] {
+/**
+ * getMetaCreativeFields builds ONE combined Graph request, so an unsupported
+ * field 400s (code 100) the entire ads_get_creatives call — compliance audit
+ * included — and isMetaComplianceAuditPermissionError does not recover code 100.
+ * META_API_VERSION is user-settable and providerApiVersion can arrive from a
+ * remote broker, so older versions are genuinely reachable in production.
+ *
+ * threads_user_id is recent enough that no minimum version is recorded anywhere
+ * in this repo or in the Meta docs consulted for this branch. The threshold is a
+ * deliberately conservative REUSE of supportsMediaSourcingSpec's >= 23 (the same
+ * floor as minApiMajor in objectiveLaunchMatrix and the "v23+" baseline in
+ * docs/superpowers/plans/2026-08-15-meta-threads-identity.md), not a researched
+ * minimum. Losing a read-back field on an old version is a minor degradation;
+ * 400-ing the whole call is an outage.
+ *
+ * instagram_user_id is long-established and stays ungated.
+ */
+function supportsThreadsUserIdField(apiVersion: string | undefined): boolean {
+  const match = /^v(\d+)(?:\.|$)/i.exec(apiVersion ?? 'v25.0');
+  return match !== null && Number(match[1]) >= 23;
+}
+
+function getMetaCreativeFields(
+  mediaSourcingSupported: boolean,
+  threadsUserIdSupported: boolean
+): string[] {
   const fields = [
     'id',
     'name',
@@ -5320,7 +5346,6 @@ function getMetaCreativeFields(mediaSourcingSupported: boolean): string[] {
     'object_story_spec',
     'object_story_id',
     'instagram_user_id',
-    'threads_user_id',
     'status',
     'degrees_of_freedom_spec',
     'asset_feed_spec',
@@ -5328,6 +5353,7 @@ function getMetaCreativeFields(mediaSourcingSupported: boolean): string[] {
     'portrait_customizations',
     'image_crops',
   ];
+  if (threadsUserIdSupported) fields.push('threads_user_id');
   if (mediaSourcingSupported) fields.push('media_sourcing_spec');
   return fields;
 }
