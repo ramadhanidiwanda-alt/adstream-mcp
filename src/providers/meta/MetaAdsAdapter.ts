@@ -4274,7 +4274,9 @@ const CREATE_AD_CREATIVE_PARAM_HINTS: Record<string, string> = {
   video_id: 'videoId',
   call_to_action_type: 'callToActionType',
   instagram_user_id: 'instagramUserId',
-  threads_profile_id: 'threadsProfileId',
+  threads_user_id: 'threadsProfileId',
+  threads_profile_id:
+    'threadsProfileId (catatan: threads_profile_id bukan field Graph API — nama yang benar adalah threads_user_id)',
   degrees_of_freedom_spec: 'optOutEnhancements',
 };
 

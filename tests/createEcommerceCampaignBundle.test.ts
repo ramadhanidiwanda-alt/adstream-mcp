@@ -86,7 +86,7 @@ describe('createEcommerceCampaignBundle', () => {
     expect(result.preview.creative.object_story_spec).toMatchObject({
       page_id: payload.pageId,
       instagram_user_id: 'ig_123',
-      threads_profile_id: 'threads_456',
+      threads_user_id: 'threads_456',
     });
   });
 

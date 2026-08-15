@@ -727,7 +727,7 @@ function buildCreativePayload(options: CreateAdCreativeOptions): Record<string, 
       objectStorySpec.instagram_user_id = options.instagramUserId.trim();
     }
     if (options.threadsProfileId?.trim()) {
-      objectStorySpec.threads_profile_id = options.threadsProfileId.trim();
+      objectStorySpec.threads_user_id = options.threadsProfileId.trim();
     }
 
     payload.object_story_spec = objectStorySpec;

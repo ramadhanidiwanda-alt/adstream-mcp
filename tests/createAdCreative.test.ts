@@ -1152,7 +1152,7 @@ describe('createAdCreative', () => {
     expect(r.preview.object_story_spec).toMatchObject({
       page_id: '1001',
       instagram_user_id: 'ig_123',
-      threads_profile_id: 'threads_456',
+      threads_user_id: 'threads_456',
     });
   });
 
