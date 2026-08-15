@@ -279,6 +279,33 @@ describe('updateAd', () => {
     expect(mockMetaPost).toHaveBeenNthCalledWith(1, '/ad789', { status: 'PAUSED' }, 3);
   });
 
+  it('returns pending_confirmation for a multi-media replacement without a dry-run notice', async () => {
+    const r = await updateAd(
+      mockClient,
+      {
+        ...baseOpts,
+        adAccountId: 'act_123',
+        multiMedia: {
+          pageId: 'page-1',
+          destinationUrl: 'https://api.whatsapp.com/send',
+          primaryImageHash: 'square-hash',
+          callToAction: 'WHATSAPP_MESSAGE',
+          images: [{ imageHash: 'square-hash' }, { imageHash: 'vertical-hash' }],
+        },
+      },
+      { dryRun: false, confirmed: false }
+    );
+
+    expect(r.status).toBe('pending_confirmation');
+    expect(r.success).toBe(false);
+    expect(mockMetaPost).not.toHaveBeenCalled();
+    // Same requirement as updateAd's pending_confirmation: dryRun=false was already
+    // passed, and this is not a dry run, so neither phrase belongs in the notice.
+    expect(r.notice).toContain('confirmed=true');
+    expect(r.notice).not.toContain('DRY RUN');
+    expect(r.notice).not.toContain('dryRun=false');
+  });
+
   it('requires an account id and forbids combining multi-media replacement with a second update', async () => {
     const multiMedia = {
       pageId: 'page-1',
@@ -407,6 +434,12 @@ describe('updateAd', () => {
     // Unlike a dry-run, this is a refusal — nothing was asked for and granted.
     expect(r.success).toBe(false);
     expect(mockMetaPost).not.toHaveBeenCalled();
+    // pending_confirmation is only reachable with dryRun=false already passed, so its
+    // notice must not tell the caller to do that again — and must not call itself a
+    // dry run, since by definition it is not one.
+    expect(r.notice).toContain('confirmed=true');
+    expect(r.notice).not.toContain('DRY RUN');
+    expect(r.notice).not.toContain('dryRun=false');
   });
 
   it('executes update on success without creative swap', async () => {

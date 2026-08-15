@@ -31,7 +31,10 @@ export interface UpdateAdOptions {
 export type UpdateAdStatus = 'dry_run' | 'pending_confirmation' | 'executed' | 'failed';
 
 const DRY_RUN_NOTICE =
-  'DRY RUN — tidak ada perubahan yang dikirim ke Meta. Tinjau preview, lalu panggil ulang dengan dryRun=false dan confirmed=true untuk mengeksekusi.';
+  'DRY RUN — no changes were sent to Meta. Review the preview, then call again with dryRun=false and confirmed=true to execute.';
+
+const PENDING_CONFIRMATION_NOTICE =
+  'NOT EXECUTED — waiting on explicit confirmation. Review the preview, then call again with confirmed=true to execute.';
 
 export interface UpdateAdResult {
   operation: 'update_ad' | 'replace_ad_media';
@@ -108,6 +111,7 @@ export async function updateAd(
       ...baseResult,
       status: 'pending_confirmation',
       success: false,
+      notice: PENDING_CONFIRMATION_NOTICE,
       error: 'Explicit confirmation is required after reviewing the dry-run preview.',
     };
   }
@@ -189,6 +193,7 @@ async function replaceAdMedia(
       ...baseResult,
       status: 'pending_confirmation',
       success: false,
+      notice: PENDING_CONFIRMATION_NOTICE,
       error: 'Explicit confirmation is required after reviewing the dry-run preview.',
     };
   }
