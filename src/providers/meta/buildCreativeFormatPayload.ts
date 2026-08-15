@@ -16,6 +16,11 @@ export type BuildMetaCreativeFormatPayloadInput = MetaCreativeSpec & {
   mode: MetaAdsMode;
   pageId: string;
   instagramUserId?: string;
+  /**
+   * Threads identity. Emitted as the Graph API field `threads_user_id`; the
+   * option keeps its original `threadsProfileId` name for backward compatibility.
+   */
+  threadsProfileId?: string;
   collaborativeProductSetId?: string;
   /** Catalog-only CPAS uses the retailer universal link and must not request app-event tracking. */
   catalogOnly?: boolean;
@@ -305,7 +310,7 @@ function buildSingleImage(
       {
         object_story_spec: {
           page_id: required(input.pageId, 'pageId'),
-          ...instagramIdentity(input),
+          ...socialIdentity(input),
           photo_data: {
             image_hash: required(creativeSpec.imageHash, 'imageHash'),
             message: required(creativeSpec.primaryText, 'primaryText'),
@@ -336,7 +341,7 @@ function buildSingleImage(
       {
         object_story_spec: {
           page_id: required(input.pageId, 'pageId'),
-          ...instagramIdentity(input),
+          ...socialIdentity(input),
           link_data: linkData,
         },
       },
@@ -373,7 +378,7 @@ function buildSingleImage(
     {
       object_story_spec: {
         page_id: required(input.pageId, 'pageId'),
-        ...instagramIdentity(input),
+        ...socialIdentity(input),
         link_data: linkData,
       },
     },
@@ -407,7 +412,7 @@ function buildVideo(
       {
         object_story_spec: {
           page_id: required(input.pageId, 'pageId'),
-          ...instagramIdentity(input),
+          ...socialIdentity(input),
           video_data: videoData,
         },
       },
@@ -435,7 +440,7 @@ function buildVideo(
       {
         object_story_spec: {
           page_id: required(input.pageId, 'pageId'),
-          ...instagramIdentity(input),
+          ...socialIdentity(input),
           video_data: videoData,
         },
       },
@@ -500,7 +505,7 @@ function buildVideo(
         : {}),
       object_story_spec: {
         page_id: required(input.pageId, 'pageId'),
-        ...instagramIdentity(input),
+        ...socialIdentity(input),
         video_data: videoData,
       },
     },
@@ -603,7 +608,7 @@ function buildCarousel(
       {
         object_story_spec: {
           page_id: required(input.pageId, 'pageId'),
-          ...instagramIdentity(input),
+          ...socialIdentity(input),
           link_data: {
             message: required(creativeSpec.primaryText, 'primaryText'),
             attachment_style: 'link',
@@ -761,6 +766,17 @@ function buildExistingPostContentReference(
           'creativeSpec.sourceInstagramMediaId bila memang mau mem-boost media IG lewat ID-nya.'
       );
     }
+    // threadsProfileId sama sekali tidak punya tempat di payload ad code yang
+    // didokumentasikan Meta. Ditolak dengan alasan yang sama seperti
+    // instagramUserId di atas, bukan dibuang diam-diam — identitas kembar tidak
+    // boleh diperlakukan berbeda.
+    if (input.threadsProfileId?.trim()) {
+      throw new Error(
+        'threadsProfileId tidak dipakai pada jalur partnership.adCode: payload ad code yang ' +
+          'didokumentasikan Meta tidak punya tempat untuk identitas Threads. Hapus threadsProfileId, ' +
+          'atau pakai creativeSpec.sourceInstagramMediaId bila memang mau mem-boost media IG lewat ID-nya.'
+      );
+    }
     return {};
   }
 
@@ -774,7 +790,7 @@ function buildExistingPostContentReference(
     // it need not be. Verified live against v25.0: the same create succeeds
     // as soon as instagram_user_id is present. IMAGE media is inferred, so
     // photo posts work without it.
-    ...instagramIdentity(input),
+    ...socialIdentity(input),
   };
 }
 
@@ -923,7 +939,7 @@ function buildCatalog(
         : {}),
       object_story_spec: {
         page_id: required(input.pageId, 'pageId'),
-        ...instagramIdentity(input),
+        ...socialIdentity(input),
         template_data: templateData,
       },
     },
@@ -1057,7 +1073,7 @@ function buildCollection(
   const pageId = required(input.pageId, 'pageId');
   const storySpec: Record<string, unknown> = {
     page_id: pageId,
-    ...instagramIdentity(input),
+    ...socialIdentity(input),
   };
 
   if (coverImageHash) {
@@ -1167,9 +1183,8 @@ function buildFlexible(
 
   const objectStorySpec: Record<string, unknown> = {
     page_id: required(input.pageId, 'pageId'),
+    ...socialIdentity(input),
   };
-  const instagramUserId = optional(input.instagramUserId, 'instagramUserId');
-  if (instagramUserId) objectStorySpec.instagram_user_id = instagramUserId;
 
   const payload: Record<string, unknown> = {
     object_story_spec: objectStorySpec,
@@ -1247,7 +1262,7 @@ function buildPlacementImage(
   return {
     object_story_spec: {
       page_id: required(input.pageId, 'pageId'),
-      ...instagramIdentity(input),
+      ...socialIdentity(input),
     },
     asset_feed_spec: assetFeedSpec,
     // Omnichannel ad sets require an applink spec on the creative. Add it when
@@ -1292,7 +1307,7 @@ function buildPlacementCustomizedCtwa(
   return {
     object_story_spec: {
       page_id: required(input.pageId, 'pageId'),
-      ...instagramIdentity(input),
+      ...socialIdentity(input),
       link_data: linkData,
     },
     platform_customizations: {
@@ -1366,9 +1381,20 @@ function addMessageExtensions(
   if (normalized.length > 0) assetFeedSpec.message_extensions = normalized;
 }
 
-function instagramIdentity(
-  input: Pick<BuildMetaCreativeFormatPayloadInput, 'instagramUserId'>
+/**
+ * Identity block for object_story_spec. Threads was previously omitted here, so
+ * every creative built through a creativeFormat lost its threadsProfileId
+ * without a word — Meta accepts the creative and simply never stores the
+ * identity. Both identities now travel together through the one helper that
+ * every format already spreads.
+ */
+function socialIdentity(
+  input: Pick<BuildMetaCreativeFormatPayloadInput, 'instagramUserId' | 'threadsProfileId'>
 ): Record<string, string> {
+  const identity: Record<string, string> = {};
   const instagramUserId = optional(input.instagramUserId, 'instagramUserId');
-  return instagramUserId ? { instagram_user_id: instagramUserId } : {};
+  if (instagramUserId) identity.instagram_user_id = instagramUserId;
+  const threadsUserId = optional(input.threadsProfileId, 'threadsProfileId');
+  if (threadsUserId) identity.threads_user_id = threadsUserId;
+  return identity;
 }

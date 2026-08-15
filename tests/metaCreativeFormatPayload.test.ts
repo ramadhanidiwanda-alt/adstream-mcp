@@ -2267,6 +2267,29 @@ describe('buildMetaCreativeFormatPayload', () => {
       })
     ).toThrow(/Format catalog tidak mendukung partnership/);
   });
+
+  it('emits both identities on object_story_spec', () => {
+    const payload = buildMetaCreativeFormatPayload({
+      mode: 'standard',
+      pageId: 'page-1',
+      instagramUserId: 'ig-1',
+      threadsProfileId: 'threads-1',
+      creativeFormat: 'single_image',
+      creativeSpec: {
+        destinationMode: 'EXTERNAL_URL',
+        imageHash: 'image-hash',
+        primaryText: 'Kunjungi situs kami',
+        destinationUrl: 'https://example.com',
+      },
+    } as never);
+
+    expect(payload).toMatchObject({
+      object_story_spec: {
+        instagram_user_id: 'ig-1',
+        threads_user_id: 'threads-1',
+      },
+    });
+  });
 });
 
 describe('buildMetaCreativeFormatPayload — instagramUserId pada jalur ad code', () => {
@@ -2285,6 +2308,23 @@ describe('buildMetaCreativeFormatPayload — instagramUserId pada jalur ad code'
         creativeSpec: {},
       })
     ).toThrow(/instagramUserId tidak dipakai pada jalur partnership\.adCode/);
+  });
+
+  it('menolak threadsProfileId bersama partnership.adCode alih-alih membuangnya diam-diam', () => {
+    expect(() =>
+      buildMetaCreativeFormatPayload({
+        mode: 'standard',
+        pageId: 'brand-page-1',
+        threadsProfileId: 'creator-threads-1',
+        partnership: {
+          partnerInstagramId: 'creator-ig-1',
+          adCode: 'AD-CODE-XYZ',
+          adFormat: 'REELS',
+        },
+        creativeFormat: 'existing_post',
+        creativeSpec: {},
+      })
+    ).toThrow(/threadsProfileId tidak dipakai pada jalur partnership\.adCode/);
   });
 
   it('tetap mengirim instagram_user_id pada boost via sourceInstagramMediaId', () => {

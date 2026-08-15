@@ -1156,6 +1156,34 @@ describe('createAdCreative', () => {
     });
   });
 
+  it('carries Threads identity through the creative (creativeFormat) path', async () => {
+    // Regression: threadsProfileId was only honoured on the legacy linkData
+    // branch. On the creative path it was accepted, validated as a known param,
+    // then dropped before the payload was built — no error, no warning.
+    const r = await createAdCreative(mockClient, {
+      adAccountId: 'act_123',
+      name: 'Single image with Threads identity',
+      pageId: '1001',
+      instagramUserId: 'ig_123',
+      threadsProfileId: 'threads_456',
+      creative: {
+        creativeFormat: 'single_image',
+        creativeSpec: {
+          imageHash: 'hash_abc',
+          primaryText: 'Buy now',
+          headline: 'Great deal',
+          destinationUrl: 'https://example.com',
+          callToAction: 'SHOP_NOW',
+        },
+      },
+    });
+
+    expect(r.preview.object_story_spec).toMatchObject({
+      instagram_user_id: 'ig_123',
+      threads_user_id: 'threads_456',
+    });
+  });
+
   it('rejects nested asset_feed_spec instead of moving it into a Dynamic Creative payload', async () => {
     const assetFeedSpec = {
       bodies: [{ text: 'Primary text A' }, { text: 'Primary text B' }],
