@@ -32,6 +32,10 @@ export interface ListAdSetsFullResult {
 const FIELD_BATCHES: string[][] = [
   ['id', 'name', 'status', 'effective_status', 'campaign_id', 'created_time', 'updated_time'],
   ['daily_budget', 'lifetime_budget', 'budget_remaining'],
+  // Own batch on purpose: Meta rejects lifetime_spend_cap / lifetime_min_spend_target
+  // on ad sets whose campaign carries no lifetime budget, and batches fail whole.
+  // Isolating them keeps that rejection from dropping the core budget fields too.
+  ['daily_spend_cap', 'daily_min_spend_target', 'lifetime_spend_cap', 'lifetime_min_spend_target'],
   ['bid_strategy', 'bid_amount', 'bid_constraints', 'billing_event', 'optimization_goal'],
   ['targeting'],
   ['promoted_object', 'destination_type', 'attribution_spec'],

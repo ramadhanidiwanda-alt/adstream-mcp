@@ -150,3 +150,16 @@ describe('listAdSetsFull', () => {
     expect(result.droppedFields).toBe(true);
   });
 });
+
+describe('readAdSetFull — spend control fields', () => {
+  it('includes the four spend control fields in ADSET_FULL_FIELDS', () => {
+    expect(ADSET_FULL_FIELDS).toEqual(
+      expect.arrayContaining([
+        'daily_spend_cap',
+        'daily_min_spend_target',
+        'lifetime_spend_cap',
+        'lifetime_min_spend_target',
+      ])
+    );
+  });
+});

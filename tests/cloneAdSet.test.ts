@@ -192,3 +192,33 @@ describe('cloneAdSet', () => {
     expect(post).not.toHaveBeenCalled();
   });
 });
+
+describe('cloneAdSet — spend control carry-over', () => {
+  function client(post = vi.fn()): MetaClient {
+    return {
+      metaGetObject: vi.fn().mockResolvedValue({
+        ...source,
+        daily_spend_cap: 5000000,
+        daily_min_spend_target: 1000000,
+        lifetime_spend_cap: 90000000,
+        lifetime_min_spend_target: 20000000,
+      }),
+      metaGet: vi.fn().mockResolvedValue({ data: [] }),
+      metaPost: post,
+    } as unknown as MetaClient;
+  }
+
+  it('carries spend controls from the source ad set into the clone payload', async () => {
+    const r = await cloneAdSet(client(), {
+      adAccountId: 'act_1',
+      sourceAdSetId: 'as_src',
+    });
+
+    expect(r.preview).toMatchObject({
+      daily_spend_cap: 5000000,
+      daily_min_spend_target: 1000000,
+      lifetime_spend_cap: 90000000,
+      lifetime_min_spend_target: 20000000,
+    });
+  });
+});
