@@ -52,7 +52,10 @@ sebelumnya sudah melenceng satu sama lain.
 >
 > `threads_user_id` sering kosong walau iklan **memang tayang di Threads** — Meta
 > menurunkan identitas Threads dari akun Instagram yang terhubung. Kosong di sini
-> bukan berarti gagal.
+> bukan berarti gagal. Untuk nama field wire yang benar (`threads_user_id`, bukan
+> `threads_profile_id`), penempatannya di `object_story_spec` vs level root, dan
+> aturan turunan identitas Instagram/Threads (termasuk turunan dari Facebook Page),
+> lihat `docs/meta/threads-ads-identity.md`.
 
 ---
 
