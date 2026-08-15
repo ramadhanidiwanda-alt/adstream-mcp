@@ -218,7 +218,10 @@ interface MetaCreativeRecord {
   platform_customizations?: unknown;
   portrait_customizations?: unknown;
   image_crops?: unknown;
+  object_story_id?: string;
   object_story_spec?: {
+    instagram_user_id?: string;
+    threads_user_id?: string;
     link_data?: {
       link?: string;
       call_to_action?: { type?: string; value?: { link?: string } };
@@ -5260,6 +5263,7 @@ function getMetaCreativeFields(mediaSourcingSupported: boolean): string[] {
     'video_id',
     'object_type',
     'object_story_spec',
+    'object_story_id',
     'status',
     'degrees_of_freedom_spec',
     'asset_feed_spec',

@@ -2,6 +2,7 @@ import type {
   AdsComplianceCheck,
   AdsComplianceStatus,
   AdsCreativeSetupCompliance,
+  AdsIdentityCompliance,
   AdsPlacementCustomizationCompliance,
 } from '../../broker/types.js';
 
@@ -12,6 +13,8 @@ export interface MetaCreativeComplianceInput {
   platform_customizations?: unknown;
   portrait_customizations?: unknown;
   image_crops?: unknown;
+  object_story_spec?: unknown;
+  object_story_id?: unknown;
   requested_fields?: {
     degrees_of_freedom_spec?: boolean;
     media_sourcing_spec?: boolean;
@@ -72,6 +75,7 @@ export function evaluateMetaCreativeCompliance(
   input: MetaCreativeComplianceInput
 ): AdsCreativeSetupCompliance {
   return {
+    identity: evaluateIdentity(input.object_story_spec, input.object_story_id),
     ai_creative: evaluateAiCreative(
       input.degrees_of_freedom_spec,
       input.requested_fields?.degrees_of_freedom_spec === true
@@ -246,6 +250,79 @@ function evaluateRelatedMedia(
         status: 'PASS',
         reasons: ['Meta returned an empty related media list.'],
       };
+}
+
+/**
+ * A creative with no instagram_user_id cannot deliver to Instagram or Threads at
+ * all — a far more severe delivery defect than any placement rule, and one the
+ * audit used to pass silently.
+ *
+ * A creative with instagram_user_id but no threads_user_id is NOT a defect: Meta
+ * derives Threads delivery from an Instagram-associated Threads account, so the
+ * field is legitimately absent on creatives that are demonstrably serving on
+ * Threads. Reporting that as missing would be a new false alarm in place of the
+ * old blind spot, so it gets its own state rather than a pass/fail verdict.
+ */
+function evaluateIdentity(
+  objectStorySpec: unknown,
+  objectStoryId: unknown
+): AdsIdentityCompliance {
+  if (!isRecord(objectStorySpec)) {
+    // An existing-post creative carries identity on the post itself.
+    if (typeof objectStoryId === 'string' && objectStoryId.trim().length > 0) {
+      return {
+        status: 'NOT_APPLICABLE',
+        threads_identity_source: 'none',
+        reasons: [
+          'This creative promotes an existing post, which already carries its own identity.',
+        ],
+      };
+    }
+    return {
+      status: 'UNKNOWN',
+      threads_identity_source: 'none',
+      reasons: ['Meta did not return object_story_spec.'],
+    };
+  }
+
+  const instagramUserId = readIdentityId(objectStorySpec.instagram_user_id);
+  const threadsUserId = readIdentityId(objectStorySpec.threads_user_id);
+
+  if (instagramUserId === undefined) {
+    return {
+      status: 'FAIL',
+      threads_user_id: threadsUserId,
+      threads_identity_source: threadsUserId === undefined ? 'none' : 'explicit',
+      reasons: [
+        'object_story_spec has no instagram_user_id, so this creative cannot deliver to Instagram or Threads.',
+      ],
+    };
+  }
+
+  if (threadsUserId === undefined) {
+    return {
+      status: 'PASS',
+      instagram_user_id: instagramUserId,
+      threads_identity_source: 'derived_from_instagram',
+      reasons: [
+        'instagram_user_id is set and no threads_user_id is configured; Meta derives Threads delivery from the associated Instagram account.',
+      ],
+    };
+  }
+
+  return {
+    status: 'PASS',
+    instagram_user_id: instagramUserId,
+    threads_user_id: threadsUserId,
+    threads_identity_source: 'explicit',
+    reasons: ['Both instagram_user_id and threads_user_id are set on object_story_spec.'],
+  };
+}
+
+function readIdentityId(value: unknown): string | undefined {
+  if (typeof value === 'string') return value.trim() === '' ? undefined : value.trim();
+  if (typeof value === 'number') return String(value);
+  return undefined;
 }
 
 function evaluatePlacementCustomization(

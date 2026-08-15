@@ -424,4 +424,59 @@ describe('evaluateMetaCreativeCompliance', () => {
       story: 'PASS',
     });
   });
+
+  it('passes a creative that carries both identities explicitly', () => {
+    const { identity } = evaluateMetaCreativeCompliance({
+      object_story_spec: {
+        page_id: '1001',
+        instagram_user_id: '17841439260136409',
+        threads_user_id: '9876543210',
+      },
+    });
+
+    expect(identity.status).toBe('PASS');
+    expect(identity.instagram_user_id).toBe('17841439260136409');
+    expect(identity.threads_user_id).toBe('9876543210');
+    expect(identity.threads_identity_source).toBe('explicit');
+  });
+
+  it('passes an Instagram-only creative and marks Threads as derived', () => {
+    // Meta derives the Threads identity from an Instagram-associated Threads
+    // account. Absent threads_user_id here is correct, not a defect.
+    const { identity } = evaluateMetaCreativeCompliance({
+      object_story_spec: {
+        page_id: '1001',
+        instagram_user_id: '17841439260136409',
+      },
+    });
+
+    expect(identity.status).toBe('PASS');
+    expect(identity.threads_user_id).toBeUndefined();
+    expect(identity.threads_identity_source).toBe('derived_from_instagram');
+  });
+
+  it('fails a creative whose object_story_spec carries only a page_id', () => {
+    const { identity } = evaluateMetaCreativeCompliance({
+      object_story_spec: { page_id: '1001' },
+    });
+
+    expect(identity.status).toBe('FAIL');
+    expect(identity.threads_identity_source).toBe('none');
+    expect(identity.reasons.join(' ')).toContain('instagram_user_id');
+  });
+
+  it('does not fault an existing-post creative for having no inline identity', () => {
+    // An existing post already carries its own identity; object_story_spec is absent.
+    const { identity } = evaluateMetaCreativeCompliance({
+      object_story_id: '1001_2002',
+    });
+
+    expect(identity.status).toBe('NOT_APPLICABLE');
+  });
+
+  it('reports UNKNOWN when object_story_spec was never fetched', () => {
+    const { identity } = evaluateMetaCreativeCompliance({});
+
+    expect(identity.status).toBe('UNKNOWN');
+  });
 });

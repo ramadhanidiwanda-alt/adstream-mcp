@@ -167,7 +167,24 @@ export interface AdsPlacementCustomizationCompliance extends AdsComplianceCheck 
   preview_required: boolean;
 }
 
+/**
+ * Where the Threads identity comes from.
+ * - `explicit`: threads_user_id is set on the creative.
+ * - `derived_from_instagram`: no threads_user_id, but instagram_user_id is set —
+ *   Meta derives Threads delivery from an Instagram-associated Threads account.
+ *   This is a normal, working configuration, NOT a missing field.
+ * - `none`: neither is set; the creative cannot deliver to Instagram or Threads.
+ */
+export type AdsThreadsIdentitySource = 'explicit' | 'derived_from_instagram' | 'none';
+
+export interface AdsIdentityCompliance extends AdsComplianceCheck {
+  instagram_user_id?: string;
+  threads_user_id?: string;
+  threads_identity_source: AdsThreadsIdentitySource;
+}
+
 export interface AdsCreativeSetupCompliance {
+  identity: AdsIdentityCompliance;
   ai_creative: AdsAiCreativeCompliance;
   related_media: AdsComplianceCheck;
   placement_customization: AdsPlacementCustomizationCompliance;
