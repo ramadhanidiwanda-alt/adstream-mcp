@@ -21,6 +21,7 @@ interface AccountInfoRaw {
   business_country_code?: string;
   min_daily_budget?: number;
   disable_reason?: number;
+  existing_customers?: string[];
 }
 
 const ACCOUNT_STATUS_LABELS: Record<number, string> = {
@@ -56,6 +57,7 @@ export async function getAccountInfo(
     'business_country_code',
     'min_daily_budget',
     'disable_reason',
+    'existing_customers',
   ];
 
   const raw = await client.metaGetObject<AccountInfoRaw>(`/act_${adAccountId}`, {
@@ -79,5 +81,6 @@ export async function getAccountInfo(
     business_country: raw.business_country_code,
     min_daily_budget: raw.min_daily_budget,
     disable_reason: raw.disable_reason,
+    existing_customers: raw.existing_customers,
   };
 }
