@@ -3229,6 +3229,22 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
     }
 
     try {
+      assertKnownParams(request.params, READ_CREATIVE_FULL_PARAMS, READ_CREATIVE_FULL_PARAM_HINTS);
+    } catch (error) {
+      return {
+        ok: false,
+        provider: 'meta',
+        errors: [
+          {
+            provider: 'meta',
+            code: 'UNKNOWN_PARAM',
+            message: error instanceof Error ? error.message : String(error),
+          },
+        ],
+      };
+    }
+
+    try {
       const client = this.createClient(context.credential);
       const rawCreative = await readAdCreativeFullTool(client, { creativeId });
 
@@ -4307,6 +4323,25 @@ function assertKnownParams(
     `Field berikut tidak dikenali dan TIDAK dikirim ke Meta: ${detail}. params bukan passthrough mentah ke Graph API — pakai field bertipe yang sesuai, atau hapus field ini.`
   );
 }
+
+// Read tools accept the shared envelope plus their own id. Everything else was
+// previously swallowed, so params.fields looked like a field-selection override
+// and quietly did nothing at all.
+const READ_CREATIVE_FULL_PARAMS = new Set([
+  'provider',
+  'providers',
+  'accountId',
+  'since',
+  'until',
+  'creativeId',
+]);
+
+const READ_CREATIVE_FULL_PARAM_HINTS: Record<string, string> = {
+  fields:
+    'tool ini selalu membaca seluruh field yang didukung; tidak ada override fields. Lihat AD_CREATIVE_FULL_FIELDS di src/tools/readAdCreativeFull.ts',
+  creative_id: 'creativeId',
+  id: 'creativeId',
+};
 
 /**
  * attribution_spec override for a clone. Accepts Meta's own array shape; null and []

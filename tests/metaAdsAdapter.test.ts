@@ -4847,6 +4847,45 @@ describe('MetaAdsAdapter', () => {
   });
 });
 
+describe('MetaAdsAdapter — ads_read_creative_full param validation', () => {
+  function createAdapterWithMockClient() {
+    return new MetaAdsAdapter({
+      clientFactory: () =>
+        ({
+          metaGetObject: async () => ({ id: '123', name: 'Test Creative' }),
+          metaGet: async () => ({}),
+          metaPost: async () => ({}),
+          metaDelete: async () => ({}),
+        }) as never,
+    });
+  }
+
+  it('rejects a params.fields override instead of ignoring it', async () => {
+    // params.fields reads as a field-selection override; it never was one.
+    // Silently dropping it is the worst of the available options.
+    const adapter = createAdapterWithMockClient();
+    const response = await adapter.readAdCreativeFull({
+      provider: 'meta',
+      params: { creativeId: '123', fields: 'id,name,threads_user_id' },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    } as never);
+
+    expect(response.ok).toBe(false);
+    expect(JSON.stringify(response)).toContain('fields');
+  });
+
+  it('still accepts the documented params', async () => {
+    const adapter = createAdapterWithMockClient();
+    const response = await adapter.readAdCreativeFull({
+      provider: 'meta',
+      params: { creativeId: '123', accountId: 'act_1' },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    } as never);
+
+    expect(response.ok).toBe(true);
+  });
+});
+
 describe('MetaAdsAdapter — ad set spend controls', () => {
   it('passes spend controls through createAdSet', async () => {
     let receivedOptions: Record<string, unknown> | undefined;
