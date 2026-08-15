@@ -1933,12 +1933,12 @@ function createCreateAdSetInputSchema() {
       dailySpendCap: {
         type: 'number',
         description:
-          'Daily spend ceiling for this ad set, in account currency minor units. Use with a sibling ad set (one including, one excluding the existing-customer audience) to split spend across customer segments — Meta\'s replacement for the retired existing_customer_budget_percentage.',
+          "Daily spend ceiling for this ad set, in account currency minor units. Ad-set-level control used to shape this ad set's share of a campaign budget. Use with a sibling ad set (one including, one excluding the existing-customer audience) to split spend across customer segments — Meta's replacement for the retired existing_customer_budget_percentage.",
       },
       dailyMinSpendTarget: {
         type: 'number',
         description:
-          'Daily minimum spend target for this ad set, in account currency minor units. Best-effort, not guaranteed.',
+          "Daily minimum spend target for this ad set, in account currency minor units. Ad-set-level control used to shape this ad set's share of a campaign budget. Best-effort, not guaranteed.",
       },
       lifetimeSpendCap: {
         type: 'number',
@@ -2779,12 +2779,12 @@ function createUpdateAdSetInputSchema() {
       dailySpendCap: {
         type: 'number',
         description:
-          'Daily spend ceiling for this ad set, in account currency minor units. Use with a sibling ad set (one including, one excluding the existing-customer audience) to split spend across customer segments — Meta\'s replacement for the retired existing_customer_budget_percentage.',
+          "Daily spend ceiling for this ad set, in account currency minor units. Ad-set-level control used to shape this ad set's share of a campaign budget. Use with a sibling ad set (one including, one excluding the existing-customer audience) to split spend across customer segments — Meta's replacement for the retired existing_customer_budget_percentage.",
       },
       dailyMinSpendTarget: {
         type: 'number',
         description:
-          'Daily minimum spend target for this ad set, in account currency minor units. Best-effort, not guaranteed.',
+          "Daily minimum spend target for this ad set, in account currency minor units. Ad-set-level control used to shape this ad set's share of a campaign budget. Best-effort, not guaranteed. Send 0 to clear an existing target.",
       },
       lifetimeSpendCap: {
         type: 'number',
@@ -2794,7 +2794,7 @@ function createUpdateAdSetInputSchema() {
       lifetimeMinSpendTarget: {
         type: 'number',
         description:
-          'Lifetime minimum spend target for this ad set, in account currency minor units. Requires a lifetime budget on the campaign. Best-effort, not guaranteed.',
+          'Lifetime minimum spend target for this ad set, in account currency minor units. Requires a lifetime budget on the campaign. Best-effort, not guaranteed. Send 0 to clear an existing target.',
       },
       bidStrategy: { type: 'string', description: 'New bid strategy.' },
       optimizationGoal: {

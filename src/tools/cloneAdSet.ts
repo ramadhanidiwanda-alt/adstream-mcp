@@ -150,10 +150,7 @@ export function buildCloneAdSetPayload(
   if (source.lifetime_spend_cap !== undefined && source.lifetime_spend_cap !== null) {
     payload.lifetime_spend_cap = source.lifetime_spend_cap;
   }
-  if (
-    source.lifetime_min_spend_target !== undefined &&
-    source.lifetime_min_spend_target !== null
-  ) {
+  if (source.lifetime_min_spend_target !== undefined && source.lifetime_min_spend_target !== null) {
     payload.lifetime_min_spend_target = source.lifetime_min_spend_target;
   }
 

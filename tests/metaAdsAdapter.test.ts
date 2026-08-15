@@ -4885,4 +4885,41 @@ describe('MetaAdsAdapter — ad set spend controls', () => {
     expect(receivedOptions?.lifetimeSpendCap).toBeUndefined();
     expect(receivedOptions?.lifetimeMinSpendTarget).toBeUndefined();
   });
+
+  it('leaves spend controls undefined when update params omit them', async () => {
+    let receivedOptions: Record<string, unknown> | undefined;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        updateAdSet: async (_client, options) => {
+          receivedOptions = options as unknown as Record<string, unknown>;
+          return {
+            operation: 'update_adset',
+            status: 'executed',
+            executed: true,
+            success: true,
+            preview: {},
+            mode: 'patch',
+          };
+        },
+      },
+    });
+
+    const response = await adapter.updateAdSet({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {
+        adSetId: 'as_1',
+        dryRun: false,
+        confirmed: true,
+      },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    } as never);
+
+    expect(response.ok).toBe(true);
+    expect(receivedOptions?.dailySpendCap).toBeUndefined();
+    expect(receivedOptions?.dailyMinSpendTarget).toBeUndefined();
+    expect(receivedOptions?.lifetimeSpendCap).toBeUndefined();
+    expect(receivedOptions?.lifetimeMinSpendTarget).toBeUndefined();
+  });
 });

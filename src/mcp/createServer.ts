@@ -649,13 +649,13 @@ const createAdSetInputSchema = {
     .number()
     .optional()
     .describe(
-      'Daily spend ceiling for this ad set, in account currency minor units. Use with a sibling ad set (one including, one excluding the existing-customer audience) to split spend across customer segments.'
+      "Daily spend ceiling for this ad set, in account currency minor units. Ad-set-level control used to shape this ad set's share of a campaign budget. Use with a sibling ad set (one including, one excluding the existing-customer audience) to split spend across customer segments."
     ),
   dailyMinSpendTarget: z
     .number()
     .optional()
     .describe(
-      'Daily minimum spend target for this ad set, in account currency minor units. Best-effort, not guaranteed.'
+      "Daily minimum spend target for this ad set, in account currency minor units. Ad-set-level control used to shape this ad set's share of a campaign budget. Best-effort, not guaranteed."
     ),
   lifetimeSpendCap: z
     .number()
@@ -1191,13 +1191,13 @@ const updateAdSetInputSchema = {
     .number()
     .optional()
     .describe(
-      'Daily spend ceiling for this ad set, in account currency minor units. Use with a sibling ad set (one including, one excluding the existing-customer audience) to split spend across customer segments.'
+      "Daily spend ceiling for this ad set, in account currency minor units. Ad-set-level control used to shape this ad set's share of a campaign budget. Use with a sibling ad set (one including, one excluding the existing-customer audience) to split spend across customer segments."
     ),
   dailyMinSpendTarget: z
     .number()
     .optional()
     .describe(
-      'Daily minimum spend target for this ad set, in account currency minor units. Best-effort, not guaranteed.'
+      "Daily minimum spend target for this ad set, in account currency minor units. Ad-set-level control used to shape this ad set's share of a campaign budget. Best-effort, not guaranteed. Send 0 to clear an existing target."
     ),
   lifetimeSpendCap: z
     .number()
@@ -1209,7 +1209,7 @@ const updateAdSetInputSchema = {
     .number()
     .optional()
     .describe(
-      'Lifetime minimum spend target for this ad set, in account currency minor units. Requires a lifetime budget on the campaign. Best-effort, not guaranteed.'
+      'Lifetime minimum spend target for this ad set, in account currency minor units. Requires a lifetime budget on the campaign. Best-effort, not guaranteed. Send 0 to clear an existing target.'
     ),
   bidStrategy: z.string().optional().describe('New bid strategy.'),
   optimizationGoal: z

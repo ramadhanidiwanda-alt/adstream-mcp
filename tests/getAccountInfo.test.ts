@@ -69,10 +69,7 @@ describe('getAccountInfo — existing customers audience segments', () => {
     const result = await getAccountInfo(client, { adAccountId: 'act_123456789' });
 
     expect(metaGetObject.mock.calls[0][1].fields).toContain('existing_customers');
-    expect(result.existing_customers).toEqual([
-      '120000000000000111',
-      '120000000000000222',
-    ]);
+    expect(result.existing_customers).toEqual(['120000000000000111', '120000000000000222']);
   });
 
   it('leaves existing_customers undefined when the account has no segments configured', async () => {

@@ -132,6 +132,7 @@ Pick the lens that matches the user's question. Don't pre-load all of these; loa
 | Diagnose creative fatigue                        | Check frequency + CPM trend + CTR trend                       |
 | Find wasted spend                                | Compare CPA to break-even, find high-spend low-ROAS campaigns |
 | Decide whether to scale                          | Check Headroom $, frequency, CPM trend                        |
+| Map an Ads Manager UI label to an API field      | `../shared/references/ui-label-to-api-field.md`               |
 
 For business context (AOV, profit margin, brand voice), read `{data_dir}/business-context.json`. If missing or stale (>90 days), suggest `/meta-ads-audit`.
 

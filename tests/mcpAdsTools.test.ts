@@ -372,6 +372,24 @@ describe('ads MCP broker tools', () => {
     });
   });
 
+  it('exposes all four ad set spend control fields on ads_create_adset and ads_update_adset', () => {
+    const spendControlFields = [
+      'dailySpendCap',
+      'dailyMinSpendTarget',
+      'lifetimeSpendCap',
+      'lifetimeMinSpendTarget',
+    ];
+
+    for (const toolName of ['ads_create_adset', 'ads_update_adset']) {
+      const tool = ADS_MCP_TOOL_DEFINITIONS.find(({ name }) => name === toolName);
+      const properties = tool?.inputSchema.properties as Record<string, unknown>;
+
+      for (const field of spendControlFields) {
+        expect(properties).toHaveProperty(field);
+      }
+    }
+  });
+
   it('exposes local welcome message template tools and creative template selection', () => {
     const createTool = ADS_MCP_TOOL_DEFINITIONS.find(
       ({ name }) => name === 'ads_create_welcome_message_template'

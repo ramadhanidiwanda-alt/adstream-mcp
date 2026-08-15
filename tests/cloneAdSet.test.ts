@@ -221,4 +221,16 @@ describe('cloneAdSet — spend control carry-over', () => {
       lifetime_min_spend_target: 20000000,
     });
   });
+
+  it('omits the spend control keys entirely when the source ad set has none', () => {
+    const payload = buildCloneAdSetPayload(source, {
+      adAccountId: 'act_1',
+      sourceAdSetId: 'as_src',
+    });
+
+    expect(payload).not.toHaveProperty('daily_spend_cap');
+    expect(payload).not.toHaveProperty('daily_min_spend_target');
+    expect(payload).not.toHaveProperty('lifetime_spend_cap');
+    expect(payload).not.toHaveProperty('lifetime_min_spend_target');
+  });
 });
