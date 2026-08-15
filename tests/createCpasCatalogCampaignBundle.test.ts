@@ -82,6 +82,34 @@ describe('createCpasCatalogCampaignBundle', () => {
     });
   });
 
+  it('shows the selected Threads identity in the dry-run preview of every creative variant', async () => {
+    // The executor passes threadsProfileId into createAdCreative, so a preview
+    // without threads_user_id lies about what execution will send.
+    const variants: CpasCatalogCampaignBundlePayload[] = [
+      { ...payload, threadsProfileId: 'threads_1' } as CpasCatalogCampaignBundlePayload,
+      {
+        ...payload,
+        threadsProfileId: 'threads_1',
+        creativeFormat: 'collection',
+        collection: { instantExperienceId: 'canvas_1', coverImageHash: 'cover_1' },
+      } as unknown as CpasCatalogCampaignBundlePayload,
+      {
+        ...payload,
+        threadsProfileId: 'threads_1',
+        creativeFormat: 'catalog_video',
+        video: { videoId: 'video_1', instantExperienceId: 'canvas_1', retailerAppId: 'app_1' },
+      } as unknown as CpasCatalogCampaignBundlePayload,
+    ];
+
+    for (const variant of variants) {
+      const result = await createCpasCatalogCampaignBundle(createMockClient(), variant);
+
+      expect(result.preview.creative.object_story_spec).toMatchObject({
+        threads_user_id: 'threads_1',
+      });
+    }
+  });
+
   it('builds a CPAS Collection creative from an Instant Experience and one cover image', async () => {
     const client = createMockClient();
     const collectionPayload = {
