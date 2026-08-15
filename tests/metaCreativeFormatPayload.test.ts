@@ -2327,6 +2327,30 @@ describe('buildMetaCreativeFormatPayload — instagramUserId pada jalur ad code'
     ).toThrow(/threadsProfileId tidak dipakai pada jalur partnership\.adCode/);
   });
 
+  it('menolak instagramUserId bersama objectStoryId alih-alih membuangnya diam-diam', () => {
+    expect(() =>
+      buildMetaCreativeFormatPayload({
+        mode: 'standard',
+        pageId: 'brand-page-1',
+        instagramUserId: 'creator-ig-1',
+        creativeFormat: 'existing_post',
+        creativeSpec: { objectStoryId: 'page-1_post-1' },
+      })
+    ).toThrow(/instagramUserId tidak dipakai pada jalur creativeSpec\.objectStoryId/);
+  });
+
+  it('menolak threadsProfileId bersama objectStoryId alih-alih membuangnya diam-diam', () => {
+    expect(() =>
+      buildMetaCreativeFormatPayload({
+        mode: 'standard',
+        pageId: 'brand-page-1',
+        threadsProfileId: 'creator-threads-1',
+        creativeFormat: 'existing_post',
+        creativeSpec: { objectStoryId: 'page-1_post-1' },
+      })
+    ).toThrow(/threadsProfileId tidak dipakai pada jalur creativeSpec\.objectStoryId/);
+  });
+
   it('tetap mengirim instagram_user_id pada boost via sourceInstagramMediaId', () => {
     const payload = buildMetaCreativeFormatPayload({
       mode: 'standard',

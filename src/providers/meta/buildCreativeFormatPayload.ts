@@ -753,7 +753,30 @@ function buildExistingPostContentReference(
   objectStoryId: string | undefined,
   sourceInstagramMediaId: string | undefined
 ): Record<string, unknown> {
-  if (objectStoryId) return { object_story_id: objectStoryId };
+  if (objectStoryId) {
+    // Post yang sudah terbit membawa identitas pemostingnya sendiri: object_story_id
+    // menunjuk ke post milik Page/akun tertentu, jadi identitas yang dikirim
+    // berdampingan dengannya tidak punya tempat sama sekali di payload — Meta
+    // membuang field creative yang tidak dikenal tanpa error. Ditolak, bukan
+    // dibuang diam-diam, sama seperti jalur partnership.adCode di bawah:
+    // identitas kembar tidak boleh diperlakukan berbeda.
+    if (input.instagramUserId?.trim()) {
+      throw new Error(
+        'instagramUserId tidak dipakai pada jalur creativeSpec.objectStoryId: post yang sudah ' +
+          'terbit sudah membawa identitas pemostingnya sendiri. Hapus instagramUserId, atau pakai ' +
+          'creativeSpec.sourceInstagramMediaId bila memang mau mem-boost media IG lewat ID-nya.'
+      );
+    }
+    if (input.threadsProfileId?.trim()) {
+      throw new Error(
+        'threadsProfileId tidak dipakai pada jalur creativeSpec.objectStoryId: post yang sudah ' +
+          'terbit sudah membawa identitas pemostingnya sendiri, sehingga identitas Threads tidak ' +
+          'punya tempat di payload. Hapus threadsProfileId, atau pakai ' +
+          'creativeSpec.sourceInstagramMediaId bila memang mau mem-boost media IG lewat ID-nya.'
+      );
+    }
+    return { object_story_id: objectStoryId };
+  }
   if (!sourceInstagramMediaId) {
     // Jalur ad code. Payload ad code yang didokumentasikan Meta tidak memuat
     // instagram_user_id sama sekali — akun Instagram pemilik konten sudah terikat
