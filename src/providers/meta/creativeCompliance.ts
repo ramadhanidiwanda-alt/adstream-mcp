@@ -294,7 +294,21 @@ function evaluateIdentity(
   topLevelThreadsUserId: unknown
 ): AdsIdentityCompliance {
   if (!isRecord(objectStorySpec)) {
-    // An existing-post creative carries identity on the post itself.
+    // Some creatives (the existing_post sourceInstagramMediaId path, among
+    // others) carry instagram_user_id/threads_user_id at the payload root
+    // instead of inside object_story_spec — Meta documents both placements as
+    // valid. A root-level identity is real identity and is honored first: a
+    // creative that returns both object_story_id and a root-level identity must
+    // not be reported as NOT_APPLICABLE with the IDs dropped, or this audit
+    // would contradict the same IDs echoed by the creative record itself.
+    const rootInstagramUserId = readIdentityId(topLevelInstagramUserId);
+    const rootThreadsUserId = readIdentityId(topLevelThreadsUserId);
+    if (rootInstagramUserId !== undefined || rootThreadsUserId !== undefined) {
+      return evaluateIdentityFromIds(rootInstagramUserId, rootThreadsUserId);
+    }
+
+    // No identity anywhere: an existing-post creative carries identity on the
+    // post itself, so there is nothing here to audit.
     if (typeof objectStoryId === 'string' && objectStoryId.trim().length > 0) {
       return {
         status: 'NOT_APPLICABLE',
@@ -305,13 +319,9 @@ function evaluateIdentity(
       };
     }
 
-    // Some existing_post creatives (creativeSpec.sourceInstagramMediaId) carry
-    // instagram_user_id/threads_user_id at the payload root instead of inside
-    // object_story_spec — Meta documents both placements as valid. Fall back to
-    // the root fields before concluding the identity is unknown.
     return evaluateIdentityFromIds(
-      readIdentityId(topLevelInstagramUserId),
-      readIdentityId(topLevelThreadsUserId),
+      rootInstagramUserId,
+      rootThreadsUserId,
       'Meta did not return object_story_spec.'
     );
   }
@@ -343,7 +353,7 @@ function evaluateIdentityFromIds(
       threads_user_id: threadsUserId,
       threads_identity_source: threadsUserId === undefined ? 'derived_from_page' : 'explicit',
       reasons: [
-        "object_story_spec has no instagram_user_id pinned, so Meta will use the Facebook Page's connected Instagram account. Confirm that account is the intended one.",
+        "This creative has no instagram_user_id pinned, so Meta will use the Facebook Page's connected Instagram account. Confirm that account is the intended one.",
       ],
     };
   }
@@ -364,7 +374,9 @@ function evaluateIdentityFromIds(
     instagram_user_id: instagramUserId,
     threads_user_id: threadsUserId,
     threads_identity_source: 'explicit',
-    reasons: ['Both instagram_user_id and threads_user_id are set on object_story_spec.'],
+    reasons: [
+      'Both instagram_user_id and threads_user_id are set on this creative (inside object_story_spec or at the payload root).',
+    ],
   };
 }
 

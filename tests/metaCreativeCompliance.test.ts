@@ -543,6 +543,44 @@ describe('evaluateMetaCreativeCompliance', () => {
     expect(identity.status).toBe('NOT_APPLICABLE');
   });
 
+  it('honors a root-level identity even when object_story_id is also present', () => {
+    // Meta can return both. NOT_APPLICABLE here would drop identity IDs that the
+    // same creative record reports, leaving one record with two contradictory
+    // answers about its own identity.
+    const { identity } = evaluateMetaCreativeCompliance({
+      object_story_id: '1001_2002',
+      instagram_user_id: '17841439260136409',
+      threads_user_id: '9876543210',
+    });
+
+    expect(identity.status).toBe('PASS');
+    expect(identity.instagram_user_id).toBe('17841439260136409');
+    expect(identity.threads_user_id).toBe('9876543210');
+    expect(identity.threads_identity_source).toBe('explicit');
+  });
+
+  it('honors a root-level threads_user_id alone alongside object_story_id', () => {
+    const { identity } = evaluateMetaCreativeCompliance({
+      object_story_id: '1001_2002',
+      threads_user_id: '9876543210',
+    });
+
+    expect(identity.status).toBe('MANUAL_REVIEW');
+    expect(identity.threads_user_id).toBe('9876543210');
+    expect(identity.threads_identity_source).toBe('explicit');
+  });
+
+  it('still reports NOT_APPLICABLE when the root identity fields are blank', () => {
+    const { identity } = evaluateMetaCreativeCompliance({
+      object_story_id: '1001_2002',
+      instagram_user_id: '   ',
+      threads_user_id: '',
+    });
+
+    expect(identity.status).toBe('NOT_APPLICABLE');
+    expect(identity.threads_identity_source).toBe('none');
+  });
+
   it('reports UNKNOWN when object_story_spec was never fetched', () => {
     const { identity } = evaluateMetaCreativeCompliance({});
 
