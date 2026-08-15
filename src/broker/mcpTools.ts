@@ -1930,6 +1930,26 @@ function createCreateAdSetInputSchema() {
         description:
           'Bid constraints for LOWEST_COST_WITH_MIN_ROAS. Shape: { roas_average_floor: number }.',
       },
+      dailySpendCap: {
+        type: 'number',
+        description:
+          'Daily spend ceiling for this ad set, in account currency minor units. Use with a sibling ad set (one including, one excluding the existing-customer audience) to split spend across customer segments — Meta\'s replacement for the retired existing_customer_budget_percentage.',
+      },
+      dailyMinSpendTarget: {
+        type: 'number',
+        description:
+          'Daily minimum spend target for this ad set, in account currency minor units. Best-effort, not guaranteed.',
+      },
+      lifetimeSpendCap: {
+        type: 'number',
+        description:
+          'Lifetime spend ceiling for this ad set, in account currency minor units. Requires a lifetime budget on the campaign.',
+      },
+      lifetimeMinSpendTarget: {
+        type: 'number',
+        description:
+          'Lifetime minimum spend target for this ad set, in account currency minor units. Requires a lifetime budget on the campaign. Best-effort, not guaranteed.',
+      },
       ageMin: { type: 'number', description: 'Minimum age target (e.g. 18).' },
       ageMax: { type: 'number', description: 'Maximum age target (e.g. 65).' },
       ageRange: {
@@ -2756,6 +2776,26 @@ function createUpdateAdSetInputSchema() {
         description: 'New daily budget in local currency minor units.',
       },
       lifetimeBudget: { type: 'number', description: 'New lifetime budget.' },
+      dailySpendCap: {
+        type: 'number',
+        description:
+          'Daily spend ceiling for this ad set, in account currency minor units. Use with a sibling ad set (one including, one excluding the existing-customer audience) to split spend across customer segments — Meta\'s replacement for the retired existing_customer_budget_percentage.',
+      },
+      dailyMinSpendTarget: {
+        type: 'number',
+        description:
+          'Daily minimum spend target for this ad set, in account currency minor units. Best-effort, not guaranteed.',
+      },
+      lifetimeSpendCap: {
+        type: 'number',
+        description:
+          'Lifetime spend ceiling for this ad set, in account currency minor units. Requires a lifetime budget on the campaign.',
+      },
+      lifetimeMinSpendTarget: {
+        type: 'number',
+        description:
+          'Lifetime minimum spend target for this ad set, in account currency minor units. Requires a lifetime budget on the campaign. Best-effort, not guaranteed.',
+      },
       bidStrategy: { type: 'string', description: 'New bid strategy.' },
       optimizationGoal: {
         type: 'string',

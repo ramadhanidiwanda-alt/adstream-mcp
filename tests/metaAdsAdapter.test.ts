@@ -4761,3 +4761,128 @@ describe('MetaAdsAdapter', () => {
     expect(response.ok).toBe(false);
   });
 });
+
+describe('MetaAdsAdapter — ad set spend controls', () => {
+  it('passes spend controls through createAdSet', async () => {
+    let receivedOptions: Record<string, unknown> | undefined;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        createAdSet: async (_client, options) => {
+          receivedOptions = options as unknown as Record<string, unknown>;
+          return {
+            operation: 'create_adset',
+            status: 'dry_run',
+            executed: false,
+            preview: {},
+          };
+        },
+      },
+    });
+
+    const response = await adapter.createAdSet({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {
+        campaignId: 'cmp_123',
+        name: 'Spend Controlled Ad Set',
+        status: 'PAUSED',
+        billingEvent: 'IMPRESSIONS',
+        optimizationGoal: 'LINK_CLICKS',
+        dailySpendCap: 5000000,
+        dailyMinSpendTarget: 1000000,
+        lifetimeSpendCap: 90000000,
+        lifetimeMinSpendTarget: 20000000,
+      },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    });
+
+    expect(response.ok).toBe(true);
+    expect(receivedOptions).toMatchObject({
+      dailySpendCap: 5000000,
+      dailyMinSpendTarget: 1000000,
+      lifetimeSpendCap: 90000000,
+      lifetimeMinSpendTarget: 20000000,
+    });
+  });
+
+  it('passes spend controls through updateAdSet', async () => {
+    let receivedOptions: Record<string, unknown> | undefined;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        updateAdSet: async (_client, options) => {
+          receivedOptions = options as unknown as Record<string, unknown>;
+          return {
+            operation: 'update_adset',
+            status: 'executed',
+            executed: true,
+            success: true,
+            preview: {},
+            mode: 'patch',
+          };
+        },
+      },
+    });
+
+    const response = await adapter.updateAdSet({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {
+        adSetId: 'as_1',
+        dailySpendCap: 5000000,
+        dailyMinSpendTarget: 1000000,
+        lifetimeSpendCap: 90000000,
+        lifetimeMinSpendTarget: 20000000,
+        dryRun: false,
+        confirmed: true,
+      },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    } as never);
+
+    expect(response.ok).toBe(true);
+    expect(receivedOptions).toMatchObject({
+      dailySpendCap: 5000000,
+      dailyMinSpendTarget: 1000000,
+      lifetimeSpendCap: 90000000,
+      lifetimeMinSpendTarget: 20000000,
+    });
+  });
+
+  it('leaves spend controls undefined when params omit them', async () => {
+    let receivedOptions: Record<string, unknown> | undefined;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        createAdSet: async (_client, options) => {
+          receivedOptions = options as unknown as Record<string, unknown>;
+          return {
+            operation: 'create_adset',
+            status: 'dry_run',
+            executed: false,
+            preview: {},
+          };
+        },
+      },
+    });
+
+    const response = await adapter.createAdSet({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {
+        campaignId: 'cmp_123',
+        name: 'No Spend Controls Ad Set',
+        status: 'PAUSED',
+        billingEvent: 'IMPRESSIONS',
+        optimizationGoal: 'LINK_CLICKS',
+      },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    });
+
+    expect(response.ok).toBe(true);
+    expect(receivedOptions?.dailySpendCap).toBeUndefined();
+    expect(receivedOptions?.dailyMinSpendTarget).toBeUndefined();
+    expect(receivedOptions?.lifetimeSpendCap).toBeUndefined();
+    expect(receivedOptions?.lifetimeMinSpendTarget).toBeUndefined();
+  });
+});
