@@ -1893,6 +1893,22 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
             request.params.bidConstraints !== null
               ? (request.params.bidConstraints as Record<string, unknown>)
               : undefined,
+          dailySpendCap:
+            typeof request.params.dailySpendCap === 'number'
+              ? request.params.dailySpendCap
+              : undefined,
+          dailyMinSpendTarget:
+            typeof request.params.dailyMinSpendTarget === 'number'
+              ? request.params.dailyMinSpendTarget
+              : undefined,
+          lifetimeSpendCap:
+            typeof request.params.lifetimeSpendCap === 'number'
+              ? request.params.lifetimeSpendCap
+              : undefined,
+          lifetimeMinSpendTarget:
+            typeof request.params.lifetimeMinSpendTarget === 'number'
+              ? request.params.lifetimeMinSpendTarget
+              : undefined,
           targeting: this.parseAdSetTargeting(request),
           promotedObject:
             typeof request.params.promotedObject === 'object' &&
@@ -2614,6 +2630,22 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
           lifetimeBudget:
             typeof request.params.lifetimeBudget === 'number'
               ? request.params.lifetimeBudget
+              : undefined,
+          dailySpendCap:
+            typeof request.params.dailySpendCap === 'number'
+              ? request.params.dailySpendCap
+              : undefined,
+          dailyMinSpendTarget:
+            typeof request.params.dailyMinSpendTarget === 'number'
+              ? request.params.dailyMinSpendTarget
+              : undefined,
+          lifetimeSpendCap:
+            typeof request.params.lifetimeSpendCap === 'number'
+              ? request.params.lifetimeSpendCap
+              : undefined,
+          lifetimeMinSpendTarget:
+            typeof request.params.lifetimeMinSpendTarget === 'number'
+              ? request.params.lifetimeMinSpendTarget
               : undefined,
           bidStrategy:
             typeof request.params.bidStrategy === 'string' ? request.params.bidStrategy : undefined,

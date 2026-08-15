@@ -1136,3 +1136,49 @@ describe('createAdSet — bid strategy + pre-flight validation', () => {
     });
   });
 });
+
+describe('createAdSet — ad set spend controls', () => {
+  it('emits all four spend control fields in the dry-run payload', async () => {
+    const client = createMockClient();
+
+    const result = await createAdSet(client, {
+      ...defaultOptions,
+      dailySpendCap: 5000000,
+      dailyMinSpendTarget: 1000000,
+      lifetimeSpendCap: 90000000,
+      lifetimeMinSpendTarget: 20000000,
+    });
+
+    expect(result.preview).toMatchObject({
+      daily_spend_cap: 5000000,
+      daily_min_spend_target: 1000000,
+      lifetime_spend_cap: 90000000,
+      lifetime_min_spend_target: 20000000,
+    });
+  });
+
+  it('omits spend control keys entirely when not supplied', async () => {
+    const client = createMockClient();
+
+    const result = await createAdSet(client, { ...defaultOptions });
+
+    expect(result.preview).not.toHaveProperty('daily_spend_cap');
+    expect(result.preview).not.toHaveProperty('daily_min_spend_target');
+    expect(result.preview).not.toHaveProperty('lifetime_spend_cap');
+    expect(result.preview).not.toHaveProperty('lifetime_min_spend_target');
+  });
+
+  it('emits only the fields supplied, leaving siblings absent', async () => {
+    const client = createMockClient();
+
+    const result = await createAdSet(client, {
+      ...defaultOptions,
+      dailySpendCap: 5000000,
+    });
+
+    expect(result.preview).toMatchObject({ daily_spend_cap: 5000000 });
+    expect(result.preview).not.toHaveProperty('daily_min_spend_target');
+    expect(result.preview).not.toHaveProperty('lifetime_spend_cap');
+    expect(result.preview).not.toHaveProperty('lifetime_min_spend_target');
+  });
+});

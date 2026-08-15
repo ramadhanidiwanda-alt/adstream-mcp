@@ -150,3 +150,45 @@ describe('listAdSetsFull', () => {
     expect(result.droppedFields).toBe(true);
   });
 });
+
+describe('readAdSetFull — spend control fields', () => {
+  it('includes the four spend control fields in ADSET_FULL_FIELDS', () => {
+    expect(ADSET_FULL_FIELDS).toEqual(
+      expect.arrayContaining([
+        'daily_spend_cap',
+        'daily_min_spend_target',
+        'lifetime_spend_cap',
+        'lifetime_min_spend_target',
+      ])
+    );
+  });
+
+  it('isolates a rejected spend-cap batch so the core budget fields still come back', async () => {
+    const client = {
+      metaGetObject: vi
+        .fn()
+        .mockImplementation(async (_path: string, opts: { fields?: string }) => {
+          const fields = opts.fields ?? '';
+          if (fields.includes('daily_spend_cap')) {
+            throw new Error('(#100) Tried accessing nonexisting field');
+          }
+          if (fields.includes('daily_budget')) {
+            return { daily_budget: 5000000, budget_remaining: 4000000 };
+          }
+          return { id: 'as_3', name: 'Isolated Ad Set', status: 'ACTIVE', campaign_id: 'c_3' };
+        }),
+      metaGet: vi.fn(),
+      metaPost: vi.fn(),
+      metaDelete: vi.fn(),
+    } as unknown as MetaClient;
+
+    const result = await readAdSetFull(client, { adsetId: 'as_3' });
+
+    expect(result.daily_budget).toBe(5000000);
+    expect(result.budget_remaining).toBe(4000000);
+    expect(result.daily_spend_cap).toBeUndefined();
+    expect(result.daily_min_spend_target).toBeUndefined();
+    expect(result.lifetime_spend_cap).toBeUndefined();
+    expect(result.lifetime_min_spend_target).toBeUndefined();
+  });
+});

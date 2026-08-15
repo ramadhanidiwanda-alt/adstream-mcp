@@ -351,6 +351,25 @@ describe('MCP server builder', () => {
     );
   });
 
+  it('exposes all four ad set spend control fields on ads_create_adset and ads_update_adset Zod schemas', async () => {
+    process.env.ADSTREAM_ENABLE_WRITES = 'true';
+    const response = await listRegisteredTools();
+    const adSetTool = response.tools.find((tool) => tool.name === 'ads_create_adset');
+    const updateAdSetTool = response.tools.find((tool) => tool.name === 'ads_update_adset');
+
+    const spendControlFields = [
+      'dailySpendCap',
+      'dailyMinSpendTarget',
+      'lifetimeSpendCap',
+      'lifetimeMinSpendTarget',
+    ];
+
+    for (const field of spendControlFields) {
+      expect(toolSchemaProperty(adSetTool, field)).toBeDefined();
+      expect(toolSchemaProperty(updateAdSetTool, field)).toBeDefined();
+    }
+  });
+
   it('accepts urlTags at the MCP schema boundary for Meta URL parameters', async () => {
     process.env.ADSTREAM_ENABLE_WRITES = 'true';
     const adsBroker = createBrokerStub();

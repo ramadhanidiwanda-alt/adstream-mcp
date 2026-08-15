@@ -50,3 +50,43 @@ describe('getAccountInfo', () => {
     expect(result.account_status_label).toBe('UNKNOWN_42');
   });
 });
+
+describe('getAccountInfo — existing customers audience segments', () => {
+  it('requests existing_customers and returns it', async () => {
+    const metaGetObject = vi.fn().mockResolvedValue({
+      id: 'act_123456789',
+      name: 'Test Account',
+      currency: 'IDR',
+      timezone_name: 'Asia/Jakarta',
+      timezone_offset_hours_utc: 7,
+      account_status: 1,
+      balance: 0,
+      amount_spent: 0,
+      existing_customers: ['120000000000000111', '120000000000000222'],
+    });
+    const client = { metaGetObject } as unknown as MetaClient;
+
+    const result = await getAccountInfo(client, { adAccountId: 'act_123456789' });
+
+    expect(metaGetObject.mock.calls[0][1].fields).toContain('existing_customers');
+    expect(result.existing_customers).toEqual(['120000000000000111', '120000000000000222']);
+  });
+
+  it('leaves existing_customers undefined when the account has no segments configured', async () => {
+    const metaGetObject = vi.fn().mockResolvedValue({
+      id: 'act_123456789',
+      name: 'Test Account',
+      currency: 'IDR',
+      timezone_name: 'Asia/Jakarta',
+      timezone_offset_hours_utc: 7,
+      account_status: 1,
+      balance: 0,
+      amount_spent: 0,
+    });
+    const client = { metaGetObject } as unknown as MetaClient;
+
+    const result = await getAccountInfo(client, { adAccountId: 'act_123456789' });
+
+    expect(result.existing_customers).toBeUndefined();
+  });
+});

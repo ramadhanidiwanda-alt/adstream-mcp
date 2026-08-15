@@ -645,6 +645,30 @@ const createAdSetInputSchema = {
     .describe(
       'Bid constraints for LOWEST_COST_WITH_MIN_ROAS. Shape: { roas_average_floor: number } where value = target ROAS × 10000.'
     ),
+  dailySpendCap: z
+    .number()
+    .optional()
+    .describe(
+      "Daily spend ceiling for this ad set, in account currency minor units. Ad-set-level control used to shape this ad set's share of a campaign budget. Use with a sibling ad set (one including, one excluding the existing-customer audience) to split spend across customer segments."
+    ),
+  dailyMinSpendTarget: z
+    .number()
+    .optional()
+    .describe(
+      "Daily minimum spend target for this ad set, in account currency minor units. Ad-set-level control used to shape this ad set's share of a campaign budget. Best-effort, not guaranteed."
+    ),
+  lifetimeSpendCap: z
+    .number()
+    .optional()
+    .describe(
+      'Lifetime spend ceiling for this ad set, in account currency minor units. Requires a lifetime budget on the campaign.'
+    ),
+  lifetimeMinSpendTarget: z
+    .number()
+    .optional()
+    .describe(
+      'Lifetime minimum spend target for this ad set, in account currency minor units. Requires a lifetime budget on the campaign. Best-effort, not guaranteed.'
+    ),
   ageMin: z.number().optional().describe('Minimum age target (e.g. 18).'),
   ageMax: z.number().optional().describe('Maximum age target (e.g. 65).'),
   ageRange: z
@@ -1163,6 +1187,30 @@ const updateAdSetInputSchema = {
   status: z.enum(['ACTIVE', 'PAUSED']).optional().describe('New ad set status.'),
   dailyBudget: z.number().optional().describe('New daily budget in minor units.'),
   lifetimeBudget: z.number().optional().describe('New lifetime budget.'),
+  dailySpendCap: z
+    .number()
+    .optional()
+    .describe(
+      "Daily spend ceiling for this ad set, in account currency minor units. Ad-set-level control used to shape this ad set's share of a campaign budget. Use with a sibling ad set (one including, one excluding the existing-customer audience) to split spend across customer segments."
+    ),
+  dailyMinSpendTarget: z
+    .number()
+    .optional()
+    .describe(
+      "Daily minimum spend target for this ad set, in account currency minor units. Ad-set-level control used to shape this ad set's share of a campaign budget. Best-effort, not guaranteed. Send 0 to clear an existing target."
+    ),
+  lifetimeSpendCap: z
+    .number()
+    .optional()
+    .describe(
+      'Lifetime spend ceiling for this ad set, in account currency minor units. Requires a lifetime budget on the campaign.'
+    ),
+  lifetimeMinSpendTarget: z
+    .number()
+    .optional()
+    .describe(
+      'Lifetime minimum spend target for this ad set, in account currency minor units. Requires a lifetime budget on the campaign. Best-effort, not guaranteed. Send 0 to clear an existing target.'
+    ),
   bidStrategy: z.string().optional().describe('New bid strategy.'),
   optimizationGoal: z
     .enum([

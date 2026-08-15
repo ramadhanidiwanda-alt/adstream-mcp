@@ -317,3 +317,39 @@ describe('updateAdSet', () => {
     expect(r.status).toBe('failed');
   });
 });
+
+describe('updateAdSet — ad set spend controls', () => {
+  function spendControlClient(): MetaClient {
+    return {
+      metaGetObject: vi.fn().mockResolvedValue({ id: '120000000000000009', targeting: {} }),
+      metaGet: vi.fn().mockResolvedValue({ data: [] }),
+      metaPost: vi.fn().mockResolvedValue({ success: true }),
+    } as unknown as MetaClient;
+  }
+
+  it('emits all four spend control fields in the dry-run payload', async () => {
+    const result = await updateAdSet(spendControlClient(), {
+      adSetId: '120000000000000009',
+      dailySpendCap: 5000000,
+      dailyMinSpendTarget: 1000000,
+      lifetimeSpendCap: 90000000,
+      lifetimeMinSpendTarget: 20000000,
+    });
+
+    expect(result.preview).toMatchObject({
+      daily_spend_cap: 5000000,
+      daily_min_spend_target: 1000000,
+      lifetime_spend_cap: 90000000,
+      lifetime_min_spend_target: 20000000,
+    });
+  });
+
+  it('omits spend control keys entirely when not supplied', async () => {
+    const result = await updateAdSet(spendControlClient(), {
+      adSetId: '120000000000000009',
+      name: 'Renamed only',
+    });
+
+    expect(result.preview).toEqual({ name: 'Renamed only' });
+  });
+});

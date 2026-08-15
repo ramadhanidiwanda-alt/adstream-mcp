@@ -1071,6 +1071,13 @@ export interface AccountInfoResult {
   business_country?: string;
   min_daily_budget?: number;
   disable_reason?: number;
+  /**
+   * Ad account "audience segments" — custom audience IDs defining existing
+   * customers (Ads Manager: Advertising settings → Segmen pemirsa). Feed these
+   * into ad set targeting.customAudiences / excludedCustomAudiences to split
+   * spend between new and existing customers. Absent when never configured.
+   */
+  existing_customers?: string[];
 }
 
 export interface AdImageResult {

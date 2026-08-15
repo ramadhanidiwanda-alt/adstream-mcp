@@ -18,6 +18,11 @@ export interface UpdateAdSetOptions {
   status?: 'ACTIVE' | 'PAUSED';
   dailyBudget?: number;
   lifetimeBudget?: number;
+  /** Per-ad-set spend controls, in account currency minor units. See createAdSet for the two-ad-set split rationale. */
+  dailySpendCap?: number;
+  dailyMinSpendTarget?: number;
+  lifetimeSpendCap?: number;
+  lifetimeMinSpendTarget?: number;
   bidStrategy?: string;
   optimizationGoal?: string;
   billingEvent?: string;
@@ -247,6 +252,12 @@ async function buildUpdatePayload(
   if (options.status !== undefined) payload.status = options.status;
   if (options.dailyBudget !== undefined) payload.daily_budget = options.dailyBudget;
   if (options.lifetimeBudget !== undefined) payload.lifetime_budget = options.lifetimeBudget;
+  if (options.dailySpendCap !== undefined) payload.daily_spend_cap = options.dailySpendCap;
+  if (options.dailyMinSpendTarget !== undefined)
+    payload.daily_min_spend_target = options.dailyMinSpendTarget;
+  if (options.lifetimeSpendCap !== undefined) payload.lifetime_spend_cap = options.lifetimeSpendCap;
+  if (options.lifetimeMinSpendTarget !== undefined)
+    payload.lifetime_min_spend_target = options.lifetimeMinSpendTarget;
   if (options.bidStrategy !== undefined) payload.bid_strategy = options.bidStrategy;
   if (options.optimizationGoal !== undefined) payload.optimization_goal = options.optimizationGoal;
   if (options.billingEvent !== undefined) payload.billing_event = options.billingEvent;

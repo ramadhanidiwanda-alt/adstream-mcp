@@ -137,6 +137,20 @@ export interface CreateAdSetOptions {
   bidAmount?: number;
   /** Bid constraints for LOWEST_COST_WITH_MIN_ROAS. Shape: { roas_average_floor: number } */
   bidConstraints?: Record<string, unknown>;
+  /**
+   * Per-ad-set spend controls, in account currency minor units.
+   *
+   * These carry the spend split for Meta's documented replacement of
+   * existing_customer_budget_percentage (removed for new Advantage+ campaigns,
+   * paused at v26.0): two sibling ad sets, one including the existing-customer
+   * audience and one excluding it, each with its own cap/target.
+   *
+   * The lifetime* variants require a lifetime budget on the campaign.
+   */
+  dailySpendCap?: number;
+  dailyMinSpendTarget?: number;
+  lifetimeSpendCap?: number;
+  lifetimeMinSpendTarget?: number;
   targeting?: AdSetTargeting;
   promotedObject?: Record<string, unknown>;
   startTime?: string;
@@ -777,6 +791,22 @@ function buildAdSetPayload(options: CreateAdSetOptions): Record<string, unknown>
 
   if (options.lifetimeBudget !== undefined) {
     payload.lifetime_budget = options.lifetimeBudget;
+  }
+
+  if (options.dailySpendCap !== undefined) {
+    payload.daily_spend_cap = options.dailySpendCap;
+  }
+
+  if (options.dailyMinSpendTarget !== undefined) {
+    payload.daily_min_spend_target = options.dailyMinSpendTarget;
+  }
+
+  if (options.lifetimeSpendCap !== undefined) {
+    payload.lifetime_spend_cap = options.lifetimeSpendCap;
+  }
+
+  if (options.lifetimeMinSpendTarget !== undefined) {
+    payload.lifetime_min_spend_target = options.lifetimeMinSpendTarget;
   }
 
   if (options.targeting) {

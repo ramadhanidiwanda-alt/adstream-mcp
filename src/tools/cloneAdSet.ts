@@ -62,6 +62,10 @@ const CLONE_FIELDS = [
   'bid_amount',
   'daily_budget',
   'lifetime_budget',
+  'daily_spend_cap',
+  'daily_min_spend_target',
+  'lifetime_spend_cap',
+  'lifetime_min_spend_target',
   'targeting',
   'promoted_object',
   'attribution_spec',
@@ -135,6 +139,19 @@ export function buildCloneAdSetPayload(
   if (options.lifetimeBudget !== undefined) payload.lifetime_budget = options.lifetimeBudget;
   else if (source.lifetime_budget !== undefined && source.lifetime_budget !== null) {
     payload.lifetime_budget = source.lifetime_budget;
+  }
+
+  if (source.daily_spend_cap !== undefined && source.daily_spend_cap !== null) {
+    payload.daily_spend_cap = source.daily_spend_cap;
+  }
+  if (source.daily_min_spend_target !== undefined && source.daily_min_spend_target !== null) {
+    payload.daily_min_spend_target = source.daily_min_spend_target;
+  }
+  if (source.lifetime_spend_cap !== undefined && source.lifetime_spend_cap !== null) {
+    payload.lifetime_spend_cap = source.lifetime_spend_cap;
+  }
+  if (source.lifetime_min_spend_target !== undefined && source.lifetime_min_spend_target !== null) {
+    payload.lifetime_min_spend_target = source.lifetime_min_spend_target;
   }
 
   if (options.startTime) payload.start_time = options.startTime;
