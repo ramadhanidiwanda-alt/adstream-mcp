@@ -25,6 +25,7 @@ import {
   type MetaOdaxObjective,
 } from '../providers/meta/objectiveLaunchMatrix.js';
 import { getMetaCreativeErrorGuidance } from '../providers/meta/metaCreativeErrorGuidance.js';
+import { supportsThreadsUserIdField } from '../providers/meta/metaApiVersionSupport.js';
 import { normalizeAccountPath } from '../utils/normalizeAccountId.js';
 import {
   formatMetaWriteError,
@@ -306,7 +307,22 @@ export async function createAdCreative(
 }
 
 const CREATIVE_READ_BACK_FIELDS =
-  'id,name,object_story_id,object_story_spec,asset_feed_spec,platform_customizations,portrait_customizations,degrees_of_freedom_spec,media_sourcing_spec,product_set_id,omnichannel_link_spec,effective_object_story_id,source_instagram_media_id,url_tags,instagram_user_id,threads_user_id';
+  'id,name,object_story_id,object_story_spec,asset_feed_spec,platform_customizations,portrait_customizations,degrees_of_freedom_spec,media_sourcing_spec,product_set_id,omnichannel_link_spec,effective_object_story_id,source_instagram_media_id,url_tags,instagram_user_id';
+
+/**
+ * This list goes out as ONE combined Graph request, exactly like
+ * getMetaCreativeFields, so an unsupported field 400s the whole read-back —
+ * which this tool catches into a warning. threads_user_id therefore gets the
+ * same version gate, reusing the single shared predicate.
+ *
+ * media_sourcing_spec above is ungated; that predates this change and is left
+ * as it was found.
+ */
+function getCreativeReadBackFields(apiVersion: string | undefined): string {
+  return supportsThreadsUserIdField(apiVersion)
+    ? `${CREATIVE_READ_BACK_FIELDS},threads_user_id`
+    : CREATIVE_READ_BACK_FIELDS;
+}
 
 async function verifyCreatedCreative(
   client: MetaClient,
@@ -320,7 +336,7 @@ async function verifyCreatedCreative(
   try {
     const fields = await client.metaGetObject<Record<string, unknown>>(
       `/${creativeId}`,
-      { fields: CREATIVE_READ_BACK_FIELDS },
+      { fields: getCreativeReadBackFields(client.apiVersion) },
       maxRetries
     );
     const matchesIntendedFormat = matchesCreativeFormat(fields, intendedFormat);
@@ -334,12 +350,23 @@ async function verifyCreatedCreative(
     const videoCtwaWarning = getVideoCtwaVerificationWarning(summary.videoCtwaStatus);
     const identityWarning = getIdentityVerificationWarning(summary.identityStatus);
 
-    if (matchesIntendedFormat && !urlTagsWarning && !videoCtwaWarning && !identityWarning) {
+    // identityWarning is deliberately NOT part of this gate. Callers escalate a
+    // non-'verified' verification to status 'failed' on the strict paths
+    // (placement_image, video CTWA), and Meta legitimately declines to echo
+    // threads_user_id on creatives that really are serving on Threads — see
+    // docs/meta/threads-ads-identity.md ("akan terbaca kosong ... kosong di sini
+    // bukan berarti gagal", with live delivery evidence). Hard-failing that
+    // would report a create that succeeded as failed, pushing callers to retry
+    // and duplicate a creative that already exists. The identity stays a
+    // reported signal — summary.identityStatus plus the warning text — and never
+    // a verdict. Do not fold it back into this condition.
+    if (matchesIntendedFormat && !urlTagsWarning && !videoCtwaWarning) {
       return {
         status: 'verified',
         creativeId,
         effectiveFormat: intendedFormat,
         summary,
+        ...(identityWarning ? { warning: identityWarning } : {}),
       };
     }
 

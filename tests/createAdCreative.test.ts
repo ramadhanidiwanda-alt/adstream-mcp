@@ -1507,11 +1507,117 @@ describe('createAdCreative', () => {
       { dryRun: false, confirmed: true }
     );
 
+    // Reported, never a verdict: the creative was really created, so the
+    // verification stays 'verified' and only carries the identity warning.
+    expect(result.status).toBe('executed');
     expect(result.verification).toMatchObject({
-      status: 'warning',
+      status: 'verified',
       summary: { identityStatus: 'missing' },
     });
     expect(result.verification?.warning).toMatch(/identitas Instagram\/Threads/i);
+  });
+
+  it('never fails a strict-path creative just because the identity was not echoed back', async () => {
+    // GUARD — do not re-wire identityStatus into the verified gate.
+    // placement_image and video CTWA escalate any non-'verified' verification to
+    // status 'failed'. Meta legitimately declines to echo threads_user_id on
+    // creatives that really are serving on Threads: docs/meta/threads-ads-identity.md
+    // states it "akan terbaca kosong ... kosong di sini bukan berarti gagal",
+    // backed by live delivery evidence on act_1417353822551653. Failing here
+    // would report a creative that Meta actually created as failed, pushing
+    // callers to retry and duplicate it.
+    mockMetaPost.mockResolvedValueOnce({ id: 'creative-placement' });
+    mockMetaGetObject.mockResolvedValueOnce(placementReadBack);
+
+    const placementResult = await createAdCreative(
+      mockClient,
+      { ...placementImageOptions, threadsProfileId: 'threads-1' },
+      { dryRun: false, confirmed: true }
+    );
+
+    expect(placementResult.status).toBe('executed');
+    expect(placementResult.error).toBeUndefined();
+    expect(placementResult.verification).toMatchObject({
+      status: 'verified',
+      summary: { identityStatus: 'missing' },
+    });
+    expect(placementResult.verification?.warning).toMatch(/identitas Instagram\/Threads/i);
+
+    mockMetaPost.mockResolvedValueOnce({ id: 'creative-video-ctwa-no-threads' });
+    mockMetaGetObject.mockResolvedValueOnce({
+      id: 'creative-video-ctwa-no-threads',
+      object_story_spec: {
+        instagram_user_id: '17841463380041722',
+        video_data: {
+          video_id: '2477639949641639',
+          image_hash: '510512f2214a70ee799ea43334d2d172',
+          message: 'Chat Meena Beauty',
+          call_to_action: {
+            type: 'WHATSAPP_MESSAGE',
+            value: { link: 'https://api.whatsapp.com/send' },
+          },
+          page_welcome_message: 'Halo, ada yang bisa kami bantu?',
+        },
+      },
+    });
+
+    const ctwaResult = await createAdCreative(
+      mockClient,
+      {
+        adAccountId: 'act_2086409658377471',
+        name: 'Meena | Video CTWA tanpa echo Threads',
+        pageId: '215116488342403',
+        instagramUserId: '17841463380041722',
+        threadsProfileId: 'threads-1',
+        creative: {
+          creativeFormat: 'video',
+          creativeSpec: {
+            videoId: '2477639949641639',
+            thumbnailImageHash: '510512f2214a70ee799ea43334d2d172',
+            primaryText: 'Chat Meena Beauty',
+            destinationUrl: 'https://api.whatsapp.com/send',
+            callToAction: 'WHATSAPP_MESSAGE',
+            pageWelcomeMessage: 'Halo, ada yang bisa kami bantu?',
+          },
+        },
+      },
+      { dryRun: false, confirmed: true }
+    );
+
+    expect(ctwaResult.status).toBe('executed');
+    expect(ctwaResult.error).toBeUndefined();
+    expect(ctwaResult.verification).toMatchObject({
+      status: 'verified',
+      summary: { identityStatus: 'missing', videoCtwaStatus: 'verified' },
+    });
+    expect(ctwaResult.verification?.warning).toMatch(/identitas Instagram\/Threads/i);
+  });
+
+  it('omits threads_user_id from the read-back on API versions below the supported floor', async () => {
+    // Same combined-request hazard as getMetaCreativeFields: one unsupported
+    // field 400s the entire read-back.
+    const legacyClient = {
+      metaPost: mockMetaPost,
+      metaGet: mockMetaGet,
+      metaGetObject: mockMetaGetObject,
+      apiVersion: 'v20.0',
+    } as unknown as MetaClient;
+    mockMetaPost.mockResolvedValueOnce({ id: 'creative-legacy-readback' });
+    mockMetaGetObject.mockResolvedValueOnce({
+      id: 'creative-legacy-readback',
+      object_story_spec: {
+        link_data: { image_hash: 'image-1', link: 'https://example.com', message: 'Halo' },
+      },
+    });
+
+    await createAdCreative(legacyClient, standardImageOptions, {
+      dryRun: false,
+      confirmed: true,
+    });
+
+    const requestedFields = String(mockMetaGetObject.mock.calls.at(-1)?.[1]?.fields);
+    expect(requestedFields).not.toContain('threads_user_id');
+    expect(requestedFields).toContain('instagram_user_id');
   });
 
   it('leaves identityStatus not_requested when no identity was sent', async () => {
