@@ -36,7 +36,7 @@ import {
   getTikTokLocationInsights,
 } from '../index.js';
 import type { LocationBreakdown } from '../index.js';
-import { META_CREATABLE_CREATIVE_FORMATS } from '../types.js';
+import { LOCATION_BREAKDOWNS, META_CREATABLE_CREATIVE_FORMATS } from '../types.js';
 import {
   META_CONVERSION_LOCATIONS,
   META_MESSAGING_DESTINATIONS,
@@ -142,6 +142,131 @@ const adsCreativeInputSchema = {
   ...adsPerformanceInputSchema,
   since: z.string().optional().describe('Optional start date in YYYY-MM-DD format.'),
   until: z.string().optional().describe('Optional end date in YYYY-MM-DD format.'),
+};
+
+const idScopeInputSchema = (description: string) =>
+  z.union([z.string(), z.array(z.string())]).optional().describe(description);
+
+/**
+ * Breakdown, filter and paging tail shared by the legacy per-level performance
+ * aliases. This is the surface clients actually see — tools/list is served from
+ * these Zod shapes, not from the JSON Schema in mcpTools.ts — so it mirrors
+ * createLegacyPerformanceInputSchema key for key, in order.
+ * mcpServerBuilder.test.ts fails if the two drift.
+ */
+const legacyPerformanceTailInputSchema = {
+  breakdowns: z
+    .array(z.enum(LOCATION_BREAKDOWNS))
+    .optional()
+    .describe('Meta location breakdowns to split rows by. Ignored when mode is cpas.'),
+  filters: z
+    .array(
+      z.object({
+        field: z.string().min(1),
+        operator: z.enum(ADS_FILTER_OPERATORS),
+        value: z.union([
+          z.string(),
+          z.number(),
+          z.boolean(),
+          z.array(z.union([z.string(), z.number(), z.boolean()])).min(1),
+        ]),
+      })
+    )
+    .optional()
+    .describe('Explicit filters over normalized or provider-supported fields.'),
+  mode: z
+    .enum(['cpas'])
+    .optional()
+    .describe('Set to cpas to read Collaborative Ads rows, broken down by product_id. Meta only.'),
+  limit: z
+    .number()
+    .optional()
+    .describe('Maximum number of rows to return. Meta only; TikTok uses pageSize.'),
+  cursor: z
+    .string()
+    .optional()
+    .describe(
+      'Opaque pagination cursor from a previous response. On TikTok this is the next page number.'
+    ),
+  page: z.number().optional().describe('Report page number. TikTok only.'),
+  pageSize: z.number().optional().describe('Report rows per page. TikTok only.'),
+};
+
+const legacyCampaignPerformanceInputSchema = {
+  ...sinceUntilInputSchema,
+  campaignId: idScopeInputSchema('Restrict results to specific campaign id(s). Meta only.'),
+  ...legacyPerformanceTailInputSchema,
+};
+
+const legacyAdSetPerformanceInputSchema = {
+  ...sinceUntilInputSchema,
+  campaignId: idScopeInputSchema('Restrict results to specific campaign id(s). Meta only.'),
+  adsetId: idScopeInputSchema(
+    'Restrict results to specific ad set id(s). Meta only. Also accepted as adSetId.'
+  ),
+  ...legacyPerformanceTailInputSchema,
+};
+
+const legacyAdPerformanceInputSchema = {
+  ...sinceUntilInputSchema,
+  campaignId: idScopeInputSchema('Restrict results to specific campaign id(s). Meta only.'),
+  adsetId: idScopeInputSchema(
+    'Restrict results to specific ad set id(s). Meta only. Also accepted as adSetId.'
+  ),
+  adId: idScopeInputSchema('Restrict results to specific ad id(s). Meta only.'),
+  ...legacyPerformanceTailInputSchema,
+};
+
+const adCreativeMappingInputSchema = {
+  ...adsBaseInputSchema,
+  adIds: z
+    .array(z.string())
+    .optional()
+    .describe('Optional Meta ad IDs to map. Filters the page; does not scope the edge.'),
+  campaignId: idScopeInputSchema(
+    'Optional campaign scope. Uses the nested campaign ads edge when possible.'
+  ),
+  adSetId: idScopeInputSchema(
+    'Optional ad set scope. Uses the nested ad set ads edge when possible.'
+  ),
+  filtering: z
+    .array(z.record(z.unknown()))
+    .optional()
+    .describe('Optional raw Meta filtering rules, merged with the id scopes.'),
+  limit: z.number().optional().describe('Maximum ads to inspect. Defaults to 100.'),
+  cursor: z.string().optional().describe('Opaque pagination cursor from a previous response.'),
+};
+
+const adDestinationsInputSchema = {
+  ...adsBaseInputSchema,
+  adIds: z
+    .array(z.string())
+    .optional()
+    .describe('Optional Meta ad IDs to inspect. Filters the page; does not scope the edge.'),
+  effectiveStatus: z
+    .array(z.string())
+    .optional()
+    .describe(
+      'Optional Meta effective_status values to keep, such as ACTIVE or PAUSED. All statuses when omitted.'
+    ),
+  campaignId: idScopeInputSchema(
+    'Optional campaign scope. Uses the nested campaign ads edge when possible.'
+  ),
+  adSetId: idScopeInputSchema(
+    'Optional ad set scope. Uses the nested ad set ads edge when possible.'
+  ),
+  filtering: z
+    .array(z.record(z.unknown()))
+    .optional()
+    .describe('Optional raw Meta filtering rules, merged with the id scopes.'),
+  limit: z.number().optional().describe('Maximum ads to inspect. Defaults to 100.'),
+  cursor: z.string().optional().describe('Opaque pagination cursor from a previous response.'),
+};
+
+const listAdVideosInputSchema = {
+  ...adsBaseInputSchema,
+  limit: z.number().optional().describe('Maximum videos to return per page.'),
+  cursor: z.string().optional().describe('Opaque pagination cursor from a previous response.'),
 };
 
 const changeHistoryInputSchema = {
@@ -1424,6 +1549,18 @@ export function createMetaAdsMcpServer(options: CreateMetaAdsMcpServerOptions = 
       inputSchema = adsCreativeInputSchema;
     } else if (toolDefinition.name === 'ads_resolve_creative_assets') {
       inputSchema = creativeAssetsInputSchema;
+    } else if (toolDefinition.name === 'ads_get_campaign_performance') {
+      inputSchema = legacyCampaignPerformanceInputSchema;
+    } else if (toolDefinition.name === 'ads_get_adset_or_adgroup_performance') {
+      inputSchema = legacyAdSetPerformanceInputSchema;
+    } else if (toolDefinition.name === 'ads_get_ad_performance') {
+      inputSchema = legacyAdPerformanceInputSchema;
+    } else if (toolDefinition.name === 'ads_get_ad_creative_mapping') {
+      inputSchema = adCreativeMappingInputSchema;
+    } else if (toolDefinition.name === 'ads_get_ad_destinations') {
+      inputSchema = adDestinationsInputSchema;
+    } else if (toolDefinition.name === 'ads_list_advideos') {
+      inputSchema = listAdVideosInputSchema;
     } else if (toolDefinition.name === 'ads_get_change_history') {
       inputSchema = changeHistoryInputSchema;
     } else if (toolDefinition.name === 'ads_create_welcome_message_template') {

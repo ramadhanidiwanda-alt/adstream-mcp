@@ -323,19 +323,19 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
     name: 'ads_get_campaign_performance',
     description:
       'Legacy alias: fetch normalized campaign performance. Prefer ads_get_performance with level campaign for new clients. Optional params.campaignId (string or string[]) restricts results to specific campaign(s) server-side.',
-    inputSchema: createAdsInputSchema(['since', 'until']),
+    inputSchema: createLegacyPerformanceInputSchema('campaign'),
   },
   {
     name: 'ads_get_adset_or_adgroup_performance',
     description:
       'Legacy alias: fetch normalized ad set or ad group performance. Prefer ads_get_performance with level adset or adgroup for new clients. Optional params.campaignId and params.adsetId (each string or string[]) restrict results server-side.',
-    inputSchema: createAdsInputSchema(['since', 'until']),
+    inputSchema: createLegacyPerformanceInputSchema('adset'),
   },
   {
     name: 'ads_get_ad_performance',
     description:
       'Legacy alias: fetch normalized ad performance. Prefer ads_get_performance with level ad for new clients. Optional params.campaignId, params.adsetId, and params.adId (each string or string[]) restrict results server-side.',
-    inputSchema: createAdsInputSchema(['since', 'until']),
+    inputSchema: createLegacyPerformanceInputSchema('ad'),
   },
   {
     name: 'ads_get_creative_performance',
@@ -525,7 +525,7 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
     name: 'ads_get_ad_creative_mapping',
     description:
       "Get the creative_id for each ad in an account. Calls GET /act_{id}/ads?fields=id,name,creative{{id}} — or the nested /{campaign_id}/ads or /{adset_id}/ads edge when scoped, since Meta does not support scoping the account-level /ads edge via filtering. Use this to link ad performance data (from ads_get_ad_performance) with creative assets (from ads_get_creative_performance). Optional params: adIds[] (filter specific ads), campaignId, adSetId (each a string or string[] — these DO scope the result; without one you get the account's most recent ads), filtering (raw Meta filtering rules), limit, cursor.",
-    inputSchema: createAdsInputSchema([]),
+    inputSchema: createAdCreativeMappingInputSchema(),
   },
   {
     name: 'ads_upload_image',
@@ -555,7 +555,7 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
     name: 'ads_list_advideos',
     description:
       'List videos from the Meta Ads Video Library (paginated). Returns video ID, title, source URL, status, file size, and thumbnail. Calls GET /act_{id}/advideos. Supports params: limit, cursor.',
-    inputSchema: createAdsInputSchema([]),
+    inputSchema: createListAdVideosInputSchema(),
   },
   {
     name: 'ads_get_ad_preview',
@@ -567,7 +567,7 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
     name: 'ads_get_ad_destinations',
     description:
       'Get destination URLs from ads with their creative metadata. Fetches ads with object_story_spec and asset_feed_spec, then extracts the destination URL for each creative type (link, video, carousel, Advantage+, existing post). Supports status filtering plus optional params.campaignId and params.adSetId (each string or string[]) to restrict results to a specific campaign/ad set server-side. Calls GET /act_{id}/ads?fields=id,name,status,effective_status,creative{id,object_type,object_story_spec,asset_feed_spec}.',
-    inputSchema: createAdsInputSchema([]),
+    inputSchema: createAdDestinationsInputSchema(),
   },
   {
     name: 'ads_read_creative_full',
@@ -3811,6 +3811,114 @@ function createPartnershipContentInputSchema() {
   };
 }
 
+/**
+ * Canonical `{field, operator, value}` filter rules, shared by ads_get_performance
+ * and the legacy per-level performance aliases that reach the same
+ * parseCanonicalMetaFilters path.
+ */
+function canonicalFiltersSchema() {
+  return {
+    type: 'array',
+    items: {
+      type: 'object',
+      properties: {
+        field: { type: 'string' },
+        operator: { type: 'string', enum: [...ADS_FILTER_OPERATORS] },
+        value: {
+          anyOf: [
+            { type: 'string' },
+            { type: 'number' },
+            { type: 'boolean' },
+            {
+              type: 'array',
+              minItems: 1,
+              items: {
+                anyOf: [{ type: 'string' }, { type: 'number' }, { type: 'boolean' }],
+              },
+            },
+          ],
+        },
+      },
+      required: ['field', 'operator', 'value'],
+      additionalProperties: false,
+    },
+    description: 'Explicit filters over normalized or provider-supported fields.',
+  };
+}
+
+function idScopeSchema(description: string) {
+  return {
+    anyOf: [{ type: 'string' }, { type: 'array', items: { type: 'string' } }],
+    description,
+  };
+}
+
+/**
+ * The legacy per-level performance aliases used to declare only the shared
+ * envelope, so a client had no way to learn that the adapters read scoping and
+ * paging keys. extractParams merges every non-reserved top-level argument into
+ * request.params, so a declared property reaches the same adapter code the
+ * nested `params` object already did — callers passing `params: { campaignId }`
+ * keep working.
+ *
+ * `level` decides which ids Meta actually honors: getCampaignInsights filters on
+ * campaign.id alone, getAdsetInsights adds adset.id, getAdsInsights adds ad.id.
+ * Declaring an id the level ignores would advertise a filter that does nothing.
+ */
+function createLegacyPerformanceInputSchema(level: 'campaign' | 'adset' | 'ad') {
+  const schema = createAdsInputSchema(['since', 'until']);
+  const scope: Record<string, unknown> = {
+    campaignId: idScopeSchema('Restrict results to specific campaign id(s). Meta only.'),
+  };
+
+  if (level !== 'campaign') {
+    scope.adsetId = idScopeSchema(
+      'Restrict results to specific ad set id(s). Meta only. Also accepted as adSetId.'
+    );
+  }
+
+  if (level === 'ad') {
+    scope.adId = idScopeSchema('Restrict results to specific ad id(s). Meta only.');
+  }
+
+  return {
+    ...schema,
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      ...scope,
+      breakdowns: {
+        type: 'array',
+        items: { type: 'string', enum: [...LOCATION_BREAKDOWNS] },
+        description: 'Meta location breakdowns to split rows by. Ignored when mode is cpas.',
+      },
+      filters: canonicalFiltersSchema(),
+      mode: {
+        type: 'string',
+        enum: ['cpas'],
+        description:
+          'Set to cpas to read Collaborative Ads rows, broken down by product_id. Meta only.',
+      },
+      limit: {
+        type: 'number',
+        description: 'Maximum number of rows to return. Meta only; TikTok uses pageSize.',
+      },
+      cursor: {
+        type: 'string',
+        description:
+          'Opaque pagination cursor from a previous response. On TikTok this is the next page number.',
+      },
+      page: {
+        type: 'number',
+        description: 'Report page number. TikTok only.',
+      },
+      pageSize: {
+        type: 'number',
+        description: 'Report rows per page. TikTok only.',
+      },
+    },
+  };
+}
+
 function createPerformanceInputSchema(required: string[]) {
   const schema = createAdsInputSchema(required);
 
@@ -3838,33 +3946,7 @@ function createPerformanceInputSchema(required: string[]) {
         items: { type: 'string' },
         description: 'Provider-supported breakdowns such as date, country, platform, or placement.',
       },
-      filters: {
-        type: 'array',
-        items: {
-          type: 'object',
-          properties: {
-            field: { type: 'string' },
-            operator: { type: 'string', enum: [...ADS_FILTER_OPERATORS] },
-            value: {
-              anyOf: [
-                { type: 'string' },
-                { type: 'number' },
-                { type: 'boolean' },
-                {
-                  type: 'array',
-                  minItems: 1,
-                  items: {
-                    anyOf: [{ type: 'string' }, { type: 'number' }, { type: 'boolean' }],
-                  },
-                },
-              ],
-            },
-          },
-          required: ['field', 'operator', 'value'],
-          additionalProperties: false,
-        },
-        description: 'Explicit filters over normalized or provider-supported fields.',
-      },
+      filters: canonicalFiltersSchema(),
       sortBy: {
         type: 'string',
         description: 'Metric or dimension used for sorting.',
@@ -3930,6 +4012,101 @@ function createCreativeAssetsInputSchema() {
         type: 'array',
         items: { type: 'object', additionalProperties: true },
         description: 'Optional raw Meta filtering rules, merged with adIds.',
+      },
+    },
+  };
+}
+
+function createAdCreativeMappingInputSchema() {
+  const schema = createAdsInputSchema([]);
+
+  return {
+    ...schema,
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      adIds: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'Optional Meta ad IDs to map. Filters the page; does not scope the edge.',
+      },
+      campaignId: idScopeSchema(
+        'Optional campaign scope. Uses the nested campaign ads edge when possible.'
+      ),
+      adSetId: idScopeSchema(
+        'Optional ad set scope. Uses the nested ad set ads edge when possible.'
+      ),
+      filtering: {
+        type: 'array',
+        items: { type: 'object', additionalProperties: true },
+        description: 'Optional raw Meta filtering rules, merged with the id scopes.',
+      },
+      limit: {
+        type: 'number',
+        description: 'Maximum ads to inspect. Defaults to 100.',
+      },
+      cursor: {
+        type: 'string',
+        description: 'Opaque pagination cursor from a previous response.',
+      },
+    },
+  };
+}
+
+function createAdDestinationsInputSchema() {
+  const schema = createAdsInputSchema([]);
+
+  return {
+    ...schema,
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      adIds: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'Optional Meta ad IDs to inspect. Filters the page; does not scope the edge.',
+      },
+      effectiveStatus: {
+        type: 'array',
+        items: { type: 'string' },
+        description:
+          'Optional Meta effective_status values to keep, such as ACTIVE or PAUSED. All statuses when omitted.',
+      },
+      campaignId: idScopeSchema(
+        'Optional campaign scope. Uses the nested campaign ads edge when possible.'
+      ),
+      adSetId: idScopeSchema(
+        'Optional ad set scope. Uses the nested ad set ads edge when possible.'
+      ),
+      filtering: {
+        type: 'array',
+        items: { type: 'object', additionalProperties: true },
+        description: 'Optional raw Meta filtering rules, merged with the id scopes.',
+      },
+      limit: {
+        type: 'number',
+        description: 'Maximum ads to inspect. Defaults to 100.',
+      },
+      cursor: {
+        type: 'string',
+        description: 'Opaque pagination cursor from a previous response.',
+      },
+    },
+  };
+}
+
+function createListAdVideosInputSchema() {
+  const schema = createAdsInputSchema([]);
+
+  return {
+    ...schema,
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      limit: {
+        type: 'number',
+        description: 'Maximum videos to return per page.',
+      },
+      cursor: {
+        type: 'string',
+        description: 'Opaque pagination cursor from a previous response.',
       },
     },
   };
