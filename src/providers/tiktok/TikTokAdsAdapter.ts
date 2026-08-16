@@ -517,21 +517,28 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
   ): Promise<AdsBrokerResponse<CreateCampaignResult>> {
     if (!this.client) return this.writeNotImplemented();
     const params = request.params;
+    const payload = {
+      advertiserId: String(params.advertiserId ?? request.accountId ?? ''),
+      campaignName: String(params.campaignName ?? ''),
+      campaignType: String(params.campaignType ?? 'REGULAR'),
+      objectiveType: String(params.objectiveType ?? ''),
+      budgetMode: String(params.budgetMode ?? 'DAILY'),
+      budget: Number(params.budget ?? 0),
+      bidType: params.bidType as string | undefined,
+      operationStatus: params.operationStatus as string | undefined,
+      budgetOptimizeOn: params.budgetOptimizeOn as boolean | undefined,
+      specialIndustries: Array.isArray(params.specialIndustries)
+        ? params.specialIndustries.map(String)
+        : undefined,
+    };
+
+    const guard = this.guardWrite(request, payload);
+    if (guard) {
+      return { ok: true, provider: 'tiktok', data: { operation: 'create_campaign', ...guard } };
+    }
+
     try {
-      const result = await createTikTokCampaign(this.client, {
-        advertiserId: String(params.advertiserId ?? request.accountId ?? ''),
-        campaignName: String(params.campaignName ?? ''),
-        campaignType: String(params.campaignType ?? 'REGULAR'),
-        objectiveType: String(params.objectiveType ?? ''),
-        budgetMode: String(params.budgetMode ?? 'DAILY'),
-        budget: Number(params.budget ?? 0),
-        bidType: params.bidType as string | undefined,
-        operationStatus: params.operationStatus as string | undefined,
-        budgetOptimizeOn: params.budgetOptimizeOn as boolean | undefined,
-        specialIndustries: Array.isArray(params.specialIndustries)
-          ? params.specialIndustries.map(String)
-          : undefined,
-      });
+      const result = await createTikTokCampaign(this.client, payload);
       return {
         ok: true,
         provider: 'tiktok',
@@ -673,34 +680,41 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
   async createAdSet(request: AdsBrokerRequest): Promise<AdsBrokerResponse<CreateAdSetResult>> {
     if (!this.client) return this.writeNotImplemented();
     const params = request.params;
+    const payload = {
+      advertiserId: String(params.advertiserId ?? request.accountId ?? ''),
+      campaignId: String(params.campaignId ?? ''),
+      adgroupName: String(params.name ?? ''),
+      budgetMode: String(params.budgetMode ?? 'DAILY'),
+      budget: Number(params.budget ?? 0),
+      bidType: String(params.bidType ?? 'BID_TYPE_CPM'),
+      bidPrice: Number(params.bidPrice ?? 0),
+      optimizationGoal: String(params.optimizationGoal ?? ''),
+      billingEvent: String(params.billingEvent ?? ''),
+      placementType: String(params.placementType ?? 'PLACEMENT_TYPE_AUTO'),
+      operationStatus: params.operationStatus as string | undefined,
+      scheduleStartTime: params.scheduleStartTime as string | undefined,
+      scheduleEndTime: params.scheduleEndTime as string | undefined,
+      creativeMaterialMode: params.creativeMaterialMode as string | undefined,
+      conversionBidPrice: params.conversionBidPrice as number | undefined,
+      frequency: params.frequency as number | undefined,
+      identityType: params.identityType as string | undefined,
+      identityId: params.identityId as string | undefined,
+      appId: params.appId as string | undefined,
+      promotionType: params.promotionType as 'APP_INSTALL' | 'APP_RETARGETING' | undefined,
+      pixelId: params.pixelId as string | undefined,
+      optimizationEvent: params.optimizationEvent as string | undefined,
+      catalogId: params.catalogId as string | undefined,
+      storeId: params.storeId as string | undefined,
+      productSource: params.productSource as string | undefined,
+    };
+
+    const guard = this.guardWrite(request, payload);
+    if (guard) {
+      return { ok: true, provider: 'tiktok', data: { operation: 'create_adset', ...guard } };
+    }
+
     try {
-      const result = await createTikTokAdGroup(this.client, {
-        advertiserId: String(params.advertiserId ?? request.accountId ?? ''),
-        campaignId: String(params.campaignId ?? ''),
-        adgroupName: String(params.name ?? ''),
-        budgetMode: String(params.budgetMode ?? 'DAILY'),
-        budget: Number(params.budget ?? 0),
-        bidType: String(params.bidType ?? 'BID_TYPE_CPM'),
-        bidPrice: Number(params.bidPrice ?? 0),
-        optimizationGoal: String(params.optimizationGoal ?? ''),
-        billingEvent: String(params.billingEvent ?? ''),
-        placementType: String(params.placementType ?? 'PLACEMENT_TYPE_AUTO'),
-        operationStatus: params.operationStatus as string | undefined,
-        scheduleStartTime: params.scheduleStartTime as string | undefined,
-        scheduleEndTime: params.scheduleEndTime as string | undefined,
-        creativeMaterialMode: params.creativeMaterialMode as string | undefined,
-        conversionBidPrice: params.conversionBidPrice as number | undefined,
-        frequency: params.frequency as number | undefined,
-        identityType: params.identityType as string | undefined,
-        identityId: params.identityId as string | undefined,
-        appId: params.appId as string | undefined,
-        promotionType: params.promotionType as 'APP_INSTALL' | 'APP_RETARGETING' | undefined,
-        pixelId: params.pixelId as string | undefined,
-        optimizationEvent: params.optimizationEvent as string | undefined,
-        catalogId: params.catalogId as string | undefined,
-        storeId: params.storeId as string | undefined,
-        productSource: params.productSource as string | undefined,
-      });
+      const result = await createTikTokAdGroup(this.client, payload);
       return {
         ok: true,
         provider: 'tiktok',
@@ -798,25 +812,32 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
   async createAd(request: AdsBrokerRequest): Promise<AdsBrokerResponse<CreateAdResult>> {
     if (!this.client) return this.writeNotImplemented();
     const params = request.params;
+    const creatives = Array.isArray(params.creatives) ? params.creatives : [];
+    const payload = {
+      advertiserId: String(params.advertiserId ?? request.accountId ?? ''),
+      adgroupId: String(params.adSetId ?? ''),
+      adName: String(params.name ?? ''),
+      creatives: creatives.map((c: Record<string, unknown>) => ({
+        creative_name: String(c.creative_name ?? ''),
+        creative_material: c.creative_material as CreativeMaterial,
+        creative_type: c.creative_type as string | undefined,
+        ad_format: c.ad_format as string | undefined,
+        identity_id: c.identity_id as string | undefined,
+        identity_type: c.identity_type as string | undefined,
+      })),
+      adFormat: params.adFormat as string | undefined,
+      creativeMaterialMode: params.creativeMaterialMode as string | undefined,
+      displayMode: params.displayMode as string | undefined,
+      operationStatus: params.operationStatus as string | undefined,
+    };
+
+    const guard = this.guardWrite(request, payload);
+    if (guard) {
+      return { ok: true, provider: 'tiktok', data: { operation: 'create_ad', ...guard } };
+    }
+
     try {
-      const creatives = Array.isArray(params.creatives) ? params.creatives : [];
-      const result = await createTikTokAd(this.client, {
-        advertiserId: String(params.advertiserId ?? request.accountId ?? ''),
-        adgroupId: String(params.adSetId ?? ''),
-        adName: String(params.name ?? ''),
-        creatives: creatives.map((c: Record<string, unknown>) => ({
-          creative_name: String(c.creative_name ?? ''),
-          creative_material: c.creative_material as CreativeMaterial,
-          creative_type: c.creative_type as string | undefined,
-          ad_format: c.ad_format as string | undefined,
-          identity_id: c.identity_id as string | undefined,
-          identity_type: c.identity_type as string | undefined,
-        })),
-        adFormat: params.adFormat as string | undefined,
-        creativeMaterialMode: params.creativeMaterialMode as string | undefined,
-        displayMode: params.displayMode as string | undefined,
-        operationStatus: params.operationStatus as string | undefined,
-      });
+      const result = await createTikTokAd(this.client, payload);
       return {
         ok: true,
         provider: 'tiktok',
@@ -962,17 +983,49 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
     if (!this.client) return this.writeNotImplemented();
     const params = request.params;
     const platform = String(params.platform ?? 'tiktok_gmv');
+    const isSmartPlus = platform === 'smart_plus';
+
+    const smartPlusPayload = {
+      advertiserId: String(params.advertiserId ?? request.accountId ?? ''),
+      campaignName: String(params.campaignName ?? ''),
+      objectiveType: String(params.objectiveType ?? ''),
+      budget: Number(params.budget ?? 0),
+      budgetMode: String(params.budgetMode ?? 'DAILY'),
+      operationStatus: String(params.operationStatus ?? 'ENABLE'),
+    };
+    const gmvMaxPayload = {
+      advertiserId: String(params.advertiserId ?? request.accountId ?? ''),
+      campaignName: String(params.campaignName ?? ''),
+      objectiveType: String(params.objectiveType ?? ''),
+      storeIds: Array.isArray(params.storeIds) ? params.storeIds.map(String) : [],
+      budget: params.budget as number | undefined,
+      budgetMode: String(params.budgetMode ?? 'DAILY'),
+      scheduleType: params.scheduleType as string | undefined,
+      scheduleStartTime: params.scheduleStartTime as string | undefined,
+      operationStatus: String(params.operationStatus ?? 'ENABLE'),
+    };
+
+    // Preview the payload that would actually be sent, not a rebuilt copy of it,
+    // so the dry-run cannot drift from what executing would do.
+    const guard = this.guardWrite(request, { platform, ...(isSmartPlus ? smartPlusPayload : gmvMaxPayload) });
+    if (guard) {
+      return {
+        ok: true,
+        provider: 'tiktok',
+        data: {
+          operation: 'create_ecommerce_campaign_bundle',
+          status: guard.status,
+          executed: false,
+          preview: { campaign: guard.preview, adSet: {}, creative: {}, ad: {} },
+          warnings: [],
+          ...(guard.error ? { error: guard.error } : {}),
+        },
+      };
+    }
 
     try {
-      if (platform === 'smart_plus') {
-        const campaign = await createSmartPlusCampaign(this.client, {
-          advertiserId: String(params.advertiserId ?? request.accountId ?? ''),
-          campaignName: String(params.campaignName ?? ''),
-          objectiveType: String(params.objectiveType ?? ''),
-          budget: Number(params.budget ?? 0),
-          budgetMode: String(params.budgetMode ?? 'DAILY'),
-          operationStatus: String(params.operationStatus ?? 'ENABLE'),
-        });
+      if (isSmartPlus) {
+        const campaign = await createSmartPlusCampaign(this.client, smartPlusPayload);
         return {
           ok: true,
           provider: 'tiktok',
@@ -980,7 +1033,7 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
             operation: 'create_ecommerce_campaign_bundle',
             status: 'executed',
             executed: true,
-            preview: { campaign: {}, adSet: {}, creative: {}, ad: {} },
+            preview: { campaign: smartPlusPayload, adSet: {}, creative: {}, ad: {} },
             warnings: [],
             ids: { campaignId: campaign.campaign_id },
             responses: { campaign: campaign as unknown as Record<string, unknown> },
@@ -989,17 +1042,7 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
       }
 
       // Default: create GMV Max campaign
-      const result = await createGmvMaxCampaign(this.client, {
-        advertiserId: String(params.advertiserId ?? request.accountId ?? ''),
-        campaignName: String(params.campaignName ?? ''),
-        objectiveType: String(params.objectiveType ?? ''),
-        storeIds: Array.isArray(params.storeIds) ? params.storeIds.map(String) : [],
-        budget: params.budget as number | undefined,
-        budgetMode: String(params.budgetMode ?? 'DAILY'),
-        scheduleType: params.scheduleType as string | undefined,
-        scheduleStartTime: params.scheduleStartTime as string | undefined,
-        operationStatus: String(params.operationStatus ?? 'ENABLE'),
-      });
+      const result = await createGmvMaxCampaign(this.client, gmvMaxPayload);
       return {
         ok: true,
         provider: 'tiktok',
@@ -1007,7 +1050,7 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
           operation: 'create_ecommerce_campaign_bundle',
           status: 'executed',
           executed: true,
-          preview: { campaign: {}, adSet: {}, creative: {}, ad: {} },
+          preview: { campaign: gmvMaxPayload, adSet: {}, creative: {}, ad: {} },
           warnings: [],
           ids: { campaignId: result.campaign_id },
           responses: { campaign: result as unknown as Record<string, unknown> },
@@ -1053,26 +1096,42 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
   ): Promise<AdsBrokerResponse<EcommerceCampaignBundleResult>> {
     if (!this.client) return this.writeNotImplemented();
     const params = request.params;
+    const payload = {
+      advertiserId: String(params.advertiserId ?? request.accountId ?? ''),
+      campaignName: String(params.campaignName ?? ''),
+      objectiveType: String(params.objectiveType ?? ''),
+      storeIds: Array.isArray(params.storeIds) ? params.storeIds.map(String) : [],
+      budget: params.budget as number | undefined,
+      budgetMode: String(params.budgetMode ?? 'DAILY'),
+      scheduleType: params.scheduleType as string | undefined,
+      scheduleStartTime: params.scheduleStartTime as string | undefined,
+      operationStatus: String(params.operationStatus ?? 'ENABLE'),
+      shoppingAdsType: params.shoppingAdsType as 'PRODUCT' | 'LIVE' | undefined,
+      productSpecificType: params.productSpecificType as string | undefined,
+      itemGroupIds: Array.isArray(params.itemGroupIds) ? params.itemGroupIds.map(String) : undefined,
+      identityList: Array.isArray(params.identityList)
+        ? params.identityList.map(String)
+        : undefined,
+    };
+
+    const guard = this.guardWrite(request, payload);
+    if (guard) {
+      return {
+        ok: true,
+        provider: 'tiktok',
+        data: {
+          operation: 'create_ecommerce_campaign_bundle',
+          status: guard.status,
+          executed: false,
+          preview: { campaign: guard.preview, adSet: {}, creative: {}, ad: {} },
+          warnings: [],
+          ...(guard.error ? { error: guard.error } : {}),
+        },
+      };
+    }
+
     try {
-      const result = await createGmvMaxCampaign(this.client, {
-        advertiserId: String(params.advertiserId ?? request.accountId ?? ''),
-        campaignName: String(params.campaignName ?? ''),
-        objectiveType: String(params.objectiveType ?? ''),
-        storeIds: Array.isArray(params.storeIds) ? params.storeIds.map(String) : [],
-        budget: params.budget as number | undefined,
-        budgetMode: String(params.budgetMode ?? 'DAILY'),
-        scheduleType: params.scheduleType as string | undefined,
-        scheduleStartTime: params.scheduleStartTime as string | undefined,
-        operationStatus: String(params.operationStatus ?? 'ENABLE'),
-        shoppingAdsType: params.shoppingAdsType as 'PRODUCT' | 'LIVE' | undefined,
-        productSpecificType: params.productSpecificType as string | undefined,
-        itemGroupIds: Array.isArray(params.itemGroupIds)
-          ? params.itemGroupIds.map(String)
-          : undefined,
-        identityList: Array.isArray(params.identityList)
-          ? params.identityList.map(String)
-          : undefined,
-      });
+      const result = await createGmvMaxCampaign(this.client, payload);
       return {
         ok: true,
         provider: 'tiktok',
@@ -1080,7 +1139,7 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
           operation: 'create_ecommerce_campaign_bundle',
           status: 'executed',
           executed: true,
-          preview: { campaign: {}, adSet: {}, creative: {}, ad: {} },
+          preview: { campaign: payload, adSet: {}, creative: {}, ad: {} },
           warnings: [],
           ids: { campaignId: result.campaign_id },
           responses: { campaign: result as unknown as Record<string, unknown> },
@@ -1503,6 +1562,48 @@ export class TikTokAdsAdapter implements AdsProviderAdapter {
         'TikTok ad preview is not implemented yet'
       ) as unknown as AdsBrokerResponse<AdPreviewResult[]>
     );
+  }
+
+  /**
+   * Meta gates every write inside its tool functions, which take
+   * { dryRun, confirmed } and return a preview instead of calling the API (see
+   * createCampaign in src/tools/createCampaign.ts). The TikTok tool functions
+   * take no such options, so the gate lives here.
+   *
+   * Without it the dryRun/confirmed fields these tools publish were a promise
+   * the adapter never kept: a default call — the preview step the descriptions
+   * tell callers to start with — created the entity for real and answered
+   * executed: true, so nothing in the response revealed that the preview had
+   * not happened.
+   *
+   * Returns the response body to send when the caller has not confirmed, or
+   * undefined when the write may proceed.
+   */
+  private guardWrite(
+    request: AdsBrokerRequest,
+    preview: Record<string, unknown>
+  ):
+    | {
+        status: 'dry_run' | 'pending_confirmation';
+        executed: false;
+        preview: Record<string, unknown>;
+        error?: string;
+      }
+    | undefined {
+    if (request.params.dryRun !== false) {
+      return { status: 'dry_run', executed: false, preview };
+    }
+
+    if (request.params.confirmed !== true) {
+      return {
+        status: 'pending_confirmation',
+        executed: false,
+        preview,
+        error: 'Explicit confirmation is required after reviewing the dry-run preview.',
+      };
+    }
+
+    return undefined;
   }
 
   private writeNotImplemented(): AdsBrokerResponse<never> {
