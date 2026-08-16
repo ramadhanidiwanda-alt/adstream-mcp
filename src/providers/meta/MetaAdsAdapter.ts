@@ -59,7 +59,10 @@ import {
   type MetaMessagingDestination,
   type MetaOdaxObjective,
 } from './objectiveLaunchMatrix.js';
-import { supportsThreadsUserIdField } from './metaApiVersionSupport.js';
+import {
+  supportsMediaSourcingSpec,
+  supportsThreadsUserIdField,
+} from './metaApiVersionSupport.js';
 import type { MutationResult } from '../../types.js';
 import type { LocationBreakdown } from '../../types.js';
 import { pauseCampaign as pauseCampaignTool } from '../../tools/pauseCampaign.js';
@@ -5282,11 +5285,6 @@ function isMetaComplianceAuditPermissionError(error: unknown): boolean {
       [error.message, error.userTitle, error.userMessage].filter(Boolean).join(' ')
     )
   );
-}
-
-function supportsMediaSourcingSpec(apiVersion: string | undefined): boolean {
-  const match = /^v(\d+)(?:\.|$)/i.exec(apiVersion ?? 'v25.0');
-  return match !== null && Number(match[1]) >= 23;
 }
 
 function getMetaCreativeFields(

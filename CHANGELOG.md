@@ -58,6 +58,21 @@ enforced once, in `handleAdsMcpToolCall`, for every tool that opts in.
 - Every other tool is unchanged and still accepts free-form `params`. See
   "Strict `params` Contract" in `docs/MCP_API_DESIGN.md` for how a tool opts in.
 
+### Fixed — Creative read-back no longer fails a creative that was created
+
+- **`ads_create_adcreative`** — the post-create read-back requested
+  `media_sourcing_spec` without a version gate, while `getMetaCreativeFields`
+  gated the same field. Because the read-back is one combined Graph request, an
+  unsupported field 400s the whole call, which became a `warning` verification —
+  and the `placement_image` and video-CTWA paths escalate anything that is not
+  `verified` into `status: 'failed'`, telling the caller not to use a creative
+  that Meta had in fact created. Only reachable when `META_API_VERSION` (or a
+  remote broker's `providerApiVersion`) is below v23; the v25.0 default was
+  never affected. Requests on supported versions are unchanged.
+- `supportsMediaSourcingSpec` moved from `MetaAdsAdapter` into the shared
+  `metaApiVersionSupport` module next to `supportsThreadsUserIdField`, which had
+  been an identical copy of the same version check.
+
 ### Fixed — Click-to-message creative integrity
 
 A Click-to-Instagram-Direct ad shipped with a dead CTA button and no welcome

@@ -1620,6 +1620,68 @@ describe('createAdCreative', () => {
     expect(requestedFields).toContain('instagram_user_id');
   });
 
+  it('omits media_sourcing_spec from the read-back on API versions below the supported floor', async () => {
+    // getMetaCreativeFields already gates this field; the read-back here did not,
+    // so the single combined request 400s on older versions.
+    const legacyClient = {
+      metaPost: mockMetaPost,
+      metaGet: mockMetaGet,
+      metaGetObject: mockMetaGetObject,
+      apiVersion: 'v22.0',
+    } as unknown as MetaClient;
+    mockMetaPost.mockResolvedValueOnce({ id: 'creative-legacy-media-sourcing' });
+    mockMetaGetObject.mockResolvedValueOnce({
+      id: 'creative-legacy-media-sourcing',
+      object_story_spec: {
+        link_data: { image_hash: 'image-1', link: 'https://example.com', message: 'Halo' },
+      },
+    });
+
+    await createAdCreative(legacyClient, standardImageOptions, {
+      dryRun: false,
+      confirmed: true,
+    });
+
+    const requestedFields = String(mockMetaGetObject.mock.calls.at(-1)?.[1]?.fields);
+    expect(requestedFields).not.toContain('media_sourcing_spec');
+    expect(requestedFields).toContain('degrees_of_freedom_spec');
+    expect(requestedFields).toContain('instagram_user_id');
+  });
+
+  // The user-visible damage: the creative really was created, but a read-back
+  // 400 makes verification 'warning', and placement_image escalates anything
+  // that is not 'verified' into status 'failed' telling the caller not to use
+  // the creative — so they discard a healthy creative and build a duplicate.
+  it('does not report a created placement_image creative as failed on an older API version', async () => {
+    const legacyClient = {
+      metaPost: mockMetaPost,
+      metaGet: mockMetaGet,
+      metaGetObject: mockMetaGetObject,
+      apiVersion: 'v22.0',
+    } as unknown as MetaClient;
+    mockMetaPost.mockResolvedValueOnce({ id: 'creative-placement' });
+    mockMetaGetObject.mockImplementationOnce(
+      (_path: string, params: { fields?: string } | undefined) => {
+        // Meta rejects the whole combined request when one field is unsupported.
+        if (String(params?.fields).includes('media_sourcing_spec')) {
+          return Promise.reject(new Error('(#100) Tried accessing nonexisting field'));
+        }
+        return Promise.resolve(placementReadBack);
+      }
+    );
+
+    const result = await createAdCreative(legacyClient, placementImageOptions, {
+      dryRun: false,
+      confirmed: true,
+    });
+
+    expect(result).toMatchObject({ status: 'executed', executed: true });
+    expect(result.verification).toMatchObject({
+      status: 'verified',
+      effectiveFormat: 'placement_image',
+    });
+  });
+
   it('leaves identityStatus not_requested when no identity was sent', async () => {
     mockMetaPost.mockResolvedValueOnce({ id: 'creative-no-identity' });
     mockMetaGetObject.mockResolvedValueOnce({
