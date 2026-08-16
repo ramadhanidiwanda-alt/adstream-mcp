@@ -264,12 +264,12 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
   {
     name: 'ads_list_accounts',
     description: 'List ads accounts through the AdsBroker',
-    inputSchema: createAdsInputSchema([]),
+    inputSchema: createLimitOnlyInputSchema('Maximum accounts to return. Meta only.'),
   },
   {
     name: 'ads_list_campaigns',
     description: 'List campaigns under an ad account through the AdsBroker',
-    inputSchema: createAdsInputSchema([]),
+    inputSchema: createListCampaignsInputSchema(),
   },
   {
     name: 'ads_check_launch_readiness',
@@ -519,7 +519,7 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
     name: 'ads_get_video_source',
     description:
       'Get the raw video source URL (MP4), embed HTML, and thumbnail for a Meta video ID. Calls GET /{video_id}?fields=source,embed_html,picture.',
-    inputSchema: createAdsInputSchema([]),
+    inputSchema: createVideoSourceInputSchema(),
   },
   {
     name: 'ads_get_ad_creative_mapping',
@@ -587,7 +587,7 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
     name: 'ads_list_pages',
     description:
       'List Meta Pages accessible by the token for selecting a valid pageId for ad creative object_story_spec.',
-    inputSchema: createAdsInputSchema([]),
+    inputSchema: createLimitOnlyInputSchema('Maximum Pages to return.'),
   },
   {
     name: 'ads_list_lead_forms',
@@ -598,7 +598,7 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
   {
     name: 'ads_list_instagram_accounts',
     description: "List Instagram Business Accounts connected to the user's Facebook Pages.",
-    inputSchema: createAdsInputSchema([]),
+    inputSchema: createLimitOnlyInputSchema('Maximum Instagram Business Accounts to return.'),
   },
   {
     name: 'ads_list_instagram_media',
@@ -615,19 +615,19 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
   {
     name: 'ads_list_threads_profiles',
     description: "List Threads profiles connected to the user's Facebook Pages.",
-    inputSchema: createAdsInputSchema([]),
+    inputSchema: createLimitOnlyInputSchema('Maximum Threads profiles to return.'),
   },
   {
     name: 'ads_list_pixels',
     description:
       'List Meta Pixels connected to an ad account. Use before website sales, lead, or CPAS workflows when the user does not know their pixel ID. Calls GET /act_{id}/adspixels.',
-    inputSchema: createAdsInputSchema([]),
+    inputSchema: createLimitOnlyInputSchema('Maximum pixels to return.'),
   },
   {
     name: 'ads_list_audiences',
     description:
       'List Meta Custom Audiences (including dynamic product audiences created by ads_create_product_audience) connected to an ad account. Use to find an audience id before passing it into ads_create_adset targeting.customAudiences, or to check an audience is ready (delivery_status) before targeting it. Calls GET /act_{id}/customaudiences.',
-    inputSchema: createAdsInputSchema([]),
+    inputSchema: createLimitOnlyInputSchema('Maximum audiences to return.'),
   },
   {
     name: 'ads_list_catalogs',
@@ -645,19 +645,19 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
     name: 'ads_list_whatsapp_accounts',
     description:
       'Discover WhatsApp Business Accounts (WABA) — both owned and client-shared. Calls GET /{businessId}/owned_whatsapp_business_accounts and /{businessId}/client_whatsapp_business_accounts.',
-    inputSchema: createAdsInputSchema([]),
+    inputSchema: createListWhatsAppAccountsInputSchema(),
   },
   {
     name: 'ads_list_whatsapp_phone_numbers',
     description:
       'List phone numbers associated with a WhatsApp Business Account (WABA). Returns phone_number_id needed for CTWA creative setup. Calls GET /{wabaId}/phone_numbers.',
-    inputSchema: createAdsInputSchema([]),
+    inputSchema: createListWhatsAppPhoneNumbersInputSchema(),
   },
   {
     name: 'ads_list_whatsapp_message_templates',
     description:
       'List WhatsApp message templates for a WABA. Supports filtering by name and status (APPROVED, PENDING, REJECTED). Calls GET /{wabaId}/message_templates.',
-    inputSchema: createAdsInputSchema([]),
+    inputSchema: createListWhatsAppMessageTemplatesInputSchema(),
   },
   // --- TikTok GMV Max ---
   {
@@ -4338,6 +4338,106 @@ function createListAdVideosInputSchema() {
         type: 'string',
         description: 'Opaque pagination cursor from a previous response.',
       },
+    },
+  };
+}
+
+/**
+ * Several Meta list tools read exactly one key, `limit`, and nothing else. The
+ * description differs per tool because the unit it counts does.
+ */
+function createLimitOnlyInputSchema(limitDescription: string) {
+  const schema = createAdsInputSchema([]);
+
+  return {
+    ...schema,
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      limit: { type: 'number', description: limitDescription },
+    },
+  };
+}
+
+function createListCampaignsInputSchema() {
+  const schema = createAdsInputSchema([]);
+
+  return {
+    ...schema,
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      limit: { type: 'number', description: 'Maximum campaigns to return. Meta only.' },
+      page: { type: 'number', description: 'Campaign list page number. TikTok only.' },
+      pageSize: { type: 'number', description: 'Campaigns per page. TikTok only.' },
+    },
+  };
+}
+
+function createVideoSourceInputSchema() {
+  const schema = createAdsInputSchema([]);
+
+  return {
+    ...schema,
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      videoId: {
+        type: 'string',
+        description: 'Meta video ID to read. Required — the call fails without it.',
+      },
+    },
+  };
+}
+
+function createListWhatsAppAccountsInputSchema() {
+  const schema = createAdsInputSchema([]);
+
+  return {
+    ...schema,
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      businessId: {
+        type: 'string',
+        description: 'Business Manager ID that owns the WhatsApp Business Accounts.',
+      },
+      limit: { type: 'number', description: 'Maximum WhatsApp Business Accounts to return.' },
+    },
+  };
+}
+
+function createListWhatsAppPhoneNumbersInputSchema() {
+  const schema = createAdsInputSchema([]);
+
+  return {
+    ...schema,
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      wabaId: {
+        type: 'string',
+        description:
+          'WhatsApp Business Account ID whose phone numbers to list. Required — the call fails without it.',
+      },
+      limit: { type: 'number', description: 'Maximum phone numbers to return.' },
+    },
+  };
+}
+
+function createListWhatsAppMessageTemplatesInputSchema() {
+  const schema = createAdsInputSchema([]);
+
+  return {
+    ...schema,
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      wabaId: {
+        type: 'string',
+        description:
+          'WhatsApp Business Account ID whose message templates to list. Required — the call fails without it.',
+      },
+      name: { type: 'string', description: 'Filter templates by exact name.' },
+      status: {
+        type: 'string',
+        description: 'Filter templates by review status, such as APPROVED or PENDING.',
+      },
+      limit: { type: 'number', description: 'Maximum templates to return.' },
     },
   };
 }

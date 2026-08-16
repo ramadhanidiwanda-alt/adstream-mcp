@@ -407,6 +407,62 @@ const listAdVideosInputSchema = {
   cursor: z.string().optional().describe('Opaque pagination cursor from a previous response.'),
 };
 
+const limitOnlyInputSchema = (description: string) => ({
+  ...adsBaseInputSchema,
+  limit: z.number().optional().describe(description),
+});
+
+const listCampaignsInputSchema = {
+  ...adsBaseInputSchema,
+  limit: z.number().optional().describe('Maximum campaigns to return. Meta only.'),
+  page: z.number().optional().describe('Campaign list page number. TikTok only.'),
+  pageSize: z.number().optional().describe('Campaigns per page. TikTok only.'),
+};
+
+const videoSourceInputSchema = {
+  ...adsBaseInputSchema,
+  videoId: z
+    .string()
+    .optional()
+    .describe('Meta video ID to read. Required — the call fails without it.'),
+};
+
+const listWhatsAppAccountsInputSchema = {
+  ...adsBaseInputSchema,
+  businessId: z
+    .string()
+    .optional()
+    .describe('Business Manager ID that owns the WhatsApp Business Accounts.'),
+  limit: z.number().optional().describe('Maximum WhatsApp Business Accounts to return.'),
+};
+
+const listWhatsAppPhoneNumbersInputSchema = {
+  ...adsBaseInputSchema,
+  wabaId: z
+    .string()
+    .optional()
+    .describe(
+      'WhatsApp Business Account ID whose phone numbers to list. Required — the call fails without it.'
+    ),
+  limit: z.number().optional().describe('Maximum phone numbers to return.'),
+};
+
+const listWhatsAppMessageTemplatesInputSchema = {
+  ...adsBaseInputSchema,
+  wabaId: z
+    .string()
+    .optional()
+    .describe(
+      'WhatsApp Business Account ID whose message templates to list. Required — the call fails without it.'
+    ),
+  name: z.string().optional().describe('Filter templates by exact name.'),
+  status: z
+    .string()
+    .optional()
+    .describe('Filter templates by review status, such as APPROVED or PENDING.'),
+  limit: z.number().optional().describe('Maximum templates to return.'),
+};
+
 const changeHistoryInputSchema = {
   ...adsBaseInputSchema,
   objectId: z
@@ -1687,6 +1743,28 @@ export function createMetaAdsMcpServer(options: CreateMetaAdsMcpServerOptions = 
       inputSchema = adsCreativeInputSchema;
     } else if (toolDefinition.name === 'ads_resolve_creative_assets') {
       inputSchema = creativeAssetsInputSchema;
+    } else if (toolDefinition.name === 'ads_list_accounts') {
+      inputSchema = limitOnlyInputSchema('Maximum accounts to return. Meta only.');
+    } else if (toolDefinition.name === 'ads_list_campaigns') {
+      inputSchema = listCampaignsInputSchema;
+    } else if (toolDefinition.name === 'ads_get_video_source') {
+      inputSchema = videoSourceInputSchema;
+    } else if (toolDefinition.name === 'ads_list_pages') {
+      inputSchema = limitOnlyInputSchema('Maximum Pages to return.');
+    } else if (toolDefinition.name === 'ads_list_instagram_accounts') {
+      inputSchema = limitOnlyInputSchema('Maximum Instagram Business Accounts to return.');
+    } else if (toolDefinition.name === 'ads_list_threads_profiles') {
+      inputSchema = limitOnlyInputSchema('Maximum Threads profiles to return.');
+    } else if (toolDefinition.name === 'ads_list_pixels') {
+      inputSchema = limitOnlyInputSchema('Maximum pixels to return.');
+    } else if (toolDefinition.name === 'ads_list_audiences') {
+      inputSchema = limitOnlyInputSchema('Maximum audiences to return.');
+    } else if (toolDefinition.name === 'ads_list_whatsapp_accounts') {
+      inputSchema = listWhatsAppAccountsInputSchema;
+    } else if (toolDefinition.name === 'ads_list_whatsapp_phone_numbers') {
+      inputSchema = listWhatsAppPhoneNumbersInputSchema;
+    } else if (toolDefinition.name === 'ads_list_whatsapp_message_templates') {
+      inputSchema = listWhatsAppMessageTemplatesInputSchema;
     } else if (toolDefinition.name === 'ads_get_account_performance') {
       inputSchema = legacyAccountPerformanceInputSchema;
     } else if (toolDefinition.name === 'ads_get_creative_performance') {
