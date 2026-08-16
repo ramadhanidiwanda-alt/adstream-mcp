@@ -12,6 +12,10 @@ import {
   handleAdsMcpToolCall,
 } from '../src/broker/mcpTools.js';
 import type { AdsBroker } from '../src/broker/AdsBroker.js';
+import {
+  CREATE_AD_CREATIVE_PARAMS,
+  READ_CREATIVE_FULL_PARAMS,
+} from '../src/providers/meta/MetaAdsAdapter.js';
 
 describe('toolParamContract helpers', () => {
   it('derives the allowed key set from a schema properties object', () => {
@@ -219,6 +223,37 @@ describe('strict params enrollment', () => {
     const body = parseBody(response);
     expect(body.errors?.[0]?.message).toBe(
       'Field berikut tidak dikenali dan TIDAK dikirim ke Meta: fields → tool ini selalu membaca seluruh field yang didukung; tidak ada override fields. Lihat AD_CREATIVE_FULL_FIELDS di src/tools/readAdCreativeFull.ts. params bukan passthrough mentah ke Graph API — pakai field bertipe yang sesuai, atau hapus field ini.'
+    );
+  });
+});
+
+// The adapter keeps its own Sets so direct adapter callers stay guarded, but the
+// broker derives its allowlist from the schema. Comparing the two here is what
+// stops the parallel lists from drifting — the failure mode that already bit
+// AD_CREATIVE_FULL_FIELDS in src/tools/readAdCreativeFull.ts.
+describe('adapter allowlists match the schema-derived sets', () => {
+  function derivedNonEnvelopeKeys(toolName: string): string[] {
+    const definition = ADS_MCP_TOOL_DEFINITIONS.find((tool) => tool.name === toolName);
+    expect(definition, toolName).toBeDefined();
+
+    return [...deriveAllowedParamKeys(definition!.inputSchema)]
+      .filter((key) => !RESERVED_REQUEST_KEYS.has(key))
+      .sort();
+  }
+
+  function nonEnvelopeKeys(allowed: ReadonlySet<string>): string[] {
+    return [...allowed].filter((key) => !RESERVED_REQUEST_KEYS.has(key)).sort();
+  }
+
+  it('keeps CREATE_AD_CREATIVE_PARAMS equal to the ads_create_adcreative schema', () => {
+    expect(nonEnvelopeKeys(CREATE_AD_CREATIVE_PARAMS)).toEqual(
+      derivedNonEnvelopeKeys('ads_create_adcreative')
+    );
+  });
+
+  it('keeps READ_CREATIVE_FULL_PARAMS equal to the ads_read_creative_full schema', () => {
+    expect(nonEnvelopeKeys(READ_CREATIVE_FULL_PARAMS)).toEqual(
+      derivedNonEnvelopeKeys('ads_read_creative_full')
     );
   });
 });

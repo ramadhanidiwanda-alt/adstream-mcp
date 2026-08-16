@@ -4322,7 +4322,7 @@ function assertKnownParams(
 // Read tools accept the shared envelope plus their own id. Everything else was
 // previously swallowed, so params.fields looked like a field-selection override
 // and quietly did nothing at all.
-const READ_CREATIVE_FULL_PARAMS = new Set([
+export const READ_CREATIVE_FULL_PARAMS = new Set([
   'provider',
   'providers',
   'accountId',
