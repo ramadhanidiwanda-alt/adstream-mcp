@@ -29,7 +29,14 @@ import {
   isAdsProviderId,
 } from './types.js';
 import { redactErrorMessage, redactTokenLikeValues } from './credentials.js';
-import { RESERVED_REQUEST_KEYS } from './toolParamContract.js';
+import {
+  RESERVED_REQUEST_KEYS,
+  TOOL_PARAM_HINTS,
+  type ToolParamContract,
+  deriveAllowedParamKeys,
+  findUnknownParamKeys,
+  formatUnknownParamsMessage,
+} from './toolParamContract.js';
 import {
   LOCATION_BREAKDOWNS,
   META_CREATABLE_CREATIVE_FORMATS,
@@ -399,6 +406,7 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
     description:
       'Create a Meta ad creative with image/video, headline, body/caption, CTA, carousel cards, or placement customization. Dynamic Creative/Flexible asset-feed creation is disabled. Jika marketer meminta variasi headline/caption/copy/image/video, default-nya buat beberapa manual creative/ad terpisah, carousel cards, atau placement customization dengan asset_customization_rules; jangan ubah ke Dynamic Creative. Gunakan optOutEnhancements untuk disable Advantage+ Creative enhancement. params BUKAN passthrough mentah ke Graph API — hanya field yang terdaftar di schema ini yang dikirim, field lain ditolak dengan error (bukan diabaikan diam-diam). Dry-run by default. Set dryRun=false and confirmed=true to execute.',
     inputSchema: createCreateAdCreativeInputSchema(),
+    strictParams: true,
   },
   {
     name: 'ads_create_ad',
@@ -566,12 +574,14 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
     description:
       'Read the full configuration of a Meta Ad Creative — a reverse engineering tool that returns ALL fields from the /{creative_id}?fields=... Graph API endpoint. Use this to inspect a working ad creative from Meta Ads Manager and see its complete payload (object_story_spec, asset_feed_spec, call_to_action, page_welcome_message, tracking_specs, degrees_of_freedom_spec, etc.). Ideal for reverse engineering new ad features (CTWA, Carousel, DCO, Catalog, Advantage+). Requires creativeId.',
     inputSchema: createReadCreativeFullInputSchema(),
+    strictParams: true,
   },
   {
     name: 'ads_read_adset_full',
     description:
       'Read the full configuration of Meta Ad Sets (targeting, custom audiences, budget, bid strategy, optimization goal, placements, schedule). Three modes: pass adsetId for one ad set; pass campaignId for all ad sets in a campaign; pass neither (account only) for all ad sets in the account. List modes support limit and cursor. Read-only. Use this to replicate an existing ad set configuration.',
     inputSchema: createReadAdSetFullInputSchema(),
+    strictParams: true,
   },
   {
     name: 'ads_list_pages',
@@ -734,6 +744,9 @@ export async function handleAdsMcpToolCall(
   if (isIrreversibleAdsCall(name, args) && !areAdsDestructiveActionsEnabled()) {
     return destructiveActionsDisabledResponse(name);
   }
+
+  const unknownParams = unknownParamsResponse(name, args);
+  if (unknownParams) return unknownParams;
 
   const localResponse = await callLocalAdsTool(name, args);
   if (localResponse) {
@@ -908,6 +921,80 @@ function extractParams(args: Record<string, unknown>): Record<string, unknown> {
   }
 
   return params;
+}
+
+/**
+ * A tool opts into the strict params contract with `strictParams: true` on its
+ * definition, right next to the schema the allowlist is derived from. Tools
+ * without the flag keep today's permissive behavior: many of them declare only
+ * the shared envelope while their adapter reads documented params keys (see
+ * ads_list_campaigns and params.limit), so rejecting by default would break
+ * calls that are correct today.
+ */
+function isStrictParamsTool(tool: object): boolean {
+  return 'strictParams' in tool && (tool as { strictParams?: unknown }).strictParams === true;
+}
+
+const STRICT_PARAM_CONTRACTS = new Map<string, ToolParamContract | undefined>();
+
+function getStrictParamContract(name: AdsMcpToolName): ToolParamContract | undefined {
+  if (STRICT_PARAM_CONTRACTS.has(name)) return STRICT_PARAM_CONTRACTS.get(name);
+
+  const definition = ADS_MCP_TOOL_DEFINITIONS.find((tool) => tool.name === name);
+  const contract =
+    definition && isStrictParamsTool(definition)
+      ? {
+          allowed: deriveAllowedParamKeys(definition.inputSchema),
+          hints: TOOL_PARAM_HINTS[name] ?? {},
+        }
+      : undefined;
+
+  STRICT_PARAM_CONTRACTS.set(name, contract);
+  return contract;
+}
+
+/**
+ * Unknown keys a strict tool would otherwise swallow. Empty for tools that have
+ * not opted in. Exported so tests can assert acceptance per tool without going
+ * through a broker stub.
+ */
+export function findUnknownToolParams(
+  name: AdsMcpToolName,
+  args: Record<string, unknown>
+): string[] {
+  const contract = getStrictParamContract(name);
+  if (!contract) return [];
+
+  return findUnknownParamKeys(extractParams(args), contract.allowed);
+}
+
+function unknownParamsResponse(
+  name: AdsMcpToolName,
+  args: Record<string, unknown>
+): { content: Array<{ type: 'text'; text: string }>; isError: true } | undefined {
+  const contract = getStrictParamContract(name);
+  if (!contract) return undefined;
+
+  const unknown = findUnknownParamKeys(extractParams(args), contract.allowed);
+  if (unknown.length === 0) return undefined;
+
+  const provider = parseProvider(args.provider) ?? 'meta';
+  const body = {
+    ok: false,
+    provider,
+    errors: [
+      {
+        provider,
+        code: 'UNKNOWN_PARAM',
+        message: formatUnknownParamsMessage(unknown, contract.hints),
+      },
+    ],
+  };
+
+  return {
+    content: [{ type: 'text', text: JSON.stringify(body, null, 2) }],
+    isError: true,
+  };
 }
 
 function callBrokerMethod(
