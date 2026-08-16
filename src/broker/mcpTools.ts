@@ -29,6 +29,7 @@ import {
   isAdsProviderId,
 } from './types.js';
 import { redactErrorMessage, redactTokenLikeValues } from './credentials.js';
+import { RESERVED_REQUEST_KEYS } from './toolParamContract.js';
 import {
   LOCATION_BREAKDOWNS,
   META_CREATABLE_CREATIVE_FORMATS,
@@ -901,18 +902,9 @@ export function toAdsBrokerRequest(
 
 function extractParams(args: Record<string, unknown>): Record<string, unknown> {
   const params = isPlainObject(args.params) ? { ...args.params } : {};
-  const reserved = new Set([
-    'provider',
-    'providers',
-    'accountId',
-    'since',
-    'until',
-    'params',
-    '_oauthAuthContext',
-  ]);
 
   for (const [key, value] of Object.entries(args)) {
-    if (!reserved.has(key)) params[key] = value;
+    if (!RESERVED_REQUEST_KEYS.has(key)) params[key] = value;
   }
 
   return params;

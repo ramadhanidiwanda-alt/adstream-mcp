@@ -11,6 +11,11 @@ import {
 } from '../../tools/readAdSetFull.js';
 import { getAdDestinations } from '../../tools/getAdDestinations.js';
 import type { AdCreativeMappingResult } from '../../broker/types.js';
+import {
+  TOOL_PARAM_HINTS,
+  findUnknownParamKeys,
+  formatUnknownParamsMessage,
+} from '../../broker/toolParamContract.js';
 import { MetaClient } from '../../metaClient.js';
 import {
   deriveMetaActivePlacements,
@@ -4292,27 +4297,10 @@ export const CREATE_AD_CREATIVE_PARAMS = new Set([
   'confirmed',
 ]);
 
-// Field names callers reach for that this tool does not accept — raw Graph API
-// spellings, plus fields that belong on a different entity. Mapping them back to
-// the right place turns a dead end into a fix.
-const CREATE_AD_CREATIVE_PARAM_HINTS: Record<string, string> = {
-  whatsappPhoneNumberId:
-    'destinasi WhatsApp diatur di ad set (ads_create_adset destinationType/promotedObject), bukan di creative — creative hanya membawa CTA WHATSAPP_MESSAGE',
-  source_instagram_media_id: 'creativeSpec.sourceInstagramMediaId (creativeFormat: existing_post)',
-  object_story_id: 'creativeSpec.objectStoryId (creativeFormat: existing_post)',
-  object_story_spec: 'objectStorySpec',
-  asset_feed_spec: 'assetFeedSpec',
-  url_tags: 'urlTags',
-  page_id: 'pageId',
-  image_hash: 'imageHash',
-  video_id: 'videoId',
-  call_to_action_type: 'callToActionType',
-  instagram_user_id: 'instagramUserId',
-  threads_user_id: 'threadsProfileId',
-  threads_profile_id:
-    'threadsProfileId (catatan: threads_profile_id bukan field Graph API — nama yang benar adalah threads_user_id)',
-  degrees_of_freedom_spec: 'optOutEnhancements',
-};
+// Hints live with the shared contract in broker/toolParamContract.ts so this
+// guard and the broker-layer one name the same typed field for the same key.
+const CREATE_AD_CREATIVE_PARAM_HINTS: Record<string, string> =
+  TOOL_PARAM_HINTS.ads_create_adcreative ?? {};
 
 /**
  * params is not a raw Graph API passthrough — the adapter reads a fixed set of
@@ -4325,13 +4313,10 @@ function assertKnownParams(
   allowed: Set<string>,
   hints: Record<string, string>
 ): void {
-  const unknown = Object.keys(params).filter((key) => !allowed.has(key));
+  const unknown = findUnknownParamKeys(params, allowed);
   if (unknown.length === 0) return;
 
-  const detail = unknown.map((key) => (hints[key] ? `${key} → ${hints[key]}` : key)).join('; ');
-  throw new Error(
-    `Field berikut tidak dikenali dan TIDAK dikirim ke Meta: ${detail}. params bukan passthrough mentah ke Graph API — pakai field bertipe yang sesuai, atau hapus field ini.`
-  );
+  throw new Error(formatUnknownParamsMessage(unknown, hints));
 }
 
 // Read tools accept the shared envelope plus their own id. Everything else was
@@ -4346,12 +4331,8 @@ const READ_CREATIVE_FULL_PARAMS = new Set([
   'creativeId',
 ]);
 
-const READ_CREATIVE_FULL_PARAM_HINTS: Record<string, string> = {
-  fields:
-    'tool ini selalu membaca seluruh field yang didukung; tidak ada override fields. Lihat AD_CREATIVE_FULL_FIELDS di src/tools/readAdCreativeFull.ts',
-  creative_id: 'creativeId',
-  id: 'creativeId',
-};
+const READ_CREATIVE_FULL_PARAM_HINTS: Record<string, string> =
+  TOOL_PARAM_HINTS.ads_read_creative_full ?? {};
 
 /**
  * attribution_spec override for a clone. Accepts Meta's own array shape; null and []
