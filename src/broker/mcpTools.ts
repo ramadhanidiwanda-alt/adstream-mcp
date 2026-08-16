@@ -1644,6 +1644,10 @@ function createGmvMaxCampaignInputSchema() {
     type: 'object',
     properties: {
       ...(schema.properties as Record<string, unknown>),
+      advertiserId: {
+        type: 'string',
+        description: 'TikTok advertiser id. Takes precedence over accountId when both are sent.',
+      },
       campaignName: { type: 'string', description: 'GMV Max campaign name.' },
       objectiveType: {
         type: 'string',
@@ -1652,6 +1656,18 @@ function createGmvMaxCampaignInputSchema() {
       storeIds: { type: 'array', items: { type: 'string' }, description: 'TikTok Shop store IDs.' },
       budget: { type: 'number', description: 'Campaign budget.' },
       budgetMode: { type: 'string', description: 'Budget mode, e.g. BUDGET_MODE_DAY.' },
+      scheduleType: {
+        type: 'string',
+        description: 'TikTok schedule_type, e.g. SCHEDULE_FROM_NOW.',
+      },
+      scheduleStartTime: {
+        type: 'string',
+        description: 'Campaign schedule start time.',
+      },
+      operationStatus: {
+        type: 'string',
+        description: 'TikTok operation_status, ENABLE or DISABLE. Defaults to ENABLE.',
+      },
       shoppingAdsType: {
         type: 'string',
         enum: ['PRODUCT', 'LIVE'],
@@ -1698,6 +1714,10 @@ function createUploadInputSchema(required: string[]) {
       description: {
         type: 'string',
         description: 'Optional description for video uploads.',
+      },
+      maxRetries: {
+        type: 'number',
+        description: 'How many times to retry a transient Meta upload failure. Defaults to 3.',
       },
     },
     required,
@@ -3389,6 +3409,10 @@ function createProductAudienceInputSchema() {
         type: 'boolean',
         description: 'Must be true together with dryRun=false to execute.',
       },
+      maxRetries: {
+        type: 'number',
+        description: 'How many times to retry a transient Meta failure. Defaults to the tool default.',
+      },
     },
     required: ['accountId', 'name', 'productSetId', 'inclusions'],
   };
@@ -3418,6 +3442,10 @@ function createCustomAudienceInputSchema() {
         type: 'boolean',
         description: 'Must be true together with dryRun=false to execute.',
       },
+      maxRetries: {
+        type: 'number',
+        description: 'How many times to retry a transient Meta failure. Defaults to the tool default.',
+      },
     },
     required: ['accountId', 'name', 'pixelId', 'rule'],
   };
@@ -3435,6 +3463,10 @@ function createPixelInputSchema() {
       confirmed: {
         type: 'boolean',
         description: 'Must be true together with dryRun=false to execute.',
+      },
+      maxRetries: {
+        type: 'number',
+        description: 'How many times to retry a transient Meta failure. Defaults to the tool default.',
       },
     },
     required: ['accountId', 'name'],

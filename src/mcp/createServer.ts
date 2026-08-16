@@ -860,6 +860,10 @@ const ecommerceLaunchInputSchema = {
 const gmvMaxCampaignInputSchema = {
   ...adsBaseInputSchema,
   accountId: z.string().describe('Provider account id. Required for GMV Max campaign creation.'),
+  advertiserId: z
+    .string()
+    .optional()
+    .describe('TikTok advertiser id. Takes precedence over accountId when both are sent.'),
   campaignName: z.string().describe('GMV Max campaign name.'),
   objectiveType: z
     .string()
@@ -867,6 +871,15 @@ const gmvMaxCampaignInputSchema = {
   storeIds: z.array(z.string()).describe('TikTok Shop store IDs.'),
   budget: z.number().optional().describe('Campaign budget.'),
   budgetMode: z.string().optional().describe('Budget mode, e.g. BUDGET_MODE_DAY.'),
+  scheduleType: z
+    .string()
+    .optional()
+    .describe('TikTok schedule_type, e.g. SCHEDULE_FROM_NOW.'),
+  scheduleStartTime: z.string().optional().describe('Campaign schedule start time.'),
+  operationStatus: z
+    .string()
+    .optional()
+    .describe('TikTok operation_status, ENABLE or DISABLE. Defaults to ENABLE.'),
   shoppingAdsType: z
     .enum(['PRODUCT', 'LIVE'])
     .describe(
@@ -938,6 +951,102 @@ const createCampaignInputSchema = {
   confirmed: z.boolean().optional().describe('Must be true to execute after preview.'),
 };
 
+/**
+ * ads_create_cpas_catalog_bundle used to be registered with
+ * ecommerceLaunchInputSchema, the shape belonging to
+ * ads_create_ecommerce_campaign_bundle, because both require campaignName and
+ * the registration loop branched on that. The two tools take different inputs,
+ * so this mirrors the CPAS tool's own JSON Schema instead.
+ */
+const cpasCatalogBundleInputSchema = {
+  ...adsBaseInputSchema,
+  accountId: z.string().describe('Provider account id. Required to create the bundle.'),
+  campaignName: z.string().describe('Campaign name.'),
+  adSetName: z.string().describe('Ad set name.'),
+  adName: z.string().describe('Ad name.'),
+  pageId: z.string().describe('Facebook Page ID used in object_story_spec.'),
+  productSetId: z.string().describe('Retailer-shared CPAS product set ID.'),
+  destinationMode: z
+    .enum(['catalog_web', 'app_omnichannel'])
+    .optional()
+    .describe(
+      'Defaults to catalog_web: CPAS katalog dinamis dengan universal web/app link tanpa app-event tracking. Pilih app_omnichannel hanya jika ad account sudah memiliki izin tracking aplikasi retailer.'
+    ),
+  pixelId: z.string().optional().describe('Meta Pixel ID for conversion logging.'),
+  collaborativeAppSpec: z
+    .object({
+      applicationId: z.string(),
+      android: z.object({ appName: z.string(), packageName: z.string() }).optional(),
+      ios: z.object({ appName: z.string(), appStoreId: z.string() }).optional(),
+    })
+    .optional()
+    .describe('Wajib hanya untuk destinationMode=app_omnichannel.'),
+  objectStoreUrls: z
+    .array(z.string())
+    .optional()
+    .describe('Wajib hanya untuk destinationMode=app_omnichannel.'),
+  customEventType: z
+    .enum(['PURCHASE', 'ADD_TO_CART', 'INITIATED_CHECKOUT'])
+    .optional()
+    .describe('Conversion event the ad set optimizes for.'),
+  dailyBudget: z.number().describe('Daily budget in local currency minor units.'),
+  countries: z.array(z.string()).describe('Country codes to target.'),
+  primaryText: z.string().describe('Creative primary text.'),
+  headline: z.string().describe('Creative headline.'),
+  description: z.string().optional().describe('Creative description.'),
+  creativeFormat: z
+    .enum([
+      'catalog',
+      'catalog_single_image',
+      'catalog_carousel',
+      'catalog_video',
+      'catalog_video_carousel',
+      'collection',
+    ])
+    .optional()
+    .describe(
+      'Defaults to catalog. catalog_single_image dan catalog_carousel tetap memakai produk dinamis; catalog_video membutuhkan video. Collection membutuhkan properti collection.'
+    ),
+  collection: z
+    .object({
+      instantExperienceId: z.string(),
+      coverImageHash: z.string().optional(),
+      coverVideoId: z.string().optional(),
+    })
+    .optional()
+    .describe('Wajib bila creativeFormat=collection.'),
+  video: z
+    .object({
+      videoId: z.string(),
+      instantExperienceId: z.string(),
+      retailerAppId: z.string(),
+      retailerItemIds: z.array(z.string()).optional(),
+      thumbnailImageHash: z.string().optional(),
+      thumbnailImageUrl: z.string().optional(),
+    })
+    .optional()
+    .describe(
+      'Wajib bila creativeFormat=catalog_video. Instant Experience harus sudah published dan videoId harus berasal dari object_story_spec.video_data creative CPAS yang valid.'
+    ),
+  hybridVideo: z
+    .object({ videoId: z.string(), thumbnailUrl: z.string() })
+    .optional()
+    .describe(
+      'Wajib bila creativeFormat=catalog_video_carousel. Gunakan URL thumbnail Meta untuk static video card; format ini tidak memakai Instant Experience.'
+    ),
+  destinationUrl: z.string().describe('Landing page URL.'),
+  templateUrl: z.string().optional().describe('Catalog template URL.'),
+  fallbackImageHash: z.string().optional().describe('Fallback image hash for catalog creatives.'),
+  callToAction: z.enum(['SHOP_NOW', 'LEARN_MORE']).optional().describe('Creative call to action.'),
+  ageMin: z.number().optional().describe('Minimum age to target.'),
+  ageMax: z.number().optional().describe('Maximum age to target.'),
+  publisherPlatforms: z.array(z.string()).optional().describe('Publisher platforms.'),
+  instagramUserId: z.string().optional().describe('Instagram account used as the ad identity.'),
+  threadsProfileId: z.string().optional().describe('Threads profile ID for Threads posting.'),
+  dryRun: z.boolean().optional().describe('Defaults to true.'),
+  confirmed: z.boolean().optional().describe('Required with dryRun=false.'),
+};
+
 const createAdSetInputSchema = {
   ...adsBaseInputSchema,
   accountId: z.string().describe('Provider account id. Required for ad set creation.'),
@@ -1002,6 +1111,12 @@ const createAdSetInputSchema = {
     .enum(META_CONVERSION_LOCATIONS)
     .optional()
     .describe('Objective-aware Meta conversion location.'),
+  messagingDestination: z
+    .enum(META_MESSAGING_DESTINATIONS)
+    .optional()
+    .describe(
+      'Inbox tujuan untuk conversionLocation MESSAGING. Untuk Sales CTWA, isi WHATSAPP agar ad set memakai destination_type WHATSAPP. Target kinerja pembelian via pesan (MESSAGING_PURCHASE_CONVERSION) tidak bisa disetel lewat API; buat ad set-nya di Ads Manager lalu rapikan via ads_update_adset tanpa mengirim optimizationGoal. Jangan fallback ke CONVERSATIONS maupun OFFSITE_CONVERSIONS, keduanya target yang berbeda.'
+    ),
   creativeFormat: z
     .enum(META_CREATABLE_CREATIVE_FORMATS)
     .optional()
@@ -1115,10 +1230,70 @@ const createAdSetInputSchema = {
     .array(z.string())
     .optional()
     .describe('Publisher platforms (e.g. facebook, instagram).'),
+  facebookPositions: z
+    .array(z.string())
+    .optional()
+    .describe(
+      'Granular Facebook placements (e.g. feed, story, video_feeds, marketplace, facebook_reels). Omit for all positions.'
+    ),
+  instagramPositions: z
+    .array(z.string())
+    .optional()
+    .describe(
+      'Granular Instagram placements (e.g. stream, story, explore, reels, profile_feed, profile_reels, ig_search). Omit for all positions.'
+    ),
+  threadsPositions: z
+    .array(z.enum(['threads_stream']))
+    .optional()
+    .describe(
+      'Threads placements. Only threads_stream is supported by Meta, and it requires Instagram "stream" to also be included in instagramPositions.'
+    ),
+  messengerPositions: z
+    .array(z.string())
+    .optional()
+    .describe('Granular Messenger placements (e.g. sponsored_messages, story).'),
+  marketplacePositions: z
+    .array(z.string())
+    .optional()
+    .describe('Granular Facebook Marketplace placements.'),
+  devicePlatforms: z
+    .array(z.enum(['mobile', 'desktop']))
+    .optional()
+    .describe('Device platforms. Omit for all device types.'),
+  advantageAudience: z
+    .union([z.literal(0), z.literal(1)])
+    .optional()
+    .describe(
+      'Shorthand for targeting_automation.advantage_audience: 1 to enable Advantage+ Audience expansion, 0 to disable. Meta requires this to be explicit when age/gender/custom-audience/detailed-targeting use non-default settings. Ignored if targetingAutomation is also provided.'
+    ),
+  targetingAutomation: z
+    .record(z.unknown())
+    .optional()
+    .describe(
+      'Raw targeting_automation object, e.g. { advantage_audience: 1 }. Takes precedence over advantageAudience. Defaults to { advantage_audience: 0 } when neither is provided and other targeting fields are set.'
+    ),
   interests: z
     .array(z.record(z.unknown()))
     .optional()
     .describe('Interest targeting array [{ id, name }].'),
+  behaviors: z
+    .array(z.record(z.unknown()))
+    .optional()
+    .describe(
+      'Behavior targeting array [{ id, name }] (e.g. "Engaged Shoppers", "Frequent international travelers"). Combined with workEmployers/workPositions (if any) in one OR-matched group, ANDed against interests.'
+    ),
+  workEmployers: z
+    .array(z.record(z.unknown()))
+    .optional()
+    .describe(
+      'Employer targeting array [{ id, name }]. Combined with behaviors/workPositions (if any) in one OR-matched group, ANDed against interests.'
+    ),
+  workPositions: z
+    .array(z.record(z.unknown()))
+    .optional()
+    .describe(
+      'Job title targeting array [{ id, name }]. Combined with behaviors/workEmployers (if any) in one OR-matched group, ANDed against interests.'
+    ),
   customAudiences: z
     .array(z.record(z.unknown()))
     .optional()
@@ -1240,6 +1415,12 @@ export const createAdCreativeInputSchema = {
     .enum(META_CONVERSION_LOCATIONS)
     .optional()
     .describe('Canonical conversion location. Must be paired with objective.'),
+  messagingDestination: z
+    .enum(META_MESSAGING_DESTINATIONS)
+    .optional()
+    .describe(
+      'Inbox tujuan untuk conversionLocation MESSAGING. Untuk Sales CTWA, isi WHATSAPP agar creative default ke CTA WHATSAPP_MESSAGE.'
+    ),
   creativeFormat: z
     .enum([
       'single_image',
@@ -1367,6 +1548,12 @@ export const createAdCreativeInputSchema = {
     ),
   instagramUserId: z.string().optional().describe('Instagram user ID for IG posting.'),
   threadsProfileId: z.string().optional().describe('Threads profile ID for Threads posting.'),
+  objectStorySpec: objectStorySpecInputSchema.optional(),
+  assetFeedSpec: placementCustomizedAssetFeedSpecSchema
+    .optional()
+    .describe(
+      'Hanya untuk placement customization dengan asset_customization_rules (termasuk image/video berbeda per placement). Dynamic/Flexible asset-feed variants disabled. Jangan pakai untuk opsi headline/caption/copy/video manual tanpa placement rules; buat beberapa manual creative/ad terpisah atau carousel.'
+    ),
   // --- CTWA (Click-to-WhatsApp) Support ---
   destinationType: z
     .enum(['WEB', 'WHATSAPP', 'MESSENGER', 'INSTAGRAM_DIRECT', 'APP'])
@@ -1386,18 +1573,6 @@ export const createAdCreativeInputSchema = {
     .describe(
       'Disabled karena menulis asset_feed_spec.additional_data dan bisa mengubah creative menjadi asset-feed family. Pakai pageWelcomeMessage atau creativeSpec.pageWelcomeMessage manual.'
     ),
-  objectStorySpec: objectStorySpecInputSchema.optional(),
-  assetFeedSpec: placementCustomizedAssetFeedSpecSchema
-    .optional()
-    .describe(
-      'Hanya untuk placement customization dengan asset_customization_rules (termasuk image/video berbeda per placement). Dynamic/Flexible asset-feed variants disabled. Jangan pakai untuk opsi headline/caption/copy/video manual tanpa placement rules; buat beberapa manual creative/ad terpisah atau carousel.'
-    ),
-  optOutEnhancements: z
-    .array(z.string())
-    .optional()
-    .describe(
-      'Nama individual Advantage+ Creative feature yang di-disable (OPT_OUT). Contoh: ["image_auto_crop", "text_optimizations", "image_templates"]. standard_enhancements sudah deprecated dan media_sourcing bukan creative feature yang valid; keduanya ditolak. Untuk creative manual murni, hilangkan parameter ini agar degrees_of_freedom_spec tidak dikirim.'
-    ),
   dedupeByName: z
     .boolean()
     .optional()
@@ -1406,22 +1581,22 @@ export const createAdCreativeInputSchema = {
     .string()
     .optional()
     .describe('Caller-provided reference for duplicate prevention and audit correlation.'),
+  optOutEnhancements: z
+    .array(z.string())
+    .optional()
+    .describe(
+      'Nama individual Advantage+ Creative feature yang di-disable (OPT_OUT). Contoh: ["image_auto_crop", "text_optimizations", "image_templates"]. standard_enhancements sudah deprecated dan media_sourcing bukan creative feature yang valid; keduanya ditolak. Untuk creative manual murni, hilangkan parameter ini agar degrees_of_freedom_spec tidak dikirim.'
+    ),
   dryRun: z.boolean().optional().describe('Defaults to true. Set false only after preview.'),
   confirmed: z.boolean().optional().describe('Must be true to execute after preview.'),
 };
 
-const createAdInputSchema = {
-  ...adsBaseInputSchema,
-  accountId: z.string().describe('Provider account id. Required for ad creation.'),
-  name: z.string().describe('Ad name.'),
-  adSetId: z.string().describe('The ad set ID to place the ad under.'),
-  creativeId: z
-    .string()
-    .optional()
-    .describe(
-      'Meta: the creative ID to use for this ad. Not used for TikTok — use creatives instead.'
-    ),
-  multiMedia: z
+/**
+ * Inline multi-media image creative, shared by ads_create_ad and ads_update_ad.
+ * Both reach the same Meta path, so the shape is declared once and each tool
+ * supplies its own description.
+ */
+const multiMediaInputSchema = z
     .object({
       pageId: z.string(),
       instagramUserId: z.string().optional(),
@@ -1466,7 +1641,20 @@ const createAdInputSchema = {
         )
         .min(2)
         .max(10),
-    })
+    });
+
+const createAdInputSchema = {
+  ...adsBaseInputSchema,
+  accountId: z.string().describe('Provider account id. Required for ad creation.'),
+  name: z.string().describe('Ad name.'),
+  adSetId: z.string().describe('The ad set ID to place the ad under.'),
+  creativeId: z
+    .string()
+    .optional()
+    .describe(
+      'Meta: the creative ID to use for this ad. Not used for TikTok — use creatives instead.'
+    ),
+  multiMedia: multiMediaInputSchema
     .optional()
     .describe(
       'Meta non-Dynamic inline multi-media image creative. Mutually exclusive with creativeId; primaryImageHash must also be included in images.'
@@ -1572,6 +1760,94 @@ const cloneUiAdInputSchema = {
 const archiveAdInputSchema = {
   ...adsBaseInputSchema,
   adId: z.string().describe('The ad ID to archive.'),
+  dryRun: z.boolean().optional().describe('Defaults to true. Set false only after preview.'),
+  confirmed: z.boolean().optional().describe('Must be true to execute after preview.'),
+};
+
+const deleteAudienceInputSchema = {
+  ...adsBaseInputSchema,
+  audienceId: z
+    .string()
+    .describe(
+      'The Custom Audience id to delete permanently (includes product/dynamic audiences).'
+    ),
+  dryRun: z.boolean().optional().describe('Defaults to true. Set false only after preview.'),
+  confirmed: z.boolean().optional().describe('Must be true to execute after preview.'),
+};
+
+const productAudienceRuleInputSchema = z.object({
+  retentionSeconds: z
+    .number()
+    .describe('How long, in seconds, a person stays in/out of the audience.'),
+  event: z.enum(['Search', 'ViewContent', 'AddToCart', 'Purchase']),
+});
+
+const createProductAudienceInputSchema = {
+  ...adsBaseInputSchema,
+  accountId: z.string().describe('Provider account id. Required to create an audience.'),
+  name: z.string().describe('Audience name.'),
+  productSetId: z.string().describe('Catalog product set this audience is built from.'),
+  inclusions: z
+    .array(productAudienceRuleInputSchema)
+    .describe(
+      'Events that add a person to the audience. Meta commonly uses ViewContent (14 days) and AddToCart (7 days) for retargeting.'
+    ),
+  exclusions: z
+    .array(productAudienceRuleInputSchema)
+    .optional()
+    .describe(
+      'Events that remove a person from the audience. Meta commonly uses Purchase (30 days) to exclude buyers from retargeting.'
+    ),
+  dryRun: z.boolean().optional().describe('Defaults to true. Set false to execute.'),
+  confirmed: z
+    .boolean()
+    .optional()
+    .describe('Must be true together with dryRun=false to execute.'),
+  maxRetries: z
+    .number()
+    .optional()
+    .describe('How many times to retry a transient Meta failure. Defaults to the tool default.'),
+};
+
+const createCustomAudienceInputSchema = {
+  ...adsBaseInputSchema,
+  accountId: z.string().describe('Provider account id. Required to create an audience.'),
+  name: z.string().describe('Audience name.'),
+  pixelId: z.string().describe('Meta pixel ID this audience is built from.'),
+  rule: z
+    .record(z.unknown())
+    .describe(
+      "Raw Website Custom Audience Rule object, exactly as Meta's Audience rule builder/API reference specifies. Passed through as-is."
+    ),
+  retentionDays: z
+    .number()
+    .optional()
+    .describe('How many days a person stays in the audience. Must be between 1 and 180.'),
+  description: z.string().optional().describe('Optional audience description.'),
+  dryRun: z.boolean().optional().describe('Defaults to true. Set false to execute.'),
+  confirmed: z
+    .boolean()
+    .optional()
+    .describe('Must be true together with dryRun=false to execute.'),
+  maxRetries: z
+    .number()
+    .optional()
+    .describe('How many times to retry a transient Meta failure. Defaults to the tool default.'),
+};
+
+const createPixelInputSchema = {
+  ...adsBaseInputSchema,
+  accountId: z.string().describe('Provider account id. Required to create a pixel.'),
+  name: z.string().describe('Pixel name.'),
+  dryRun: z.boolean().optional().describe('Defaults to true. Set false to execute.'),
+  confirmed: z
+    .boolean()
+    .optional()
+    .describe('Must be true together with dryRun=false to execute.'),
+  maxRetries: z
+    .number()
+    .optional()
+    .describe('How many times to retry a transient Meta failure. Defaults to the tool default.'),
 };
 
 const adIdInputSchema = {
@@ -1669,6 +1945,52 @@ const updateAdSetInputSchema = {
     .optional()
     .describe('Gender targeting values. Meta uses 1=male, 2=female.'),
   publisherPlatforms: z.array(z.string()).optional().describe('Publisher platforms.'),
+  facebookPositions: z
+    .array(z.string())
+    .optional()
+    .describe(
+      'Granular Facebook placements (e.g. feed, story, video_feeds, marketplace, facebook_reels).'
+    ),
+  instagramPositions: z
+    .array(z.string())
+    .optional()
+    .describe(
+      'Granular Instagram placements (e.g. stream, story, explore, reels, profile_feed, profile_reels, ig_search).'
+    ),
+  threadsPositions: z
+    .array(z.enum(['threads_stream']))
+    .optional()
+    .describe(
+      'Threads placements. Only threads_stream is supported by Meta, and it requires Instagram "stream" to also be included in instagramPositions.'
+    ),
+  messengerPositions: z
+    .array(z.string())
+    .optional()
+    .describe('Granular Messenger placements (e.g. sponsored_messages, story).'),
+  marketplacePositions: z
+    .array(z.string())
+    .optional()
+    .describe('Granular Facebook Marketplace placements.'),
+  devicePlatforms: z
+    .array(z.enum(['mobile', 'desktop']))
+    .optional()
+    .describe('Device platforms.'),
+  excludedCustomAudiences: z
+    .array(z.record(z.unknown()))
+    .optional()
+    .describe('Custom audiences to exclude, array of [{ id }].'),
+  advantageAudience: z
+    .union([z.literal(0), z.literal(1)])
+    .optional()
+    .describe(
+      'Shorthand for targeting_automation.advantage_audience: 1 to enable Advantage+ Audience expansion, 0 to disable. Ignored if targetingAutomation is also provided.'
+    ),
+  targetingAutomation: z
+    .record(z.unknown())
+    .optional()
+    .describe(
+      'Raw targeting_automation object, e.g. { advantage_audience: 1 }. Takes precedence over advantageAudience.'
+    ),
   startTime: z.string().optional().describe('Start time in ISO format.'),
   endTime: z.string().optional().describe('End time in ISO format.'),
   mode: z
@@ -1695,6 +2017,17 @@ const updateAdInputSchema = {
     .optional()
     .describe(
       'Point this ad at a different, already-existing creative. Use this to change UTM/tracking parameters on a live ad by first creating a new creative with url_tags set, then swapping this ad to it.'
+    ),
+  multiMedia: multiMediaInputSchema
+    .optional()
+    .describe(
+      'Meta only: create a normal (non-Dynamic) inline multi-media image creative. Mutually exclusive with creativeId. The primaryImageHash must also appear in images. Each image is sent through media_sourcing_spec with source multi_media and may exclude placements.'
+    ),
+  multiMediaCreativeName: z
+    .string()
+    .optional()
+    .describe(
+      'Optional name for the newly-created standalone multi-media creative. Does not rename the ad.'
     ),
   trackingSpecs: z
     .array(z.record(z.unknown()))
@@ -1928,6 +2261,14 @@ export function createMetaAdsMcpServer(options: CreateMetaAdsMcpServerOptions = 
       inputSchema = cloneUiAdInputSchema;
     } else if (toolDefinition.name === 'ads_archive_ad') {
       inputSchema = archiveAdInputSchema;
+    } else if (toolDefinition.name === 'ads_delete_audience') {
+      inputSchema = deleteAudienceInputSchema;
+    } else if (toolDefinition.name === 'ads_create_product_audience') {
+      inputSchema = createProductAudienceInputSchema;
+    } else if (toolDefinition.name === 'ads_create_custom_audience') {
+      inputSchema = createCustomAudienceInputSchema;
+    } else if (toolDefinition.name === 'ads_create_pixel') {
+      inputSchema = createPixelInputSchema;
     } else if (toolDefinition.name === 'ads_pause_ad' || toolDefinition.name === 'ads_resume_ad') {
       inputSchema = adIdInputSchema;
     } else if (
@@ -1971,6 +2312,8 @@ export function createMetaAdsMcpServer(options: CreateMetaAdsMcpServerOptions = 
       toolDefinition.name === 'tiktok_smart_plus_resume_adgroup'
     ) {
       inputSchema = smartPlusAdGroupIdInputSchema;
+    } else if (toolDefinition.name === 'ads_create_cpas_catalog_bundle') {
+      inputSchema = cpasCatalogBundleInputSchema;
     } else if (hasCampaignName) {
       inputSchema = ecommerceLaunchInputSchema;
     } else if (hasCampaignId) {
@@ -1998,6 +2341,10 @@ export function createMetaAdsMcpServer(options: CreateMetaAdsMcpServerOptions = 
           ),
         title: z.string().optional().describe('Optional title for video uploads.'),
         description: z.string().optional().describe('Optional description for video uploads.'),
+        maxRetries: z
+          .number()
+          .optional()
+          .describe('How many times to retry a transient Meta upload failure. Defaults to 3.'),
       };
     } else if (toolDefinition.name === 'ads_read_adset_full') {
       inputSchema = {
