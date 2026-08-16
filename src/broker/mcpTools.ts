@@ -317,7 +317,7 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
     name: 'ads_get_account_performance',
     description:
       'Legacy alias: fetch normalized account-level performance. Prefer ads_get_performance with level account for new clients.',
-    inputSchema: createAdsInputSchema(['since', 'until']),
+    inputSchema: createAccountPerformanceInputSchema(),
   },
   {
     name: 'ads_get_campaign_performance',
@@ -341,25 +341,25 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
     name: 'ads_get_creative_performance',
     description:
       'Legacy alias: fetch normalized creative performance. Prefer ads_get_creatives or ads_get_performance with level creative for new clients.',
-    inputSchema: createAdsInputSchema(['since', 'until']),
+    inputSchema: createCreativePerformanceInputSchema(),
   },
   {
     name: 'ads_get_placement_performance',
     description:
       'Legacy alias: fetch platform and placement performance. Prefer ads_get_performance with placement breakdowns for new clients.',
-    inputSchema: createAdsInputSchema(['since', 'until']),
+    inputSchema: createPlacementPerformanceInputSchema(),
   },
   {
     name: 'ads_content_matrix',
     description:
       'Legacy skill-owned workflow: return data-only ad/creative performance matrix grouped by campaign or adset. Prefer skill workflows over ads_get_performance and ads_get_creatives for new clients.',
-    inputSchema: createAdsInputSchema(['since', 'until']),
+    inputSchema: createContentMatrixInputSchema(),
   },
   {
     name: 'ads_generate_report',
     description:
       'Legacy skill-owned workflow: generate an ads report through the AdsBroker. Prefer AI/skill report workflows over canonical data tools for new clients.',
-    inputSchema: createAdsInputSchema(['since', 'until']),
+    inputSchema: createGenerateReportInputSchema(),
   },
   {
     name: 'ads_create_welcome_message_template',
@@ -3886,21 +3886,251 @@ function createLegacyPerformanceInputSchema(level: 'campaign' | 'adset' | 'ad') 
     properties: {
       ...(schema.properties as Record<string, unknown>),
       ...scope,
-      breakdowns: {
-        type: 'array',
-        items: { type: 'string', enum: [...LOCATION_BREAKDOWNS] },
-        description: 'Meta location breakdowns to split rows by. Ignored when mode is cpas.',
+      ...insightsTailSchema(),
+    },
+  };
+}
+
+/**
+ * Breakdown, filter and paging keys every request that reaches Meta's
+ * getPerformanceOptions can carry, plus the page/pageSize pair TikTok reads
+ * instead of a cursor. Shared by the legacy aliases and by the two tools that
+ * delegate to them, ads_content_matrix and ads_generate_report.
+ */
+function insightsTailSchema() {
+  return {
+    breakdowns: {
+      type: 'array',
+      items: { type: 'string', enum: [...LOCATION_BREAKDOWNS] },
+      description: 'Meta location breakdowns to split rows by. Ignored when mode is cpas.',
+    },
+    filters: canonicalFiltersSchema(),
+    mode: {
+      type: 'string',
+      enum: ['cpas'],
+      description:
+        'Set to cpas to read Collaborative Ads rows, broken down by product_id. Meta only.',
+    },
+    limit: {
+      type: 'number',
+      description: 'Maximum number of rows to return. Meta only; TikTok uses pageSize.',
+    },
+    cursor: {
+      type: 'string',
+      description:
+        'Opaque pagination cursor from a previous response. On TikTok this is the next page number.',
+    },
+    page: {
+      type: 'number',
+      description: 'Report page number. TikTok only.',
+    },
+    pageSize: {
+      type: 'number',
+      description: 'Report rows per page. TikTok only.',
+    },
+  };
+}
+
+/**
+ * Account level takes no scoping or breakdown keys: getAccountInsights sends
+ * neither `filtering` nor `breakdowns` to Meta, so declaring them here would
+ * advertise inputs that reach the API and change nothing.
+ */
+function createAccountPerformanceInputSchema() {
+  const schema = createAdsInputSchema(['since', 'until']);
+
+  return {
+    ...schema,
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      limit: {
+        type: 'number',
+        description: 'Maximum number of rows to return. Meta only; TikTok uses pageSize.',
       },
-      filters: canonicalFiltersSchema(),
+      cursor: {
+        type: 'string',
+        description:
+          'Opaque pagination cursor from a previous response. On TikTok this is the next page number.',
+      },
+      page: {
+        type: 'number',
+        description: 'Report page number. TikTok only.',
+      },
+      pageSize: {
+        type: 'number',
+        description: 'Report rows per page. TikTok only.',
+      },
+    },
+  };
+}
+
+function createCreativePerformanceInputSchema() {
+  const schema = createAdsInputSchema(['since', 'until']);
+
+  return {
+    ...schema,
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      creativeId: {
+        type: 'string',
+        description: 'Read a single Meta creative by ID instead of listing the account.',
+      },
+      campaignId: idScopeSchema(
+        'Optional campaign scope. Uses the nested campaign ads edge when possible. Meta only.'
+      ),
+      adSetId: idScopeSchema(
+        'Optional ad set scope. Uses the nested ad set ads edge when possible. Meta only.'
+      ),
+      complianceAudit: {
+        type: 'boolean',
+        description:
+          'Audit the active ads behind each creative and report setup compliance. Ignored when creativeId is set. Meta only.',
+      },
+      effectiveStatus: {
+        type: 'array',
+        items: { type: 'string' },
+        description:
+          'Meta effective_status values the compliance audit keeps. Defaults to ACTIVE. Meta only.',
+      },
+      includeRaw: {
+        type: 'boolean',
+        description: 'Attach the raw Meta creative payload to each row. Meta only.',
+      },
+      limit: {
+        type: 'number',
+        description: 'Maximum creatives to inspect. Defaults to 100. Meta only.',
+      },
+      cursor: {
+        type: 'string',
+        description:
+          'Opaque pagination cursor from a previous response. On TikTok this is the next page number.',
+      },
+      page: {
+        type: 'number',
+        description: 'Report page number. TikTok only.',
+      },
+      pageSize: {
+        type: 'number',
+        description: 'Report rows per page. TikTok only.',
+      },
+    },
+  };
+}
+
+function createPlacementPerformanceInputSchema() {
+  const schema = createAdsInputSchema(['since', 'until']);
+
+  return {
+    ...schema,
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      level: {
+        type: 'string',
+        enum: ['campaign', 'adset', 'ad'],
+        description: 'Entity level the placement rows are grouped by. Meta only.',
+      },
+      campaignId: idScopeSchema('Restrict results to specific campaign id(s). Meta only.'),
+      adsetId: idScopeSchema('Restrict results to specific ad set id(s). Meta only.'),
+      adId: idScopeSchema('Restrict results to specific ad id(s). Meta only.'),
+      minSpendShare: {
+        type: 'number',
+        description: 'Drop placements below this share of total spend. Meta only.',
+      },
+      minConversions: {
+        type: 'number',
+        description: 'Drop placements below this conversion count. Meta only.',
+      },
+      limit: {
+        type: 'number',
+        description: 'Maximum number of rows to return. Meta only.',
+      },
+    },
+  };
+}
+
+function createContentMatrixInputSchema() {
+  const schema = createAdsInputSchema(['since', 'until']);
+
+  return {
+    ...schema,
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      campaignId: idScopeSchema('Restrict results to specific campaign id(s). Meta only.'),
+      adsetId: idScopeSchema(
+        'Restrict results to specific ad set id(s). Meta only. Also accepted as adSetId.'
+      ),
+      adId: idScopeSchema('Restrict results to specific ad id(s). Meta only.'),
+      groupBy: {
+        type: 'string',
+        enum: ['campaign', 'adset'],
+        description: 'Group the matrix rows by campaign or ad set.',
+      },
+      sortBy: {
+        type: 'string',
+        description: 'Metric used to rank rows into the top and bottom lists.',
+      },
+      sortDirection: {
+        type: 'string',
+        enum: ['asc', 'desc'],
+        description: 'Sort direction.',
+      },
+      topLimit: {
+        type: 'number',
+        description: 'How many top performers to keep.',
+      },
+      bottomLimit: {
+        type: 'number',
+        description: 'How many bottom performers to keep.',
+      },
+      includeAllRows: {
+        type: 'boolean',
+        description: 'Return every row alongside the top and bottom lists.',
+      },
+      comparisonMode: {
+        type: 'string',
+        enum: ['previous_period', 'none'],
+        description:
+          'Compare against the previous period of equal length, or skip the comparison. Defaults to previous_period.',
+      },
+      ...insightsTailSchema(),
+    },
+  };
+}
+
+function createGenerateReportInputSchema() {
+  const schema = createAdsInputSchema(['since', 'until']);
+
+  return {
+    ...schema,
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      level: {
+        type: 'string',
+        enum: ['account', 'campaign'],
+        description: 'Report level. Defaults to account; campaign reads campaign rows instead.',
+      },
+      format: {
+        type: 'string',
+        enum: ['summary', 'daily', 'audit', 'executive'],
+        description: 'Report shape. Defaults to summary; audit adds a scorecard and findings.',
+      },
+      campaignId: idScopeSchema(
+        'Restrict results to specific campaign id(s). Meta only, and only when level is campaign.'
+      ),
+      filters: {
+        ...canonicalFiltersSchema(),
+        description:
+          'Explicit filters over normalized or provider-supported fields. Meta only, and only when level is campaign.',
+      },
       mode: {
         type: 'string',
         enum: ['cpas'],
         description:
-          'Set to cpas to read Collaborative Ads rows, broken down by product_id. Meta only.',
+          'Set to cpas to total Collaborative Ads rows instead. Meta only, and only when level is campaign.',
       },
       limit: {
         type: 'number',
-        description: 'Maximum number of rows to return. Meta only; TikTok uses pageSize.',
+        description: 'Maximum number of rows to total. Meta only; TikTok uses pageSize.',
       },
       cursor: {
         type: 'string',

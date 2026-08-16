@@ -147,6 +147,21 @@ const adsCreativeInputSchema = {
 const idScopeInputSchema = (description: string) =>
   z.union([z.string(), z.array(z.string())]).optional().describe(description);
 
+const insightsPagingInputSchema = {
+  limit: z
+    .number()
+    .optional()
+    .describe('Maximum number of rows to return. Meta only; TikTok uses pageSize.'),
+  cursor: z
+    .string()
+    .optional()
+    .describe(
+      'Opaque pagination cursor from a previous response. On TikTok this is the next page number.'
+    ),
+  page: z.number().optional().describe('Report page number. TikTok only.'),
+  pageSize: z.number().optional().describe('Report rows per page. TikTok only.'),
+};
+
 /**
  * Breakdown, filter and paging tail shared by the legacy per-level performance
  * aliases. This is the surface clients actually see — tools/list is served from
@@ -178,18 +193,7 @@ const legacyPerformanceTailInputSchema = {
     .enum(['cpas'])
     .optional()
     .describe('Set to cpas to read Collaborative Ads rows, broken down by product_id. Meta only.'),
-  limit: z
-    .number()
-    .optional()
-    .describe('Maximum number of rows to return. Meta only; TikTok uses pageSize.'),
-  cursor: z
-    .string()
-    .optional()
-    .describe(
-      'Opaque pagination cursor from a previous response. On TikTok this is the next page number.'
-    ),
-  page: z.number().optional().describe('Report page number. TikTok only.'),
-  pageSize: z.number().optional().describe('Report rows per page. TikTok only.'),
+  ...insightsPagingInputSchema,
 };
 
 const legacyCampaignPerformanceInputSchema = {
@@ -215,6 +219,140 @@ const legacyAdPerformanceInputSchema = {
   ),
   adId: idScopeInputSchema('Restrict results to specific ad id(s). Meta only.'),
   ...legacyPerformanceTailInputSchema,
+};
+
+const legacyAccountPerformanceInputSchema = {
+  ...sinceUntilInputSchema,
+  ...insightsPagingInputSchema,
+};
+
+const legacyCreativePerformanceInputSchema = {
+  ...sinceUntilInputSchema,
+  creativeId: z
+    .string()
+    .optional()
+    .describe('Read a single Meta creative by ID instead of listing the account.'),
+  campaignId: idScopeInputSchema(
+    'Optional campaign scope. Uses the nested campaign ads edge when possible. Meta only.'
+  ),
+  adSetId: idScopeInputSchema(
+    'Optional ad set scope. Uses the nested ad set ads edge when possible. Meta only.'
+  ),
+  complianceAudit: z
+    .boolean()
+    .optional()
+    .describe(
+      'Audit the active ads behind each creative and report setup compliance. Ignored when creativeId is set. Meta only.'
+    ),
+  effectiveStatus: z
+    .array(z.string())
+    .optional()
+    .describe(
+      'Meta effective_status values the compliance audit keeps. Defaults to ACTIVE. Meta only.'
+    ),
+  includeRaw: z
+    .boolean()
+    .optional()
+    .describe('Attach the raw Meta creative payload to each row. Meta only.'),
+  limit: z
+    .number()
+    .optional()
+    .describe('Maximum creatives to inspect. Defaults to 100. Meta only.'),
+  cursor: z
+    .string()
+    .optional()
+    .describe(
+      'Opaque pagination cursor from a previous response. On TikTok this is the next page number.'
+    ),
+  page: z.number().optional().describe('Report page number. TikTok only.'),
+  pageSize: z.number().optional().describe('Report rows per page. TikTok only.'),
+};
+
+const legacyPlacementPerformanceInputSchema = {
+  ...sinceUntilInputSchema,
+  level: z
+    .enum(['campaign', 'adset', 'ad'])
+    .optional()
+    .describe('Entity level the placement rows are grouped by. Meta only.'),
+  campaignId: idScopeInputSchema('Restrict results to specific campaign id(s). Meta only.'),
+  adsetId: idScopeInputSchema('Restrict results to specific ad set id(s). Meta only.'),
+  adId: idScopeInputSchema('Restrict results to specific ad id(s). Meta only.'),
+  minSpendShare: z
+    .number()
+    .optional()
+    .describe('Drop placements below this share of total spend. Meta only.'),
+  minConversions: z
+    .number()
+    .optional()
+    .describe('Drop placements below this conversion count. Meta only.'),
+  limit: z.number().optional().describe('Maximum number of rows to return. Meta only.'),
+};
+
+const contentMatrixInputSchema = {
+  ...sinceUntilInputSchema,
+  campaignId: idScopeInputSchema('Restrict results to specific campaign id(s). Meta only.'),
+  adsetId: idScopeInputSchema(
+    'Restrict results to specific ad set id(s). Meta only. Also accepted as adSetId.'
+  ),
+  adId: idScopeInputSchema('Restrict results to specific ad id(s). Meta only.'),
+  groupBy: z
+    .enum(['campaign', 'adset'])
+    .optional()
+    .describe('Group the matrix rows by campaign or ad set.'),
+  sortBy: z
+    .string()
+    .optional()
+    .describe('Metric used to rank rows into the top and bottom lists.'),
+  sortDirection: z.enum(['asc', 'desc']).optional().describe('Sort direction.'),
+  topLimit: z.number().optional().describe('How many top performers to keep.'),
+  bottomLimit: z.number().optional().describe('How many bottom performers to keep.'),
+  includeAllRows: z
+    .boolean()
+    .optional()
+    .describe('Return every row alongside the top and bottom lists.'),
+  comparisonMode: z
+    .enum(['previous_period', 'none'])
+    .optional()
+    .describe(
+      'Compare against the previous period of equal length, or skip the comparison. Defaults to previous_period.'
+    ),
+  ...legacyPerformanceTailInputSchema,
+};
+
+const generateReportInputSchema = {
+  ...sinceUntilInputSchema,
+  level: z
+    .enum(['account', 'campaign'])
+    .optional()
+    .describe('Report level. Defaults to account; campaign reads campaign rows instead.'),
+  format: z
+    .enum(['summary', 'daily', 'audit', 'executive'])
+    .optional()
+    .describe('Report shape. Defaults to summary; audit adds a scorecard and findings.'),
+  campaignId: idScopeInputSchema(
+    'Restrict results to specific campaign id(s). Meta only, and only when level is campaign.'
+  ),
+  filters: legacyPerformanceTailInputSchema.filters.describe(
+    'Explicit filters over normalized or provider-supported fields. Meta only, and only when level is campaign.'
+  ),
+  mode: z
+    .enum(['cpas'])
+    .optional()
+    .describe(
+      'Set to cpas to total Collaborative Ads rows instead. Meta only, and only when level is campaign.'
+    ),
+  limit: z
+    .number()
+    .optional()
+    .describe('Maximum number of rows to total. Meta only; TikTok uses pageSize.'),
+  cursor: z
+    .string()
+    .optional()
+    .describe(
+      'Opaque pagination cursor from a previous response. On TikTok this is the next page number.'
+    ),
+  page: z.number().optional().describe('Report page number. TikTok only.'),
+  pageSize: z.number().optional().describe('Report rows per page. TikTok only.'),
 };
 
 const adCreativeMappingInputSchema = {
@@ -1549,6 +1687,16 @@ export function createMetaAdsMcpServer(options: CreateMetaAdsMcpServerOptions = 
       inputSchema = adsCreativeInputSchema;
     } else if (toolDefinition.name === 'ads_resolve_creative_assets') {
       inputSchema = creativeAssetsInputSchema;
+    } else if (toolDefinition.name === 'ads_get_account_performance') {
+      inputSchema = legacyAccountPerformanceInputSchema;
+    } else if (toolDefinition.name === 'ads_get_creative_performance') {
+      inputSchema = legacyCreativePerformanceInputSchema;
+    } else if (toolDefinition.name === 'ads_get_placement_performance') {
+      inputSchema = legacyPlacementPerformanceInputSchema;
+    } else if (toolDefinition.name === 'ads_content_matrix') {
+      inputSchema = contentMatrixInputSchema;
+    } else if (toolDefinition.name === 'ads_generate_report') {
+      inputSchema = generateReportInputSchema;
     } else if (toolDefinition.name === 'ads_get_campaign_performance') {
       inputSchema = legacyCampaignPerformanceInputSchema;
     } else if (toolDefinition.name === 'ads_get_adset_or_adgroup_performance') {
