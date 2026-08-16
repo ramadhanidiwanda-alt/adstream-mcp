@@ -25,7 +25,10 @@ import {
   type MetaOdaxObjective,
 } from '../providers/meta/objectiveLaunchMatrix.js';
 import { getMetaCreativeErrorGuidance } from '../providers/meta/metaCreativeErrorGuidance.js';
-import { supportsThreadsUserIdField } from '../providers/meta/metaApiVersionSupport.js';
+import {
+  supportsMediaSourcingSpec,
+  supportsThreadsUserIdField,
+} from '../providers/meta/metaApiVersionSupport.js';
 import { normalizeAccountPath } from '../utils/normalizeAccountId.js';
 import {
   formatMetaWriteError,
@@ -306,22 +309,44 @@ export async function createAdCreative(
   }
 }
 
-const CREATIVE_READ_BACK_FIELDS =
-  'id,name,object_story_id,object_story_spec,asset_feed_spec,platform_customizations,portrait_customizations,degrees_of_freedom_spec,media_sourcing_spec,product_set_id,omnichannel_link_spec,effective_object_story_id,source_instagram_media_id,url_tags,instagram_user_id';
-
 /**
  * This list goes out as ONE combined Graph request, exactly like
- * getMetaCreativeFields, so an unsupported field 400s the whole read-back —
- * which this tool catches into a warning. threads_user_id therefore gets the
- * same version gate, reusing the single shared predicate.
+ * getMetaCreativeFields, so an unsupported field 400s the whole read-back. That
+ * failure is caught into a 'warning' verification, and placement_image and video
+ * CTWA escalate any non-'verified' verification to status 'failed' — reporting a
+ * creative that was really created as a failure, and telling the caller not to
+ * use it. Both version-gated fields therefore reuse the shared predicates.
  *
- * media_sourcing_spec above is ungated; that predates this change and is left
- * as it was found.
+ * media_sourcing_spec keeps its original position in the list so the request
+ * string on supported versions is byte-identical to before the gate existed;
+ * only older versions drop it.
  */
 function getCreativeReadBackFields(apiVersion: string | undefined): string {
-  return supportsThreadsUserIdField(apiVersion)
-    ? `${CREATIVE_READ_BACK_FIELDS},threads_user_id`
-    : CREATIVE_READ_BACK_FIELDS;
+  const fields = [
+    'id',
+    'name',
+    'object_story_id',
+    'object_story_spec',
+    'asset_feed_spec',
+    'platform_customizations',
+    'portrait_customizations',
+    'degrees_of_freedom_spec',
+  ];
+
+  if (supportsMediaSourcingSpec(apiVersion)) fields.push('media_sourcing_spec');
+
+  fields.push(
+    'product_set_id',
+    'omnichannel_link_spec',
+    'effective_object_story_id',
+    'source_instagram_media_id',
+    'url_tags',
+    'instagram_user_id'
+  );
+
+  if (supportsThreadsUserIdField(apiVersion)) fields.push('threads_user_id');
+
+  return fields.join(',');
 }
 
 async function verifyCreatedCreative(
