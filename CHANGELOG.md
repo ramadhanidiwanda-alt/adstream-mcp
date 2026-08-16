@@ -66,9 +66,12 @@ enforced once, in `handleAdsMcpToolCall`, for every tool that opts in.
   unsupported field 400s the whole call, which became a `warning` verification —
   and the `placement_image` and video-CTWA paths escalate anything that is not
   `verified` into `status: 'failed'`, telling the caller not to use a creative
-  that Meta had in fact created. Only reachable when `META_API_VERSION` (or a
-  remote broker's `providerApiVersion`) is below v23; the v25.0 default was
-  never affected. Requests on supported versions are unchanged.
+  that Meta had in fact created. Requests on supported versions are byte-for-byte
+  unchanged. Note that live probing showed Meta silently upgrades a requested
+  version below the calling app's floor — v18.0 through v24.0 were all served as
+  v25.0 per the `facebook-api-version` response header — so an app on a v25.0
+  floor could never reach the failing path regardless; see the findings recorded
+  in `src/providers/meta/metaApiVersionSupport.ts`.
 - `supportsMediaSourcingSpec` moved from `MetaAdsAdapter` into the shared
   `metaApiVersionSupport` module next to `supportsThreadsUserIdField`, which had
   been an identical copy of the same version check.
