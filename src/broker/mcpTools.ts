@@ -669,61 +669,61 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
   {
     name: 'tiktok_gmv_max_update_campaign',
     description: 'Update a TikTok GMV Max campaign (name, budget, status).',
-    inputSchema: createAdsInputSchema([]),
+    inputSchema: createGmvMaxUpdateCampaignInputSchema(),
   },
   {
     name: 'tiktok_gmv_max_create_session',
     description:
       'Create a GMV Max session (sale event) for an existing GMV Max campaign. Requires session_name, start_time, end_time.',
-    inputSchema: createAdsInputSchema([]),
+    inputSchema: createGmvMaxCreateSessionInputSchema(),
   },
   {
     name: 'tiktok_gmv_max_update_session',
     description: 'Update a GMV Max session (name, budget, time).',
-    inputSchema: createAdsInputSchema([]),
+    inputSchema: createGmvMaxUpdateSessionInputSchema(),
   },
   {
     name: 'tiktok_gmv_max_delete_session',
     description: 'Delete a GMV Max session.',
-    inputSchema: createAdsInputSchema([]),
+    inputSchema: createGmvMaxSessionIdInputSchema(),
   },
   {
     name: 'tiktok_gmv_max_get_campaign_info',
     description: 'Get detailed info for one or more GMV Max campaigns by campaign_ids.',
-    inputSchema: createAdsInputSchema([]),
+    inputSchema: createGmvMaxCampaignInfoInputSchema(),
   },
   // --- TikTok Smart Plus ---
   {
     name: 'tiktok_smart_plus_create_campaign',
     description:
       'Create a TikTok Smart Plus campaign (Advantage+ equivalent). TikTok handles targeting and creatives automatically.',
-    inputSchema: createAdsInputSchema([]),
+    inputSchema: createSmartPlusCreateCampaignInputSchema(),
   },
   {
     name: 'tiktok_smart_plus_pause_campaign',
     description: 'Pause a TikTok Smart Plus campaign.',
-    inputSchema: createAdsInputSchema([]),
+    inputSchema: createSmartPlusCampaignIdInputSchema(),
   },
   {
     name: 'tiktok_smart_plus_resume_campaign',
     description: 'Resume a paused TikTok Smart Plus campaign.',
-    inputSchema: createAdsInputSchema([]),
+    inputSchema: createSmartPlusCampaignIdInputSchema(),
   },
   {
     name: 'tiktok_smart_plus_create_adgroup',
     description:
       'Create a TikTok Smart Plus ad group. TikTok handles targeting and creatives automatically.',
-    inputSchema: createAdsInputSchema([]),
+    inputSchema: createSmartPlusCreateAdGroupInputSchema(),
   },
   {
     name: 'tiktok_smart_plus_pause_adgroup',
     description: 'Pause a TikTok Smart Plus ad group.',
-    inputSchema: createAdsInputSchema([]),
+    inputSchema: createSmartPlusAdGroupIdInputSchema(),
   },
   {
     name: 'tiktok_smart_plus_resume_adgroup',
     description: 'Resume a paused TikTok Smart Plus ad group.',
-    inputSchema: createAdsInputSchema([]),
+    inputSchema: createSmartPlusAdGroupIdInputSchema(),
   },
 ] as const;
 
@@ -4340,6 +4340,144 @@ function createListAdVideosInputSchema() {
       },
     },
   };
+}
+
+function createTikTokWriteInputSchema(properties: Record<string, unknown>) {
+  const schema = createAdsInputSchema([]);
+
+  return {
+    ...schema,
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      ...properties,
+    },
+  };
+}
+
+function tiktokOperationStatusSchema(
+  description = 'TikTok operation_status, ENABLE or DISABLE.'
+) {
+  return { type: 'string', description };
+}
+
+function tiktokBudgetModeSchema() {
+  return {
+    type: 'string',
+    description: 'TikTok budget mode, e.g. DAILY. Defaults to DAILY.',
+  };
+}
+
+function createGmvMaxUpdateCampaignInputSchema() {
+  return createTikTokWriteInputSchema({
+    campaignId: {
+      type: 'string',
+      description: 'GMV Max campaign to update. Required — the call fails without it.',
+    },
+    campaignName: { type: 'string', description: 'New campaign name. Left unchanged when omitted.' },
+    budget: { type: 'number', description: 'New campaign budget. Left unchanged when omitted.' },
+    operationStatus: tiktokOperationStatusSchema(),
+  });
+}
+
+function createGmvMaxCreateSessionInputSchema() {
+  return createTikTokWriteInputSchema({
+    campaignId: {
+      type: 'string',
+      description: 'GMV Max campaign the session belongs to. Required.',
+    },
+    sessionName: { type: 'string', description: 'Session name. Required.' },
+    startTime: { type: 'string', description: 'Session start time. Required.' },
+    endTime: { type: 'string', description: 'Session end time. Required.' },
+    sessionType: { type: 'string', description: 'TikTok session type.' },
+    sessionBudget: { type: 'number', description: 'Budget for this session.' },
+    productIds: {
+      type: 'array',
+      items: { type: 'string' },
+      description: 'TikTok Shop product IDs to promote in the session.',
+    },
+  });
+}
+
+function createGmvMaxUpdateSessionInputSchema() {
+  return createTikTokWriteInputSchema({
+    sessionId: {
+      type: 'string',
+      description: 'GMV Max session to update. Required — the call fails without it.',
+    },
+    sessionName: { type: 'string', description: 'New session name. Left unchanged when omitted.' },
+    sessionBudget: { type: 'number', description: 'New session budget. Left unchanged when omitted.' },
+    startTime: { type: 'string', description: 'New start time. Left unchanged when omitted.' },
+    endTime: { type: 'string', description: 'New end time. Left unchanged when omitted.' },
+  });
+}
+
+function createGmvMaxSessionIdInputSchema() {
+  return createTikTokWriteInputSchema({
+    sessionId: {
+      type: 'string',
+      description: 'GMV Max session to delete. Required — the call fails without it.',
+    },
+  });
+}
+
+function createGmvMaxCampaignInfoInputSchema() {
+  return createTikTokWriteInputSchema({
+    campaignIds: {
+      type: 'array',
+      items: { type: 'string' },
+      description: 'GMV Max campaign IDs to read. Empty when omitted, which returns nothing.',
+    },
+  });
+}
+
+function createSmartPlusCreateCampaignInputSchema() {
+  return createTikTokWriteInputSchema({
+    campaignName: { type: 'string', description: 'Smart+ campaign name. Required.' },
+    objectiveType: {
+      type: 'string',
+      description: 'TikTok objective_type for the Smart+ campaign. Required.',
+    },
+    budget: { type: 'number', description: 'Campaign budget.' },
+    budgetMode: tiktokBudgetModeSchema(),
+    operationStatus: tiktokOperationStatusSchema('Defaults to ENABLE.'),
+  });
+}
+
+function createSmartPlusCampaignIdInputSchema() {
+  return createTikTokWriteInputSchema({
+    campaignId: {
+      type: 'string',
+      description: 'Smart+ campaign to act on. Required — the call fails without it.',
+    },
+  });
+}
+
+function createSmartPlusCreateAdGroupInputSchema() {
+  return createTikTokWriteInputSchema({
+    campaignId: {
+      type: 'string',
+      description: 'Smart+ campaign the ad group belongs to. Required.',
+    },
+    name: {
+      type: 'string',
+      description: 'Ad group name. Required. Also accepted as adgroupName.',
+    },
+    budget: { type: 'number', description: 'Ad group budget.' },
+    budgetMode: tiktokBudgetModeSchema(),
+    operationStatus: tiktokOperationStatusSchema('Defaults to ENABLE.'),
+    landingPageUrl: { type: 'string', description: 'Landing page URL for the ad group.' },
+    identityId: { type: 'string', description: 'TikTok identity that owns the ads.' },
+    identityType: { type: 'string', description: 'TikTok identity type, e.g. CUSTOMIZED_USER.' },
+  });
+}
+
+function createSmartPlusAdGroupIdInputSchema() {
+  return createTikTokWriteInputSchema({
+    adgroupId: {
+      type: 'string',
+      description: 'Smart+ ad group to act on. Required — the call fails without it.',
+    },
+  });
 }
 
 /**

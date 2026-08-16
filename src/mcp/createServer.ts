@@ -407,6 +407,117 @@ const listAdVideosInputSchema = {
   cursor: z.string().optional().describe('Opaque pagination cursor from a previous response.'),
 };
 
+const tiktokOperationStatus = (description = 'TikTok operation_status, ENABLE or DISABLE.') =>
+  z.string().optional().describe(description);
+
+const tiktokBudgetMode = () =>
+  z.string().optional().describe('TikTok budget mode, e.g. DAILY. Defaults to DAILY.');
+
+const gmvMaxUpdateCampaignInputSchema = {
+  ...adsBaseInputSchema,
+  campaignId: z
+    .string()
+    .optional()
+    .describe('GMV Max campaign to update. Required — the call fails without it.'),
+  campaignName: z
+    .string()
+    .optional()
+    .describe('New campaign name. Left unchanged when omitted.'),
+  budget: z.number().optional().describe('New campaign budget. Left unchanged when omitted.'),
+  operationStatus: tiktokOperationStatus(),
+};
+
+const gmvMaxCreateSessionInputSchema = {
+  ...adsBaseInputSchema,
+  campaignId: z
+    .string()
+    .optional()
+    .describe('GMV Max campaign the session belongs to. Required.'),
+  sessionName: z.string().optional().describe('Session name. Required.'),
+  startTime: z.string().optional().describe('Session start time. Required.'),
+  endTime: z.string().optional().describe('Session end time. Required.'),
+  sessionType: z.string().optional().describe('TikTok session type.'),
+  sessionBudget: z.number().optional().describe('Budget for this session.'),
+  productIds: z
+    .array(z.string())
+    .optional()
+    .describe('TikTok Shop product IDs to promote in the session.'),
+};
+
+const gmvMaxUpdateSessionInputSchema = {
+  ...adsBaseInputSchema,
+  sessionId: z
+    .string()
+    .optional()
+    .describe('GMV Max session to update. Required — the call fails without it.'),
+  sessionName: z.string().optional().describe('New session name. Left unchanged when omitted.'),
+  sessionBudget: z
+    .number()
+    .optional()
+    .describe('New session budget. Left unchanged when omitted.'),
+  startTime: z.string().optional().describe('New start time. Left unchanged when omitted.'),
+  endTime: z.string().optional().describe('New end time. Left unchanged when omitted.'),
+};
+
+const gmvMaxSessionIdInputSchema = {
+  ...adsBaseInputSchema,
+  sessionId: z
+    .string()
+    .optional()
+    .describe('GMV Max session to delete. Required — the call fails without it.'),
+};
+
+const gmvMaxCampaignInfoInputSchema = {
+  ...adsBaseInputSchema,
+  campaignIds: z
+    .array(z.string())
+    .optional()
+    .describe('GMV Max campaign IDs to read. Empty when omitted, which returns nothing.'),
+};
+
+const smartPlusCreateCampaignInputSchema = {
+  ...adsBaseInputSchema,
+  campaignName: z.string().optional().describe('Smart+ campaign name. Required.'),
+  objectiveType: z
+    .string()
+    .optional()
+    .describe('TikTok objective_type for the Smart+ campaign. Required.'),
+  budget: z.number().optional().describe('Campaign budget.'),
+  budgetMode: tiktokBudgetMode(),
+  operationStatus: tiktokOperationStatus('Defaults to ENABLE.'),
+};
+
+const smartPlusCampaignIdInputSchema = {
+  ...adsBaseInputSchema,
+  campaignId: z
+    .string()
+    .optional()
+    .describe('Smart+ campaign to act on. Required — the call fails without it.'),
+};
+
+const smartPlusCreateAdGroupInputSchema = {
+  ...adsBaseInputSchema,
+  campaignId: z
+    .string()
+    .optional()
+    .describe('Smart+ campaign the ad group belongs to. Required.'),
+  name: z.string().optional().describe('Ad group name. Required. Also accepted as adgroupName.'),
+  budget: z.number().optional().describe('Ad group budget.'),
+  budgetMode: tiktokBudgetMode(),
+  operationStatus: tiktokOperationStatus('Defaults to ENABLE.'),
+  landingPageUrl: z.string().optional().describe('Landing page URL for the ad group.'),
+  identityId: z.string().optional().describe('TikTok identity that owns the ads.'),
+  identityType: z.string().optional().describe('TikTok identity type, e.g. CUSTOMIZED_USER.'),
+};
+
+const smartPlusAdGroupIdInputSchema = {
+  ...adsBaseInputSchema,
+  adgroupId: z
+    .string()
+    .optional()
+    .describe('Smart+ ad group to act on. Required — the call fails without it.'),
+};
+
 const limitOnlyInputSchema = (description: string) => ({
   ...adsBaseInputSchema,
   limit: z.number().optional().describe(description),
@@ -1836,6 +1947,30 @@ export function createMetaAdsMcpServer(options: CreateMetaAdsMcpServerOptions = 
       inputSchema = getTargetingOptionsInputSchema;
     } else if (toolDefinition.name === 'tiktok_gmv_max_create_campaign') {
       inputSchema = gmvMaxCampaignInputSchema;
+    } else if (toolDefinition.name === 'tiktok_gmv_max_update_campaign') {
+      inputSchema = gmvMaxUpdateCampaignInputSchema;
+    } else if (toolDefinition.name === 'tiktok_gmv_max_create_session') {
+      inputSchema = gmvMaxCreateSessionInputSchema;
+    } else if (toolDefinition.name === 'tiktok_gmv_max_update_session') {
+      inputSchema = gmvMaxUpdateSessionInputSchema;
+    } else if (toolDefinition.name === 'tiktok_gmv_max_delete_session') {
+      inputSchema = gmvMaxSessionIdInputSchema;
+    } else if (toolDefinition.name === 'tiktok_gmv_max_get_campaign_info') {
+      inputSchema = gmvMaxCampaignInfoInputSchema;
+    } else if (toolDefinition.name === 'tiktok_smart_plus_create_campaign') {
+      inputSchema = smartPlusCreateCampaignInputSchema;
+    } else if (
+      toolDefinition.name === 'tiktok_smart_plus_pause_campaign' ||
+      toolDefinition.name === 'tiktok_smart_plus_resume_campaign'
+    ) {
+      inputSchema = smartPlusCampaignIdInputSchema;
+    } else if (toolDefinition.name === 'tiktok_smart_plus_create_adgroup') {
+      inputSchema = smartPlusCreateAdGroupInputSchema;
+    } else if (
+      toolDefinition.name === 'tiktok_smart_plus_pause_adgroup' ||
+      toolDefinition.name === 'tiktok_smart_plus_resume_adgroup'
+    ) {
+      inputSchema = smartPlusAdGroupIdInputSchema;
     } else if (hasCampaignName) {
       inputSchema = ecommerceLaunchInputSchema;
     } else if (hasCampaignId) {
