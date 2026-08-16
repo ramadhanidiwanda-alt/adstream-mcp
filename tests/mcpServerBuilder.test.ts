@@ -125,11 +125,16 @@ describe('MCP server builder', () => {
     expect(names).toEqual(expect.arrayContaining(legacyToolNames));
   });
 
-  it('registers existing ads broker tools with equivalent McpServer schemas', async () => {
+  // tools/list is served from the Zod raw shapes in createServer.ts, not from the
+  // JSON Schema in ADS_MCP_TOOL_DEFINITIONS, so a property declared in only one of
+  // them is invisible to clients (Zod missing) or excluded from the strictParams
+  // allowlist (JSON missing). Comparing the two catches that drift.
+  async function expectPublishedSchemasMatchDefinitions(includeWrites: boolean) {
     const response = await listRegisteredTools();
     const toolsByName = new Map(response.tools.map((tool) => [tool.name, tool]));
+    const expectedTools = getAdsMcpToolDefinitions({ includeWrites });
 
-    for (const expectedTool of getAdsMcpToolDefinitions({ includeWrites: false })) {
+    for (const expectedTool of expectedTools) {
       const actualTool = toolsByName.get(expectedTool.name);
 
       expect(actualTool?.name).toBe(expectedTool.name);
@@ -139,6 +144,23 @@ describe('MCP server builder', () => {
       );
       expect(actualTool?.inputSchema.required ?? []).toEqual(expectedTool.inputSchema.required);
     }
+
+    return expectedTools.length;
+  }
+
+  it('registers existing ads broker tools with equivalent McpServer schemas', async () => {
+    await expectPublishedSchemasMatchDefinitions(false);
+  });
+
+  it('registers write tools with equivalent McpServer schemas', async () => {
+    process.env.ADSTREAM_ENABLE_WRITES = 'true';
+
+    const withWrites = await expectPublishedSchemasMatchDefinitions(true);
+    const readOnly = getAdsMcpToolDefinitions({ includeWrites: false }).length;
+
+    // Guard the guard: without writes actually registered this would pass by
+    // checking the same read-only set twice.
+    expect(withWrites).toBeGreaterThan(readOnly);
   });
 
   it.each(LEGACY_READINESS_WORKFLOW_ALIASES)(
