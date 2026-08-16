@@ -938,6 +938,102 @@ const createCampaignInputSchema = {
   confirmed: z.boolean().optional().describe('Must be true to execute after preview.'),
 };
 
+/**
+ * ads_create_cpas_catalog_bundle used to be registered with
+ * ecommerceLaunchInputSchema, the shape belonging to
+ * ads_create_ecommerce_campaign_bundle, because both require campaignName and
+ * the registration loop branched on that. The two tools take different inputs,
+ * so this mirrors the CPAS tool's own JSON Schema instead.
+ */
+const cpasCatalogBundleInputSchema = {
+  ...adsBaseInputSchema,
+  accountId: z.string().describe('Provider account id. Required to create the bundle.'),
+  campaignName: z.string().describe('Campaign name.'),
+  adSetName: z.string().describe('Ad set name.'),
+  adName: z.string().describe('Ad name.'),
+  pageId: z.string().describe('Facebook Page ID used in object_story_spec.'),
+  productSetId: z.string().describe('Retailer-shared CPAS product set ID.'),
+  destinationMode: z
+    .enum(['catalog_web', 'app_omnichannel'])
+    .optional()
+    .describe(
+      'Defaults to catalog_web: CPAS katalog dinamis dengan universal web/app link tanpa app-event tracking. Pilih app_omnichannel hanya jika ad account sudah memiliki izin tracking aplikasi retailer.'
+    ),
+  pixelId: z.string().optional().describe('Meta Pixel ID for conversion logging.'),
+  collaborativeAppSpec: z
+    .object({
+      applicationId: z.string(),
+      android: z.object({ appName: z.string(), packageName: z.string() }).optional(),
+      ios: z.object({ appName: z.string(), appStoreId: z.string() }).optional(),
+    })
+    .optional()
+    .describe('Wajib hanya untuk destinationMode=app_omnichannel.'),
+  objectStoreUrls: z
+    .array(z.string())
+    .optional()
+    .describe('Wajib hanya untuk destinationMode=app_omnichannel.'),
+  customEventType: z
+    .enum(['PURCHASE', 'ADD_TO_CART', 'INITIATED_CHECKOUT'])
+    .optional()
+    .describe('Conversion event the ad set optimizes for.'),
+  dailyBudget: z.number().describe('Daily budget in local currency minor units.'),
+  countries: z.array(z.string()).describe('Country codes to target.'),
+  primaryText: z.string().describe('Creative primary text.'),
+  headline: z.string().describe('Creative headline.'),
+  description: z.string().optional().describe('Creative description.'),
+  creativeFormat: z
+    .enum([
+      'catalog',
+      'catalog_single_image',
+      'catalog_carousel',
+      'catalog_video',
+      'catalog_video_carousel',
+      'collection',
+    ])
+    .optional()
+    .describe(
+      'Defaults to catalog. catalog_single_image dan catalog_carousel tetap memakai produk dinamis; catalog_video membutuhkan video. Collection membutuhkan properti collection.'
+    ),
+  collection: z
+    .object({
+      instantExperienceId: z.string(),
+      coverImageHash: z.string().optional(),
+      coverVideoId: z.string().optional(),
+    })
+    .optional()
+    .describe('Wajib bila creativeFormat=collection.'),
+  video: z
+    .object({
+      videoId: z.string(),
+      instantExperienceId: z.string(),
+      retailerAppId: z.string(),
+      retailerItemIds: z.array(z.string()).optional(),
+      thumbnailImageHash: z.string().optional(),
+      thumbnailImageUrl: z.string().optional(),
+    })
+    .optional()
+    .describe(
+      'Wajib bila creativeFormat=catalog_video. Instant Experience harus sudah published dan videoId harus berasal dari object_story_spec.video_data creative CPAS yang valid.'
+    ),
+  hybridVideo: z
+    .object({ videoId: z.string(), thumbnailUrl: z.string() })
+    .optional()
+    .describe(
+      'Wajib bila creativeFormat=catalog_video_carousel. Gunakan URL thumbnail Meta untuk static video card; format ini tidak memakai Instant Experience.'
+    ),
+  destinationUrl: z.string().describe('Landing page URL.'),
+  templateUrl: z.string().optional().describe('Catalog template URL.'),
+  fallbackImageHash: z.string().optional().describe('Fallback image hash for catalog creatives.'),
+  callToAction: z.enum(['SHOP_NOW', 'LEARN_MORE']).optional().describe('Creative call to action.'),
+  ageMin: z.number().optional().describe('Minimum age to target.'),
+  ageMax: z.number().optional().describe('Maximum age to target.'),
+  publisherPlatforms: z.array(z.string()).optional().describe('Publisher platforms.'),
+  instagramUserId: z.string().optional().describe('Instagram account used as the ad identity.'),
+  threadsProfileId: z.string().optional().describe('Threads profile ID for Threads posting.'),
+  dryRun: z.boolean().optional().describe('Defaults to true.'),
+  confirmed: z.boolean().optional().describe('Required with dryRun=false.'),
+};
+
 const createAdSetInputSchema = {
   ...adsBaseInputSchema,
   accountId: z.string().describe('Provider account id. Required for ad set creation.'),
@@ -2203,6 +2299,8 @@ export function createMetaAdsMcpServer(options: CreateMetaAdsMcpServerOptions = 
       toolDefinition.name === 'tiktok_smart_plus_resume_adgroup'
     ) {
       inputSchema = smartPlusAdGroupIdInputSchema;
+    } else if (toolDefinition.name === 'ads_create_cpas_catalog_bundle') {
+      inputSchema = cpasCatalogBundleInputSchema;
     } else if (hasCampaignName) {
       inputSchema = ecommerceLaunchInputSchema;
     } else if (hasCampaignId) {
