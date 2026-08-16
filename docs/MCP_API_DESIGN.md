@@ -62,6 +62,40 @@ Avoid new public inputs like `adAccountId`, `advertiserId`, `startDate`, and `en
 
 Provider-specific extension fields should be named and documented. Use `params` only as an escape hatch for provider functionality that cannot yet be normalized.
 
+## Strict `params` Contract
+
+`params` is not a raw Graph API passthrough. An adapter reads a fixed set of typed fields, and silently ignoring the rest left a caller with a clean-looking success missing exactly the field they cared about.
+
+Tools that opt into the strict contract reject unknown `params` keys instead:
+
+```json
+{
+  "ok": false,
+  "provider": "meta",
+  "errors": [
+    {
+      "provider": "meta",
+      "code": "UNKNOWN_PARAM",
+      "message": "Field berikut tidak dikenali dan TIDAK dikirim ke Meta: image_hash → imageHash. ..."
+    }
+  ]
+}
+```
+
+Enforcement lives in exactly one place, `handleAdsMcpToolCall` in `src/broker/mcpTools.ts`, so every tool inherits it rather than calling a guard of its own. The allowed keys are derived from that tool's own `inputSchema` — `Object.keys(inputSchema.properties)` — so the contract cannot drift from what the tool publicly declares. Note that `extractParams` merges every non-reserved top-level argument into `params`, which is why a tool's own schema fields are part of the same allowed set.
+
+Enrolled today: `ads_create_adcreative`, `ads_read_creative_full`, `ads_read_adset_full`.
+
+Enrollment is opt-in, not the default. 36 of the 79 tool definitions declare only the shared envelope while their adapter reads documented `params` keys — `ads_list_campaigns` reads `params.limit` without declaring it — so rejecting by default would break calls that are correct today. Over-rejection is worse than the bug being fixed.
+
+To enroll a tool:
+
+1. Make sure its `inputSchema` declares every `params` key its adapter reads. This is the real work; the flag is the easy part.
+2. Add `strictParams: true` next to `inputSchema` in `ADS_MCP_TOOL_DEFINITIONS`.
+3. Optionally add a hint map entry in `src/broker/toolParamContract.ts` mapping raw Graph API spellings to the typed option.
+
+A tool without the flag keeps free-form `params`; that absence is how "this tool legitimately accepts arbitrary keys" is expressed.
+
 ## Standard Performance Response Envelope
 
 Canonical performance tools return a consistent envelope. Legacy level-specific tools may still return legacy response shapes during migration.

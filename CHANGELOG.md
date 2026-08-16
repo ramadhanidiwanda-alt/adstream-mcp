@@ -41,6 +41,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `meta.nextCursor`. The tool resolves URLs only — it does not download files or
   build a report. Google and TikTok return structured `NOT_IMPLEMENTED`.
 
+### Fixed — Unknown `params` keys are rejected, not dropped
+
+`params` was never a raw Graph API passthrough, but unknown keys were silently
+discarded: a caller passing `params: { fields: "id,name" }` got a normal-looking
+successful response with their input gone and no way to tell. The contract is now
+enforced once, in `handleAdsMcpToolCall`, for every tool that opts in.
+
+- **`ads_read_adset_full`**, **`ads_read_creative_full`**, and
+  **`ads_create_adcreative`** — unknown `params` keys now return
+  `ok: false` with error code `UNKNOWN_PARAM`, naming each unrecognized key and
+  mapping raw Graph API spellings to the typed option where one exists (for
+  example `image_hash → imageHash`). The broker never reaches the provider.
+- The allowed keys are derived from each tool's own `inputSchema`, so the
+  contract cannot drift from what the tool publicly declares.
+- Every other tool is unchanged and still accepts free-form `params`. See
+  "Strict `params` Contract" in `docs/MCP_API_DESIGN.md` for how a tool opts in.
+
 ### Fixed — Click-to-message creative integrity
 
 A Click-to-Instagram-Direct ad shipped with a dead CTA button and no welcome
