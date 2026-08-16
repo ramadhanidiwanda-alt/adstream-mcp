@@ -1574,6 +1574,80 @@ const archiveAdInputSchema = {
   adId: z.string().describe('The ad ID to archive.'),
 };
 
+const deleteAudienceInputSchema = {
+  ...adsBaseInputSchema,
+  audienceId: z
+    .string()
+    .describe(
+      'The Custom Audience id to delete permanently (includes product/dynamic audiences).'
+    ),
+  dryRun: z.boolean().optional().describe('Defaults to true. Set false only after preview.'),
+  confirmed: z.boolean().optional().describe('Must be true to execute after preview.'),
+};
+
+const productAudienceRuleInputSchema = z.object({
+  retentionSeconds: z
+    .number()
+    .describe('How long, in seconds, a person stays in/out of the audience.'),
+  event: z.enum(['Search', 'ViewContent', 'AddToCart', 'Purchase']),
+});
+
+const createProductAudienceInputSchema = {
+  ...adsBaseInputSchema,
+  accountId: z.string().describe('Provider account id. Required to create an audience.'),
+  name: z.string().describe('Audience name.'),
+  productSetId: z.string().describe('Catalog product set this audience is built from.'),
+  inclusions: z
+    .array(productAudienceRuleInputSchema)
+    .describe(
+      'Events that add a person to the audience. Meta commonly uses ViewContent (14 days) and AddToCart (7 days) for retargeting.'
+    ),
+  exclusions: z
+    .array(productAudienceRuleInputSchema)
+    .optional()
+    .describe(
+      'Events that remove a person from the audience. Meta commonly uses Purchase (30 days) to exclude buyers from retargeting.'
+    ),
+  dryRun: z.boolean().optional().describe('Defaults to true. Set false to execute.'),
+  confirmed: z
+    .boolean()
+    .optional()
+    .describe('Must be true together with dryRun=false to execute.'),
+};
+
+const createCustomAudienceInputSchema = {
+  ...adsBaseInputSchema,
+  accountId: z.string().describe('Provider account id. Required to create an audience.'),
+  name: z.string().describe('Audience name.'),
+  pixelId: z.string().describe('Meta pixel ID this audience is built from.'),
+  rule: z
+    .record(z.unknown())
+    .describe(
+      "Raw Website Custom Audience Rule object, exactly as Meta's Audience rule builder/API reference specifies. Passed through as-is."
+    ),
+  retentionDays: z
+    .number()
+    .optional()
+    .describe('How many days a person stays in the audience. Must be between 1 and 180.'),
+  description: z.string().optional().describe('Optional audience description.'),
+  dryRun: z.boolean().optional().describe('Defaults to true. Set false to execute.'),
+  confirmed: z
+    .boolean()
+    .optional()
+    .describe('Must be true together with dryRun=false to execute.'),
+};
+
+const createPixelInputSchema = {
+  ...adsBaseInputSchema,
+  accountId: z.string().describe('Provider account id. Required to create a pixel.'),
+  name: z.string().describe('Pixel name.'),
+  dryRun: z.boolean().optional().describe('Defaults to true. Set false to execute.'),
+  confirmed: z
+    .boolean()
+    .optional()
+    .describe('Must be true together with dryRun=false to execute.'),
+};
+
 const adIdInputSchema = {
   ...adsBaseInputSchema,
   adId: z.string().describe('The ad ID to pause or resume.'),
@@ -1928,6 +2002,14 @@ export function createMetaAdsMcpServer(options: CreateMetaAdsMcpServerOptions = 
       inputSchema = cloneUiAdInputSchema;
     } else if (toolDefinition.name === 'ads_archive_ad') {
       inputSchema = archiveAdInputSchema;
+    } else if (toolDefinition.name === 'ads_delete_audience') {
+      inputSchema = deleteAudienceInputSchema;
+    } else if (toolDefinition.name === 'ads_create_product_audience') {
+      inputSchema = createProductAudienceInputSchema;
+    } else if (toolDefinition.name === 'ads_create_custom_audience') {
+      inputSchema = createCustomAudienceInputSchema;
+    } else if (toolDefinition.name === 'ads_create_pixel') {
+      inputSchema = createPixelInputSchema;
     } else if (toolDefinition.name === 'ads_pause_ad' || toolDefinition.name === 'ads_resume_ad') {
       inputSchema = adIdInputSchema;
     } else if (
