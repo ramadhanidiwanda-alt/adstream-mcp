@@ -1613,6 +1613,10 @@ const createProductAudienceInputSchema = {
     .boolean()
     .optional()
     .describe('Must be true together with dryRun=false to execute.'),
+  maxRetries: z
+    .number()
+    .optional()
+    .describe('How many times to retry a transient Meta failure. Defaults to the tool default.'),
 };
 
 const createCustomAudienceInputSchema = {
@@ -1635,6 +1639,10 @@ const createCustomAudienceInputSchema = {
     .boolean()
     .optional()
     .describe('Must be true together with dryRun=false to execute.'),
+  maxRetries: z
+    .number()
+    .optional()
+    .describe('How many times to retry a transient Meta failure. Defaults to the tool default.'),
 };
 
 const createPixelInputSchema = {
@@ -1646,6 +1654,10 @@ const createPixelInputSchema = {
     .boolean()
     .optional()
     .describe('Must be true together with dryRun=false to execute.'),
+  maxRetries: z
+    .number()
+    .optional()
+    .describe('How many times to retry a transient Meta failure. Defaults to the tool default.'),
 };
 
 const adIdInputSchema = {
@@ -2080,6 +2092,10 @@ export function createMetaAdsMcpServer(options: CreateMetaAdsMcpServerOptions = 
           ),
         title: z.string().optional().describe('Optional title for video uploads.'),
         description: z.string().optional().describe('Optional description for video uploads.'),
+        maxRetries: z
+          .number()
+          .optional()
+          .describe('How many times to retry a transient Meta upload failure. Defaults to 3.'),
       };
     } else if (toolDefinition.name === 'ads_read_adset_full') {
       inputSchema = {

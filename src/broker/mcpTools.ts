@@ -1699,6 +1699,10 @@ function createUploadInputSchema(required: string[]) {
         type: 'string',
         description: 'Optional description for video uploads.',
       },
+      maxRetries: {
+        type: 'number',
+        description: 'How many times to retry a transient Meta upload failure. Defaults to 3.',
+      },
     },
     required,
   };
@@ -3389,6 +3393,10 @@ function createProductAudienceInputSchema() {
         type: 'boolean',
         description: 'Must be true together with dryRun=false to execute.',
       },
+      maxRetries: {
+        type: 'number',
+        description: 'How many times to retry a transient Meta failure. Defaults to the tool default.',
+      },
     },
     required: ['accountId', 'name', 'productSetId', 'inclusions'],
   };
@@ -3418,6 +3426,10 @@ function createCustomAudienceInputSchema() {
         type: 'boolean',
         description: 'Must be true together with dryRun=false to execute.',
       },
+      maxRetries: {
+        type: 'number',
+        description: 'How many times to retry a transient Meta failure. Defaults to the tool default.',
+      },
     },
     required: ['accountId', 'name', 'pixelId', 'rule'],
   };
@@ -3435,6 +3447,10 @@ function createPixelInputSchema() {
       confirmed: {
         type: 'boolean',
         description: 'Must be true together with dryRun=false to execute.',
+      },
+      maxRetries: {
+        type: 'number',
+        description: 'How many times to retry a transient Meta failure. Defaults to the tool default.',
       },
     },
     required: ['accountId', 'name'],
