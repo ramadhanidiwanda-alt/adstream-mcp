@@ -264,12 +264,12 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
   {
     name: 'ads_list_accounts',
     description: 'List ads accounts through the AdsBroker',
-    inputSchema: createAdsInputSchema([]),
+    inputSchema: createLimitOnlyInputSchema('Maximum accounts to return. Meta only.'),
   },
   {
     name: 'ads_list_campaigns',
     description: 'List campaigns under an ad account through the AdsBroker',
-    inputSchema: createAdsInputSchema([]),
+    inputSchema: createListCampaignsInputSchema(),
   },
   {
     name: 'ads_check_launch_readiness',
@@ -317,49 +317,49 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
     name: 'ads_get_account_performance',
     description:
       'Legacy alias: fetch normalized account-level performance. Prefer ads_get_performance with level account for new clients.',
-    inputSchema: createAdsInputSchema(['since', 'until']),
+    inputSchema: createAccountPerformanceInputSchema(),
   },
   {
     name: 'ads_get_campaign_performance',
     description:
       'Legacy alias: fetch normalized campaign performance. Prefer ads_get_performance with level campaign for new clients. Optional params.campaignId (string or string[]) restricts results to specific campaign(s) server-side.',
-    inputSchema: createAdsInputSchema(['since', 'until']),
+    inputSchema: createLegacyPerformanceInputSchema('campaign'),
   },
   {
     name: 'ads_get_adset_or_adgroup_performance',
     description:
       'Legacy alias: fetch normalized ad set or ad group performance. Prefer ads_get_performance with level adset or adgroup for new clients. Optional params.campaignId and params.adsetId (each string or string[]) restrict results server-side.',
-    inputSchema: createAdsInputSchema(['since', 'until']),
+    inputSchema: createLegacyPerformanceInputSchema('adset'),
   },
   {
     name: 'ads_get_ad_performance',
     description:
       'Legacy alias: fetch normalized ad performance. Prefer ads_get_performance with level ad for new clients. Optional params.campaignId, params.adsetId, and params.adId (each string or string[]) restrict results server-side.',
-    inputSchema: createAdsInputSchema(['since', 'until']),
+    inputSchema: createLegacyPerformanceInputSchema('ad'),
   },
   {
     name: 'ads_get_creative_performance',
     description:
       'Legacy alias: fetch normalized creative performance. Prefer ads_get_creatives or ads_get_performance with level creative for new clients.',
-    inputSchema: createAdsInputSchema(['since', 'until']),
+    inputSchema: createCreativePerformanceInputSchema(),
   },
   {
     name: 'ads_get_placement_performance',
     description:
       'Legacy alias: fetch platform and placement performance. Prefer ads_get_performance with placement breakdowns for new clients.',
-    inputSchema: createAdsInputSchema(['since', 'until']),
+    inputSchema: createPlacementPerformanceInputSchema(),
   },
   {
     name: 'ads_content_matrix',
     description:
       'Legacy skill-owned workflow: return data-only ad/creative performance matrix grouped by campaign or adset. Prefer skill workflows over ads_get_performance and ads_get_creatives for new clients.',
-    inputSchema: createAdsInputSchema(['since', 'until']),
+    inputSchema: createContentMatrixInputSchema(),
   },
   {
     name: 'ads_generate_report',
     description:
       'Legacy skill-owned workflow: generate an ads report through the AdsBroker. Prefer AI/skill report workflows over canonical data tools for new clients.',
-    inputSchema: createAdsInputSchema(['since', 'until']),
+    inputSchema: createGenerateReportInputSchema(),
   },
   {
     name: 'ads_create_welcome_message_template',
@@ -519,13 +519,13 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
     name: 'ads_get_video_source',
     description:
       'Get the raw video source URL (MP4), embed HTML, and thumbnail for a Meta video ID. Calls GET /{video_id}?fields=source,embed_html,picture.',
-    inputSchema: createAdsInputSchema([]),
+    inputSchema: createVideoSourceInputSchema(),
   },
   {
     name: 'ads_get_ad_creative_mapping',
     description:
       "Get the creative_id for each ad in an account. Calls GET /act_{id}/ads?fields=id,name,creative{{id}} — or the nested /{campaign_id}/ads or /{adset_id}/ads edge when scoped, since Meta does not support scoping the account-level /ads edge via filtering. Use this to link ad performance data (from ads_get_ad_performance) with creative assets (from ads_get_creative_performance). Optional params: adIds[] (filter specific ads), campaignId, adSetId (each a string or string[] — these DO scope the result; without one you get the account's most recent ads), filtering (raw Meta filtering rules), limit, cursor.",
-    inputSchema: createAdsInputSchema([]),
+    inputSchema: createAdCreativeMappingInputSchema(),
   },
   {
     name: 'ads_upload_image',
@@ -555,7 +555,7 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
     name: 'ads_list_advideos',
     description:
       'List videos from the Meta Ads Video Library (paginated). Returns video ID, title, source URL, status, file size, and thumbnail. Calls GET /act_{id}/advideos. Supports params: limit, cursor.',
-    inputSchema: createAdsInputSchema([]),
+    inputSchema: createListAdVideosInputSchema(),
   },
   {
     name: 'ads_get_ad_preview',
@@ -567,7 +567,7 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
     name: 'ads_get_ad_destinations',
     description:
       'Get destination URLs from ads with their creative metadata. Fetches ads with object_story_spec and asset_feed_spec, then extracts the destination URL for each creative type (link, video, carousel, Advantage+, existing post). Supports status filtering plus optional params.campaignId and params.adSetId (each string or string[]) to restrict results to a specific campaign/ad set server-side. Calls GET /act_{id}/ads?fields=id,name,status,effective_status,creative{id,object_type,object_story_spec,asset_feed_spec}.',
-    inputSchema: createAdsInputSchema([]),
+    inputSchema: createAdDestinationsInputSchema(),
   },
   {
     name: 'ads_read_creative_full',
@@ -587,7 +587,7 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
     name: 'ads_list_pages',
     description:
       'List Meta Pages accessible by the token for selecting a valid pageId for ad creative object_story_spec.',
-    inputSchema: createAdsInputSchema([]),
+    inputSchema: createLimitOnlyInputSchema('Maximum Pages to return.'),
   },
   {
     name: 'ads_list_lead_forms',
@@ -598,7 +598,7 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
   {
     name: 'ads_list_instagram_accounts',
     description: "List Instagram Business Accounts connected to the user's Facebook Pages.",
-    inputSchema: createAdsInputSchema([]),
+    inputSchema: createLimitOnlyInputSchema('Maximum Instagram Business Accounts to return.'),
   },
   {
     name: 'ads_list_instagram_media',
@@ -615,19 +615,19 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
   {
     name: 'ads_list_threads_profiles',
     description: "List Threads profiles connected to the user's Facebook Pages.",
-    inputSchema: createAdsInputSchema([]),
+    inputSchema: createLimitOnlyInputSchema('Maximum Threads profiles to return.'),
   },
   {
     name: 'ads_list_pixels',
     description:
       'List Meta Pixels connected to an ad account. Use before website sales, lead, or CPAS workflows when the user does not know their pixel ID. Calls GET /act_{id}/adspixels.',
-    inputSchema: createAdsInputSchema([]),
+    inputSchema: createLimitOnlyInputSchema('Maximum pixels to return.'),
   },
   {
     name: 'ads_list_audiences',
     description:
       'List Meta Custom Audiences (including dynamic product audiences created by ads_create_product_audience) connected to an ad account. Use to find an audience id before passing it into ads_create_adset targeting.customAudiences, or to check an audience is ready (delivery_status) before targeting it. Calls GET /act_{id}/customaudiences.',
-    inputSchema: createAdsInputSchema([]),
+    inputSchema: createLimitOnlyInputSchema('Maximum audiences to return.'),
   },
   {
     name: 'ads_list_catalogs',
@@ -645,19 +645,19 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
     name: 'ads_list_whatsapp_accounts',
     description:
       'Discover WhatsApp Business Accounts (WABA) — both owned and client-shared. Calls GET /{businessId}/owned_whatsapp_business_accounts and /{businessId}/client_whatsapp_business_accounts.',
-    inputSchema: createAdsInputSchema([]),
+    inputSchema: createListWhatsAppAccountsInputSchema(),
   },
   {
     name: 'ads_list_whatsapp_phone_numbers',
     description:
       'List phone numbers associated with a WhatsApp Business Account (WABA). Returns phone_number_id needed for CTWA creative setup. Calls GET /{wabaId}/phone_numbers.',
-    inputSchema: createAdsInputSchema([]),
+    inputSchema: createListWhatsAppPhoneNumbersInputSchema(),
   },
   {
     name: 'ads_list_whatsapp_message_templates',
     description:
       'List WhatsApp message templates for a WABA. Supports filtering by name and status (APPROVED, PENDING, REJECTED). Calls GET /{wabaId}/message_templates.',
-    inputSchema: createAdsInputSchema([]),
+    inputSchema: createListWhatsAppMessageTemplatesInputSchema(),
   },
   // --- TikTok GMV Max ---
   {
@@ -669,61 +669,61 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
   {
     name: 'tiktok_gmv_max_update_campaign',
     description: 'Update a TikTok GMV Max campaign (name, budget, status).',
-    inputSchema: createAdsInputSchema([]),
+    inputSchema: createGmvMaxUpdateCampaignInputSchema(),
   },
   {
     name: 'tiktok_gmv_max_create_session',
     description:
       'Create a GMV Max session (sale event) for an existing GMV Max campaign. Requires session_name, start_time, end_time.',
-    inputSchema: createAdsInputSchema([]),
+    inputSchema: createGmvMaxCreateSessionInputSchema(),
   },
   {
     name: 'tiktok_gmv_max_update_session',
     description: 'Update a GMV Max session (name, budget, time).',
-    inputSchema: createAdsInputSchema([]),
+    inputSchema: createGmvMaxUpdateSessionInputSchema(),
   },
   {
     name: 'tiktok_gmv_max_delete_session',
     description: 'Delete a GMV Max session.',
-    inputSchema: createAdsInputSchema([]),
+    inputSchema: createGmvMaxSessionIdInputSchema(),
   },
   {
     name: 'tiktok_gmv_max_get_campaign_info',
     description: 'Get detailed info for one or more GMV Max campaigns by campaign_ids.',
-    inputSchema: createAdsInputSchema([]),
+    inputSchema: createGmvMaxCampaignInfoInputSchema(),
   },
   // --- TikTok Smart Plus ---
   {
     name: 'tiktok_smart_plus_create_campaign',
     description:
       'Create a TikTok Smart Plus campaign (Advantage+ equivalent). TikTok handles targeting and creatives automatically.',
-    inputSchema: createAdsInputSchema([]),
+    inputSchema: createSmartPlusCreateCampaignInputSchema(),
   },
   {
     name: 'tiktok_smart_plus_pause_campaign',
     description: 'Pause a TikTok Smart Plus campaign.',
-    inputSchema: createAdsInputSchema([]),
+    inputSchema: createSmartPlusCampaignIdInputSchema(),
   },
   {
     name: 'tiktok_smart_plus_resume_campaign',
     description: 'Resume a paused TikTok Smart Plus campaign.',
-    inputSchema: createAdsInputSchema([]),
+    inputSchema: createSmartPlusCampaignIdInputSchema(),
   },
   {
     name: 'tiktok_smart_plus_create_adgroup',
     description:
       'Create a TikTok Smart Plus ad group. TikTok handles targeting and creatives automatically.',
-    inputSchema: createAdsInputSchema([]),
+    inputSchema: createSmartPlusCreateAdGroupInputSchema(),
   },
   {
     name: 'tiktok_smart_plus_pause_adgroup',
     description: 'Pause a TikTok Smart Plus ad group.',
-    inputSchema: createAdsInputSchema([]),
+    inputSchema: createSmartPlusAdGroupIdInputSchema(),
   },
   {
     name: 'tiktok_smart_plus_resume_adgroup',
     description: 'Resume a paused TikTok Smart Plus ad group.',
-    inputSchema: createAdsInputSchema([]),
+    inputSchema: createSmartPlusAdGroupIdInputSchema(),
   },
 ] as const;
 
@@ -3811,6 +3811,344 @@ function createPartnershipContentInputSchema() {
   };
 }
 
+/**
+ * Canonical `{field, operator, value}` filter rules, shared by ads_get_performance
+ * and the legacy per-level performance aliases that reach the same
+ * parseCanonicalMetaFilters path.
+ */
+function canonicalFiltersSchema() {
+  return {
+    type: 'array',
+    items: {
+      type: 'object',
+      properties: {
+        field: { type: 'string' },
+        operator: { type: 'string', enum: [...ADS_FILTER_OPERATORS] },
+        value: {
+          anyOf: [
+            { type: 'string' },
+            { type: 'number' },
+            { type: 'boolean' },
+            {
+              type: 'array',
+              minItems: 1,
+              items: {
+                anyOf: [{ type: 'string' }, { type: 'number' }, { type: 'boolean' }],
+              },
+            },
+          ],
+        },
+      },
+      required: ['field', 'operator', 'value'],
+      additionalProperties: false,
+    },
+    description: 'Explicit filters over normalized or provider-supported fields.',
+  };
+}
+
+function idScopeSchema(description: string) {
+  return {
+    anyOf: [{ type: 'string' }, { type: 'array', items: { type: 'string' } }],
+    description,
+  };
+}
+
+/**
+ * The legacy per-level performance aliases used to declare only the shared
+ * envelope, so a client had no way to learn that the adapters read scoping and
+ * paging keys. extractParams merges every non-reserved top-level argument into
+ * request.params, so a declared property reaches the same adapter code the
+ * nested `params` object already did — callers passing `params: { campaignId }`
+ * keep working.
+ *
+ * `level` decides which ids Meta actually honors: getCampaignInsights filters on
+ * campaign.id alone, getAdsetInsights adds adset.id, getAdsInsights adds ad.id.
+ * Declaring an id the level ignores would advertise a filter that does nothing.
+ */
+function createLegacyPerformanceInputSchema(level: 'campaign' | 'adset' | 'ad') {
+  const schema = createAdsInputSchema(['since', 'until']);
+  const scope: Record<string, unknown> = {
+    campaignId: idScopeSchema('Restrict results to specific campaign id(s). Meta only.'),
+  };
+
+  if (level !== 'campaign') {
+    scope.adsetId = idScopeSchema(
+      'Restrict results to specific ad set id(s). Meta only. Also accepted as adSetId.'
+    );
+  }
+
+  if (level === 'ad') {
+    scope.adId = idScopeSchema('Restrict results to specific ad id(s). Meta only.');
+  }
+
+  return {
+    ...schema,
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      ...scope,
+      ...insightsTailSchema(),
+    },
+  };
+}
+
+/**
+ * Breakdown, filter and paging keys every request that reaches Meta's
+ * getPerformanceOptions can carry, plus the page/pageSize pair TikTok reads
+ * instead of a cursor. Shared by the legacy aliases and by the two tools that
+ * delegate to them, ads_content_matrix and ads_generate_report.
+ */
+function insightsTailSchema() {
+  return {
+    breakdowns: {
+      type: 'array',
+      items: { type: 'string', enum: [...LOCATION_BREAKDOWNS] },
+      description: 'Meta location breakdowns to split rows by. Ignored when mode is cpas.',
+    },
+    filters: canonicalFiltersSchema(),
+    mode: {
+      type: 'string',
+      enum: ['cpas'],
+      description:
+        'Set to cpas to read Collaborative Ads rows, broken down by product_id. Meta only.',
+    },
+    limit: {
+      type: 'number',
+      description: 'Maximum number of rows to return. Meta only; TikTok uses pageSize.',
+    },
+    cursor: {
+      type: 'string',
+      description:
+        'Opaque pagination cursor from a previous response. On TikTok this is the next page number.',
+    },
+    page: {
+      type: 'number',
+      description: 'Report page number. TikTok only.',
+    },
+    pageSize: {
+      type: 'number',
+      description: 'Report rows per page. TikTok only.',
+    },
+  };
+}
+
+/**
+ * Account level takes no scoping or breakdown keys: getAccountInsights sends
+ * neither `filtering` nor `breakdowns` to Meta, so declaring them here would
+ * advertise inputs that reach the API and change nothing.
+ */
+function createAccountPerformanceInputSchema() {
+  const schema = createAdsInputSchema(['since', 'until']);
+
+  return {
+    ...schema,
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      limit: {
+        type: 'number',
+        description: 'Maximum number of rows to return. Meta only; TikTok uses pageSize.',
+      },
+      cursor: {
+        type: 'string',
+        description:
+          'Opaque pagination cursor from a previous response. On TikTok this is the next page number.',
+      },
+      page: {
+        type: 'number',
+        description: 'Report page number. TikTok only.',
+      },
+      pageSize: {
+        type: 'number',
+        description: 'Report rows per page. TikTok only.',
+      },
+    },
+  };
+}
+
+function createCreativePerformanceInputSchema() {
+  const schema = createAdsInputSchema(['since', 'until']);
+
+  return {
+    ...schema,
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      creativeId: {
+        type: 'string',
+        description: 'Read a single Meta creative by ID instead of listing the account.',
+      },
+      campaignId: idScopeSchema(
+        'Optional campaign scope. Uses the nested campaign ads edge when possible. Meta only.'
+      ),
+      adSetId: idScopeSchema(
+        'Optional ad set scope. Uses the nested ad set ads edge when possible. Meta only.'
+      ),
+      complianceAudit: {
+        type: 'boolean',
+        description:
+          'Audit the active ads behind each creative and report setup compliance. Ignored when creativeId is set. Meta only.',
+      },
+      effectiveStatus: {
+        type: 'array',
+        items: { type: 'string' },
+        description:
+          'Meta effective_status values the compliance audit keeps. Defaults to ACTIVE. Meta only.',
+      },
+      includeRaw: {
+        type: 'boolean',
+        description: 'Attach the raw Meta creative payload to each row. Meta only.',
+      },
+      limit: {
+        type: 'number',
+        description: 'Maximum creatives to inspect. Defaults to 100. Meta only.',
+      },
+      cursor: {
+        type: 'string',
+        description:
+          'Opaque pagination cursor from a previous response. On TikTok this is the next page number.',
+      },
+      page: {
+        type: 'number',
+        description: 'Report page number. TikTok only.',
+      },
+      pageSize: {
+        type: 'number',
+        description: 'Report rows per page. TikTok only.',
+      },
+    },
+  };
+}
+
+function createPlacementPerformanceInputSchema() {
+  const schema = createAdsInputSchema(['since', 'until']);
+
+  return {
+    ...schema,
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      level: {
+        type: 'string',
+        enum: ['campaign', 'adset', 'ad'],
+        description: 'Entity level the placement rows are grouped by. Meta only.',
+      },
+      campaignId: idScopeSchema('Restrict results to specific campaign id(s). Meta only.'),
+      adsetId: idScopeSchema('Restrict results to specific ad set id(s). Meta only.'),
+      adId: idScopeSchema('Restrict results to specific ad id(s). Meta only.'),
+      minSpendShare: {
+        type: 'number',
+        description: 'Drop placements below this share of total spend. Meta only.',
+      },
+      minConversions: {
+        type: 'number',
+        description: 'Drop placements below this conversion count. Meta only.',
+      },
+      limit: {
+        type: 'number',
+        description: 'Maximum number of rows to return. Meta only.',
+      },
+    },
+  };
+}
+
+function createContentMatrixInputSchema() {
+  const schema = createAdsInputSchema(['since', 'until']);
+
+  return {
+    ...schema,
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      campaignId: idScopeSchema('Restrict results to specific campaign id(s). Meta only.'),
+      adsetId: idScopeSchema(
+        'Restrict results to specific ad set id(s). Meta only. Also accepted as adSetId.'
+      ),
+      adId: idScopeSchema('Restrict results to specific ad id(s). Meta only.'),
+      groupBy: {
+        type: 'string',
+        enum: ['campaign', 'adset'],
+        description: 'Group the matrix rows by campaign or ad set.',
+      },
+      sortBy: {
+        type: 'string',
+        description: 'Metric used to rank rows into the top and bottom lists.',
+      },
+      sortDirection: {
+        type: 'string',
+        enum: ['asc', 'desc'],
+        description: 'Sort direction.',
+      },
+      topLimit: {
+        type: 'number',
+        description: 'How many top performers to keep.',
+      },
+      bottomLimit: {
+        type: 'number',
+        description: 'How many bottom performers to keep.',
+      },
+      includeAllRows: {
+        type: 'boolean',
+        description: 'Return every row alongside the top and bottom lists.',
+      },
+      comparisonMode: {
+        type: 'string',
+        enum: ['previous_period', 'none'],
+        description:
+          'Compare against the previous period of equal length, or skip the comparison. Defaults to previous_period.',
+      },
+      ...insightsTailSchema(),
+    },
+  };
+}
+
+function createGenerateReportInputSchema() {
+  const schema = createAdsInputSchema(['since', 'until']);
+
+  return {
+    ...schema,
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      level: {
+        type: 'string',
+        enum: ['account', 'campaign'],
+        description: 'Report level. Defaults to account; campaign reads campaign rows instead.',
+      },
+      format: {
+        type: 'string',
+        enum: ['summary', 'daily', 'audit', 'executive'],
+        description: 'Report shape. Defaults to summary; audit adds a scorecard and findings.',
+      },
+      campaignId: idScopeSchema(
+        'Restrict results to specific campaign id(s). Meta only, and only when level is campaign.'
+      ),
+      filters: {
+        ...canonicalFiltersSchema(),
+        description:
+          'Explicit filters over normalized or provider-supported fields. Meta only, and only when level is campaign.',
+      },
+      mode: {
+        type: 'string',
+        enum: ['cpas'],
+        description:
+          'Set to cpas to total Collaborative Ads rows instead. Meta only, and only when level is campaign.',
+      },
+      limit: {
+        type: 'number',
+        description: 'Maximum number of rows to total. Meta only; TikTok uses pageSize.',
+      },
+      cursor: {
+        type: 'string',
+        description:
+          'Opaque pagination cursor from a previous response. On TikTok this is the next page number.',
+      },
+      page: {
+        type: 'number',
+        description: 'Report page number. TikTok only.',
+      },
+      pageSize: {
+        type: 'number',
+        description: 'Report rows per page. TikTok only.',
+      },
+    },
+  };
+}
+
 function createPerformanceInputSchema(required: string[]) {
   const schema = createAdsInputSchema(required);
 
@@ -3838,33 +4176,7 @@ function createPerformanceInputSchema(required: string[]) {
         items: { type: 'string' },
         description: 'Provider-supported breakdowns such as date, country, platform, or placement.',
       },
-      filters: {
-        type: 'array',
-        items: {
-          type: 'object',
-          properties: {
-            field: { type: 'string' },
-            operator: { type: 'string', enum: [...ADS_FILTER_OPERATORS] },
-            value: {
-              anyOf: [
-                { type: 'string' },
-                { type: 'number' },
-                { type: 'boolean' },
-                {
-                  type: 'array',
-                  minItems: 1,
-                  items: {
-                    anyOf: [{ type: 'string' }, { type: 'number' }, { type: 'boolean' }],
-                  },
-                },
-              ],
-            },
-          },
-          required: ['field', 'operator', 'value'],
-          additionalProperties: false,
-        },
-        description: 'Explicit filters over normalized or provider-supported fields.',
-      },
+      filters: canonicalFiltersSchema(),
       sortBy: {
         type: 'string',
         description: 'Metric or dimension used for sorting.',
@@ -3931,6 +4243,339 @@ function createCreativeAssetsInputSchema() {
         items: { type: 'object', additionalProperties: true },
         description: 'Optional raw Meta filtering rules, merged with adIds.',
       },
+    },
+  };
+}
+
+function createAdCreativeMappingInputSchema() {
+  const schema = createAdsInputSchema([]);
+
+  return {
+    ...schema,
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      adIds: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'Optional Meta ad IDs to map. Filters the page; does not scope the edge.',
+      },
+      campaignId: idScopeSchema(
+        'Optional campaign scope. Uses the nested campaign ads edge when possible.'
+      ),
+      adSetId: idScopeSchema(
+        'Optional ad set scope. Uses the nested ad set ads edge when possible.'
+      ),
+      filtering: {
+        type: 'array',
+        items: { type: 'object', additionalProperties: true },
+        description: 'Optional raw Meta filtering rules, merged with the id scopes.',
+      },
+      limit: {
+        type: 'number',
+        description: 'Maximum ads to inspect. Defaults to 100.',
+      },
+      cursor: {
+        type: 'string',
+        description: 'Opaque pagination cursor from a previous response.',
+      },
+    },
+  };
+}
+
+function createAdDestinationsInputSchema() {
+  const schema = createAdsInputSchema([]);
+
+  return {
+    ...schema,
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      adIds: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'Optional Meta ad IDs to inspect. Filters the page; does not scope the edge.',
+      },
+      effectiveStatus: {
+        type: 'array',
+        items: { type: 'string' },
+        description:
+          'Optional Meta effective_status values to keep, such as ACTIVE or PAUSED. All statuses when omitted.',
+      },
+      campaignId: idScopeSchema(
+        'Optional campaign scope. Uses the nested campaign ads edge when possible.'
+      ),
+      adSetId: idScopeSchema(
+        'Optional ad set scope. Uses the nested ad set ads edge when possible.'
+      ),
+      filtering: {
+        type: 'array',
+        items: { type: 'object', additionalProperties: true },
+        description: 'Optional raw Meta filtering rules, merged with the id scopes.',
+      },
+      limit: {
+        type: 'number',
+        description: 'Maximum ads to inspect. Defaults to 100.',
+      },
+      cursor: {
+        type: 'string',
+        description: 'Opaque pagination cursor from a previous response.',
+      },
+    },
+  };
+}
+
+function createListAdVideosInputSchema() {
+  const schema = createAdsInputSchema([]);
+
+  return {
+    ...schema,
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      limit: {
+        type: 'number',
+        description: 'Maximum videos to return per page.',
+      },
+      cursor: {
+        type: 'string',
+        description: 'Opaque pagination cursor from a previous response.',
+      },
+    },
+  };
+}
+
+function createTikTokWriteInputSchema(properties: Record<string, unknown>) {
+  const schema = createAdsInputSchema([]);
+
+  return {
+    ...schema,
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      ...properties,
+    },
+  };
+}
+
+function tiktokOperationStatusSchema(
+  description = 'TikTok operation_status, ENABLE or DISABLE.'
+) {
+  return { type: 'string', description };
+}
+
+function tiktokBudgetModeSchema() {
+  return {
+    type: 'string',
+    description: 'TikTok budget mode, e.g. DAILY. Defaults to DAILY.',
+  };
+}
+
+function createGmvMaxUpdateCampaignInputSchema() {
+  return createTikTokWriteInputSchema({
+    campaignId: {
+      type: 'string',
+      description: 'GMV Max campaign to update. Required — the call fails without it.',
+    },
+    campaignName: { type: 'string', description: 'New campaign name. Left unchanged when omitted.' },
+    budget: { type: 'number', description: 'New campaign budget. Left unchanged when omitted.' },
+    operationStatus: tiktokOperationStatusSchema(),
+  });
+}
+
+function createGmvMaxCreateSessionInputSchema() {
+  return createTikTokWriteInputSchema({
+    campaignId: {
+      type: 'string',
+      description: 'GMV Max campaign the session belongs to. Required.',
+    },
+    sessionName: { type: 'string', description: 'Session name. Required.' },
+    startTime: { type: 'string', description: 'Session start time. Required.' },
+    endTime: { type: 'string', description: 'Session end time. Required.' },
+    sessionType: { type: 'string', description: 'TikTok session type.' },
+    sessionBudget: { type: 'number', description: 'Budget for this session.' },
+    productIds: {
+      type: 'array',
+      items: { type: 'string' },
+      description: 'TikTok Shop product IDs to promote in the session.',
+    },
+  });
+}
+
+function createGmvMaxUpdateSessionInputSchema() {
+  return createTikTokWriteInputSchema({
+    sessionId: {
+      type: 'string',
+      description: 'GMV Max session to update. Required — the call fails without it.',
+    },
+    sessionName: { type: 'string', description: 'New session name. Left unchanged when omitted.' },
+    sessionBudget: { type: 'number', description: 'New session budget. Left unchanged when omitted.' },
+    startTime: { type: 'string', description: 'New start time. Left unchanged when omitted.' },
+    endTime: { type: 'string', description: 'New end time. Left unchanged when omitted.' },
+  });
+}
+
+function createGmvMaxSessionIdInputSchema() {
+  return createTikTokWriteInputSchema({
+    sessionId: {
+      type: 'string',
+      description: 'GMV Max session to delete. Required — the call fails without it.',
+    },
+  });
+}
+
+function createGmvMaxCampaignInfoInputSchema() {
+  return createTikTokWriteInputSchema({
+    campaignIds: {
+      type: 'array',
+      items: { type: 'string' },
+      description: 'GMV Max campaign IDs to read. Empty when omitted, which returns nothing.',
+    },
+  });
+}
+
+function createSmartPlusCreateCampaignInputSchema() {
+  return createTikTokWriteInputSchema({
+    campaignName: { type: 'string', description: 'Smart+ campaign name. Required.' },
+    objectiveType: {
+      type: 'string',
+      description: 'TikTok objective_type for the Smart+ campaign. Required.',
+    },
+    budget: { type: 'number', description: 'Campaign budget.' },
+    budgetMode: tiktokBudgetModeSchema(),
+    operationStatus: tiktokOperationStatusSchema('Defaults to ENABLE.'),
+  });
+}
+
+function createSmartPlusCampaignIdInputSchema() {
+  return createTikTokWriteInputSchema({
+    campaignId: {
+      type: 'string',
+      description: 'Smart+ campaign to act on. Required — the call fails without it.',
+    },
+  });
+}
+
+function createSmartPlusCreateAdGroupInputSchema() {
+  return createTikTokWriteInputSchema({
+    campaignId: {
+      type: 'string',
+      description: 'Smart+ campaign the ad group belongs to. Required.',
+    },
+    name: {
+      type: 'string',
+      description: 'Ad group name. Required. Also accepted as adgroupName.',
+    },
+    budget: { type: 'number', description: 'Ad group budget.' },
+    budgetMode: tiktokBudgetModeSchema(),
+    operationStatus: tiktokOperationStatusSchema('Defaults to ENABLE.'),
+    landingPageUrl: { type: 'string', description: 'Landing page URL for the ad group.' },
+    identityId: { type: 'string', description: 'TikTok identity that owns the ads.' },
+    identityType: { type: 'string', description: 'TikTok identity type, e.g. CUSTOMIZED_USER.' },
+  });
+}
+
+function createSmartPlusAdGroupIdInputSchema() {
+  return createTikTokWriteInputSchema({
+    adgroupId: {
+      type: 'string',
+      description: 'Smart+ ad group to act on. Required — the call fails without it.',
+    },
+  });
+}
+
+/**
+ * Several Meta list tools read exactly one key, `limit`, and nothing else. The
+ * description differs per tool because the unit it counts does.
+ */
+function createLimitOnlyInputSchema(limitDescription: string) {
+  const schema = createAdsInputSchema([]);
+
+  return {
+    ...schema,
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      limit: { type: 'number', description: limitDescription },
+    },
+  };
+}
+
+function createListCampaignsInputSchema() {
+  const schema = createAdsInputSchema([]);
+
+  return {
+    ...schema,
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      limit: { type: 'number', description: 'Maximum campaigns to return. Meta only.' },
+      page: { type: 'number', description: 'Campaign list page number. TikTok only.' },
+      pageSize: { type: 'number', description: 'Campaigns per page. TikTok only.' },
+    },
+  };
+}
+
+function createVideoSourceInputSchema() {
+  const schema = createAdsInputSchema([]);
+
+  return {
+    ...schema,
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      videoId: {
+        type: 'string',
+        description: 'Meta video ID to read. Required — the call fails without it.',
+      },
+    },
+  };
+}
+
+function createListWhatsAppAccountsInputSchema() {
+  const schema = createAdsInputSchema([]);
+
+  return {
+    ...schema,
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      businessId: {
+        type: 'string',
+        description: 'Business Manager ID that owns the WhatsApp Business Accounts.',
+      },
+      limit: { type: 'number', description: 'Maximum WhatsApp Business Accounts to return.' },
+    },
+  };
+}
+
+function createListWhatsAppPhoneNumbersInputSchema() {
+  const schema = createAdsInputSchema([]);
+
+  return {
+    ...schema,
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      wabaId: {
+        type: 'string',
+        description:
+          'WhatsApp Business Account ID whose phone numbers to list. Required — the call fails without it.',
+      },
+      limit: { type: 'number', description: 'Maximum phone numbers to return.' },
+    },
+  };
+}
+
+function createListWhatsAppMessageTemplatesInputSchema() {
+  const schema = createAdsInputSchema([]);
+
+  return {
+    ...schema,
+    properties: {
+      ...(schema.properties as Record<string, unknown>),
+      wabaId: {
+        type: 'string',
+        description:
+          'WhatsApp Business Account ID whose message templates to list. Required — the call fails without it.',
+      },
+      name: { type: 'string', description: 'Filter templates by exact name.' },
+      status: {
+        type: 'string',
+        description: 'Filter templates by review status, such as APPROVED or PENDING.',
+      },
+      limit: { type: 'number', description: 'Maximum templates to return.' },
     },
   };
 }

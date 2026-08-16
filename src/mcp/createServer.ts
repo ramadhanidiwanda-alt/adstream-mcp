@@ -36,7 +36,7 @@ import {
   getTikTokLocationInsights,
 } from '../index.js';
 import type { LocationBreakdown } from '../index.js';
-import { META_CREATABLE_CREATIVE_FORMATS } from '../types.js';
+import { LOCATION_BREAKDOWNS, META_CREATABLE_CREATIVE_FORMATS } from '../types.js';
 import {
   META_CONVERSION_LOCATIONS,
   META_MESSAGING_DESTINATIONS,
@@ -142,6 +142,436 @@ const adsCreativeInputSchema = {
   ...adsPerformanceInputSchema,
   since: z.string().optional().describe('Optional start date in YYYY-MM-DD format.'),
   until: z.string().optional().describe('Optional end date in YYYY-MM-DD format.'),
+};
+
+const idScopeInputSchema = (description: string) =>
+  z.union([z.string(), z.array(z.string())]).optional().describe(description);
+
+const insightsPagingInputSchema = {
+  limit: z
+    .number()
+    .optional()
+    .describe('Maximum number of rows to return. Meta only; TikTok uses pageSize.'),
+  cursor: z
+    .string()
+    .optional()
+    .describe(
+      'Opaque pagination cursor from a previous response. On TikTok this is the next page number.'
+    ),
+  page: z.number().optional().describe('Report page number. TikTok only.'),
+  pageSize: z.number().optional().describe('Report rows per page. TikTok only.'),
+};
+
+/**
+ * Breakdown, filter and paging tail shared by the legacy per-level performance
+ * aliases. This is the surface clients actually see — tools/list is served from
+ * these Zod shapes, not from the JSON Schema in mcpTools.ts — so it mirrors
+ * createLegacyPerformanceInputSchema key for key, in order.
+ * mcpServerBuilder.test.ts fails if the two drift.
+ */
+const legacyPerformanceTailInputSchema = {
+  breakdowns: z
+    .array(z.enum(LOCATION_BREAKDOWNS))
+    .optional()
+    .describe('Meta location breakdowns to split rows by. Ignored when mode is cpas.'),
+  filters: z
+    .array(
+      z.object({
+        field: z.string().min(1),
+        operator: z.enum(ADS_FILTER_OPERATORS),
+        value: z.union([
+          z.string(),
+          z.number(),
+          z.boolean(),
+          z.array(z.union([z.string(), z.number(), z.boolean()])).min(1),
+        ]),
+      })
+    )
+    .optional()
+    .describe('Explicit filters over normalized or provider-supported fields.'),
+  mode: z
+    .enum(['cpas'])
+    .optional()
+    .describe('Set to cpas to read Collaborative Ads rows, broken down by product_id. Meta only.'),
+  ...insightsPagingInputSchema,
+};
+
+const legacyCampaignPerformanceInputSchema = {
+  ...sinceUntilInputSchema,
+  campaignId: idScopeInputSchema('Restrict results to specific campaign id(s). Meta only.'),
+  ...legacyPerformanceTailInputSchema,
+};
+
+const legacyAdSetPerformanceInputSchema = {
+  ...sinceUntilInputSchema,
+  campaignId: idScopeInputSchema('Restrict results to specific campaign id(s). Meta only.'),
+  adsetId: idScopeInputSchema(
+    'Restrict results to specific ad set id(s). Meta only. Also accepted as adSetId.'
+  ),
+  ...legacyPerformanceTailInputSchema,
+};
+
+const legacyAdPerformanceInputSchema = {
+  ...sinceUntilInputSchema,
+  campaignId: idScopeInputSchema('Restrict results to specific campaign id(s). Meta only.'),
+  adsetId: idScopeInputSchema(
+    'Restrict results to specific ad set id(s). Meta only. Also accepted as adSetId.'
+  ),
+  adId: idScopeInputSchema('Restrict results to specific ad id(s). Meta only.'),
+  ...legacyPerformanceTailInputSchema,
+};
+
+const legacyAccountPerformanceInputSchema = {
+  ...sinceUntilInputSchema,
+  ...insightsPagingInputSchema,
+};
+
+const legacyCreativePerformanceInputSchema = {
+  ...sinceUntilInputSchema,
+  creativeId: z
+    .string()
+    .optional()
+    .describe('Read a single Meta creative by ID instead of listing the account.'),
+  campaignId: idScopeInputSchema(
+    'Optional campaign scope. Uses the nested campaign ads edge when possible. Meta only.'
+  ),
+  adSetId: idScopeInputSchema(
+    'Optional ad set scope. Uses the nested ad set ads edge when possible. Meta only.'
+  ),
+  complianceAudit: z
+    .boolean()
+    .optional()
+    .describe(
+      'Audit the active ads behind each creative and report setup compliance. Ignored when creativeId is set. Meta only.'
+    ),
+  effectiveStatus: z
+    .array(z.string())
+    .optional()
+    .describe(
+      'Meta effective_status values the compliance audit keeps. Defaults to ACTIVE. Meta only.'
+    ),
+  includeRaw: z
+    .boolean()
+    .optional()
+    .describe('Attach the raw Meta creative payload to each row. Meta only.'),
+  limit: z
+    .number()
+    .optional()
+    .describe('Maximum creatives to inspect. Defaults to 100. Meta only.'),
+  cursor: z
+    .string()
+    .optional()
+    .describe(
+      'Opaque pagination cursor from a previous response. On TikTok this is the next page number.'
+    ),
+  page: z.number().optional().describe('Report page number. TikTok only.'),
+  pageSize: z.number().optional().describe('Report rows per page. TikTok only.'),
+};
+
+const legacyPlacementPerformanceInputSchema = {
+  ...sinceUntilInputSchema,
+  level: z
+    .enum(['campaign', 'adset', 'ad'])
+    .optional()
+    .describe('Entity level the placement rows are grouped by. Meta only.'),
+  campaignId: idScopeInputSchema('Restrict results to specific campaign id(s). Meta only.'),
+  adsetId: idScopeInputSchema('Restrict results to specific ad set id(s). Meta only.'),
+  adId: idScopeInputSchema('Restrict results to specific ad id(s). Meta only.'),
+  minSpendShare: z
+    .number()
+    .optional()
+    .describe('Drop placements below this share of total spend. Meta only.'),
+  minConversions: z
+    .number()
+    .optional()
+    .describe('Drop placements below this conversion count. Meta only.'),
+  limit: z.number().optional().describe('Maximum number of rows to return. Meta only.'),
+};
+
+const contentMatrixInputSchema = {
+  ...sinceUntilInputSchema,
+  campaignId: idScopeInputSchema('Restrict results to specific campaign id(s). Meta only.'),
+  adsetId: idScopeInputSchema(
+    'Restrict results to specific ad set id(s). Meta only. Also accepted as adSetId.'
+  ),
+  adId: idScopeInputSchema('Restrict results to specific ad id(s). Meta only.'),
+  groupBy: z
+    .enum(['campaign', 'adset'])
+    .optional()
+    .describe('Group the matrix rows by campaign or ad set.'),
+  sortBy: z
+    .string()
+    .optional()
+    .describe('Metric used to rank rows into the top and bottom lists.'),
+  sortDirection: z.enum(['asc', 'desc']).optional().describe('Sort direction.'),
+  topLimit: z.number().optional().describe('How many top performers to keep.'),
+  bottomLimit: z.number().optional().describe('How many bottom performers to keep.'),
+  includeAllRows: z
+    .boolean()
+    .optional()
+    .describe('Return every row alongside the top and bottom lists.'),
+  comparisonMode: z
+    .enum(['previous_period', 'none'])
+    .optional()
+    .describe(
+      'Compare against the previous period of equal length, or skip the comparison. Defaults to previous_period.'
+    ),
+  ...legacyPerformanceTailInputSchema,
+};
+
+const generateReportInputSchema = {
+  ...sinceUntilInputSchema,
+  level: z
+    .enum(['account', 'campaign'])
+    .optional()
+    .describe('Report level. Defaults to account; campaign reads campaign rows instead.'),
+  format: z
+    .enum(['summary', 'daily', 'audit', 'executive'])
+    .optional()
+    .describe('Report shape. Defaults to summary; audit adds a scorecard and findings.'),
+  campaignId: idScopeInputSchema(
+    'Restrict results to specific campaign id(s). Meta only, and only when level is campaign.'
+  ),
+  filters: legacyPerformanceTailInputSchema.filters.describe(
+    'Explicit filters over normalized or provider-supported fields. Meta only, and only when level is campaign.'
+  ),
+  mode: z
+    .enum(['cpas'])
+    .optional()
+    .describe(
+      'Set to cpas to total Collaborative Ads rows instead. Meta only, and only when level is campaign.'
+    ),
+  limit: z
+    .number()
+    .optional()
+    .describe('Maximum number of rows to total. Meta only; TikTok uses pageSize.'),
+  cursor: z
+    .string()
+    .optional()
+    .describe(
+      'Opaque pagination cursor from a previous response. On TikTok this is the next page number.'
+    ),
+  page: z.number().optional().describe('Report page number. TikTok only.'),
+  pageSize: z.number().optional().describe('Report rows per page. TikTok only.'),
+};
+
+const adCreativeMappingInputSchema = {
+  ...adsBaseInputSchema,
+  adIds: z
+    .array(z.string())
+    .optional()
+    .describe('Optional Meta ad IDs to map. Filters the page; does not scope the edge.'),
+  campaignId: idScopeInputSchema(
+    'Optional campaign scope. Uses the nested campaign ads edge when possible.'
+  ),
+  adSetId: idScopeInputSchema(
+    'Optional ad set scope. Uses the nested ad set ads edge when possible.'
+  ),
+  filtering: z
+    .array(z.record(z.unknown()))
+    .optional()
+    .describe('Optional raw Meta filtering rules, merged with the id scopes.'),
+  limit: z.number().optional().describe('Maximum ads to inspect. Defaults to 100.'),
+  cursor: z.string().optional().describe('Opaque pagination cursor from a previous response.'),
+};
+
+const adDestinationsInputSchema = {
+  ...adsBaseInputSchema,
+  adIds: z
+    .array(z.string())
+    .optional()
+    .describe('Optional Meta ad IDs to inspect. Filters the page; does not scope the edge.'),
+  effectiveStatus: z
+    .array(z.string())
+    .optional()
+    .describe(
+      'Optional Meta effective_status values to keep, such as ACTIVE or PAUSED. All statuses when omitted.'
+    ),
+  campaignId: idScopeInputSchema(
+    'Optional campaign scope. Uses the nested campaign ads edge when possible.'
+  ),
+  adSetId: idScopeInputSchema(
+    'Optional ad set scope. Uses the nested ad set ads edge when possible.'
+  ),
+  filtering: z
+    .array(z.record(z.unknown()))
+    .optional()
+    .describe('Optional raw Meta filtering rules, merged with the id scopes.'),
+  limit: z.number().optional().describe('Maximum ads to inspect. Defaults to 100.'),
+  cursor: z.string().optional().describe('Opaque pagination cursor from a previous response.'),
+};
+
+const listAdVideosInputSchema = {
+  ...adsBaseInputSchema,
+  limit: z.number().optional().describe('Maximum videos to return per page.'),
+  cursor: z.string().optional().describe('Opaque pagination cursor from a previous response.'),
+};
+
+const tiktokOperationStatus = (description = 'TikTok operation_status, ENABLE or DISABLE.') =>
+  z.string().optional().describe(description);
+
+const tiktokBudgetMode = () =>
+  z.string().optional().describe('TikTok budget mode, e.g. DAILY. Defaults to DAILY.');
+
+const gmvMaxUpdateCampaignInputSchema = {
+  ...adsBaseInputSchema,
+  campaignId: z
+    .string()
+    .optional()
+    .describe('GMV Max campaign to update. Required — the call fails without it.'),
+  campaignName: z
+    .string()
+    .optional()
+    .describe('New campaign name. Left unchanged when omitted.'),
+  budget: z.number().optional().describe('New campaign budget. Left unchanged when omitted.'),
+  operationStatus: tiktokOperationStatus(),
+};
+
+const gmvMaxCreateSessionInputSchema = {
+  ...adsBaseInputSchema,
+  campaignId: z
+    .string()
+    .optional()
+    .describe('GMV Max campaign the session belongs to. Required.'),
+  sessionName: z.string().optional().describe('Session name. Required.'),
+  startTime: z.string().optional().describe('Session start time. Required.'),
+  endTime: z.string().optional().describe('Session end time. Required.'),
+  sessionType: z.string().optional().describe('TikTok session type.'),
+  sessionBudget: z.number().optional().describe('Budget for this session.'),
+  productIds: z
+    .array(z.string())
+    .optional()
+    .describe('TikTok Shop product IDs to promote in the session.'),
+};
+
+const gmvMaxUpdateSessionInputSchema = {
+  ...adsBaseInputSchema,
+  sessionId: z
+    .string()
+    .optional()
+    .describe('GMV Max session to update. Required — the call fails without it.'),
+  sessionName: z.string().optional().describe('New session name. Left unchanged when omitted.'),
+  sessionBudget: z
+    .number()
+    .optional()
+    .describe('New session budget. Left unchanged when omitted.'),
+  startTime: z.string().optional().describe('New start time. Left unchanged when omitted.'),
+  endTime: z.string().optional().describe('New end time. Left unchanged when omitted.'),
+};
+
+const gmvMaxSessionIdInputSchema = {
+  ...adsBaseInputSchema,
+  sessionId: z
+    .string()
+    .optional()
+    .describe('GMV Max session to delete. Required — the call fails without it.'),
+};
+
+const gmvMaxCampaignInfoInputSchema = {
+  ...adsBaseInputSchema,
+  campaignIds: z
+    .array(z.string())
+    .optional()
+    .describe('GMV Max campaign IDs to read. Empty when omitted, which returns nothing.'),
+};
+
+const smartPlusCreateCampaignInputSchema = {
+  ...adsBaseInputSchema,
+  campaignName: z.string().optional().describe('Smart+ campaign name. Required.'),
+  objectiveType: z
+    .string()
+    .optional()
+    .describe('TikTok objective_type for the Smart+ campaign. Required.'),
+  budget: z.number().optional().describe('Campaign budget.'),
+  budgetMode: tiktokBudgetMode(),
+  operationStatus: tiktokOperationStatus('Defaults to ENABLE.'),
+};
+
+const smartPlusCampaignIdInputSchema = {
+  ...adsBaseInputSchema,
+  campaignId: z
+    .string()
+    .optional()
+    .describe('Smart+ campaign to act on. Required — the call fails without it.'),
+};
+
+const smartPlusCreateAdGroupInputSchema = {
+  ...adsBaseInputSchema,
+  campaignId: z
+    .string()
+    .optional()
+    .describe('Smart+ campaign the ad group belongs to. Required.'),
+  name: z.string().optional().describe('Ad group name. Required. Also accepted as adgroupName.'),
+  budget: z.number().optional().describe('Ad group budget.'),
+  budgetMode: tiktokBudgetMode(),
+  operationStatus: tiktokOperationStatus('Defaults to ENABLE.'),
+  landingPageUrl: z.string().optional().describe('Landing page URL for the ad group.'),
+  identityId: z.string().optional().describe('TikTok identity that owns the ads.'),
+  identityType: z.string().optional().describe('TikTok identity type, e.g. CUSTOMIZED_USER.'),
+};
+
+const smartPlusAdGroupIdInputSchema = {
+  ...adsBaseInputSchema,
+  adgroupId: z
+    .string()
+    .optional()
+    .describe('Smart+ ad group to act on. Required — the call fails without it.'),
+};
+
+const limitOnlyInputSchema = (description: string) => ({
+  ...adsBaseInputSchema,
+  limit: z.number().optional().describe(description),
+});
+
+const listCampaignsInputSchema = {
+  ...adsBaseInputSchema,
+  limit: z.number().optional().describe('Maximum campaigns to return. Meta only.'),
+  page: z.number().optional().describe('Campaign list page number. TikTok only.'),
+  pageSize: z.number().optional().describe('Campaigns per page. TikTok only.'),
+};
+
+const videoSourceInputSchema = {
+  ...adsBaseInputSchema,
+  videoId: z
+    .string()
+    .optional()
+    .describe('Meta video ID to read. Required — the call fails without it.'),
+};
+
+const listWhatsAppAccountsInputSchema = {
+  ...adsBaseInputSchema,
+  businessId: z
+    .string()
+    .optional()
+    .describe('Business Manager ID that owns the WhatsApp Business Accounts.'),
+  limit: z.number().optional().describe('Maximum WhatsApp Business Accounts to return.'),
+};
+
+const listWhatsAppPhoneNumbersInputSchema = {
+  ...adsBaseInputSchema,
+  wabaId: z
+    .string()
+    .optional()
+    .describe(
+      'WhatsApp Business Account ID whose phone numbers to list. Required — the call fails without it.'
+    ),
+  limit: z.number().optional().describe('Maximum phone numbers to return.'),
+};
+
+const listWhatsAppMessageTemplatesInputSchema = {
+  ...adsBaseInputSchema,
+  wabaId: z
+    .string()
+    .optional()
+    .describe(
+      'WhatsApp Business Account ID whose message templates to list. Required — the call fails without it.'
+    ),
+  name: z.string().optional().describe('Filter templates by exact name.'),
+  status: z
+    .string()
+    .optional()
+    .describe('Filter templates by review status, such as APPROVED or PENDING.'),
+  limit: z.number().optional().describe('Maximum templates to return.'),
 };
 
 const changeHistoryInputSchema = {
@@ -1424,6 +1854,50 @@ export function createMetaAdsMcpServer(options: CreateMetaAdsMcpServerOptions = 
       inputSchema = adsCreativeInputSchema;
     } else if (toolDefinition.name === 'ads_resolve_creative_assets') {
       inputSchema = creativeAssetsInputSchema;
+    } else if (toolDefinition.name === 'ads_list_accounts') {
+      inputSchema = limitOnlyInputSchema('Maximum accounts to return. Meta only.');
+    } else if (toolDefinition.name === 'ads_list_campaigns') {
+      inputSchema = listCampaignsInputSchema;
+    } else if (toolDefinition.name === 'ads_get_video_source') {
+      inputSchema = videoSourceInputSchema;
+    } else if (toolDefinition.name === 'ads_list_pages') {
+      inputSchema = limitOnlyInputSchema('Maximum Pages to return.');
+    } else if (toolDefinition.name === 'ads_list_instagram_accounts') {
+      inputSchema = limitOnlyInputSchema('Maximum Instagram Business Accounts to return.');
+    } else if (toolDefinition.name === 'ads_list_threads_profiles') {
+      inputSchema = limitOnlyInputSchema('Maximum Threads profiles to return.');
+    } else if (toolDefinition.name === 'ads_list_pixels') {
+      inputSchema = limitOnlyInputSchema('Maximum pixels to return.');
+    } else if (toolDefinition.name === 'ads_list_audiences') {
+      inputSchema = limitOnlyInputSchema('Maximum audiences to return.');
+    } else if (toolDefinition.name === 'ads_list_whatsapp_accounts') {
+      inputSchema = listWhatsAppAccountsInputSchema;
+    } else if (toolDefinition.name === 'ads_list_whatsapp_phone_numbers') {
+      inputSchema = listWhatsAppPhoneNumbersInputSchema;
+    } else if (toolDefinition.name === 'ads_list_whatsapp_message_templates') {
+      inputSchema = listWhatsAppMessageTemplatesInputSchema;
+    } else if (toolDefinition.name === 'ads_get_account_performance') {
+      inputSchema = legacyAccountPerformanceInputSchema;
+    } else if (toolDefinition.name === 'ads_get_creative_performance') {
+      inputSchema = legacyCreativePerformanceInputSchema;
+    } else if (toolDefinition.name === 'ads_get_placement_performance') {
+      inputSchema = legacyPlacementPerformanceInputSchema;
+    } else if (toolDefinition.name === 'ads_content_matrix') {
+      inputSchema = contentMatrixInputSchema;
+    } else if (toolDefinition.name === 'ads_generate_report') {
+      inputSchema = generateReportInputSchema;
+    } else if (toolDefinition.name === 'ads_get_campaign_performance') {
+      inputSchema = legacyCampaignPerformanceInputSchema;
+    } else if (toolDefinition.name === 'ads_get_adset_or_adgroup_performance') {
+      inputSchema = legacyAdSetPerformanceInputSchema;
+    } else if (toolDefinition.name === 'ads_get_ad_performance') {
+      inputSchema = legacyAdPerformanceInputSchema;
+    } else if (toolDefinition.name === 'ads_get_ad_creative_mapping') {
+      inputSchema = adCreativeMappingInputSchema;
+    } else if (toolDefinition.name === 'ads_get_ad_destinations') {
+      inputSchema = adDestinationsInputSchema;
+    } else if (toolDefinition.name === 'ads_list_advideos') {
+      inputSchema = listAdVideosInputSchema;
     } else if (toolDefinition.name === 'ads_get_change_history') {
       inputSchema = changeHistoryInputSchema;
     } else if (toolDefinition.name === 'ads_create_welcome_message_template') {
@@ -1473,6 +1947,30 @@ export function createMetaAdsMcpServer(options: CreateMetaAdsMcpServerOptions = 
       inputSchema = getTargetingOptionsInputSchema;
     } else if (toolDefinition.name === 'tiktok_gmv_max_create_campaign') {
       inputSchema = gmvMaxCampaignInputSchema;
+    } else if (toolDefinition.name === 'tiktok_gmv_max_update_campaign') {
+      inputSchema = gmvMaxUpdateCampaignInputSchema;
+    } else if (toolDefinition.name === 'tiktok_gmv_max_create_session') {
+      inputSchema = gmvMaxCreateSessionInputSchema;
+    } else if (toolDefinition.name === 'tiktok_gmv_max_update_session') {
+      inputSchema = gmvMaxUpdateSessionInputSchema;
+    } else if (toolDefinition.name === 'tiktok_gmv_max_delete_session') {
+      inputSchema = gmvMaxSessionIdInputSchema;
+    } else if (toolDefinition.name === 'tiktok_gmv_max_get_campaign_info') {
+      inputSchema = gmvMaxCampaignInfoInputSchema;
+    } else if (toolDefinition.name === 'tiktok_smart_plus_create_campaign') {
+      inputSchema = smartPlusCreateCampaignInputSchema;
+    } else if (
+      toolDefinition.name === 'tiktok_smart_plus_pause_campaign' ||
+      toolDefinition.name === 'tiktok_smart_plus_resume_campaign'
+    ) {
+      inputSchema = smartPlusCampaignIdInputSchema;
+    } else if (toolDefinition.name === 'tiktok_smart_plus_create_adgroup') {
+      inputSchema = smartPlusCreateAdGroupInputSchema;
+    } else if (
+      toolDefinition.name === 'tiktok_smart_plus_pause_adgroup' ||
+      toolDefinition.name === 'tiktok_smart_plus_resume_adgroup'
+    ) {
+      inputSchema = smartPlusAdGroupIdInputSchema;
     } else if (hasCampaignName) {
       inputSchema = ecommerceLaunchInputSchema;
     } else if (hasCampaignId) {
