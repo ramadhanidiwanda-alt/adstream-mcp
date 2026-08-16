@@ -860,6 +860,10 @@ const ecommerceLaunchInputSchema = {
 const gmvMaxCampaignInputSchema = {
   ...adsBaseInputSchema,
   accountId: z.string().describe('Provider account id. Required for GMV Max campaign creation.'),
+  advertiserId: z
+    .string()
+    .optional()
+    .describe('TikTok advertiser id. Takes precedence over accountId when both are sent.'),
   campaignName: z.string().describe('GMV Max campaign name.'),
   objectiveType: z
     .string()
@@ -867,6 +871,15 @@ const gmvMaxCampaignInputSchema = {
   storeIds: z.array(z.string()).describe('TikTok Shop store IDs.'),
   budget: z.number().optional().describe('Campaign budget.'),
   budgetMode: z.string().optional().describe('Budget mode, e.g. BUDGET_MODE_DAY.'),
+  scheduleType: z
+    .string()
+    .optional()
+    .describe('TikTok schedule_type, e.g. SCHEDULE_FROM_NOW.'),
+  scheduleStartTime: z.string().optional().describe('Campaign schedule start time.'),
+  operationStatus: z
+    .string()
+    .optional()
+    .describe('TikTok operation_status, ENABLE or DISABLE. Defaults to ENABLE.'),
   shoppingAdsType: z
     .enum(['PRODUCT', 'LIVE'])
     .describe(
