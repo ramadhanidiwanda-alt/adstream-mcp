@@ -31,7 +31,8 @@ export interface UpdateAdOptions {
 export type UpdateAdStatus = 'dry_run' | 'pending_confirmation' | 'executed' | 'failed';
 
 const DRY_RUN_NOTICE =
-  'DRY RUN — no changes were sent to Meta. Review the preview, then call again with dryRun=false and confirmed=true to execute.';
+  'DRY RUN — no changes were sent to Meta. Review the preview, then call again with dryRun=false and confirmed=true to execute. ' +
+  'Dry-run assembles the payload locally and sends nothing to Meta, so it cannot detect invalid IDs, permission problems, or eligibility rules — those surface only on execution.';
 
 const PENDING_CONFIRMATION_NOTICE =
   'NOT EXECUTED — waiting on explicit confirmation. Review the preview, then call again with confirmed=true to execute.';
@@ -175,7 +176,7 @@ async function replaceAdMedia(
     update_ad: { creative: { creative_id: '<created-creative-id>' } },
     preserves: ['ad_id', 'ad_set_id', 'ad_name', 'existing_ad_set_configuration'],
     safety:
-      'If the ad is ACTIVE at execution time, it is paused before the creative swap and is never resumed automatically.',
+      'This multiMedia replacement pauses the ad before swapping if it is ACTIVE at execution time, and never resumes it automatically. A plain creativeId swap does not pause the ad.',
   };
   const baseResult: UpdateAdResult = {
     operation: 'replace_ad_media',

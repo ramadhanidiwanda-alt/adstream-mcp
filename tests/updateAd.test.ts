@@ -499,4 +499,24 @@ describe('updateAd', () => {
     // The dry-run notice must not survive into a real (even failed) execution.
     expect(r.notice).toBeUndefined();
   });
+
+  // The pause-before-swap behaviour exists only on the multiMedia path. Stating
+  // it unconditionally made callers believe a plain creativeId swap pauses the
+  // ad; verified live 2026-08-17 that it does not.
+  it('scopes the pause warning to the multiMedia path in the dry-run preview', async () => {
+    const r = await updateAd(mockClient, {
+      ...baseOpts,
+      adAccountId: 'act_1',
+      multiMedia: {
+        pageId: 'page-1',
+        destinationUrl: 'https://api.whatsapp.com/send',
+        primaryImageHash: 'square-hash',
+        callToAction: 'WHATSAPP_MESSAGE',
+        images: [{ imageHash: 'square-hash' }, { imageHash: 'vertical-hash' }],
+      },
+    });
+    expect((r.preview as { safety: string }).safety).toContain('multiMedia');
+    expect(r.notice).toContain('cannot detect invalid IDs');
+  });
+
 });

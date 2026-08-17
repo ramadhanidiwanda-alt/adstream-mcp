@@ -470,7 +470,7 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
   {
     name: 'ads_update_ad',
     description:
-      'Update an existing Meta ad (name, status, or swap its creative). Use creativeId to point the ad at a different, already-created creative. Alternatively, multiMedia creates a documented standalone multi-media creative then swaps this same ad ID to it, preserving the ad name and ad set; it cannot be combined with other updates. If currently ACTIVE, the ad is paused before the swap and never resumed automatically. Read-back verifies the creative ID and every submitted image hash. Dry-run by default. Set dryRun=false and confirmed=true to execute.',
+      'Update an existing Meta ad (name, status, or swap its creative). Use creativeId to point the ad at a different, already-created creative. Alternatively, multiMedia creates a documented standalone multi-media creative then swaps this same ad ID to it, preserving the ad name and ad set; it cannot be combined with other updates. On the multiMedia path only, an ACTIVE ad is paused before the swap and never resumed automatically; a plain creativeId swap leaves the ad status untouched. Read-back verifies the creative ID and every submitted image hash. Dry-run by default. Set dryRun=false and confirmed=true to execute.',
     inputSchema: createUpdateAdInputSchema(),
   },
   {
