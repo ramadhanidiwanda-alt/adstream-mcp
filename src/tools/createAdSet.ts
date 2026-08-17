@@ -264,7 +264,7 @@ export async function createAdSet(
 
   if (options.isDynamicCreative === true) {
     const message =
-      'Dynamic Creative/Flexible asset-feed creation is disabled in this MCP. Untuk variasi headline/caption/copy/image/video, buat beberapa manual creative/ad terpisah, carousel, atau placement customization dengan asset_customization_rules.';
+      'Ad set Dynamic Creative (is_dynamic_creative=true) dinonaktifkan di MCP ini karena mengunci ad set: Meta mensyaratkan ad set kosong dan hanya mengizinkan satu ad di dalamnya. Untuk variasi headline/caption/copy/image/video, buat beberapa manual creative/ad terpisah, carousel, atau asset customization (placement/language/segment) dengan asset_customization_rules — jalur itu justru mensyaratkan is_dynamic_creative=false dan tetap boleh berisi banyak ad.';
     return {
       operation: 'create_adset',
       status: 'failed',

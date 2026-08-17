@@ -138,8 +138,11 @@ interface MetaIdResponse extends Record<string, unknown> {
   id?: string;
 }
 
-const DYNAMIC_CREATIVE_DISABLED_MESSAGE =
-  'Dynamic Creative/Flexible asset-feed creation is disabled in this MCP. Untuk variasi headline/caption/copy/image/video, buat beberapa manual creative/ad terpisah, masing-masing satu media, satu primaryText, dan satu headline; gunakan carousel untuk multi-card media, atau asset_customization_rules untuk placement customization.';
+export const DYNAMIC_CREATIVE_DISABLED_MESSAGE =
+  'asset_feed_spec tanpa asset_customization_rules adalah jalur Dynamic Creative (Meta yang memilih aset) dan dinonaktifkan di MCP ini. Yang menentukan bukan jumlah aset, melainkan ada tidaknya rules: dengan asset_customization_rules kita sendiri yang menentukan aset mana tampil di mana, ad set tetap is_dynamic_creative=false, dan satu ad set boleh berisi banyak ad. Untuk variasi headline/caption/copy/image/video pilih salah satu: beberapa manual creative/ad terpisah (masing-masing satu media, satu primaryText, satu headline), carousel untuk multi-card media, atau asset_customization_rules untuk asset customization per placement/language/segment.';
+
+export const ASSET_CUSTOMIZATION_RULE_COUNT_MESSAGE =
+  'asset_feed_spec dengan asset_customization_rules wajib punya minimal 2 rules. Meta menolak creative yang memakai asset_feed_spec dengan kurang dari dua target customization rules ("All ads using asset_feed_spec must contain at least two target customization rules"), jadi 1 rule akan gagal di Graph API meski lolos validasi lokal. Untuk Multi-Language Ads, sertakan juga tepat satu rule dengan is_default=true sebagai cadangan.';
 
 /**
  * Create a Meta ad creative.
@@ -874,15 +877,14 @@ function assertNoDynamicCreativeCreatePath(options: CreateAdCreativeOptions): vo
   if (options.creative?.creativeFormat === 'flexible') {
     throw new Error(DYNAMIC_CREATIVE_DISABLED_MESSAGE);
   }
-  if (
-    options.assetFeedSpec !== undefined &&
-    !isPlacementCustomizedAssetFeedSpec(options.assetFeedSpec)
-  ) {
-    throw new Error(DYNAMIC_CREATIVE_DISABLED_MESSAGE);
+  if (options.assetFeedSpec !== undefined) {
+    const error = assetFeedSpecCreateError(options.assetFeedSpec);
+    if (error) throw error;
   }
   const nestedAssetFeedSpec = options.objectStorySpec?.asset_feed_spec;
-  if (isRecord(nestedAssetFeedSpec) && !isPlacementCustomizedAssetFeedSpec(nestedAssetFeedSpec)) {
-    throw new Error(DYNAMIC_CREATIVE_DISABLED_MESSAGE);
+  if (isRecord(nestedAssetFeedSpec)) {
+    const error = assetFeedSpecCreateError(nestedAssetFeedSpec);
+    if (error) throw error;
   }
   if (options.whatsappWelcomeMessageSequenceId !== undefined) {
     throw new Error(
@@ -891,10 +893,39 @@ function assertNoDynamicCreativeCreatePath(options: CreateAdCreativeOptions): vo
   }
 }
 
-function isPlacementCustomizedAssetFeedSpec(value: unknown): boolean {
-  if (!isRecord(value)) return false;
-  const rules = value.asset_customization_rules;
-  return Array.isArray(rules) && rules.length > 0;
+/**
+ * Klasifikasi asset_feed_spec untuk jalur CREATE.
+ *
+ * Pembedanya bukan jumlah aset (berapa banyak titles/bodies), melainkan ada
+ * tidaknya asset_customization_rules:
+ * - tanpa rules  -> Meta yang memilih aset = Dynamic Creative, yang menuntut
+ *   ad set is_dynamic_creative=true dan membatasi ad set jadi satu ad. Diblokir.
+ * - dengan rules -> kita yang menentukan aset mana tampil di mana (asset
+ *   customization per placement/language/segment). Ad set tetap non-dynamic dan
+ *   boleh berisi banyak ad. Diizinkan, tapi Meta mensyaratkan minimal 2 rules.
+ *
+ * Catatan: ini hanya untuk input yang kita KIRIM. Untuk creative yang DIBACA
+ * dari Meta, satu rule saja sudah cukup untuk menyimpulkan "ini bukan Dynamic
+ * Creative" — jangan pakai ambang minimal 2 di jalur baca.
+ */
+export type AssetFeedSpecCreateVerdict = 'asset_customized' | 'dynamic_creative' | 'too_few_rules';
+
+export function classifyAssetFeedSpecForCreate(value: unknown): AssetFeedSpecCreateVerdict {
+  const rules = isRecord(value) ? value.asset_customization_rules : undefined;
+  if (!Array.isArray(rules) || rules.length === 0) return 'dynamic_creative';
+  if (rules.length < 2) return 'too_few_rules';
+  return 'asset_customized';
+}
+
+export function assetFeedSpecCreateError(value: unknown): Error | undefined {
+  switch (classifyAssetFeedSpecForCreate(value)) {
+    case 'asset_customized':
+      return undefined;
+    case 'too_few_rules':
+      return new Error(ASSET_CUSTOMIZATION_RULE_COUNT_MESSAGE);
+    case 'dynamic_creative':
+      return new Error(DYNAMIC_CREATIVE_DISABLED_MESSAGE);
+  }
 }
 
 async function withResolvedObjectiveDestinationMode(
@@ -1093,13 +1124,22 @@ function requireLegacyPageId(pageId: string | undefined): string {
 }
 
 function validationError(message: string): StructuredMutationError {
+  if (message.includes(ASSET_CUSTOMIZATION_RULE_COUNT_MESSAGE)) {
+    return {
+      provider: 'meta',
+      code: 'ASSET_CUSTOMIZATION_RULES_TOO_FEW',
+      message,
+      actionableFix:
+        'Tambahkan rule kedua di asset_customization_rules (mis. satu rule Feed dan satu rule Story/Reels), atau hapus asset_feed_spec dan pakai creative statis biasa.',
+    };
+  }
   if (message.includes(DYNAMIC_CREATIVE_DISABLED_MESSAGE)) {
     return {
       provider: 'meta',
       code: 'DYNAMIC_CREATIVE_DISABLED',
       message,
       actionableFix:
-        'Gunakan creativeFormat single_image, video, carousel, existing_post, catalog, atau collection. Untuk variasi headline/caption/copy/image/video, buat beberapa manual creative/ad terpisah, carousel, atau placement customization dengan asset_customization_rules.',
+        'Gunakan creativeFormat single_image, video, carousel, existing_post, catalog, atau collection. Untuk variasi headline/caption/copy/image/video, buat beberapa manual creative/ad terpisah, carousel, atau tambahkan asset_customization_rules (minimal 2) untuk asset customization per placement/language/segment.',
     };
   }
   return {

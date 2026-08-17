@@ -1306,6 +1306,96 @@ describe('createAdCreative', () => {
     });
   });
 
+  it('allows multi-title/multi-body asset feeds when asset_customization_rules are present', async () => {
+    // Regresi doktrin: yang menentukan Dynamic Creative bukan JUMLAH aset,
+    // melainkan ada tidaknya asset_customization_rules. Multi headline/body
+    // dengan rules adalah asset customization dan sah dibuat.
+    const assetFeedSpec = {
+      videos: [
+        { video_id: 'vid_feed', adlabels: [{ name: 'placement_feed_video' }] },
+        { video_id: 'vid_vertical', adlabels: [{ name: 'placement_vertical_video' }] },
+      ],
+      bodies: [
+        { text: 'Primary text feed', adlabels: [{ name: 'placement_feed_video' }] },
+        { text: 'Primary text vertical', adlabels: [{ name: 'placement_vertical_video' }] },
+      ],
+      titles: [
+        { text: 'Headline feed', adlabels: [{ name: 'placement_feed_video' }] },
+        { text: 'Headline vertical', adlabels: [{ name: 'placement_vertical_video' }] },
+      ],
+      link_urls: [{ website_url: 'https://example.com/product' }],
+      call_to_action_types: ['LEARN_MORE'],
+      asset_customization_rules: [
+        {
+          video_label: { name: 'placement_feed_video' },
+          body_label: { name: 'placement_feed_video' },
+          title_label: { name: 'placement_feed_video' },
+          customization_spec: {
+            facebook_positions: ['feed'],
+            instagram_positions: ['stream'],
+          },
+        },
+        {
+          video_label: { name: 'placement_vertical_video' },
+          body_label: { name: 'placement_vertical_video' },
+          title_label: { name: 'placement_vertical_video' },
+          customization_spec: {
+            facebook_positions: ['story', 'facebook_reels'],
+            instagram_positions: ['story', 'reels'],
+          },
+        },
+      ],
+    };
+
+    const result = await createAdCreative(mockClient, {
+      adAccountId: 'act_123',
+      name: 'Per-placement copy creative',
+      pageId: '1001',
+      objectStorySpec: { page_id: '1001' },
+      assetFeedSpec,
+    });
+
+    expect(result).toMatchObject({
+      status: 'dry_run',
+      preview: { asset_feed_spec: assetFeedSpec },
+    });
+  });
+
+  it('rejects asset_customization_rules with fewer than two rules', async () => {
+    // Meta: "All ads using asset_feed_spec must contain at least two target
+    // customization rules." Satu rule lolos validasi lama lalu ditolak Graph API.
+    const assetFeedSpec = {
+      images: [{ hash: 'feed-hash', adlabels: [{ name: 'placement_feed_1_1' }] }],
+      bodies: [{ text: 'Primary text' }],
+      titles: [{ text: 'Headline' }],
+      link_urls: [{ website_url: 'https://example.com/product' }],
+      call_to_action_types: ['LEARN_MORE'],
+      asset_customization_rules: [
+        {
+          image_label: { name: 'placement_feed_1_1' },
+          customization_spec: {
+            facebook_positions: ['feed'],
+            instagram_positions: ['stream'],
+          },
+        },
+      ],
+    };
+
+    const result = await createAdCreative(mockClient, {
+      adAccountId: 'act_123',
+      name: 'Single rule creative',
+      pageId: '1001',
+      objectStorySpec: { page_id: '1001' },
+      assetFeedSpec,
+    });
+
+    expect(result).toMatchObject({
+      status: 'failed',
+      structuredError: { code: 'ASSET_CUSTOMIZATION_RULES_TOO_FEW' },
+    });
+    expect(result.error).toMatch(/minimal 2 rules/i);
+  });
+
   it('rejects creativeFormat flexible Dynamic Creative creation', async () => {
     const result = await createAdCreative(mockClient, {
       adAccountId: 'act_123',

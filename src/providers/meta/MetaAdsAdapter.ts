@@ -73,7 +73,11 @@ import { createEcommerceCampaignBundle as createEcommerceCampaignBundleTool } fr
 import { createCpasCatalogCampaignBundle as createCpasCatalogCampaignBundleTool } from '../../tools/createCpasCatalogCampaignBundle.js';
 import { createCampaign as createCampaignTool } from '../../tools/createCampaign.js';
 import { createAdSet as createAdSetTool } from '../../tools/createAdSet.js';
-import { createAdCreative as createAdCreativeTool } from '../../tools/createAdCreative.js';
+import {
+  createAdCreative as createAdCreativeTool,
+  assetFeedSpecCreateError,
+  DYNAMIC_CREATIVE_DISABLED_MESSAGE,
+} from '../../tools/createAdCreative.js';
 import type { CreativeDestinationType } from '../../tools/createAdCreative.js';
 import { getWelcomeMessageTemplate } from '../../tools/welcomeMessageTemplates.js';
 import { createAd as createAdTool } from '../../tools/createAd.js';
@@ -2077,18 +2081,22 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       return validationResponse(error);
     }
 
-    if (
-      creative?.creativeFormat === 'flexible' ||
-      (request.params.assetFeedSpec !== undefined &&
-        !isPlacementCustomizedAssetFeedSpec(request.params.assetFeedSpec)) ||
-      (isRecord(request.params.objectStorySpec) &&
-        isRecord(request.params.objectStorySpec.asset_feed_spec) &&
-        !isPlacementCustomizedAssetFeedSpec(request.params.objectStorySpec.asset_feed_spec)) ||
-      request.params.whatsappWelcomeMessageSequenceId !== undefined
-    ) {
+    if (creative?.creativeFormat === 'flexible') {
+      return validationResponse(new Error(DYNAMIC_CREATIVE_DISABLED_MESSAGE));
+    }
+
+    const assetFeedBlockError = assetFeedSpecCreateBlockError({
+      assetFeedSpec: request.params.assetFeedSpec,
+      objectStorySpec: request.params.objectStorySpec,
+    });
+    if (assetFeedBlockError) {
+      return validationResponse(assetFeedBlockError);
+    }
+
+    if (request.params.whatsappWelcomeMessageSequenceId !== undefined) {
       return validationResponse(
         new Error(
-          'Dynamic Creative/Flexible asset-feed creation is disabled in this MCP. Untuk variasi headline/caption/copy/image/video, buat beberapa manual creative/ad terpisah, carousel, atau placement customization dengan asset_customization_rules. whatsappWelcomeMessageSequenceId juga disabled karena menulis asset_feed_spec.additional_data; pakai pageWelcomeMessage manual.'
+          `${DYNAMIC_CREATIVE_DISABLED_MESSAGE} whatsappWelcomeMessageSequenceId juga disabled karena menulis asset_feed_spec.additional_data; pakai pageWelcomeMessage manual.`
         )
       );
     }
@@ -4621,10 +4629,22 @@ function safeJsonParse(value: string): unknown {
   }
 }
 
-function isPlacementCustomizedAssetFeedSpec(value: unknown): boolean {
-  if (!isRecord(value)) return false;
-  const rules = value.asset_customization_rules;
-  return Array.isArray(rules) && rules.length > 0;
+function assetFeedSpecCreateBlockError(request: {
+  assetFeedSpec?: unknown;
+  objectStorySpec?: unknown;
+}): Error | undefined {
+  if (request.assetFeedSpec !== undefined) {
+    const error = assetFeedSpecCreateError(request.assetFeedSpec);
+    if (error) return error;
+  }
+  const nested = isRecord(request.objectStorySpec)
+    ? request.objectStorySpec.asset_feed_spec
+    : undefined;
+  if (isRecord(nested)) {
+    const error = assetFeedSpecCreateError(nested);
+    if (error) return error;
+  }
+  return undefined;
 }
 
 const CREATIVE_DESTINATION_TYPES: readonly CreativeDestinationType[] = [

@@ -348,7 +348,7 @@ describe('ads MCP broker tools', () => {
 
     expect(tool?.description).toMatch(/variasi.*headline.*caption.*manual/i);
     expect(tool?.description).toMatch(/image\/video/i);
-    expect(tool?.description).toMatch(/flexible.*disabled/i);
+    expect(tool?.description).toMatch(/dinonaktifkan hanya asset_feed_spec TANPA asset_customization_rules/i);
     expect(creativeSpec.description).toMatch(/opsi.*headline.*caption.*manual/i);
     expect(creativeSpec.description).toMatch(/image\/video/i);
     expect(assetFeedSpec.description).toMatch(/disabled/i);
