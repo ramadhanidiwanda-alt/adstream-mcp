@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { MetaClient } from '../src/metaClient.js';
 import { getAdDestinations, inferCreativeType } from '../src/tools/getAdDestinations.js';
 
@@ -139,5 +139,31 @@ describe('getAdDestinations creative_type', () => {
       ad_id: '120250499546230402',
       creative_type: 'existing_post',
     });
+  });
+});
+
+// A default status filter that is invisible in the response makes "no ads
+// matched" indistinguishable from "these ads exist but none are ACTIVE".
+// Observed live 2026-08-17: three ads in PENDING_REVIEW came back as [].
+describe('getAdDestinations status filter reporting', () => {
+  const mockMetaGet = vi.fn();
+  const client = { metaGet: mockMetaGet } as unknown as MetaClient;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockMetaGet.mockResolvedValue({ data: [] });
+  });
+
+  it('marks the status filter as defaulted when the caller passed none', async () => {
+    const page = await getAdDestinations(client, { adAccountId: 'act_1' });
+    expect(page.statusFilter).toEqual({ applied: ['ACTIVE'], defaulted: true });
+  });
+
+  it('marks the status filter as explicit when the caller passed one', async () => {
+    const page = await getAdDestinations(client, {
+      adAccountId: 'act_1',
+      effectiveStatus: ['ACTIVE', 'PAUSED'],
+    });
+    expect(page.statusFilter).toEqual({ applied: ['ACTIVE', 'PAUSED'], defaulted: false });
   });
 });

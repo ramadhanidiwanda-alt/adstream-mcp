@@ -4330,7 +4330,7 @@ function createAdDestinationsInputSchema() {
         type: 'array',
         items: { type: 'string' },
         description:
-          'Optional Meta effective_status values to keep, such as ACTIVE or PAUSED. All statuses when omitted.',
+          "Meta effective_status values to keep, such as ACTIVE or PAUSED. DEFAULTS TO ['ACTIVE'] when omitted — it does NOT return all statuses. Ads in PENDING_REVIEW, IN_PROCESS, PAUSED or DISAPPROVED are silently excluded, so the result can come back empty even though ads exist. Pass the statuses you want explicitly when auditing; the response reports the filter that was applied under meta.statusFilter.",
       },
       campaignId: idScopeSchema(
         'Optional campaign scope. Uses the nested campaign ads edge when possible.'

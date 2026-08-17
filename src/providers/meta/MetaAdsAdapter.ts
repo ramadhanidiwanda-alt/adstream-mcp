@@ -3203,15 +3203,37 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
         cursor: typeof request.params.cursor === 'string' ? request.params.cursor : undefined,
       });
 
-      const page = result as AdDestinationResult[] & { paging?: { cursors?: { after?: string } } };
+      const page = result as AdDestinationResult[] & {
+        paging?: { cursors?: { after?: string }; next?: string };
+        statusFilter?: { applied: string[]; defaulted: boolean };
+      };
       const nextCursor = page.paging?.cursors?.after ?? null;
+      // An empty page under the silent ACTIVE default reads exactly like "this
+      // campaign has no ads". Say which one it is.
+      const emptyDueToStatusFilter =
+        page.length === 0 && page.statusFilter?.defaulted === true
+          ? {
+              warnings: [
+                {
+                  code: 'EMPTY_DUE_TO_STATUS_FILTER',
+                  message:
+                    `Tidak ada baris yang cocok, tetapi filter effective_status default ['ACTIVE'] sedang aktif. ` +
+                    `Hasil kosong di sini BUKAN berarti tidak ada ad — ad berstatus PENDING_REVIEW, IN_PROCESS, ` +
+                    `PAUSED, atau DISAPPROVED tersaring. Kirim effectiveStatus secara eksplisit untuk melihatnya.`,
+                  severity: 'info' as const,
+                },
+              ],
+            }
+          : {};
       return {
         ok: true,
         provider: 'meta',
         data: page,
         meta: {
           nextCursor,
+          statusFilter: page.statusFilter,
           ...partialPageWarningMeta(page.length, limit, nextCursor),
+          ...emptyDueToStatusFilter,
         },
       };
     } catch (error) {
