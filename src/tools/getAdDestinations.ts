@@ -45,7 +45,15 @@ export interface AdDestinationInfo {
   ad_review_feedback?: Record<string, unknown>;
 }
 
-export type AdDestinationPage = AdDestinationInfo[] & { paging?: { cursors?: { after?: string } } };
+export type AdDestinationPage = AdDestinationInfo[] & {
+  paging?: { cursors?: { after?: string }; next?: string };
+  /**
+   * Which effective_status values were filtered on, and whether that came from
+   * the caller or from this tool's default. An empty result with
+   * `defaulted: true` usually means the ads exist but are not ACTIVE.
+   */
+  statusFilter?: { applied: string[]; defaulted: boolean };
+};
 
 // ── Meta API response types ──
 
@@ -297,6 +305,7 @@ export async function getAdDestinations(
     limit = 100,
     cursor,
   } = options;
+  const statusFilterDefaulted = options.effectiveStatus === undefined;
   const adAccountId = normalizeAccountId(options.adAccountId);
 
   // Build fields — request creative expanded with object_story_spec and asset_feed_spec
@@ -378,5 +387,8 @@ export async function getAdDestinations(
     };
   });
 
-  return Object.assign(result, { paging: response.paging }) as AdDestinationPage;
+  return Object.assign(result, {
+    paging: response.paging,
+    statusFilter: { applied: effectiveStatus, defaulted: statusFilterDefaulted },
+  }) as AdDestinationPage;
 }

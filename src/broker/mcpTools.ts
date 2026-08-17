@@ -470,7 +470,7 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
   {
     name: 'ads_update_ad',
     description:
-      'Update an existing Meta ad (name, status, or swap its creative). Use creativeId to point the ad at a different, already-created creative. Alternatively, multiMedia creates a documented standalone multi-media creative then swaps this same ad ID to it, preserving the ad name and ad set; it cannot be combined with other updates. If currently ACTIVE, the ad is paused before the swap and never resumed automatically. Read-back verifies the creative ID and every submitted image hash. Dry-run by default. Set dryRun=false and confirmed=true to execute.',
+      'Update an existing Meta ad (name, status, or swap its creative). Use creativeId to point the ad at a different, already-created creative. Alternatively, multiMedia creates a documented standalone multi-media creative then swaps this same ad ID to it, preserving the ad name and ad set; it cannot be combined with other updates. On the multiMedia path only, an ACTIVE ad is paused before the swap and never resumed automatically; a plain creativeId swap leaves the ad status untouched. Read-back verifies the creative ID and every submitted image hash. Dry-run by default. Set dryRun=false and confirmed=true to execute.',
     inputSchema: createUpdateAdInputSchema(),
   },
   {
@@ -4330,7 +4330,7 @@ function createAdDestinationsInputSchema() {
         type: 'array',
         items: { type: 'string' },
         description:
-          'Optional Meta effective_status values to keep, such as ACTIVE or PAUSED. All statuses when omitted.',
+          "Meta effective_status values to keep, such as ACTIVE or PAUSED. DEFAULTS TO ['ACTIVE'] when omitted — it does NOT return all statuses. Ads in PENDING_REVIEW, IN_PROCESS, PAUSED or DISAPPROVED are silently excluded, so the result can come back empty even though ads exist. Pass the statuses you want explicitly when auditing; the response reports the filter that was applied under meta.statusFilter.",
       },
       campaignId: idScopeSchema(
         'Optional campaign scope. Uses the nested campaign ads edge when possible.'

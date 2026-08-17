@@ -982,7 +982,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       // The tool augments the array with Meta's paging; surface it as a cursor
       // because JSON serialization drops non-index array properties.
       const page = result as CreativeAssetResolution[] & {
-        paging?: { cursors?: { after?: string } };
+        paging?: { cursors?: { after?: string }; next?: string };
       };
       const nextCursor = page.paging?.cursors?.after ?? null;
       return {
@@ -991,7 +991,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
         data: page,
         meta: {
           nextCursor,
-          ...partialPageWarningMeta(page.length, limit, nextCursor),
+          ...partialPageWarningMeta(page.length, limit, nextCursor, Boolean(page.paging?.next)),
         },
       };
     } catch (error) {
@@ -1156,7 +1156,12 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
         meta: {
           ...(validation.options.mode === 'cpas' ? { mode: 'cpas' } : {}),
           nextCursor,
-          ...partialPageWarningMeta(data.length, validation.options.limit, nextCursor),
+          ...partialPageWarningMeta(
+            data.length,
+            validation.options.limit,
+            nextCursor,
+            Boolean(insights.paging?.next)
+          ),
         },
       };
     } catch (error) {
@@ -1182,7 +1187,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
     }
   ): Promise<
     Array<AccountInsight | CampaignInsight | AdsetInsight | AdInsight> & {
-      paging?: { cursors?: { after?: string } };
+      paging?: { cursors?: { after?: string }; next?: string };
     }
   > {
     if (level === 'account') return this.tools.getAccountInsights(client, options);
@@ -3144,14 +3149,17 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
 
       // Extract paging from the array augmentation
       const page = result as AdCreativeMappingResult[] & {
-        paging?: { cursors?: { after?: string } };
+        paging?: { cursors?: { after?: string }; next?: string };
       };
       const nextCursor = page.paging?.cursors?.after ?? null;
       return {
         ok: true,
         provider: 'meta',
         data: page,
-        meta: { nextCursor, ...partialPageWarningMeta(page.length, limit, nextCursor) },
+        meta: {
+          nextCursor,
+          ...partialPageWarningMeta(page.length, limit, nextCursor, Boolean(page.paging?.next)),
+        },
       };
     } catch (error) {
       return this.errorResponse(error);
@@ -3203,15 +3211,37 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
         cursor: typeof request.params.cursor === 'string' ? request.params.cursor : undefined,
       });
 
-      const page = result as AdDestinationResult[] & { paging?: { cursors?: { after?: string } } };
+      const page = result as AdDestinationResult[] & {
+        paging?: { cursors?: { after?: string }; next?: string };
+        statusFilter?: { applied: string[]; defaulted: boolean };
+      };
       const nextCursor = page.paging?.cursors?.after ?? null;
+      // An empty page under the silent ACTIVE default reads exactly like "this
+      // campaign has no ads". Say which one it is.
+      const emptyDueToStatusFilter =
+        page.length === 0 && page.statusFilter?.defaulted === true
+          ? {
+              warnings: [
+                {
+                  code: 'EMPTY_DUE_TO_STATUS_FILTER',
+                  message:
+                    `Tidak ada baris yang cocok, tetapi filter effective_status default ['ACTIVE'] sedang aktif. ` +
+                    `Hasil kosong di sini BUKAN berarti tidak ada ad — ad berstatus PENDING_REVIEW, IN_PROCESS, ` +
+                    `PAUSED, atau DISAPPROVED tersaring. Kirim effectiveStatus secara eksplisit untuk melihatnya.`,
+                  severity: 'info' as const,
+                },
+              ],
+            }
+          : {};
       return {
         ok: true,
         provider: 'meta',
         data: page,
         meta: {
           nextCursor,
-          ...partialPageWarningMeta(page.length, limit, nextCursor),
+          statusFilter: page.statusFilter,
+          ...partialPageWarningMeta(page.length, limit, nextCursor, Boolean(page.paging?.next)),
+          ...emptyDueToStatusFilter,
         },
       };
     } catch (error) {
@@ -4384,19 +4414,28 @@ function parsePositiveIntegerParam(value: unknown): number | undefined {
  * came back short of the request AND Meta says there's more (a nextCursor),
  * so callers reach for pagination instead of assuming the row count is final.
  */
-function partialPageWarningMeta(
+export function partialPageWarningMeta(
   rowCount: number,
   requestedLimit: number | undefined,
-  nextCursor: string | null
+  nextCursor: string | null,
+  hasNextPage: boolean
 ): { warnings?: Array<{ code: string; message: string; severity: 'info' }> } {
-  if (typeof requestedLimit !== 'number' || rowCount >= requestedLimit || nextCursor === null) {
+  // `cursors.after` is NOT a "more data" signal — Meta populates it on
+  // exhausted edges too, which made this warning fire on nearly every call and
+  // trained callers to ignore it. `paging.next` is the real signal.
+  if (
+    typeof requestedLimit !== 'number' ||
+    rowCount >= requestedLimit ||
+    nextCursor === null ||
+    !hasNextPage
+  ) {
     return {};
   }
   return {
     warnings: [
       {
         code: 'PARTIAL_PAGE',
-        message: `Meta returned ${rowCount} row(s), fewer than the requested limit of ${requestedLimit}, but more data is available (nextCursor is set). This is usually Meta's own query-complexity budget for heavily nested fields, not a client-side cap — pass cursor to fetch the next page instead of assuming this is the full result set.`,
+        message: `Meta returned ${rowCount} row(s), fewer than the requested limit of ${requestedLimit}, but more data is available (paging.next is set). This is usually Meta's own query-complexity budget for heavily nested fields, not a client-side cap — pass cursor to fetch the next page instead of assuming this is the full result set.`,
         severity: 'info',
       },
     ],

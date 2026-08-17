@@ -241,7 +241,7 @@ describe('updateAdSet', () => {
       expect(mockMetaPost).toHaveBeenCalled();
     });
 
-    it('never fetches remote targeting and sends only what is explicitly given', async () => {
+    it('never fetches remote targeting before the write, and sends only what is explicitly given', async () => {
       mockMetaPost.mockResolvedValueOnce({ success: true });
       const r = await updateAdSet(
         mockClient,
@@ -253,7 +253,14 @@ describe('updateAdSet', () => {
         },
         { dryRun: false, confirmed: true }
       );
-      expect(mockMetaGetObject).not.toHaveBeenCalled();
+      // Replace mode must not merge remote targeting, so no read may precede
+      // the write. The post-write verification read-back is a different call
+      // with the same signature, so this asserts on ordering rather than args.
+      const writeOrder = mockMetaPost.mock.invocationCallOrder[0];
+      const readsBeforeWrite = mockMetaGetObject.mock.invocationCallOrder.filter(
+        (order: number) => order < writeOrder
+      );
+      expect(readsBeforeWrite).toEqual([]);
       expect(r.preview.targeting).toEqual({ age_min: 25 });
     });
   });
@@ -315,6 +322,75 @@ describe('updateAdSet', () => {
       { dryRun: false, confirmed: true }
     );
     expect(r.status).toBe('failed');
+  });
+
+  it('reports fields Meta dropped by comparing the read-back against the request', async () => {
+    mockMetaPost.mockResolvedValue({ success: true });
+    mockMetaGetObject.mockReset();
+    mockMetaGetObject
+      .mockResolvedValueOnce({ targeting: {} })
+      .mockResolvedValueOnce({
+        targeting: { publisher_platforms: ['facebook', 'instagram', 'messenger', 'threads'] },
+      });
+
+    const r = await updateAdSet(
+      mockClient,
+      {
+        ...baseOpts,
+        targeting: {
+          publisherPlatforms: ['facebook', 'instagram', 'threads', 'messenger', 'audience_network'],
+        },
+      },
+      { dryRun: false, confirmed: true }
+    );
+
+    expect(r.status).toBe('executed');
+    expect(r.success).toBe(true);
+    expect(r.droppedFields).toEqual([
+      {
+        field: 'targeting.publisher_platforms',
+        requested: ['facebook', 'instagram', 'threads', 'messenger', 'audience_network'],
+        applied: ['facebook', 'instagram', 'messenger', 'threads'],
+      },
+    ]);
+    expect(r.warning).toContain('targeting.publisher_platforms');
+  });
+
+  it('omits droppedFields and warning when Meta stored everything requested', async () => {
+    mockMetaPost.mockResolvedValue({ success: true });
+    mockMetaGetObject.mockReset();
+    mockMetaGetObject
+      .mockResolvedValueOnce({ targeting: {} })
+      .mockResolvedValueOnce({ targeting: { device_platforms: ['mobile'] } });
+
+    const r = await updateAdSet(
+      mockClient,
+      { ...baseOpts, targeting: { devicePlatforms: ['mobile'] } },
+      { dryRun: false, confirmed: true }
+    );
+
+    expect(r.droppedFields).toBeUndefined();
+    expect(r.warning).toBeUndefined();
+    expect(r.applied).toEqual({ targeting: { device_platforms: ['mobile'] } });
+  });
+
+  it('still succeeds but warns when the verification read-back fails', async () => {
+    mockMetaPost.mockResolvedValue({ success: true });
+    mockMetaGetObject.mockReset();
+    mockMetaGetObject
+      .mockResolvedValueOnce({ targeting: {} })
+      .mockRejectedValueOnce(new Error('read timeout'));
+
+    const r = await updateAdSet(
+      mockClient,
+      { ...baseOpts, targeting: { devicePlatforms: ['mobile'] } },
+      { dryRun: false, confirmed: true }
+    );
+
+    expect(r.status).toBe('executed');
+    expect(r.success).toBe(true);
+    expect(r.applied).toBeUndefined();
+    expect(r.warning).toContain('read-back');
   });
 });
 
