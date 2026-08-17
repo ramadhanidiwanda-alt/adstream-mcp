@@ -6,6 +6,7 @@ import {
   CHANGE_HISTORY_DEFAULT_SCAN_PAGES,
   CHANGE_HISTORY_MAX_SCAN_PAGES,
   MetaAdsAdapter,
+  partialPageWarningMeta,
 } from '../src/providers/meta/MetaAdsAdapter.js';
 import { META_LAUNCH_WORKFLOWS } from '../src/tools/checkLaunchReadiness.js';
 import { MetaApiError } from '../src/utils/metaError.js';
@@ -971,7 +972,12 @@ describe('MetaAdsAdapter', () => {
                 clicks: '0',
               }),
             ],
-            { paging: { cursors: { after: 'more_data_cursor' } } }
+            {
+              paging: {
+                cursors: { after: 'more_data_cursor' },
+                next: 'https://graph.facebook.com/v25.0/act_123/insights?after=more_data_cursor',
+              },
+            }
           ),
       },
     });
@@ -1008,7 +1014,12 @@ describe('MetaAdsAdapter', () => {
       clientFactory: (config) => ({ config }) as never,
       tools: {
         getAdsInsights: async () =>
-          Object.assign(rows, { paging: { cursors: { after: 'more_data_cursor' } } }),
+          Object.assign(rows, {
+            paging: {
+              cursors: { after: 'more_data_cursor' },
+              next: 'https://graph.facebook.com/v25.0/act_123/insights?after=more_data_cursor',
+            },
+          }),
       },
     });
 
@@ -1073,7 +1084,10 @@ describe('MetaAdsAdapter', () => {
         ({
           metaGet: async () => ({
             data: [{ id: 'ad_1', name: 'POSTER', status: 'ACTIVE', effective_status: 'ACTIVE' }],
-            paging: { cursors: { after: 'more_ads_cursor' } },
+            paging: {
+              cursors: { after: 'more_ads_cursor' },
+              next: 'https://graph.facebook.com/v25.0/act_123/ads?after=more_ads_cursor',
+            },
           }),
         }) as never,
     });
@@ -5111,5 +5125,23 @@ describe('MetaAdsAdapter — ad set spend controls', () => {
     expect(receivedOptions?.dailyMinSpendTarget).toBeUndefined();
     expect(receivedOptions?.lifetimeSpendCap).toBeUndefined();
     expect(receivedOptions?.lifetimeMinSpendTarget).toBeUndefined();
+  });
+});
+
+// Meta populates paging.cursors.after on exhausted edges too, so keying the
+// warning off a non-null cursor made it fire on nearly every list call and
+// trained callers to ignore it. paging.next is the real "more data" signal.
+describe('partialPageWarningMeta', () => {
+  it('stays silent on a terminal page even though Meta set cursors.after', () => {
+    expect(partialPageWarningMeta(3, 50, 'cursor-abc', false)).toEqual({});
+  });
+
+  it('warns when Meta reports a genuine next page', () => {
+    const result = partialPageWarningMeta(3, 50, 'cursor-abc', true);
+    expect(result.warnings?.[0]?.code).toBe('PARTIAL_PAGE');
+  });
+
+  it('stays silent when the page filled the requested limit', () => {
+    expect(partialPageWarningMeta(50, 50, 'cursor-abc', true)).toEqual({});
   });
 });
