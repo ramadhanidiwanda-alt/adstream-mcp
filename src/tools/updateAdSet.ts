@@ -10,6 +10,7 @@ import {
   isPlainObject,
   stripReadonlyTargetingKeys,
 } from '../utils/targetingMerge.js';
+import { computeAppliedDrops, type AppliedFieldDrop } from '../providers/meta/appliedDiff.js';
 import { checkCampaignOptimizationGoalConsistency } from './metaOptimizationGoalConsistency.js';
 
 export interface UpdateAdSetOptions {
@@ -39,7 +40,17 @@ export interface UpdateAdSetResult {
   operation: 'update_adset';
   status: UpdateAdSetStatus;
   executed: boolean;
+  /**
+   * The payload sent to Meta — what was REQUESTED, not what was stored.
+   * On an executed update, compare against `applied`. Meta accepts writes it
+   * does not honour, so this field alone is not evidence of stored state.
+   */
   preview: Record<string, unknown>;
+  /** Read-back of the ad set after the write: what Meta actually stored. */
+  applied?: Record<string, unknown>;
+  /** Requested values that did not survive the write. Absent means clean. */
+  droppedFields?: AppliedFieldDrop[];
+  warning?: string;
   mode: 'patch' | 'replace';
   success: boolean;
   id?: string;
@@ -174,6 +185,36 @@ export async function updateAdSet(
       maxRetries
     );
 
+    // Meta reports success for writes it only partially honours, so the
+    // request payload above is not evidence of stored state. Read the ad set
+    // back and report the difference rather than echoing what was asked for.
+    let applied: Record<string, unknown> | undefined;
+    let droppedFields: AppliedFieldDrop[] | undefined;
+    let warning: string | undefined;
+
+    const requestedFields = Object.keys(preview);
+    if (requestedFields.length > 0) {
+      try {
+        applied = await client.metaGetObject<Record<string, unknown>>(
+          `/${options.adSetId}`,
+          { fields: requestedFields.join(',') },
+          maxRetries
+        );
+        const drops = computeAppliedDrops(preview, applied);
+        if (drops.length > 0) {
+          droppedFields = drops;
+          warning =
+            `Meta menerima update ini, tetapi ${drops.length} field tidak tersimpan persis seperti yang diminta: ` +
+            `${drops.map((d) => d.field).join(', ')}. Bandingkan 'preview' (yang diminta) dengan 'applied' (yang tersimpan). ` +
+            `Ini normal untuk nilai yang memang tidak eligible — bukan selalu error input.`;
+        }
+      } catch {
+        warning =
+          'Update terkirim ke Meta, tetapi read-back untuk memverifikasi hasilnya gagal. ' +
+          "Nilai di 'preview' adalah yang diminta, bukan yang dikonfirmasi tersimpan.";
+      }
+    }
+
     return {
       ...baseResult,
       status: 'executed',
@@ -181,6 +222,9 @@ export async function updateAdSet(
       success: true,
       id: options.adSetId,
       response,
+      ...(applied ? { applied } : {}),
+      ...(droppedFields ? { droppedFields } : {}),
+      ...(warning ? { warning } : {}),
     };
   } catch (error) {
     return {
