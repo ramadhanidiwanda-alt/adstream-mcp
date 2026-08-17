@@ -364,9 +364,9 @@ describe('MCP server builder', () => {
     expect(creativeTool?.inputSchema.properties).toHaveProperty('assetFeedSpec');
     expect(creativeTool?.inputSchema.properties).toHaveProperty('urlTags');
     expect(creativeTool?.inputSchema.required).not.toContain('message');
-    expect(creativeTool?.description).toContain('Flexible');
+    expect(creativeTool?.description).toContain('asset_customization_rules');
     expect(creativeTool?.description).toMatch(/variasi.*headline.*caption.*manual/i);
-    expect(creativeTool?.description).toMatch(/flexible.*disabled/i);
+    expect(creativeTool?.description).toMatch(/dinonaktifkan hanya asset_feed_spec TANPA asset_customization_rules/i);
     expect(toolSchemaProperty(creativeTool, 'assetFeedSpec').description).toMatch(/disabled/i);
     expect(toolSchemaProperty(creativeTool, 'assetFeedSpec').description).toMatch(
       /manual creative\/ad/i

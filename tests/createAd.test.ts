@@ -312,7 +312,7 @@ describe('createAd', () => {
     expect(r).toMatchObject({
       status: 'failed',
       executed: false,
-      error: expect.stringMatching(/flexible.*multi-varian|multi-varian.*flexible/i),
+      error: expect.stringMatching(/TANPA asset_customization_rules/i),
     });
     expect(mockMetaPost).not.toHaveBeenCalled();
   });
@@ -335,7 +335,7 @@ describe('createAd', () => {
     const r = await createAd(mockClient, baseOpts);
 
     expect(r.status).toBe('failed');
-    expect(r.error).toMatch(/flexible.*multi-varian|multi-varian.*flexible/i);
+    expect(r.error).toMatch(/TANPA asset_customization_rules/i);
     expect(mockMetaPost).not.toHaveBeenCalled();
   });
 
@@ -499,7 +499,7 @@ describe('createAd', () => {
     expect(r).toMatchObject({
       status: 'failed',
       executed: false,
-      error: expect.stringMatching(/flexible.*multi-varian|multi-varian.*flexible/i),
+      error: expect.stringMatching(/TANPA asset_customization_rules/i),
     });
     expect(mockMetaPost).not.toHaveBeenCalled();
   });
@@ -527,7 +527,7 @@ describe('createAd', () => {
     expect(r).toMatchObject({
       status: 'failed',
       executed: false,
-      error: expect.stringMatching(/Dynamic Creative\/Flexible.*disabled/i),
+      error: expect.stringMatching(/asset_feed_spec tanpa asset_customization_rules/i),
     });
     expect(mockMetaPost).not.toHaveBeenCalled();
   });

@@ -184,7 +184,7 @@ export function checkLaunchReadiness(options: LaunchReadinessOptions): LaunchRea
     );
   }
   warnings.push(
-    'Jika marketer memberi opsi headline/caption/copy/image/video, default-nya testing manual: buat beberapa creative/ad manual terpisah atau carousel jika memang formatnya carousel. Dynamic Creative/Flexible asset-feed creation disabled di MCP ini; assetFeedSpec hanya untuk placement customization dengan asset_customization_rules.'
+    'Jika marketer memberi opsi headline/caption/copy/image/video, default-nya testing manual: buat beberapa creative/ad manual terpisah atau carousel jika memang formatnya carousel. Yang dinonaktifkan di MCP ini adalah asset_feed_spec TANPA asset_customization_rules (jalur Dynamic Creative, Meta yang memilih aset); assetFeedSpec dengan asset_customization_rules tetap boleh untuk asset customization per placement/language/segment.'
   );
   for (const requiredInput of resolvedSpec.requiredInputs) {
     requireInput(checks, missing, requiredInput, options);

@@ -279,10 +279,13 @@ async function getPlacementCompatibilityError(
   ]);
 
   const assetFeedSpec = isRecord(creative.asset_feed_spec) ? creative.asset_feed_spec : undefined;
+  // Creative ini DIBACA dari Meta, bukan input yang kita kirim: satu rule saja
+  // sudah membuktikan ini asset customization, bukan Dynamic Creative. Ambang
+  // minimal 2 rules milik Meta hanya berlaku di jalur create.
   const hasPlacementRules = Array.isArray(assetFeedSpec?.asset_customization_rules)
     ? assetFeedSpec.asset_customization_rules.length > 0
     : false;
-  const hasFlexibleMultiVariants = hasMultiVariantTextAssets(assetFeedSpec) && !hasPlacementRules;
+  const hasMultiVariants = hasMultiVariantTextAssets(assetFeedSpec) && !hasPlacementRules;
   const hasDynamicAssetFeed =
     assetFeedSpec !== undefined &&
     Object.keys(assetFeedSpec).length > 0 &&
@@ -299,9 +302,9 @@ async function getPlacementCompatibilityError(
 
   if (hasDynamicAssetFeed) {
     return {
-      message: hasFlexibleMultiVariants
-        ? 'Creative flexible multi-varian dengan beberapa primary text/headline tidak didukung untuk create baru di MCP ini. Jangan set Dynamic Creative untuk iklan normal; gunakan single_image/video/carousel biasa, buat beberapa manual creative/ad terpisah untuk variasi headline/caption/copy/image/video, atau gunakan placement customization dengan asset_customization_rules untuk media per placement.'
-        : 'Dynamic Creative/Flexible asset-feed ads are disabled in this MCP. Use separate manual ads, catalog or collection ads, or placement customization with asset_customization_rules instead.',
+      message: hasMultiVariants
+        ? 'Creative ini punya beberapa primary text/headline di asset_feed_spec TANPA asset_customization_rules — itu jalur Dynamic Creative (Meta yang memilih aset) dan tidak didukung untuk create baru di MCP ini. Yang menentukan bukan jumlah aset melainkan ada tidaknya rules: dengan asset_customization_rules, variasi aset justru sah dan ad set tetap non-dynamic. Gunakan single_image/video/carousel biasa, beberapa manual creative/ad terpisah untuk variasi headline/caption/copy/image/video, atau asset_customization_rules untuk asset customization per placement/language/segment.'
+        : 'asset_feed_spec tanpa asset_customization_rules (jalur Dynamic Creative) tidak didukung di MCP ini. Use separate manual ads, catalog or collection ads, or asset customization (placement/language/segment) with asset_customization_rules instead.',
       policyBlocked: true,
     };
   }

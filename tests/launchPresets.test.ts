@@ -155,7 +155,7 @@ describe('launch presets', () => {
       expect.arrayContaining([
         expect.stringMatching(/opsi.*headline.*caption.*manual/i),
         expect.stringMatching(/image\/video/i),
-        expect.stringMatching(/Dynamic Creative.*disabled/i),
+        expect.stringMatching(/TANPA asset_customization_rules/i),
       ])
     );
   });
