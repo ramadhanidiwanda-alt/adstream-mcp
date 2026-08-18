@@ -2698,7 +2698,7 @@ function createCreateAdInputSchema() {
       skipAdSetCreativeFamilyCheck: {
         type: 'boolean',
         description:
-          'Skip the Ad Set creative-family pre-flight check. Only set after Ads Manager review; one Ad Set normally should not mix manual/static ads with dynamic/flexible/catalog/placement-customized asset-feed ads.',
+          'Skip the Ad Set creative-family advisory. The advisory only warns when the Ad Set already holds a different creative family (manual/static vs dynamic/flexible/catalog/placement-customized asset-feed) — it never blocks the create, so set this only to skip the extra Graph reads.',
       },
       externalReference: {
         type: 'string',

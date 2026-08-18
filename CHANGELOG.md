@@ -41,6 +41,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `meta.nextCursor`. The tool resolves URLs only — it does not download files or
   build a report. Google and TikTok return structured `NOT_IMPLEMENTED`.
 
+### Fixed — Ad Set creative-family mismatch is a warning, not a rejection
+
+`ads_create_ad` refused valid creates before ever calling Meta. The pre-check
+read every non-archived ad in the target Ad Set, classified each one by creative
+family, and hard-failed on any difference — so an Ad Set holding one old
+asset-feed ad could no longer accept a plain manual/static ad. It never consulted
+the one signal Meta actually enforces, the Ad Set's own `is_dynamic_creative`
+flag, and error `#1885274` does not appear anywhere in Meta's published error
+reference as a creative-mixing error.
+
+- **`ads_create_ad`** — a creative-family mismatch now surfaces in `warnings`
+  and the create proceeds to Meta instead of failing locally. A rejected POST
+  creates nothing, so letting Meta decide costs nothing.
+- The real constraint is unchanged and still a hard block: an Ad Set with
+  `is_dynamic_creative=true` is rejected outright (Meta requires that Ad Set to
+  be empty and allows a single ad in it), as is a creative carrying
+  `asset_feed_spec` without `asset_customization_rules`.
+- The warning text now names `skipAdSetCreativeFamilyCheck` and no longer
+  presents cloning the Ad Set as the only way forward.
+- `skipAdSetCreativeFamilyCheck: true` now only suppresses the advisory and its
+  two Graph reads; it no longer gates whether the create is allowed.
+
+Verified against Meta on 2026-08-18: an Ad Set with `is_dynamic_creative=false`
+containing a dynamic asset-feed ad accepted two manual/static video ads without
+error, matching an earlier manual ad created in that same Ad Set on 2026-08-04.
+
 ### Fixed — Unknown `params` keys are rejected, not dropped
 
 `params` was never a raw Graph API passthrough, but unknown keys were silently
