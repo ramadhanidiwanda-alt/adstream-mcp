@@ -137,6 +137,9 @@ describe('readAdCreativeFull', () => {
           if (fields.includes('media_sourcing_spec')) {
             throw new Error('(#100) Field media_sourcing_spec is not available for this app');
           }
+          if (fields.includes('creative_sourcing_spec')) {
+            return { creative_sourcing_spec: { destination_screenshot_spec: { hash: 'abc' } } };
+          }
           return { id: 'cr_ctwa', name: 'CTWA Creative', status: 'ACTIVE', object_type: 'SHARE' };
         }),
       metaGet: vi.fn(),
@@ -154,7 +157,7 @@ describe('readAdCreativeFull', () => {
     expect(result.portrait_customizations).toEqual({ image_hash: 'vertical-hash' });
     expect(result.unreadable_fields).toEqual([
       {
-        fields: ['media_sourcing_spec', 'creative_sourcing_spec'],
+        fields: ['media_sourcing_spec'],
         reason: '(#100) Field media_sourcing_spec is not available for this app',
       },
     ]);
@@ -231,7 +234,7 @@ describe('readAdCreativeFull', () => {
       creativeId: 'cr_fail',
     });
 
-    expect(result.unreadable_fields).toHaveLength(18);
+    expect(result.unreadable_fields).toHaveLength(19);
     expect(result.id).toBeUndefined();
   });
 

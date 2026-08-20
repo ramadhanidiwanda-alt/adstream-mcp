@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import type { MetaClient } from '../metaClient.js';
+import { MetaApiError } from '../utils/metaError.js';
 import { normalizeAccountId } from '../utils/normalizeAccountId.js';
 
 const MAX_VIDEO_SIZE_BYTES = 1 * 1024 * 1024 * 1024; // 1 GB
@@ -11,6 +12,10 @@ export interface UploadVideoOptions {
   filePath: string;
   title?: string;
   description?: string;
+  /**
+   * Retries for the upload POST. Defaults to 0 — see uploadVideo. Raise it only when a
+   * duplicate video in the library is acceptable.
+   */
   maxRetries?: number;
 }
 
@@ -35,12 +40,19 @@ export interface UploadVideoResult {
  * Meta processes videos asynchronously; status 'uploading' means
  * upload succeeded but video may still be processing.
  * Throws on file validation errors or Meta API errors.
+ *
+ * Retries default to 0 because POST /advideos is not idempotent: Meta mints a new video ID per
+ * upload, so a retry after a transport failure leaves two copies in the library. That failure
+ * mode is real, not theoretical — a 101 MB upload reported "Request timed out" to the caller
+ * twice while the video had in fact landed. Image uploads are safe to retry because Meta keys
+ * them by content hash; videos are not, so this route opts out and reports the ambiguity
+ * instead of silently duplicating.
  */
 export async function uploadVideo(
   client: MetaClient,
   options: UploadVideoOptions
 ): Promise<UploadVideoResult> {
-  const { adAccountId, filePath, title, description, maxRetries = 3 } = options;
+  const { adAccountId, filePath, title, description, maxRetries = 0 } = options;
 
   // Basic file validation
   const validation = validateVideoFile(filePath);
@@ -87,10 +99,19 @@ export async function uploadVideo(
 
     return result;
   } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+
+    // A rejection from Meta means nothing was stored. Anything else — a timeout, an aborted
+    // socket — leaves the outcome unknown: the upload may already have completed server-side.
+    // Say so, so the caller checks ads_list_advideos instead of uploading the file again.
+    if (error instanceof MetaApiError) {
+      return { operation: 'upload_video', status: 'failed', error: message };
+    }
+
     return {
       operation: 'upload_video',
       status: 'failed',
-      error: error instanceof Error ? error.message : String(error),
+      error: `${message}. Upload mungkin sudah sampai di Meta — cek ads_list_advideos dulu sebelum mengunggah ulang, kalau tidak videonya bisa dobel.`,
     };
   }
 }

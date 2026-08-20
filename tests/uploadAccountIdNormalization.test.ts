@@ -72,7 +72,7 @@ describe('upload account id normalization', () => {
       videoPath,
       'source',
       undefined,
-      3
+      0
     );
   });
 });
