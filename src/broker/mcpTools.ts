@@ -1718,7 +1718,8 @@ function createUploadInputSchema(required: string[]) {
       },
       maxRetries: {
         type: 'number',
-        description: 'How many times to retry a transient Meta upload failure. Defaults to 3.',
+        description:
+          'How many times to retry a transient Meta upload failure. Image uploads default to 3; video uploads default to 0 and should stay there, because POST /advideos mints a new video ID per call and a retry leaves a duplicate in the library instead of recovering.',
       },
     },
     required,

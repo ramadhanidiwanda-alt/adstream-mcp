@@ -2992,7 +2992,11 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
         title: typeof request.params.title === 'string' ? request.params.title : undefined,
         description:
           typeof request.params.description === 'string' ? request.params.description : undefined,
-        maxRetries: typeof request.params.maxRetries === 'number' ? request.params.maxRetries : 3,
+        // No fallback: uploadVideo defaults to 0 retries because POST /advideos is not
+        // idempotent. Hardcoding 3 here would have overridden that on every MCP call, which is
+        // the only path callers actually use — the tool-level default would never be read.
+        maxRetries:
+          typeof request.params.maxRetries === 'number' ? request.params.maxRetries : undefined,
       });
       return { ok: result.status !== 'failed', provider: 'meta', data: result };
     } catch (error) {
