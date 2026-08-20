@@ -75,8 +75,16 @@ export const FIELD_BATCHES: string[][] = [
   // Batch 16: Placement customization fields used by Ads Manager for mixed placements
   ['platform_customizations', 'portrait_customizations'],
 
-  // Batch 17: Capability-gated creative/media sourcing fields
-  ['media_sourcing_spec', 'creative_sourcing_spec'],
+  // Batch 17-18: Creative/media sourcing. media_sourcing_spec is capability-gated, but only
+  // for creatives whose spec carries placement_customizations: Meta answers the whole request
+  // with (#3) "Application does not have the capability", even though the field is documented
+  // as readable with no permission note. creative_sourcing_spec is NOT gated — verified live on
+  // v25.0 against creative 28068496396104344, which returned its destination_screenshot_spec
+  // when asked for on its own. Grouped together, the gated field took the ungated one down with
+  // it and a multi-media read-back reported both as unreadable, so placement exclusions could
+  // not be verified at all. One field per batch, same reasoning as the identity fields above.
+  ['media_sourcing_spec'],
+  ['creative_sourcing_spec'],
 ];
 
 /**

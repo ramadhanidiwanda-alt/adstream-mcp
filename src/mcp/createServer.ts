@@ -1590,6 +1590,11 @@ const multiMediaInputSchema = z.object({
   headline: z.string().optional(),
   description: z.string().optional(),
   callToAction: z.string(),
+  pageWelcomeMessage: pageWelcomeMessageTemplateSchema
+    .optional()
+    .describe(
+      'Welcome message untuk multi-media Click-to-WhatsApp/Messenger. Dikirim sebagai page_welcome_message di dalam link_data. Menerima string biasa atau objek VISUAL_EDITOR penuh, sama seperti creativeSpec.pageWelcomeMessage.'
+    ),
   images: z
     .array(
       z.object({

@@ -2572,7 +2572,7 @@ function createCreateAdInputSchema() {
       multiMedia: {
         type: 'object',
         description:
-          'Meta only: create a normal (non-Dynamic) inline multi-media image creative. Mutually exclusive with creativeId. The primaryImageHash must also appear in images. Each image is sent through media_sourcing_spec with source multi_media and may exclude placements.',
+          'Meta only: create a normal (non-Dynamic) inline multi-media image creative. Mutually exclusive with creativeId. The primaryImageHash must also appear in images. Each image is sent through media_sourcing_spec with source multi_media and may exclude placements. Use pageWelcomeMessage to preserve the full CTWA VISUAL_EDITOR object verbatim.',
         properties: {
           pageId: { type: 'string' },
           instagramUserId: { type: 'string' },
@@ -2582,6 +2582,11 @@ function createCreateAdInputSchema() {
           headline: { type: 'string' },
           description: { type: 'string' },
           callToAction: { type: 'string' },
+          pageWelcomeMessage: {
+            type: ['string', 'object'],
+            description:
+              'Full page_welcome_message, including VISUAL_EDITOR JSON, preserved verbatim. Sent inside link_data, the same shape ads_update_ad already accepted.',
+          },
           images: {
             type: 'array',
             minItems: 2,
