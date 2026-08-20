@@ -1593,7 +1593,7 @@ const multiMediaInputSchema = z.object({
   pageWelcomeMessage: pageWelcomeMessageTemplateSchema
     .optional()
     .describe(
-      'Welcome message untuk multi-media Click-to-WhatsApp/Messenger. Dikirim sebagai page_welcome_message di dalam link_data. Menerima string biasa atau objek VISUAL_EDITOR penuh, sama seperti creativeSpec.pageWelcomeMessage.'
+      'Welcome message untuk multi-media Click-to-WhatsApp/Messenger. Dikirim sebagai page_welcome_message di dalam link_data. WAJIB berupa objek VISUAL_EDITOR yang ditulis Ads Manager atau JSON string-nya — kalimat sapaan biasa DITOLAK di jalur ini, karena Meta menolak page_welcome_message string ketika creative juga mengirim media_sourcing_spec dan hanya membalas code 2 "An unexpected error has occurred". Kalimat biasa tetap sah untuk creativeSpec.pageWelcomeMessage pada creative single_image/video.'
     ),
   images: z
     .array(

@@ -106,6 +106,104 @@ describe('createAd', () => {
     });
   });
 
+  it('rejects a plain-string pageWelcomeMessage on the multi-media path before calling Meta', async () => {
+    // Meta accepts a plain greeting string for page_welcome_message on a plain
+    // link_data creative, but rejects the same string once media_sourcing_spec is
+    // present — and it does so with a bare code 2 "An unexpected error has
+    // occurred" that names neither the field nor the reason. Verified live on
+    // 2026-08-20 against act_2086409658377471: three plain-string attempts failed
+    // (traceIds AOLYhF9u0kugQhRG41_wTcQ, AdsLZvB8yj1OLU2A5w_yPg_,
+    // AizNTNVj6HSC9ecENsz9uDi) while the identical payload carrying a
+    // VISUAL_EDITOR object succeeded. Catch it locally instead.
+    const run = createAd(mockClient, {
+      adAccountId: 'act_123',
+      name: 'CTWA plain-string welcome',
+      adSetId: 'as456',
+      multiMedia: {
+        pageId: 'page-1',
+        instagramUserId: 'ig-1',
+        primaryImageHash: 'image-1',
+        primaryText: 'Chat with us',
+        headline: 'Two images',
+        destinationUrl: 'https://api.whatsapp.com/send',
+        callToAction: 'WHATSAPP_MESSAGE',
+        pageWelcomeMessage: 'Halo! Ada yang bisa kami bantu?',
+        images: [{ imageHash: 'image-1' }, { imageHash: 'image-2' }],
+      },
+    });
+
+    await expect(run).rejects.toThrow(/VISUAL_EDITOR/);
+    expect(mockMetaPost).not.toHaveBeenCalled();
+  });
+
+  it('passes a VISUAL_EDITOR pageWelcomeMessage object through unchanged on the multi-media path', async () => {
+    const welcome = {
+      type: 'VISUAL_EDITOR',
+      version: 2,
+      landing_screen_type: 'welcome_message',
+      media_type: 'text',
+      text_format: {
+        customer_action_type: 'autofill_message',
+        message: {
+          autofill_message: { content: 'Halo, saya mau tanya promo ini.' },
+          quick_replies: [],
+          text: 'Halo! Ada yang bisa kami bantu?',
+        },
+      },
+    };
+
+    const r = await createAd(mockClient, {
+      adAccountId: 'act_123',
+      name: 'CTWA object welcome',
+      adSetId: 'as456',
+      multiMedia: {
+        pageId: 'page-1',
+        primaryImageHash: 'image-1',
+        primaryText: 'Chat with us',
+        destinationUrl: 'https://api.whatsapp.com/send',
+        callToAction: 'WHATSAPP_MESSAGE',
+        pageWelcomeMessage: welcome,
+        images: [{ imageHash: 'image-1' }, { imageHash: 'image-2' }],
+      },
+    });
+
+    const creative = JSON.parse(r.preview.creative as string);
+    expect(creative.object_story_spec.link_data.page_welcome_message).toEqual(welcome);
+  });
+
+  it('accepts a JSON-stringified VISUAL_EDITOR pageWelcomeMessage on the multi-media path', async () => {
+    // This is the shape that actually works today: agents hand Meta the exact
+    // JSON string Ads Manager writes.
+    const welcome = JSON.stringify({
+      type: 'VISUAL_EDITOR',
+      version: 2,
+      landing_screen_type: 'welcome_message',
+      media_type: 'text',
+      text_format: {
+        customer_action_type: 'autofill_message',
+        message: { text: 'Halo! Ada yang bisa kami bantu?' },
+      },
+    });
+
+    const r = await createAd(mockClient, {
+      adAccountId: 'act_123',
+      name: 'CTWA stringified welcome',
+      adSetId: 'as456',
+      multiMedia: {
+        pageId: 'page-1',
+        primaryImageHash: 'image-1',
+        primaryText: 'Chat with us',
+        destinationUrl: 'https://api.whatsapp.com/send',
+        callToAction: 'WHATSAPP_MESSAGE',
+        pageWelcomeMessage: welcome,
+        images: [{ imageHash: 'image-1' }, { imageHash: 'image-2' }],
+      },
+    });
+
+    const creative = JSON.parse(r.preview.creative as string);
+    expect(creative.object_story_spec.link_data.page_welcome_message).toBe(welcome);
+  });
+
   it('emits documented L1 and per-media text for the Meena multi-media reproduction shape', async () => {
     const r = await createAd(mockClient, {
       adAccountId: 'act_2086409658377471',

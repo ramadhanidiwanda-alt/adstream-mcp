@@ -2586,7 +2586,7 @@ function createCreateAdInputSchema() {
           pageWelcomeMessage: {
             type: ['string', 'object'],
             description:
-              'Full page_welcome_message, including VISUAL_EDITOR JSON, preserved verbatim. Sent inside link_data, the same shape ads_update_ad already accepted.',
+              'Welcome message for multi-media Click-to-WhatsApp/Messenger, sent inside link_data. Must be the VISUAL_EDITOR object Ads Manager writes, or its JSON string — a plain greeting sentence is rejected here, because Meta refuses a string page_welcome_message once the creative also carries media_sourcing_spec and answers only with code 2 "An unexpected error has occurred". Plain strings remain valid for creativeSpec.pageWelcomeMessage on single_image/video creatives.',
           },
           images: {
             type: 'array',
@@ -3040,7 +3040,7 @@ function createUpdateAdInputSchema() {
           pageWelcomeMessage: {
             type: ['string', 'object'],
             description:
-              'Full page_welcome_message, including VISUAL_EDITOR JSON, preserved verbatim.',
+              'Welcome message for multi-media Click-to-WhatsApp/Messenger, sent inside link_data. Must be the VISUAL_EDITOR object Ads Manager writes, or its JSON string — a plain greeting sentence is rejected here, because Meta refuses a string page_welcome_message once the creative also carries media_sourcing_spec and answers only with code 2 "An unexpected error has occurred". Plain strings remain valid for creativeSpec.pageWelcomeMessage on single_image/video creatives.',
           },
           images: {
             type: 'array',

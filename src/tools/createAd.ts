@@ -2,6 +2,7 @@ import type { MetaClient } from '../metaClient.js';
 import type {
   MetaMultiMediaAdOptions,
   MetaMultiMediaTextCustomizations,
+  MetaPageWelcomeMessage,
   StructuredMutationError,
 } from '../types.js';
 import { normalizeAccountPath } from '../utils/normalizeAccountId.js';
@@ -446,6 +447,49 @@ function buildAdPayload(options: CreateAdOptions): Record<string, unknown> {
   return payload;
 }
 
+/**
+ * Meta accepts a plain greeting string for link_data.page_welcome_message on an
+ * ordinary single-image/video creative, but rejects that same string once the
+ * creative also carries media_sourcing_spec — the multi-media placement path.
+ * The rejection is a bare code 2 ("An unexpected error has occurred. Please retry
+ * your request later.") that names neither the field nor the cause, so callers
+ * read it as a transient outage and retry into the same wall.
+ *
+ * Verified live 2026-08-20 on act_2086409658377471: three plain-string attempts
+ * failed (traceIds AOLYhF9u0kugQhRG41_wTcQ, AdsLZvB8yj1OLU2A5w_yPg_,
+ * AizNTNVj6HSC9ecENsz9uDi); the identical payload with a VISUAL_EDITOR object
+ * succeeded, and a plain string on the creativeSpec single_image path (no
+ * media_sourcing_spec) also succeeded. So the incompatibility is specifically
+ * string + media_sourcing_spec, not strings in general.
+ *
+ * Objects pass through untouched. Strings are allowed only when they are the
+ * JSON form of that object, which is what Ads Manager itself writes.
+ */
+function assertMultiMediaWelcomeMessageShape(value: MetaPageWelcomeMessage): void {
+  if (typeof value !== 'string') return;
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(value.trim());
+  } catch {
+    throw new Error(MULTI_MEDIA_WELCOME_MESSAGE_ERROR);
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error(MULTI_MEDIA_WELCOME_MESSAGE_ERROR);
+  }
+}
+
+const MULTI_MEDIA_WELCOME_MESSAGE_ERROR =
+  'multiMedia.pageWelcomeMessage tidak boleh berupa kalimat biasa. Meta menolak ' +
+  'page_welcome_message berbentuk string polos ketika creative juga mengirim ' +
+  'media_sourcing_spec (jalur multi-media/placement), dan hanya membalas code 2 ' +
+  '"An unexpected error has occurred" tanpa menyebut field ini. Kirim objek ' +
+  'VISUAL_EDITOR (atau JSON string-nya), mis. { type: "VISUAL_EDITOR", version: 2, ' +
+  'landing_screen_type: "welcome_message", media_type: "text", text_format: ' +
+  '{ customer_action_type: "autofill_message", message: { text: "<sapaan>" } } }. ' +
+  'Kalimat biasa tetap sah untuk creativeSpec.pageWelcomeMessage pada creative ' +
+  'single_image/video yang tidak memakai media_sourcing_spec.';
+
 export function buildMultiMediaCreative(options: MetaMultiMediaAdOptions): Record<string, unknown> {
   const pageId = requiredString(options.pageId, 'multiMedia.pageId');
   const primaryImageHash = requiredString(options.primaryImageHash, 'multiMedia.primaryImageHash');
@@ -463,6 +507,10 @@ export function buildMultiMediaCreative(options: MetaMultiMediaAdOptions): Recor
   }
   if (new Set(hashes).size !== hashes.length) {
     throw new Error('multiMedia.images tidak boleh berisi imageHash duplikat.');
+  }
+
+  if (options.pageWelcomeMessage !== undefined) {
+    assertMultiMediaWelcomeMessageShape(options.pageWelcomeMessage);
   }
 
   const primaryText = optionalString(options.primaryText);
