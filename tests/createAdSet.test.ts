@@ -435,6 +435,25 @@ describe('createAdSet — bid strategy + pre-flight validation', () => {
       expect(client.metaPost).not.toHaveBeenCalled();
     });
 
+    it('proceeds with a warning when the sibling optimization goal read fails', async () => {
+      const client = createMockClient({
+        objective: 'OUTCOME_SALES',
+        bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+      });
+      vi.mocked(client.metaGet).mockRejectedValueOnce(new Error('rate limited'));
+      vi.mocked(client.metaPost).mockResolvedValue({ id: 'as_new' });
+
+      const result = await createAdSet(
+        client,
+        { ...defaultOptions, optimizationGoal: 'CONVERSATIONS' },
+        { dryRun: false, confirmed: true }
+      );
+
+      expect(result.status).toBe('executed');
+      expect(result.warnings?.join(' ')).toMatch(/optimization goal/i);
+      expect(client.metaPost).toHaveBeenCalled();
+    });
+
     it('allows a differing optimization goal when the budget lives on the ad sets', async () => {
       // Meta only requires one goal per campaign under Advantage campaign budget
       // + auto bid. Without a campaign-level budget the ad sets may differ.

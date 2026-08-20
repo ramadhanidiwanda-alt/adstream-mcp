@@ -3412,8 +3412,7 @@ function createProductAudienceInputSchema() {
       },
       maxRetries: {
         type: 'number',
-        description:
-          'How many times to retry a transient Meta failure. Defaults to the tool default.',
+        description: 'How many times to retry a transient Meta failure. Defaults to the tool default.',
       },
     },
     required: ['accountId', 'name', 'productSetId', 'inclusions'],
@@ -3446,8 +3445,7 @@ function createCustomAudienceInputSchema() {
       },
       maxRetries: {
         type: 'number',
-        description:
-          'How many times to retry a transient Meta failure. Defaults to the tool default.',
+        description: 'How many times to retry a transient Meta failure. Defaults to the tool default.',
       },
     },
     required: ['accountId', 'name', 'pixelId', 'rule'],
@@ -3469,8 +3467,7 @@ function createPixelInputSchema() {
       },
       maxRetries: {
         type: 'number',
-        description:
-          'How many times to retry a transient Meta failure. Defaults to the tool default.',
+        description: 'How many times to retry a transient Meta failure. Defaults to the tool default.',
       },
     },
     required: ['accountId', 'name'],
@@ -4390,7 +4387,9 @@ function createTikTokWriteInputSchema(properties: Record<string, unknown>) {
   };
 }
 
-function tiktokOperationStatusSchema(description = 'TikTok operation_status, ENABLE or DISABLE.') {
+function tiktokOperationStatusSchema(
+  description = 'TikTok operation_status, ENABLE or DISABLE.'
+) {
   return { type: 'string', description };
 }
 
@@ -4407,10 +4406,7 @@ function createGmvMaxUpdateCampaignInputSchema() {
       type: 'string',
       description: 'GMV Max campaign to update. Required — the call fails without it.',
     },
-    campaignName: {
-      type: 'string',
-      description: 'New campaign name. Left unchanged when omitted.',
-    },
+    campaignName: { type: 'string', description: 'New campaign name. Left unchanged when omitted.' },
     budget: { type: 'number', description: 'New campaign budget. Left unchanged when omitted.' },
     operationStatus: tiktokOperationStatusSchema(),
   });
@@ -4442,10 +4438,7 @@ function createGmvMaxUpdateSessionInputSchema() {
       description: 'GMV Max session to update. Required — the call fails without it.',
     },
     sessionName: { type: 'string', description: 'New session name. Left unchanged when omitted.' },
-    sessionBudget: {
-      type: 'number',
-      description: 'New session budget. Left unchanged when omitted.',
-    },
+    sessionBudget: { type: 'number', description: 'New session budget. Left unchanged when omitted.' },
     startTime: { type: 'string', description: 'New start time. Left unchanged when omitted.' },
     endTime: { type: 'string', description: 'New end time. Left unchanged when omitted.' },
   });

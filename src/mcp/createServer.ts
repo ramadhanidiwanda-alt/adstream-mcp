@@ -145,10 +145,7 @@ const adsCreativeInputSchema = {
 };
 
 const idScopeInputSchema = (description: string) =>
-  z
-    .union([z.string(), z.array(z.string())])
-    .optional()
-    .describe(description);
+  z.union([z.string(), z.array(z.string())]).optional().describe(description);
 
 const insightsPagingInputSchema = {
   limit: z
@@ -302,7 +299,10 @@ const contentMatrixInputSchema = {
     .enum(['campaign', 'adset'])
     .optional()
     .describe('Group the matrix rows by campaign or ad set.'),
-  sortBy: z.string().optional().describe('Metric used to rank rows into the top and bottom lists.'),
+  sortBy: z
+    .string()
+    .optional()
+    .describe('Metric used to rank rows into the top and bottom lists.'),
   sortDirection: z.enum(['asc', 'desc']).optional().describe('Sort direction.'),
   topLimit: z.number().optional().describe('How many top performers to keep.'),
   bottomLimit: z.number().optional().describe('How many bottom performers to keep.'),
@@ -419,14 +419,20 @@ const gmvMaxUpdateCampaignInputSchema = {
     .string()
     .optional()
     .describe('GMV Max campaign to update. Required — the call fails without it.'),
-  campaignName: z.string().optional().describe('New campaign name. Left unchanged when omitted.'),
+  campaignName: z
+    .string()
+    .optional()
+    .describe('New campaign name. Left unchanged when omitted.'),
   budget: z.number().optional().describe('New campaign budget. Left unchanged when omitted.'),
   operationStatus: tiktokOperationStatus(),
 };
 
 const gmvMaxCreateSessionInputSchema = {
   ...adsBaseInputSchema,
-  campaignId: z.string().optional().describe('GMV Max campaign the session belongs to. Required.'),
+  campaignId: z
+    .string()
+    .optional()
+    .describe('GMV Max campaign the session belongs to. Required.'),
   sessionName: z.string().optional().describe('Session name. Required.'),
   startTime: z.string().optional().describe('Session start time. Required.'),
   endTime: z.string().optional().describe('Session end time. Required.'),
@@ -445,7 +451,10 @@ const gmvMaxUpdateSessionInputSchema = {
     .optional()
     .describe('GMV Max session to update. Required — the call fails without it.'),
   sessionName: z.string().optional().describe('New session name. Left unchanged when omitted.'),
-  sessionBudget: z.number().optional().describe('New session budget. Left unchanged when omitted.'),
+  sessionBudget: z
+    .number()
+    .optional()
+    .describe('New session budget. Left unchanged when omitted.'),
   startTime: z.string().optional().describe('New start time. Left unchanged when omitted.'),
   endTime: z.string().optional().describe('New end time. Left unchanged when omitted.'),
 };
@@ -488,7 +497,10 @@ const smartPlusCampaignIdInputSchema = {
 
 const smartPlusCreateAdGroupInputSchema = {
   ...adsBaseInputSchema,
-  campaignId: z.string().optional().describe('Smart+ campaign the ad group belongs to. Required.'),
+  campaignId: z
+    .string()
+    .optional()
+    .describe('Smart+ campaign the ad group belongs to. Required.'),
   name: z.string().optional().describe('Ad group name. Required. Also accepted as adgroupName.'),
   budget: z.number().optional().describe('Ad group budget.'),
   budgetMode: tiktokBudgetMode(),
@@ -859,7 +871,10 @@ const gmvMaxCampaignInputSchema = {
   storeIds: z.array(z.string()).describe('TikTok Shop store IDs.'),
   budget: z.number().optional().describe('Campaign budget.'),
   budgetMode: z.string().optional().describe('Budget mode, e.g. BUDGET_MODE_DAY.'),
-  scheduleType: z.string().optional().describe('TikTok schedule_type, e.g. SCHEDULE_FROM_NOW.'),
+  scheduleType: z
+    .string()
+    .optional()
+    .describe('TikTok schedule_type, e.g. SCHEDULE_FROM_NOW.'),
   scheduleStartTime: z.string().optional().describe('Campaign schedule start time.'),
   operationStatus: z
     .string()
@@ -1581,51 +1596,52 @@ export const createAdCreativeInputSchema = {
  * Both reach the same Meta path, so the shape is declared once and each tool
  * supplies its own description.
  */
-const multiMediaInputSchema = z.object({
-  pageId: z.string(),
-  instagramUserId: z.string().optional(),
-  destinationUrl: z.string().url(),
-  primaryImageHash: z.string(),
-  primaryText: z.string().optional(),
-  headline: z.string().optional(),
-  description: z.string().optional(),
-  callToAction: z.string(),
-  images: z
-    .array(
-      z.object({
-        imageHash: z.string(),
-        placementExclusions: z
-          .array(
-            z.object({
-              publisherPlatform: z.string(),
-              positions: z.array(z.string()).min(1),
-            })
-          )
-          .optional(),
-        textCustomizations: z
-          .object({
-            titles: z
-              .array(z.object({ text: z.string() }))
-              .min(1)
+const multiMediaInputSchema = z
+    .object({
+      pageId: z.string(),
+      instagramUserId: z.string().optional(),
+      destinationUrl: z.string().url(),
+      primaryImageHash: z.string(),
+      primaryText: z.string().optional(),
+      headline: z.string().optional(),
+      description: z.string().optional(),
+      callToAction: z.string(),
+      images: z
+        .array(
+          z.object({
+            imageHash: z.string(),
+            placementExclusions: z
+              .array(
+                z.object({
+                  publisherPlatform: z.string(),
+                  positions: z.array(z.string()).min(1),
+                })
+              )
               .optional(),
-            bodies: z
-              .array(z.object({ text: z.string() }))
-              .min(1)
-              .optional(),
-            descriptions: z
-              .array(z.object({ text: z.string() }))
-              .min(1)
+            textCustomizations: z
+              .object({
+                titles: z
+                  .array(z.object({ text: z.string() }))
+                  .min(1)
+                  .optional(),
+                bodies: z
+                  .array(z.object({ text: z.string() }))
+                  .min(1)
+                  .optional(),
+                descriptions: z
+                  .array(z.object({ text: z.string() }))
+                  .min(1)
+                  .optional(),
+              })
+              .refine((value) => Boolean(value.titles || value.bodies || value.descriptions), {
+                message: 'At least one text customization variant is required.',
+              })
               .optional(),
           })
-          .refine((value) => Boolean(value.titles || value.bodies || value.descriptions), {
-            message: 'At least one text customization variant is required.',
-          })
-          .optional(),
-      })
-    )
-    .min(2)
-    .max(10),
-});
+        )
+        .min(2)
+        .max(10),
+    });
 
 const createAdInputSchema = {
   ...adsBaseInputSchema,
@@ -1752,7 +1768,9 @@ const deleteAudienceInputSchema = {
   ...adsBaseInputSchema,
   audienceId: z
     .string()
-    .describe('The Custom Audience id to delete permanently (includes product/dynamic audiences).'),
+    .describe(
+      'The Custom Audience id to delete permanently (includes product/dynamic audiences).'
+    ),
   dryRun: z.boolean().optional().describe('Defaults to true. Set false only after preview.'),
   confirmed: z.boolean().optional().describe('Must be true to execute after preview.'),
 };
@@ -1781,7 +1799,10 @@ const createProductAudienceInputSchema = {
       'Events that remove a person from the audience. Meta commonly uses Purchase (30 days) to exclude buyers from retargeting.'
     ),
   dryRun: z.boolean().optional().describe('Defaults to true. Set false to execute.'),
-  confirmed: z.boolean().optional().describe('Must be true together with dryRun=false to execute.'),
+  confirmed: z
+    .boolean()
+    .optional()
+    .describe('Must be true together with dryRun=false to execute.'),
   maxRetries: z
     .number()
     .optional()
@@ -1804,7 +1825,10 @@ const createCustomAudienceInputSchema = {
     .describe('How many days a person stays in the audience. Must be between 1 and 180.'),
   description: z.string().optional().describe('Optional audience description.'),
   dryRun: z.boolean().optional().describe('Defaults to true. Set false to execute.'),
-  confirmed: z.boolean().optional().describe('Must be true together with dryRun=false to execute.'),
+  confirmed: z
+    .boolean()
+    .optional()
+    .describe('Must be true together with dryRun=false to execute.'),
   maxRetries: z
     .number()
     .optional()
@@ -1816,7 +1840,10 @@ const createPixelInputSchema = {
   accountId: z.string().describe('Provider account id. Required to create a pixel.'),
   name: z.string().describe('Pixel name.'),
   dryRun: z.boolean().optional().describe('Defaults to true. Set false to execute.'),
-  confirmed: z.boolean().optional().describe('Must be true together with dryRun=false to execute.'),
+  confirmed: z
+    .boolean()
+    .optional()
+    .describe('Must be true together with dryRun=false to execute.'),
   maxRetries: z
     .number()
     .optional()
