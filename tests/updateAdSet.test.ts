@@ -284,13 +284,13 @@ describe('updateAdSet', () => {
     expect(mockMetaPost.mock.calls[0][1].daily_budget).toBe(50000);
   });
 
-  it('rejects optimizationGoal updates that differ from active siblings', async () => {
-    mockMetaGetObject.mockResolvedValueOnce({
-      id: 'as789',
-      campaign_id: 'cmp_1',
-      optimization_goal: 'CONVERSATIONS',
-    });
-    mockMetaGet.mockResolvedValueOnce({
+  function mockOptimizationGoalSiblings(campaign: Record<string, unknown>): void {
+    mockMetaGetObject.mockImplementation(async (path: string) =>
+      path === '/cmp_1'
+        ? { id: 'cmp_1', ...campaign }
+        : { id: 'as789', campaign_id: 'cmp_1', optimization_goal: 'CONVERSATIONS' }
+    );
+    mockMetaGet.mockResolvedValue({
       data: [
         {
           id: 'as456',
@@ -300,6 +300,13 @@ describe('updateAdSet', () => {
           optimization_goal: 'MESSAGING_PURCHASE_CONVERSION',
         },
       ],
+    });
+  }
+
+  it('rejects optimizationGoal updates that differ from active siblings under CBO auto bid', async () => {
+    mockOptimizationGoalSiblings({
+      bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+      daily_budget: 100000,
     });
 
     const r = await updateAdSet(
@@ -312,6 +319,37 @@ describe('updateAdSet', () => {
     expect(r.structuredError?.code).toBe('OPTIMIZATION_GOAL_MISMATCH');
     expect(r.error).toContain('MESSAGING_PURCHASE_CONVERSION');
     expect(mockMetaPost).not.toHaveBeenCalled();
+  });
+
+  it('allows a differing optimizationGoal when the campaign has no campaign-level budget', async () => {
+    mockOptimizationGoalSiblings({ bid_strategy: 'LOWEST_COST_WITHOUT_CAP' });
+    mockMetaPost.mockResolvedValue({ id: 'as789' });
+
+    const r = await updateAdSet(
+      mockClient,
+      { ...baseOpts, optimizationGoal: 'CONVERSATIONS' },
+      { dryRun: false, confirmed: true }
+    );
+
+    expect(r.status).toBe('executed');
+    expect(mockMetaPost).toHaveBeenCalled();
+  });
+
+  it('proceeds with a warning when the sibling optimization goal read fails', async () => {
+    mockMetaGetObject.mockImplementation(async (path: string) => {
+      if (path === '/cmp_1') throw new Error('rate limited');
+      return { id: 'as789', campaign_id: 'cmp_1', optimization_goal: 'CONVERSATIONS' };
+    });
+    mockMetaPost.mockResolvedValue({ id: 'as789' });
+
+    const r = await updateAdSet(
+      mockClient,
+      { ...baseOpts, optimizationGoal: 'CONVERSATIONS' },
+      { dryRun: false, confirmed: true }
+    );
+
+    expect(r.status).toBe('executed');
+    expect(r.warnings?.join(' ')).toMatch(/optimization goal/i);
   });
 
   it('returns failed on error', async () => {
@@ -327,11 +365,9 @@ describe('updateAdSet', () => {
   it('reports fields Meta dropped by comparing the read-back against the request', async () => {
     mockMetaPost.mockResolvedValue({ success: true });
     mockMetaGetObject.mockReset();
-    mockMetaGetObject
-      .mockResolvedValueOnce({ targeting: {} })
-      .mockResolvedValueOnce({
-        targeting: { publisher_platforms: ['facebook', 'instagram', 'messenger', 'threads'] },
-      });
+    mockMetaGetObject.mockResolvedValueOnce({ targeting: {} }).mockResolvedValueOnce({
+      targeting: { publisher_platforms: ['facebook', 'instagram', 'messenger', 'threads'] },
+    });
 
     const r = await updateAdSet(
       mockClient,

@@ -452,7 +452,7 @@ describe('createAdCreative', () => {
 
     expect(result).toMatchObject({
       status: 'failed',
-      error: expect.stringMatching(/leadFormId wajib diisi/i),
+      error: expect.stringMatching(/leadFormId wajib diisi untuk Instant Form Leads/i),
     });
   });
 
@@ -475,7 +475,9 @@ describe('createAdCreative', () => {
 
     expect(result).toMatchObject({
       status: 'failed',
-      error: expect.stringMatching(/destinationUrl wajib diisi/i),
+      error: expect.stringMatching(
+        /destinationUrl wajib diisi untuk destinationMode EXTERNAL_URL/i
+      ),
     });
   });
 
@@ -499,7 +501,9 @@ describe('createAdCreative', () => {
 
     expect(result).toMatchObject({
       status: 'failed',
-      error: expect.stringMatching(/leadFormId.*INSTANT_FORM/i),
+      error: expect.stringMatching(
+        /leadFormId hanya dapat digunakan untuk destinationMode INSTANT_FORM/i
+      ),
     });
   });
 
@@ -609,7 +613,7 @@ describe('createAdCreative', () => {
     });
 
     expect(result).toMatchObject({ status: 'failed' });
-    expect(result.error).toMatch(/destinationUrl wajib diisi/i);
+    expect(result.error).toMatch(/destinationUrl wajib diisi untuk destinationMode EXTERNAL_URL/i);
     expect(mockMetaPost).not.toHaveBeenCalled();
   });
 
@@ -1033,7 +1037,7 @@ describe('createAdCreative', () => {
     });
 
     expect(result.status).toBe('failed');
-    expect(result.error).toMatch(/destinationUrl wajib diisi/i);
+    expect(result.error).toMatch(/destinationUrl wajib diisi untuk destinationMode EXTERNAL_URL/i);
     expect(mockMetaPost).not.toHaveBeenCalled();
   });
 
@@ -1204,7 +1208,7 @@ describe('createAdCreative', () => {
       status: 'failed',
       structuredError: { code: 'DYNAMIC_CREATIVE_DISABLED' },
     });
-    expect(result.error).toMatch(/manual creative\/ad/i);
+    expect(result.error).toMatch(/optimization_type REGULAR.*Dynamic Creative/i);
   });
 
   it('rejects legacy nested asset_feed_spec Dynamic Creative creation', async () => {
@@ -1229,7 +1233,7 @@ describe('createAdCreative', () => {
       status: 'failed',
       structuredError: { code: 'DYNAMIC_CREATIVE_DISABLED' },
     });
-    expect(result.error).toMatch(/manual creative\/ad/i);
+    expect(result.error).toMatch(/optimization_type REGULAR.*Dynamic Creative/i);
     expect(mockMetaPost).not.toHaveBeenCalled();
   });
 
@@ -1255,7 +1259,7 @@ describe('createAdCreative', () => {
       status: 'failed',
       structuredError: { code: 'DYNAMIC_CREATIVE_DISABLED' },
     });
-    expect(result.error).toMatch(/manual creative\/ad/i);
+    expect(result.error).toMatch(/optimization_type REGULAR.*Dynamic Creative/i);
   });
 
   it('allows placement-customized video assetFeedSpec without Dynamic Creative', async () => {
@@ -1417,7 +1421,7 @@ describe('createAdCreative', () => {
       status: 'failed',
       structuredError: { code: 'DYNAMIC_CREATIVE_DISABLED' },
     });
-    expect(result.error).toMatch(/manual creative\/ad/i);
+    expect(result.error).toMatch(/optimization_type REGULAR.*Dynamic Creative/i);
   });
 
   it('returns pending_confirmation when not confirmed', async () => {
@@ -1604,7 +1608,9 @@ describe('createAdCreative', () => {
       status: 'verified',
       summary: { identityStatus: 'missing' },
     });
-    expect(result.verification?.warning).toMatch(/identitas Instagram\/Threads/i);
+    expect(result.verification?.warning).toMatch(
+      /identitas Instagram\/Threads yang diminta tidak ditemukan/i
+    );
   });
 
   it('never fails a strict-path creative just because the identity was not echoed back', async () => {
@@ -1631,7 +1637,9 @@ describe('createAdCreative', () => {
       status: 'verified',
       summary: { identityStatus: 'missing' },
     });
-    expect(placementResult.verification?.warning).toMatch(/identitas Instagram\/Threads/i);
+    expect(placementResult.verification?.warning).toMatch(
+      /identitas Instagram\/Threads yang diminta tidak ditemukan/i
+    );
 
     mockMetaPost.mockResolvedValueOnce({ id: 'creative-video-ctwa-no-threads' });
     mockMetaGetObject.mockResolvedValueOnce({
@@ -1680,7 +1688,9 @@ describe('createAdCreative', () => {
       status: 'verified',
       summary: { identityStatus: 'missing', videoCtwaStatus: 'verified' },
     });
-    expect(ctwaResult.verification?.warning).toMatch(/identitas Instagram\/Threads/i);
+    expect(ctwaResult.verification?.warning).toMatch(
+      /identitas Instagram\/Threads yang diminta tidak ditemukan/i
+    );
   });
 
   it('omits threads_user_id from the read-back on API versions below the supported floor', async () => {
@@ -1930,7 +1940,7 @@ describe('createAdCreative', () => {
         status: 'warning',
         summary: { videoCtwaStatus: 'missing_cta_link' },
       },
-      error: expect.stringMatching(/Jangan lanjutkan creative ini menjadi ad/i),
+      error: expect.stringMatching(/CTA WhatsApp atau welcome message tidak terverifikasi/i),
     });
   });
 
@@ -2055,7 +2065,7 @@ describe('createAdCreative', () => {
       status: 'failed',
       executed: true,
       id: 'creative-placement',
-      error: expect.stringMatching(/placement/i),
+      error: expect.stringMatching(/aturan media per placement tidak terverifikasi/),
       verification: {
         status: 'warning',
         summary: {
@@ -2628,8 +2638,8 @@ describe('createAdCreative', () => {
       });
 
       expect(result.status).toBe('failed');
-      expect(result.error).toMatch(/partnership/);
-      expect(result.error).toMatch(/creativeSpec|creativeFormat/);
+      expect(result.error).toMatch(/partnership hanya didukung pada jalur creative/);
+      expect(result.error).toMatch(/\(creativeFormat \+ creativeSpec\)/);
       expect(result.preview).not.toHaveProperty('facebook_branded_content');
     });
 
@@ -2645,7 +2655,7 @@ describe('createAdCreative', () => {
       });
 
       expect(result.status).toBe('failed');
-      expect(result.error).toMatch(/partnership/);
+      expect(result.error).toMatch(/partnership hanya didukung pada jalur creative/);
       expect(result.preview).not.toHaveProperty('facebook_branded_content');
     });
 

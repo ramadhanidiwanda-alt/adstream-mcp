@@ -13,8 +13,10 @@ import { getOmnichannelCompatibilityError } from '../providers/meta/omnichannelA
 import { getMessagingDestinationCompatibilityError } from '../providers/meta/messagingDestinationCompatibility.js';
 import {
   classifyCreativeFamily,
+  creativeFamilyLabel,
   familyRequiresDynamicCreativeAdSet,
   readOptimizationType,
+  type CreativeFamily,
 } from '../providers/meta/assetFeedSpecFamily.js';
 
 export type AdStatus = 'ACTIVE' | 'PAUSED';
@@ -57,23 +59,7 @@ export interface CreateAdOptions {
   skipPlacementCompatibilityCheck?: boolean;
   /** Skip the messaging destination/CTA cross-check (use only if the mapping misfires). */
   skipMessagingDestinationCheck?: boolean;
-  /**
-   * @deprecated No-op. Pre-flight yang di-skip flag ini sudah dihapus.
-   *
-   * Guard lama memblokir "campuran format creative dalam 1 Ad Set" dan mengklaim
-   * Meta menolaknya dengan error #1885274. Kode error itu tidak ada di error
-   * reference Meta maupun sumber lain, tidak ada aturan Meta yang melarang
-   * campuran format, dan ad set produksi terbukti menjalankan creative
-   * manual/static berdampingan dengan creative DEGREES_OF_FREEDOM.
-   *
-   * Satu-satunya batasan level ad set yang benar-benar terdokumentasi adalah
-   * milik Dynamic Creative ("your ad set must be empty ... You can only create
-   * one ad per ad set"), dan itu sudah ditegakkan lebih dulu oleh
-   * getPlacementCompatibilityError yang menolak seluruh jalur Dynamic Creative.
-   *
-   * Field ini tetap diterima supaya pemanggil lama tidak error; mengirimnya
-   * hanya menghasilkan warning.
-   */
+  /** Skip the ad-set creative-family advisory (suppresses the warning and its Graph reads). */
   skipAdSetCreativeFamilyCheck?: boolean;
 }
 
@@ -139,7 +125,7 @@ export async function createAd(
   const skipWarnings = [
     ...(options.skipPlacementCompatibilityCheck
       ? [
-          'Placement compatibility pre-flight skipped by request. Continue only after reviewing the creative payload and Meta preview. Catatan: flag ini TIDAK melewati blok Dynamic Creative (optimization_type REGULAR/kosong tanpa rules) — itu batasan Meta yang nyata, bukan heuristik, jadi tetap ditegakkan.',
+          'Placement compatibility pre-flight skipped by request. Continue only after reviewing the creative payload and Meta preview.',
         ]
       : []),
     ...(options.skipMessagingDestinationCheck
@@ -149,30 +135,31 @@ export async function createAd(
       : []),
     ...(options.skipAdSetCreativeFamilyCheck
       ? [
-          'skipAdSetCreativeFamilyCheck sudah tidak berlaku dan diabaikan. Pre-flight "campuran format creative dalam 1 Ad Set" telah dihapus: tidak ada aturan Meta yang melarangnya, dan error #1885274 yang dulu dikutip tidak ada di error reference Meta. Anda bisa berhenti mengirim flag ini.',
+          'Ad Set creative-family advisory skipped by request. Mixing formats is not blocked either way — no Meta rule forbids it; without the advisory you will not be told what the Ad Set already contains.',
         ]
       : []),
   ];
-  const warnings = skipWarnings.length > 0 ? skipWarnings : undefined;
-  const baseResult: CreateAdResult = {
+  const advisories: string[] = [...skipWarnings];
+  const buildResult = (overrides: Partial<CreateAdResult> = {}): CreateAdResult => ({
     operation: 'create_ad',
     status: 'dry_run',
     executed: false,
     preview,
-    ...(warnings ? { warnings } : {}),
-  };
+    ...(advisories.length > 0 ? { warnings: [...advisories] } : {}),
+    ...overrides,
+  });
 
   // Semua blok di bawah ini adalah pre-flight LOKAL: Meta belum dihubungi sama
   // sekali. Hasilnya ditandai `preflight_blocked` + errorSource `local_preflight`
   // supaya tidak pernah terbaca sebagai penolakan Graph API oleh sesi/agent lain.
-  const preflightBlocked = (check: string, message: string): CreateAdResult => ({
-    ...baseResult,
-    status: 'preflight_blocked',
-    executed: false,
-    error: message,
-    errorSource: 'local_preflight',
-    preflightCheck: check,
-  });
+  const preflightBlocked = (check: string, message: string): CreateAdResult =>
+    buildResult({
+      status: 'preflight_blocked',
+      executed: false,
+      error: message,
+      errorSource: 'local_preflight',
+      preflightCheck: check,
+    });
 
   // Pre-flight: an omnichannel ad set requires an omnichannel-ready creative.
   // Surface this during dry-run so the mismatch is caught before any ad is made.
@@ -222,14 +209,30 @@ export async function createAd(
     }
   }
 
-  if (dryRun) return baseResult;
+  // Advisory only. Meta's documented constraint lives on the AD SET
+  // (`is_dynamic_creative=true` requires an empty ad set and allows a single ad),
+  // and that case is already hard-blocked above by the Dynamic Creative policy
+  // check. Meta publishes no error for mixing creative families inside a normal
+  // `is_dynamic_creative=false` ad set, and live creates on 2026-08-18 confirmed
+  // it accepts manual/static ads next to an existing asset-feed ad. So surface
+  // the mismatch and let Meta decide — a rejected POST creates nothing.
+  if (options.creativeId && !options.skipAdSetCreativeFamilyCheck) {
+    const adSetCreativeFamilyWarning = await getAdSetCreativeFamilyWarning(
+      client,
+      options.adSetId,
+      options.creativeId,
+      maxRetries
+    );
+    if (adSetCreativeFamilyWarning) advisories.push(adSetCreativeFamilyWarning);
+  }
+
+  if (dryRun) return buildResult();
 
   if (!confirmed) {
-    return {
-      ...baseResult,
+    return buildResult({
       status: 'pending_confirmation',
       error: 'Explicit confirmation is required after reviewing the dry-run preview.',
-    };
+    });
   }
 
   const accountPath = normalizeAccountPath(options.adAccountId);
@@ -237,13 +240,12 @@ export async function createAd(
   if (options.dedupeByName) {
     const existing = await findExistingAdByName(client, options.adSetId, options.name, maxRetries);
     if (existing) {
-      return {
-        ...baseResult,
+      return buildResult({
         status: 'deduped',
         executed: false,
         id: existing.id,
         response: { deduped: true, existing },
-      };
+      });
     }
   }
 
@@ -255,28 +257,26 @@ export async function createAd(
     );
 
     if (!response.id || typeof response.id !== 'string') {
-      return {
-        ...baseResult,
+      return buildResult({
         status: 'failed',
+        errorSource: 'meta_api',
         error: 'Meta did not return an id for created ad',
-      };
+      });
     }
 
-    return {
-      ...baseResult,
+    return buildResult({
       status: 'executed',
       executed: true,
       id: response.id,
       response,
-    };
+    });
   } catch (error) {
-    return {
-      ...baseResult,
+    return buildResult({
       status: 'failed',
-      error: formatMetaWriteError(error),
       errorSource: 'meta_api',
+      error: formatMetaWriteError(error),
       structuredError: formatStructuredMetaWriteError(error),
-    };
+    });
   }
 }
 
@@ -595,6 +595,93 @@ function hasMultiVariantTextAssets(assetFeedSpec: Record<string, unknown> | unde
 
 function countArray(value: unknown): number {
   return Array.isArray(value) ? value.length : 0;
+}
+
+interface ExistingAdWithCreative extends Record<string, unknown> {
+  id?: string;
+  name?: string;
+  status?: string;
+  effective_status?: string;
+  creative?: Record<string, unknown>;
+}
+
+/**
+ * Laporkan bahwa Ad Set tujuan sudah berisi keluarga creative yang berbeda.
+ *
+ * Murni informasi — tidak pernah memblokir. Tidak ada aturan Meta yang melarang
+ * campuran format creative dalam satu Ad Set; klaim lama bahwa Meta menolaknya
+ * dengan `#1885274` tidak terbukti (kode itu tidak ada di error reference Meta
+ * maupun sumber lain), dan ad set produksi terbukti menjalankan creative
+ * manual/static berdampingan dengan creative DEGREES_OF_FREEDOM. Satu-satunya
+ * batasan level ad set yang terdokumentasi milik Dynamic Creative, dan itu
+ * ditegakkan terpisah oleh getPlacementCompatibilityError.
+ *
+ * Klasifikasinya memakai optimization_type supaya varian teks Advantage+ tidak
+ * salah dilabeli Dynamic Creative di teks catatan ini.
+ */
+async function getAdSetCreativeFamilyWarning(
+  client: MetaClient,
+  adSetId: string,
+  creativeId: string,
+  maxRetries: number
+): Promise<string | undefined> {
+  try {
+    const [newCreative, existingAdsResponse] = await Promise.all([
+      client.metaGetObject<Record<string, unknown>>(
+        `/${creativeId}`,
+        {
+          fields:
+            'id,name,asset_feed_spec,object_story_spec,product_set_id,omnichannel_link_spec,applink_treatment',
+        },
+        maxRetries
+      ),
+      client.metaGet<{ data?: ExistingAdWithCreative[] }>(
+        `/${adSetId}/ads`,
+        {
+          fields:
+            'id,name,status,effective_status,creative{id,name,asset_feed_spec,object_story_spec,product_set_id,omnichannel_link_spec,applink_treatment}',
+          limit: 100,
+        },
+        { maxRetries, paginate: true, maxPages: 20 }
+      ),
+    ]);
+
+    const classify = (creative: Record<string, unknown> | undefined): CreativeFamily =>
+      classifyCreativeFamily(creative, {
+        hasCatalogSignal: creative
+          ? hasCatalogSignal(
+              creative,
+              isRecord(creative.asset_feed_spec) ? creative.asset_feed_spec : undefined
+            )
+          : false,
+      });
+
+    const newFamily = classify(newCreative);
+    const differentAd = existingAdsResponse.data
+      ?.filter((ad) => !isArchivedOrDeleted(ad))
+      .map((ad) => ({ ad, family: classify(ad.creative) }))
+      .find(({ family }) => family !== newFamily);
+
+    if (!differentAd) return undefined;
+
+    return (
+      `Ad Set ${adSetId} sudah berisi iklan ${creativeFamilyLabel(differentAd.family)} ` +
+      `(${differentAd.ad.name ?? differentAd.ad.id ?? 'existing ad'}), sedangkan creative baru ` +
+      `${creativeId} terdeteksi sebagai ${creativeFamilyLabel(newFamily)}. Ini catatan informasi, ` +
+      'bukan masalah: tidak ada aturan Meta yang melarang campuran format creative dalam satu Ad ' +
+      'Set, dan create tetap dilanjutkan. Satu-satunya batasan level ad set milik Meta adalah ' +
+      'Dynamic Creative ("your ad set must be empty ... You can only create one ad per ad set"), ' +
+      'yang sudah ditolak lebih dulu oleh pre-flight tersendiri. Set ' +
+      'skipAdSetCreativeFamilyCheck=true untuk mematikan catatan ini beserta dua Graph read-nya.'
+    );
+  } catch {
+    return undefined;
+  }
+}
+
+function isArchivedOrDeleted(ad: ExistingAdWithCreative): boolean {
+  const status = String(ad.effective_status ?? ad.status ?? '').toUpperCase();
+  return status === 'ARCHIVED' || status === 'DELETED';
 }
 
 function hasCatalogSignal(

@@ -1694,7 +1694,7 @@ const createAdInputSchema = {
     .boolean()
     .optional()
     .describe(
-      'Retired no-op, kept so existing callers do not break. The "creative-family mismatch" pre-flight it used to skip has been removed: no Meta rule forbids mixing creative formats inside one Ad Set, and the `#1885274` it cited appears in no Meta error reference. Sending this flag only produces a warning.'
+      'Skip the Ad Set creative-family advisory. The advisory is informational only — it never blocks a create, because no Meta rule forbids mixing creative formats inside one Ad Set. It notes when the Ad Set already holds a different family, classified by asset_feed_spec.optimization_type (manual/static, Advantage+ text variations, asset customization, catalog). Set this only to skip the extra Graph reads.'
     ),
   externalReference: z
     .string()
@@ -2422,7 +2422,8 @@ export function createMetaAdsMcpServer(options: CreateMetaAdsMcpServerOptions = 
   server.registerTool(
     'meta_get_campaigns',
     {
-      description: 'Fetch campaigns from a Meta ad account with optional filters',
+      description:
+        'Fetch campaigns from a Meta ad account with optional filters. Returns bid_strategy plus daily_budget/lifetime_budget when the campaign holds its own budget (Advantage campaign budget); Meta omits the budget fields when the budget lives on the ad sets instead, so their absence identifies a non-CBO campaign.',
       inputSchema: {
         adAccountId: legacyAdAccountId,
         limit: z.number().optional().describe('Maximum number of campaigns to fetch (default: 50)'),
