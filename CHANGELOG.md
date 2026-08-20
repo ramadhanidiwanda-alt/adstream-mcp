@@ -41,6 +41,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `meta.nextCursor`. The tool resolves URLs only — it does not download files or
   build a report. Google and TikTok return structured `NOT_IMPLEMENTED`.
 
+### Added — Campaign budget and bid strategy on the campaign read surface
+
+`ads_list_campaigns` and `meta_get_campaigns` now return `bid_strategy`,
+`daily_budget`, and `lifetime_budget`.
+
+These are the three fields the ad-set write guard reads to decide whether Meta's
+one-`optimization_goal`-per-campaign rule applies, but neither read tool exposed
+them — so there was no way to see why a write was blocked, or whether a campaign
+was even subject to the rule. Diagnosing a real block on a live account ran into
+exactly this: the ad-set read surface carries `bid_strategy` only when the ad set
+holds its own budget, and under Advantage campaign budget it lives on the
+campaign, out of reach.
+
+Meta omits `daily_budget` / `lifetime_budget` entirely when the budget lives on
+the ad sets — budgets are set at the campaign level or the ad set level, never
+both — so their absence is itself the signal that a campaign is not CBO.
+
 ### Fixed — Optimization-goal guard now checks the conditions it claims
 
 `ads_create_adset`, `ads_update_adset`, and `ads_clone_adset` rejected any ad

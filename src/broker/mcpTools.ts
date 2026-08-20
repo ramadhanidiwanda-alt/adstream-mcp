@@ -268,7 +268,8 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
   },
   {
     name: 'ads_list_campaigns',
-    description: 'List campaigns under an ad account through the AdsBroker',
+    description:
+      'List campaigns under an ad account through the AdsBroker. Returns bid_strategy plus daily_budget/lifetime_budget when the campaign holds its own budget (Advantage campaign budget); Meta omits the budget fields when the budget lives on the ad sets instead, so their absence identifies a non-CBO campaign. Those three fields decide whether the one-optimization_goal-per-campaign rule applies to ad-set writes.',
     inputSchema: createListCampaignsInputSchema(),
   },
   {
@@ -3411,7 +3412,8 @@ function createProductAudienceInputSchema() {
       },
       maxRetries: {
         type: 'number',
-        description: 'How many times to retry a transient Meta failure. Defaults to the tool default.',
+        description:
+          'How many times to retry a transient Meta failure. Defaults to the tool default.',
       },
     },
     required: ['accountId', 'name', 'productSetId', 'inclusions'],
@@ -3444,7 +3446,8 @@ function createCustomAudienceInputSchema() {
       },
       maxRetries: {
         type: 'number',
-        description: 'How many times to retry a transient Meta failure. Defaults to the tool default.',
+        description:
+          'How many times to retry a transient Meta failure. Defaults to the tool default.',
       },
     },
     required: ['accountId', 'name', 'pixelId', 'rule'],
@@ -3466,7 +3469,8 @@ function createPixelInputSchema() {
       },
       maxRetries: {
         type: 'number',
-        description: 'How many times to retry a transient Meta failure. Defaults to the tool default.',
+        description:
+          'How many times to retry a transient Meta failure. Defaults to the tool default.',
       },
     },
     required: ['accountId', 'name'],
@@ -4386,9 +4390,7 @@ function createTikTokWriteInputSchema(properties: Record<string, unknown>) {
   };
 }
 
-function tiktokOperationStatusSchema(
-  description = 'TikTok operation_status, ENABLE or DISABLE.'
-) {
+function tiktokOperationStatusSchema(description = 'TikTok operation_status, ENABLE or DISABLE.') {
   return { type: 'string', description };
 }
 
@@ -4405,7 +4407,10 @@ function createGmvMaxUpdateCampaignInputSchema() {
       type: 'string',
       description: 'GMV Max campaign to update. Required — the call fails without it.',
     },
-    campaignName: { type: 'string', description: 'New campaign name. Left unchanged when omitted.' },
+    campaignName: {
+      type: 'string',
+      description: 'New campaign name. Left unchanged when omitted.',
+    },
     budget: { type: 'number', description: 'New campaign budget. Left unchanged when omitted.' },
     operationStatus: tiktokOperationStatusSchema(),
   });
@@ -4437,7 +4442,10 @@ function createGmvMaxUpdateSessionInputSchema() {
       description: 'GMV Max session to update. Required — the call fails without it.',
     },
     sessionName: { type: 'string', description: 'New session name. Left unchanged when omitted.' },
-    sessionBudget: { type: 'number', description: 'New session budget. Left unchanged when omitted.' },
+    sessionBudget: {
+      type: 'number',
+      description: 'New session budget. Left unchanged when omitted.',
+    },
     startTime: { type: 'string', description: 'New start time. Left unchanged when omitted.' },
     endTime: { type: 'string', description: 'New end time. Left unchanged when omitted.' },
   });

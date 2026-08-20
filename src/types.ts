@@ -397,6 +397,16 @@ export interface Campaign {
   objective: string;
   created_time: string;
   updated_time: string;
+  /** Campaign-level bid strategy. Absent unless set on the campaign. */
+  bid_strategy?: string;
+  /**
+   * Campaign-level daily budget (Advantage campaign budget / CBO). Meta omits
+   * this when the budget lives on the ad sets instead — budgets are set at one
+   * level or the other, never both — so absence identifies a non-CBO campaign.
+   */
+  daily_budget?: string;
+  /** Campaign-level lifetime budget. Absent for the same reason as `daily_budget`. */
+  lifetime_budget?: string;
 }
 
 export interface Action {
