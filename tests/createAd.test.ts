@@ -395,7 +395,7 @@ describe('createAd', () => {
 
     expect(r.status).toBe('dry_run');
     expect(r.error).toBeUndefined();
-    expect(r.warnings?.join(' ')).toMatch(/Ad Set.*dynamic|dynamic.*Ad Set/i);
+    expect(r.warnings?.join(' ')).toMatch(/sudah berisi iklan dynamic\/flexible asset-feed/);
     expect(r.warnings?.join(' ')).toMatch(/skipAdSetCreativeFamilyCheck/);
     expect(mockMetaPost).not.toHaveBeenCalled();
   });
@@ -684,7 +684,7 @@ describe('createAd', () => {
     const r = await createAd(mockClient, baseOpts);
 
     expect(r.status).toBe('failed');
-    expect(r.error).toMatch(/app_destination/i);
+    expect(r.error).toMatch(/call_to_action\.value\.app_destination WHATSAPP/);
   });
 
   it('leaves non-messaging ad sets to Meta', async () => {
@@ -709,7 +709,7 @@ describe('createAd', () => {
     const r = await createAd(mockClient, { ...baseOpts, skipMessagingDestinationCheck: true });
 
     expect(r.status).toBe('dry_run');
-    expect(r.warnings?.join(' ')).toMatch(/messaging/i);
+    expect(r.warnings?.join(' ')).toMatch(/Messaging destination\/CTA cross-check skipped/);
   });
 
   it('returns failed on error', async () => {

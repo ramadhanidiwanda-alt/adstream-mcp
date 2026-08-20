@@ -1008,7 +1008,7 @@ describe('createAdSet — bid strategy + pre-flight validation', () => {
       );
 
       expect(result.status).toBe('failed');
-      expect(result.error).toMatch(/product set.*harus sama/i);
+      expect(result.error).toMatch(/collaborativeCatalog dan promotedObject harus sama/);
       expect(client.metaPost).not.toHaveBeenCalled();
     });
   });
