@@ -41,6 +41,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `meta.nextCursor`. The tool resolves URLs only — it does not download files or
   build a report. Google and TikTok return structured `NOT_IMPLEMENTED`.
 
+### Fixed — Optimization-goal guard now checks the conditions it claims
+
+`ads_create_adset`, `ads_update_adset`, and `ads_clone_adset` rejected any ad
+set whose `optimization_goal` differed from a sibling in the same campaign. The
+error text justified this with *"under auto bid/CBO-style delivery"* and Meta
+subcode `#1885760` — but the check never read the campaign node, so it could not
+know the bid strategy or whether the campaign held a budget, and `#1885760` does
+not appear in Meta's published error reference.
+
+Meta scopes the rule to two conditions, per
+[Advantage Campaign Budget](https://developers.facebook.com/documentation/ads-commerce/marketing-api/bidding/guides/advantage-campaign-budget)
+— *"All optimization goals must be the same across ad sets under auto bid"*: the
+budget must sit on the campaign, **and** delivery must run under auto bid. A
+campaign whose budgets live on its ad sets — the common case — was blocked for a
+rule that never applied to it.
+
+- The guard now reads `bid_strategy`, `daily_budget`, and `lifetime_budget` and
+  only rejects a mismatch when the campaign holds its own budget **and** uses
+  `LOWEST_COST_WITHOUT_CAP`. Otherwise the sibling read is skipped entirely.
+- **`ads_create_adset`** reuses the campaign it already fetched for the bid
+  strategy pre-flight instead of reading the campaign node twice.
+- All three tools now **fail open**: if the campaign or sibling read fails, the
+  write proceeds and the reason lands in a new `warnings` field, instead of
+  aborting. An unreadable list is not evidence of a conflict, and a write Meta
+  rejects creates nothing.
+- `OPTIMIZATION_GOAL_MISMATCH` guidance now also offers moving the budget to the
+  ad sets as a fix, alongside matching the goal or splitting campaigns.
+- Removed the unverifiable `#1885760` row from the subcode table in
+  `docs/WRITE_SAFETY_CONTRACT.md`.
+
 ### Fixed — Ad Set creative-family mismatch is a warning, not a rejection
 
 `ads_create_ad` refused valid creates before ever calling Meta. The pre-check

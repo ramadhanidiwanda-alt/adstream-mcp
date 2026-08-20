@@ -202,7 +202,8 @@ For entity creation tools (especially `ads_create_adset`), the tool MUST perform
 - **Bid strategy requirement:** If parent campaign uses `COST_CAP`, `LOWEST_COST_WITH_BID_CAP`, or `TARGET_COST`, require `bidAmount` on the ad set.
 - **Invalid bid strategy values:** Reject `LOWEST_COST` (invalid) — suggest `LOWEST_COST_WITHOUT_CAP`.
 - **MIN_ROAS bid constraints:** If `bid_strategy = LOWEST_COST_WITH_MIN_ROAS`, require `bidConstraints.roas_average_floor`.
-- **Optimization goal consistency:** Before creating/updating/cloning ad sets, read non-deleted, non-archived sibling ad sets in the target campaign and reject mixed `optimization_goal` values with a clear local error. Meta rejects these under auto bid/CBO-style delivery (subcode `1885760`).
+- **Optimization goal consistency (scoped to CBO + auto bid):** Before creating/updating/cloning ad sets, read the target campaign's `bid_strategy` and budget fields. Meta requires one shared `optimization_goal` across ad sets only when the budget sits on the campaign (Advantage campaign budget) **and** delivery runs under auto bid (`LOWEST_COST_WITHOUT_CAP`) — see [Advantage Campaign Budget](https://developers.facebook.com/documentation/ads-commerce/marketing-api/bidding/guides/advantage-campaign-budget): "All optimization goals must be the same across ad sets under auto bid." Only in that case are non-deleted, non-archived siblings read and a mismatch rejected. Campaigns whose budgets live on their ad sets, and CBO campaigns on COST_CAP / bid-cap / min-ROAS, may mix goals freely and are not blocked.
+- **Fail-open on an unreadable campaign:** if the campaign or sibling read fails, the write proceeds with a warning rather than aborting. An unreadable list is not evidence of a conflict, and a write Meta rejects creates nothing.
 - **Ad creative-family mismatch (warning, not a block):** Before `ads_create_ad`, read the target Ad Set's existing non-archived ads and warn when the new creative's family (manual/static, flexible asset-feed, catalog/product, placement-customized asset-feed) differs from what the Ad Set already holds. This is advisory only. Meta enforces the one-format rule through the Ad Set flag `is_dynamic_creative=true` — that Ad Set must be empty and accepts a single ad — and `ads_create_ad` still rejects those outright. A normal `is_dynamic_creative=false` Ad Set does accept mixed families (verified live 2026-08-18), so the create proceeds and Meta decides; a rejected POST creates nothing. If Meta does reject, duplicate/create a separate Ad Set or attach a creative from the same family. `skipAdSetCreativeFamilyCheck: true` suppresses the advisory and its Graph reads.
 
 Pre-flight errors MUST be returned BEFORE any Meta API call with an actionable message.
@@ -220,7 +221,6 @@ Meta API errors carry subcodes that SHOULD be mapped to human-readable messages:
 | `1885154` | "promoted_object/page_id required for this engagement ad set."              |
 | `1815715` | "destination_type is incompatible with this campaign objective."            |
 | `1885621` | "bid_amount value is invalid or too low."                                   |
-| `1885760` | "All ad sets in the campaign must use the same optimization_goal."          |
 | `2446149` | "Unsupported bid_strategy and bid_amount combination."                      |
 | `2490408` | "Requested performance goal is not available for this Page/WhatsApp setup." |
 | `4834011` | "special_ad_categories required for this campaign/objective combination."   |

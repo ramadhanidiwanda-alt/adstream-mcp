@@ -51,6 +51,8 @@ export interface UpdateAdSetResult {
   /** Requested values that did not survive the write. Absent means clean. */
   droppedFields?: AppliedFieldDrop[];
   warning?: string;
+  /** Non-blocking advisories collected during pre-flight checks. */
+  warnings?: string[];
   mode: 'patch' | 'replace';
   success: boolean;
   id?: string;
@@ -135,6 +137,7 @@ export async function updateAdSet(
     };
   }
 
+  const consistencyWarnings: string[] = [];
   if (options.optimizationGoal !== undefined) {
     try {
       const current = await client.metaGetObject<{ id?: string; campaign_id?: string }>(
@@ -160,21 +163,13 @@ export async function updateAdSet(
         }
       }
     } catch (error) {
-      return {
-        ...baseResult,
-        status: 'failed',
-        success: false,
-        error:
-          `Failed to verify sibling ad set optimization goals before update; ` +
-          `aborting rather than risking Meta error #1885760. ${formatMetaWriteError(error)}`,
-        structuredError: {
-          ...formatStructuredMetaWriteError(error),
-          code: 'OPTIMIZATION_GOAL_CONSISTENCY_CHECK_FAILED',
-          provider: 'meta',
-          actionableFix:
-            'Retry once the ad set and sibling read succeeds, or split different optimization goals into separate campaigns.',
-        },
-      };
+      // Fail open: an unreadable campaign or sibling list is not evidence of a
+      // conflict, and the rule only binds CBO campaigns under auto bid anyway.
+      consistencyWarnings.push(
+        `Could not verify sibling ad set optimization goals before update; continuing. ` +
+          `If this campaign holds its own budget and runs under auto bid, Meta may reject a ` +
+          `differing optimization_goal. ${formatMetaWriteError(error)}`
+      );
     }
   }
 
@@ -225,6 +220,7 @@ export async function updateAdSet(
       ...(applied ? { applied } : {}),
       ...(droppedFields ? { droppedFields } : {}),
       ...(warning ? { warning } : {}),
+      ...(consistencyWarnings.length > 0 ? { warnings: consistencyWarnings } : {}),
     };
   } catch (error) {
     return {
@@ -233,6 +229,7 @@ export async function updateAdSet(
       success: false,
       error: formatMetaWriteError(error),
       structuredError: formatStructuredMetaWriteError(error),
+      ...(consistencyWarnings.length > 0 ? { warnings: consistencyWarnings } : {}),
     };
   }
 }
