@@ -226,8 +226,10 @@ export async function createEcommerceCampaignBundle(
     if (selectedCreativeFormat === 'video' && payload.videoFilePath?.trim() && !videoId) {
       const uploadResult = await uploadVideo(client, {
         adAccountId: payload.adAccountId,
+        // The bundle's shared maxRetries deliberately does not reach the video upload: retrying
+        // POST /advideos leaves a duplicate video in the library rather than recovering. Image
+        // uploads above still take it, because Meta keys those by content hash.
         filePath: payload.videoFilePath.trim(),
-        maxRetries,
       });
       if (uploadResult.status === 'failed' || !uploadResult.video_id) {
         return failedResult(`Video upload failed: ${uploadResult.error ?? 'unknown error'}`);

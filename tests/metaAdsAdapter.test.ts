@@ -5145,3 +5145,54 @@ describe('partialPageWarningMeta', () => {
     expect(partialPageWarningMeta(50, 50, 'cursor-abc', true)).toEqual({});
   });
 });
+
+// POST /act_X/advideos is not idempotent: every call mints a new video ID, so a retry after a
+// transport timeout leaves a duplicate in the library rather than recovering. uploadVideo opts
+// out by defaulting to 0 retries, but the adapter used to hardcode a fallback of 3 — and the
+// adapter is the only path an MCP caller takes, so that default was never actually read.
+describe('MetaAdsAdapter.uploadVideo retry handling', () => {
+  it('leaves maxRetries unset so the tool default of no retries applies', async () => {
+    let receivedOptions: { maxRetries?: number } | undefined;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: () => ({}) as never,
+      tools: {
+        uploadVideo: async (_client, options) => {
+          receivedOptions = options;
+          return { operation: 'upload_video', status: 'uploading', video_id: 'video-1' };
+        },
+      },
+    });
+
+    const response = await adapter.uploadVideo({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: { filePath: '/tmp/clip.mp4' },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    } as never);
+
+    expect(response.ok).toBe(true);
+    expect(receivedOptions?.maxRetries).toBeUndefined();
+  });
+
+  it('still honours an explicit maxRetries from the caller', async () => {
+    let receivedOptions: { maxRetries?: number } | undefined;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: () => ({}) as never,
+      tools: {
+        uploadVideo: async (_client, options) => {
+          receivedOptions = options;
+          return { operation: 'upload_video', status: 'uploading', video_id: 'video-1' };
+        },
+      },
+    });
+
+    await adapter.uploadVideo({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: { filePath: '/tmp/clip.mp4', maxRetries: 2 },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    } as never);
+
+    expect(receivedOptions?.maxRetries).toBe(2);
+  });
+});
