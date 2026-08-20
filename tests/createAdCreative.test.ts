@@ -1208,7 +1208,7 @@ describe('createAdCreative', () => {
       status: 'failed',
       structuredError: { code: 'DYNAMIC_CREATIVE_DISABLED' },
     });
-    expect(result.error).toMatch(/asset_feed_spec tanpa asset_customization_rules/i);
+    expect(result.error).toMatch(/optimization_type REGULAR.*Dynamic Creative/i);
   });
 
   it('rejects legacy nested asset_feed_spec Dynamic Creative creation', async () => {
@@ -1233,7 +1233,7 @@ describe('createAdCreative', () => {
       status: 'failed',
       structuredError: { code: 'DYNAMIC_CREATIVE_DISABLED' },
     });
-    expect(result.error).toMatch(/asset_feed_spec tanpa asset_customization_rules/i);
+    expect(result.error).toMatch(/optimization_type REGULAR.*Dynamic Creative/i);
     expect(mockMetaPost).not.toHaveBeenCalled();
   });
 
@@ -1259,7 +1259,7 @@ describe('createAdCreative', () => {
       status: 'failed',
       structuredError: { code: 'DYNAMIC_CREATIVE_DISABLED' },
     });
-    expect(result.error).toMatch(/asset_feed_spec tanpa asset_customization_rules/i);
+    expect(result.error).toMatch(/optimization_type REGULAR.*Dynamic Creative/i);
   });
 
   it('allows placement-customized video assetFeedSpec without Dynamic Creative', async () => {
@@ -1421,7 +1421,7 @@ describe('createAdCreative', () => {
       status: 'failed',
       structuredError: { code: 'DYNAMIC_CREATIVE_DISABLED' },
     });
-    expect(result.error).toMatch(/asset_feed_spec tanpa asset_customization_rules/i);
+    expect(result.error).toMatch(/optimization_type REGULAR.*Dynamic Creative/i);
   });
 
   it('returns pending_confirmation when not confirmed', async () => {

@@ -11,6 +11,13 @@ import {
 } from '../utils/formatMetaWriteError.js';
 import { getOmnichannelCompatibilityError } from '../providers/meta/omnichannelAdCompatibility.js';
 import { getMessagingDestinationCompatibilityError } from '../providers/meta/messagingDestinationCompatibility.js';
+import {
+  classifyCreativeFamily,
+  creativeFamilyLabel,
+  familyRequiresDynamicCreativeAdSet,
+  readOptimizationType,
+  type CreativeFamily,
+} from '../providers/meta/assetFeedSpecFamily.js';
 
 export type AdStatus = 'ACTIVE' | 'PAUSED';
 
@@ -56,7 +63,24 @@ export interface CreateAdOptions {
   skipAdSetCreativeFamilyCheck?: boolean;
 }
 
-export type CreateAdStatus = 'dry_run' | 'pending_confirmation' | 'executed' | 'failed' | 'deduped';
+export type CreateAdStatus =
+  | 'dry_run'
+  | 'pending_confirmation'
+  | 'executed'
+  /** Sebuah pre-flight LOKAL menolak permintaan ini. Meta belum pernah dihubungi. */
+  | 'preflight_blocked'
+  /** Meta yang menolak: `error` berasal dari respons Graph API sungguhan. */
+  | 'failed'
+  | 'deduped';
+
+/**
+ * Asal sebuah `error`.
+ *
+ * `local_preflight` adalah PREDIKSI heuristik milik MCP ini, bukan jawaban Meta —
+ * jangan pernah melaporkannya sebagai "Meta menolak". `meta_api` berarti error
+ * benar-benar dikembalikan Graph API.
+ */
+export type CreateAdErrorSource = 'local_preflight' | 'meta_api';
 
 export interface CreateAdResult {
   operation: 'create_ad';
@@ -66,6 +90,10 @@ export interface CreateAdResult {
   id?: string;
   response?: Record<string, unknown>;
   error?: string;
+  /** Dari mana `error` berasal. Absen bila tidak ada error. */
+  errorSource?: CreateAdErrorSource;
+  /** Nama pre-flight lokal yang memblokir, bila `errorSource` = local_preflight. */
+  preflightCheck?: string;
   structuredError?: StructuredMutationError;
   warnings?: string[];
 }
@@ -107,7 +135,7 @@ export async function createAd(
       : []),
     ...(options.skipAdSetCreativeFamilyCheck
       ? [
-          'Ad Set creative-family advisory skipped by request. Mixing formats is not blocked either way; without the advisory you will not be told what the Ad Set already contains.',
+          'Ad Set creative-family advisory skipped by request. Mixing formats is not blocked either way — no Meta rule forbids it; without the advisory you will not be told what the Ad Set already contains.',
         ]
       : []),
   ];
@@ -121,6 +149,18 @@ export async function createAd(
     ...overrides,
   });
 
+  // Semua blok di bawah ini adalah pre-flight LOKAL: Meta belum dihubungi sama
+  // sekali. Hasilnya ditandai `preflight_blocked` + errorSource `local_preflight`
+  // supaya tidak pernah terbaca sebagai penolakan Graph API oleh sesi/agent lain.
+  const preflightBlocked = (check: string, message: string): CreateAdResult =>
+    buildResult({
+      status: 'preflight_blocked',
+      executed: false,
+      error: message,
+      errorSource: 'local_preflight',
+      preflightCheck: check,
+    });
+
   // Pre-flight: an omnichannel ad set requires an omnichannel-ready creative.
   // Surface this during dry-run so the mismatch is caught before any ad is made.
   if (options.creativeId && !options.skipOmnichannelCheck) {
@@ -130,9 +170,7 @@ export async function createAd(
       options.creativeId,
       maxRetries
     );
-    if (omnichannelError) {
-      return buildResult({ status: 'failed', executed: false, error: omnichannelError });
-    }
+    if (omnichannelError) return preflightBlocked('omnichannel_compatibility', omnichannelError);
   }
 
   // Pre-flight: a click-to-message ad set needs a creative whose CTA opens the same
@@ -145,11 +183,7 @@ export async function createAd(
       maxRetries
     );
     if (messagingDestinationError) {
-      return buildResult({
-        status: 'failed',
-        executed: false,
-        error: messagingDestinationError,
-      });
+      return preflightBlocked('messaging_destination', messagingDestinationError);
     }
   }
 
@@ -161,11 +195,7 @@ export async function createAd(
       maxRetries
     );
     if (dynamicCreativePolicyError) {
-      return buildResult({
-        status: 'failed',
-        executed: false,
-        error: dynamicCreativePolicyError,
-      });
+      return preflightBlocked('dynamic_creative_policy', dynamicCreativePolicyError);
     }
   } else if (options.creativeId) {
     const placementCompatibility = await getPlacementCompatibilityError(
@@ -175,11 +205,7 @@ export async function createAd(
       maxRetries
     );
     if (placementCompatibility) {
-      return buildResult({
-        status: 'failed',
-        executed: false,
-        error: placementCompatibility.message,
-      });
+      return preflightBlocked('placement_compatibility', placementCompatibility.message);
     }
   }
 
@@ -233,6 +259,7 @@ export async function createAd(
     if (!response.id || typeof response.id !== 'string') {
       return buildResult({
         status: 'failed',
+        errorSource: 'meta_api',
         error: 'Meta did not return an id for created ad',
       });
     }
@@ -246,9 +273,41 @@ export async function createAd(
   } catch (error) {
     return buildResult({
       status: 'failed',
+      errorSource: 'meta_api',
       error: formatMetaWriteError(error),
       structuredError: formatStructuredMetaWriteError(error),
     });
+  }
+}
+
+/**
+ * Baca creative untuk pre-flight kompatibilitas.
+ *
+ * `object_story_spec` dan `product_set_id` dibutuhkan untuk mendeteksi sinyal
+ * katalog; tanpa keduanya creative katalog salah diklasifikasi sebagai Dynamic
+ * Creative dan diblokir. Tapi Meta menolak sebagian field per creative/versi API
+ * dengan `(#100) Tried accessing nonexisting field`, dan pemanggil pre-flight ini
+ * tidak dibungkus try/catch — satu field yang ditolak akan menggagalkan seluruh
+ * create. Karena itu field tambahan bersifat best-effort: kalau ditolak, ulangi
+ * dengan `asset_feed_spec` saja, yang cukup untuk keputusan Dynamic Creative.
+ */
+async function readCreativeForCompatibility(
+  client: MetaClient,
+  creativeId: string,
+  maxRetries: number
+): Promise<Record<string, unknown>> {
+  try {
+    return await client.metaGetObject<Record<string, unknown>>(
+      `/${creativeId}`,
+      { fields: 'asset_feed_spec,object_story_spec,product_set_id' },
+      maxRetries
+    );
+  } catch {
+    return client.metaGetObject<Record<string, unknown>>(
+      `/${creativeId}`,
+      { fields: 'asset_feed_spec' },
+      maxRetries
+    );
   }
 }
 
@@ -264,26 +323,21 @@ async function getPlacementCompatibilityError(
       { fields: 'destination_type,is_dynamic_creative' },
       maxRetries
     ),
-    client.metaGetObject<Record<string, unknown>>(
-      `/${creativeId}`,
-      { fields: 'asset_feed_spec' },
-      maxRetries
-    ),
+    readCreativeForCompatibility(client, creativeId, maxRetries),
   ]);
 
   const assetFeedSpec = isRecord(creative.asset_feed_spec) ? creative.asset_feed_spec : undefined;
   // Creative ini DIBACA dari Meta, bukan input yang kita kirim: satu rule saja
-  // sudah membuktikan ini asset customization, bukan Dynamic Creative. Ambang
-  // minimal 2 rules milik Meta hanya berlaku di jalur create.
+  // sudah membuktikan ini asset customization. Ambang minimal 2 rules milik Meta
+  // hanya berlaku di jalur create.
   const hasPlacementRules = Array.isArray(assetFeedSpec?.asset_customization_rules)
     ? assetFeedSpec.asset_customization_rules.length > 0
     : false;
-  const hasMultiVariants = hasMultiVariantTextAssets(assetFeedSpec) && !hasPlacementRules;
-  const hasDynamicAssetFeed =
-    assetFeedSpec !== undefined &&
-    Object.keys(assetFeedSpec).length > 0 &&
-    !hasPlacementRules &&
-    !hasCatalogSignal(creative, assetFeedSpec);
+  const family = classifyCreativeFamily(creative, {
+    hasCatalogSignal: hasCatalogSignal(creative, assetFeedSpec),
+  });
+  const hasMultiVariants = hasMultiVariantTextAssets(assetFeedSpec);
+  const optimizationTypeSent = readOptimizationType(assetFeedSpec) !== undefined;
 
   if (adSet.is_dynamic_creative === true) {
     return {
@@ -293,11 +347,14 @@ async function getPlacementCompatibilityError(
     };
   }
 
-  if (hasDynamicAssetFeed) {
+  // Hanya Dynamic Creative (optimization_type REGULAR, atau tidak dikirim sama
+  // sekali sehingga Meta mengisinya REGULAR) yang butuh ad set dynamic.
+  // DEGREES_OF_FREEDOM dan asset customization adalah ad biasa — keduanya lolos.
+  if (familyRequiresDynamicCreativeAdSet(family)) {
     return {
       message: hasMultiVariants
-        ? 'Creative ini punya beberapa primary text/headline di asset_feed_spec TANPA asset_customization_rules — itu jalur Dynamic Creative (Meta yang memilih aset) dan tidak didukung untuk create baru di MCP ini. Yang menentukan bukan jumlah aset melainkan ada tidaknya rules: dengan asset_customization_rules, variasi aset justru sah dan ad set tetap non-dynamic. Gunakan single_image/video/carousel biasa, beberapa manual creative/ad terpisah untuk variasi headline/caption/copy/image/video, atau asset_customization_rules untuk asset customization per placement/language/segment.'
-        : 'asset_feed_spec tanpa asset_customization_rules (jalur Dynamic Creative) tidak didukung di MCP ini. Use separate manual ads, catalog or collection ads, or asset customization (placement/language/segment) with asset_customization_rules instead.',
+        ? `Creative ini punya beberapa primary text/headline di asset_feed_spec dengan optimization_type ${optimizationTypeSent ? 'REGULAR' : 'kosong (Meta mengisinya REGULAR)'} — itu jalur Dynamic Creative, yang menuntut ad set is_dynamic_creative=true dan membatasi ad set jadi satu ad, dan tidak didukung di MCP ini. Yang menentukan adalah optimization_type, bukan jumlah aset: kirim optimization_type "DEGREES_OF_FREEDOM" dan beberapa varian teks yang sama justru sah pada ad biasa (Advantage+ text variations). Alternatif lain: asset_customization_rules (minimal 2) untuk aset per placement/language/segment, atau beberapa manual creative/ad terpisah.`
+        : `asset_feed_spec dengan optimization_type ${optimizationTypeSent ? 'REGULAR' : 'kosong (Meta mengisinya REGULAR)'} adalah jalur Dynamic Creative dan tidak didukung di MCP ini. Set optimization_type "DEGREES_OF_FREEDOM" untuk varian teks pada ad biasa, tambahkan asset_customization_rules (minimal 2) untuk asset customization, atau pakai manual/catalog/collection ad.`,
       policyBlocked: true,
     };
   }
@@ -540,12 +597,6 @@ function countArray(value: unknown): number {
   return Array.isArray(value) ? value.length : 0;
 }
 
-type CreativeFamily =
-  | 'manual_static'
-  | 'dynamic_flexible'
-  | 'catalog_dynamic'
-  | 'placement_customized';
-
 interface ExistingAdWithCreative extends Record<string, unknown> {
   id?: string;
   name?: string;
@@ -555,10 +606,18 @@ interface ExistingAdWithCreative extends Record<string, unknown> {
 }
 
 /**
- * Report a creative-family mismatch between the target Ad Set's existing ads and
- * the creative being attached. Advisory: Meta only enforces the "one format per
- * ad set" rule through the ad set's own `is_dynamic_creative` flag, so this
- * never blocks a create on its own.
+ * Laporkan bahwa Ad Set tujuan sudah berisi keluarga creative yang berbeda.
+ *
+ * Murni informasi — tidak pernah memblokir. Tidak ada aturan Meta yang melarang
+ * campuran format creative dalam satu Ad Set; klaim lama bahwa Meta menolaknya
+ * dengan `#1885274` tidak terbukti (kode itu tidak ada di error reference Meta
+ * maupun sumber lain), dan ad set produksi terbukti menjalankan creative
+ * manual/static berdampingan dengan creative DEGREES_OF_FREEDOM. Satu-satunya
+ * batasan level ad set yang terdokumentasi milik Dynamic Creative, dan itu
+ * ditegakkan terpisah oleh getPlacementCompatibilityError.
+ *
+ * Klasifikasinya memakai optimization_type supaya varian teks Advantage+ tidak
+ * salah dilabeli Dynamic Creative di teks catatan ini.
  */
 async function getAdSetCreativeFamilyWarning(
   client: MetaClient,
@@ -587,59 +646,36 @@ async function getAdSetCreativeFamilyWarning(
       ),
     ]);
 
-    const newFamily = classifyCreativeFamily(newCreative);
-    const conflictingAd = existingAdsResponse.data
-      ?.filter((ad) => !isArchivedOrDeleted(ad))
-      .map((ad) => ({ ad, family: classifyCreativeFamily(ad.creative) }))
-      .find(({ family }) => family !== undefined && creativeFamiliesConflict(family, newFamily));
+    const classify = (creative: Record<string, unknown> | undefined): CreativeFamily =>
+      classifyCreativeFamily(creative, {
+        hasCatalogSignal: creative
+          ? hasCatalogSignal(
+              creative,
+              isRecord(creative.asset_feed_spec) ? creative.asset_feed_spec : undefined
+            )
+          : false,
+      });
 
-    if (!conflictingAd) return undefined;
+    const newFamily = classify(newCreative);
+    const differentAd = existingAdsResponse.data
+      ?.filter((ad) => !isArchivedOrDeleted(ad))
+      .map((ad) => ({ ad, family: classify(ad.creative) }))
+      .find(({ family }) => family !== newFamily);
+
+    if (!differentAd) return undefined;
 
     return (
-      `Ad Set ${adSetId} sudah berisi iklan ${creativeFamilyLabel(conflictingAd.family)} ` +
-      `(${conflictingAd.ad.name ?? conflictingAd.ad.id ?? 'existing ad'}), tetapi creative baru ` +
-      `${creativeId} terdeteksi sebagai ${creativeFamilyLabel(newFamily)}. Ini peringatan, bukan ` +
-      'penolakan: Ad Set non-Dynamic Creative (is_dynamic_creative=false) umumnya menerima ' +
-      'campuran ini, dan create tetap dilanjutkan ke Meta. Kalau Meta menolak (mis. campuran ' +
-      'format creative, kadang muncul sebagai error #1885274), tidak ada objek yang terbentuk — ' +
-      'buat Ad Set baru/duplikat untuk format ini atau pakai creative dengan family yang sama. ' +
-      'Set skipAdSetCreativeFamilyCheck=true untuk mematikan pemeriksaan ini.'
+      `Ad Set ${adSetId} sudah berisi iklan ${creativeFamilyLabel(differentAd.family)} ` +
+      `(${differentAd.ad.name ?? differentAd.ad.id ?? 'existing ad'}), sedangkan creative baru ` +
+      `${creativeId} terdeteksi sebagai ${creativeFamilyLabel(newFamily)}. Ini catatan informasi, ` +
+      'bukan masalah: tidak ada aturan Meta yang melarang campuran format creative dalam satu Ad ' +
+      'Set, dan create tetap dilanjutkan. Satu-satunya batasan level ad set milik Meta adalah ' +
+      'Dynamic Creative ("your ad set must be empty ... You can only create one ad per ad set"), ' +
+      'yang sudah ditolak lebih dulu oleh pre-flight tersendiri. Set ' +
+      'skipAdSetCreativeFamilyCheck=true untuk mematikan catatan ini beserta dua Graph read-nya.'
     );
   } catch {
     return undefined;
-  }
-}
-
-function classifyCreativeFamily(creative: Record<string, unknown> | undefined): CreativeFamily {
-  if (!creative) return 'manual_static';
-
-  const assetFeedSpec = isRecord(creative.asset_feed_spec) ? creative.asset_feed_spec : undefined;
-  if (hasCatalogSignal(creative, assetFeedSpec)) return 'catalog_dynamic';
-
-  if (assetFeedSpec) {
-    const hasPlacementRules = Array.isArray(assetFeedSpec.asset_customization_rules)
-      ? assetFeedSpec.asset_customization_rules.length > 0
-      : false;
-    return hasPlacementRules ? 'placement_customized' : 'dynamic_flexible';
-  }
-
-  return 'manual_static';
-}
-
-function creativeFamiliesConflict(left: CreativeFamily, right: CreativeFamily): boolean {
-  return left !== right;
-}
-
-function creativeFamilyLabel(family: CreativeFamily): string {
-  switch (family) {
-    case 'manual_static':
-      return 'manual/static';
-    case 'dynamic_flexible':
-      return 'dynamic/flexible asset-feed';
-    case 'catalog_dynamic':
-      return 'catalog/dynamic product';
-    case 'placement_customized':
-      return 'placement-customized asset-feed';
   }
 }
 

@@ -1,5 +1,6 @@
 import type { MetaClient } from '../metaClient.js';
 import type { MutationResult } from '../types.js';
+import { mutateStatusWithReadBack } from '../providers/meta/statusMutationReadBack.js';
 
 export interface ResumeCampaignOptions {
   /** Max retries on rate limit */
@@ -8,9 +9,11 @@ export interface ResumeCampaignOptions {
 
 /**
  * Resume a campaign by setting status to ACTIVE.
- * POST /{campaign_id} with status=ACTIVE
+ * POST /{campaign_id} with status=ACTIVE, then read the status back.
  *
- * Returns { success, id } on success.
+ * `success` is true only when the read-back confirms the campaign is ACTIVE;
+ * `response.read_back` carries the observed status and effective_status.
+ *
  * Throws MetaApiError if the API returns an error.
  */
 export async function resumeCampaign(
@@ -18,19 +21,10 @@ export async function resumeCampaign(
   campaignId: string,
   options: ResumeCampaignOptions = {}
 ): Promise<MutationResult> {
-  const maxRetries = options.maxRetries ?? 3;
-
-  const result = await client.metaPost<{ success: boolean }>(
-    `/${campaignId}`,
-    { status: 'ACTIVE' },
-    maxRetries
-  );
-
-  return {
-    success: result.success ?? true,
-    id: campaignId,
+  return mutateStatusWithReadBack(client, campaignId, {
+    status: 'ACTIVE',
     operation: 'resume',
     entityType: 'campaign',
-    response: result as unknown as Record<string, unknown>,
-  };
+    maxRetries: options.maxRetries ?? 3,
+  });
 }

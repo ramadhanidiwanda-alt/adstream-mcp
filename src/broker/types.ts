@@ -943,7 +943,21 @@ export interface CreateAdCreativeResult {
   verification?: MetaCreativeVerification;
 }
 
-export type CreateAdStatus = 'dry_run' | 'pending_confirmation' | 'executed' | 'failed' | 'deduped';
+export type CreateAdStatus =
+  | 'dry_run'
+  | 'pending_confirmation'
+  | 'executed'
+  /** Sebuah pre-flight LOKAL menolak permintaan ini. Meta belum pernah dihubungi. */
+  | 'preflight_blocked'
+  /** Meta yang menolak: `error` berasal dari respons Graph API sungguhan. */
+  | 'failed'
+  | 'deduped';
+
+/**
+ * Asal sebuah `error`. `local_preflight` adalah PREDIKSI heuristik milik MCP ini,
+ * bukan jawaban Meta — jangan pernah melaporkannya sebagai "Meta menolak".
+ */
+export type CreateAdErrorSource = 'local_preflight' | 'meta_api';
 
 export interface CreateAdResult {
   operation: 'create_ad';
@@ -953,6 +967,8 @@ export interface CreateAdResult {
   id?: string;
   response?: Record<string, unknown>;
   error?: string;
+  errorSource?: CreateAdErrorSource;
+  preflightCheck?: string;
 }
 
 export type CloneUiAdStatus =

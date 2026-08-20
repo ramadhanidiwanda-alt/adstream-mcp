@@ -1,5 +1,6 @@
 import type { MetaClient } from '../metaClient.js';
 import type { MutationResult } from '../types.js';
+import { mutateStatusWithReadBack } from '../providers/meta/statusMutationReadBack.js';
 
 export interface PauseAdSetOptions {
   maxRetries?: number;
@@ -7,9 +8,11 @@ export interface PauseAdSetOptions {
 
 /**
  * Pause an ad set by setting status to PAUSED.
- * POST /{adset_id} with status=PAUSED
+ * POST /{adset_id} with status=PAUSED, then read the status back.
  *
- * Returns { success, id } on success.
+ * `success` is true only when the read-back confirms the ad set is PAUSED;
+ * `response.read_back` carries the observed status and effective_status.
+ *
  * Throws MetaApiError if the API returns an error.
  */
 export async function pauseAdSet(
@@ -17,19 +20,10 @@ export async function pauseAdSet(
   adSetId: string,
   options: PauseAdSetOptions = {}
 ): Promise<MutationResult> {
-  const maxRetries = options.maxRetries ?? 3;
-
-  const result = await client.metaPost<{ success: boolean }>(
-    `/${adSetId}`,
-    { status: 'PAUSED' },
-    maxRetries
-  );
-
-  return {
-    success: result.success ?? true,
-    id: adSetId,
+  return mutateStatusWithReadBack(client, adSetId, {
+    status: 'PAUSED',
     operation: 'pause',
     entityType: 'adset',
-    response: result as unknown as Record<string, unknown>,
-  };
+    maxRetries: options.maxRetries ?? 3,
+  });
 }

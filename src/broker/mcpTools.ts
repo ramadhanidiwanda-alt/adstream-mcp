@@ -2248,7 +2248,7 @@ function createCreateAdCreativeInputSchema() {
           'existing_post',
         ],
         description:
-          'Format materi iklan: gambar tunggal, video, carousel, katalog, collection, gambar/video khusus per placement, atau postingan yang sudah ada. Yang disabled hanya asset_feed_spec tanpa asset_customization_rules (jalur Dynamic Creative); variasi headline/caption/copy/image/video dibuat sebagai beberapa creative/ad manual terpisah, carousel, atau asset customization per placement/language/segment dengan asset_customization_rules.',
+          'Format materi iklan: gambar tunggal, video, carousel, katalog, collection, gambar/video khusus per placement, atau postingan yang sudah ada. Yang disabled hanya asset_feed_spec dengan optimization_type REGULAR — atau tanpa optimization_type sama sekali, karena Meta mengisinya REGULAR — yaitu jalur Dynamic Creative yang mewajibkan ad set is_dynamic_creative=true dan membatasinya jadi satu ad. Untuk beberapa varian primary text/headline pada ad biasa, kirim optimization_type "DEGREES_OF_FREEDOM" (Advantage+ text variations). Untuk aset berbeda per placement/language/segment, pakai asset_customization_rules (minimal 2).',
       },
       creativeSpec: {
         type: 'object',
@@ -2699,7 +2699,7 @@ function createCreateAdInputSchema() {
       skipAdSetCreativeFamilyCheck: {
         type: 'boolean',
         description:
-          'Skip the Ad Set creative-family advisory. The advisory only warns when the Ad Set already holds a different creative family (manual/static vs dynamic/flexible/catalog/placement-customized asset-feed) — it never blocks the create, so set this only to skip the extra Graph reads.',
+          'Skip the Ad Set creative-family advisory. The advisory is informational only — it never blocks a create, because no Meta rule forbids mixing creative formats inside one Ad Set. It notes when the Ad Set already holds a different family, classified by asset_feed_spec.optimization_type (manual/static, Advantage+ text variations, asset customization, catalog). Set this only to skip the extra Graph reads.',
       },
       externalReference: {
         type: 'string',
@@ -3412,7 +3412,8 @@ function createProductAudienceInputSchema() {
       },
       maxRetries: {
         type: 'number',
-        description: 'How many times to retry a transient Meta failure. Defaults to the tool default.',
+        description:
+          'How many times to retry a transient Meta failure. Defaults to the tool default.',
       },
     },
     required: ['accountId', 'name', 'productSetId', 'inclusions'],
@@ -3445,7 +3446,8 @@ function createCustomAudienceInputSchema() {
       },
       maxRetries: {
         type: 'number',
-        description: 'How many times to retry a transient Meta failure. Defaults to the tool default.',
+        description:
+          'How many times to retry a transient Meta failure. Defaults to the tool default.',
       },
     },
     required: ['accountId', 'name', 'pixelId', 'rule'],
@@ -3467,7 +3469,8 @@ function createPixelInputSchema() {
       },
       maxRetries: {
         type: 'number',
-        description: 'How many times to retry a transient Meta failure. Defaults to the tool default.',
+        description:
+          'How many times to retry a transient Meta failure. Defaults to the tool default.',
       },
     },
     required: ['accountId', 'name'],
@@ -4387,9 +4390,7 @@ function createTikTokWriteInputSchema(properties: Record<string, unknown>) {
   };
 }
 
-function tiktokOperationStatusSchema(
-  description = 'TikTok operation_status, ENABLE or DISABLE.'
-) {
+function tiktokOperationStatusSchema(description = 'TikTok operation_status, ENABLE or DISABLE.') {
   return { type: 'string', description };
 }
 
@@ -4406,7 +4407,10 @@ function createGmvMaxUpdateCampaignInputSchema() {
       type: 'string',
       description: 'GMV Max campaign to update. Required — the call fails without it.',
     },
-    campaignName: { type: 'string', description: 'New campaign name. Left unchanged when omitted.' },
+    campaignName: {
+      type: 'string',
+      description: 'New campaign name. Left unchanged when omitted.',
+    },
     budget: { type: 'number', description: 'New campaign budget. Left unchanged when omitted.' },
     operationStatus: tiktokOperationStatusSchema(),
   });
@@ -4438,7 +4442,10 @@ function createGmvMaxUpdateSessionInputSchema() {
       description: 'GMV Max session to update. Required — the call fails without it.',
     },
     sessionName: { type: 'string', description: 'New session name. Left unchanged when omitted.' },
-    sessionBudget: { type: 'number', description: 'New session budget. Left unchanged when omitted.' },
+    sessionBudget: {
+      type: 'number',
+      description: 'New session budget. Left unchanged when omitted.',
+    },
     startTime: { type: 'string', description: 'New start time. Left unchanged when omitted.' },
     endTime: { type: 'string', description: 'New end time. Left unchanged when omitted.' },
   });
