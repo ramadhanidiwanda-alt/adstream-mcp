@@ -1,5 +1,6 @@
 import type { MetaClient } from '../metaClient.js';
 import type { MutationResult } from '../types.js';
+import { mutateStatusWithReadBack } from '../providers/meta/statusMutationReadBack.js';
 
 export interface ResumeAdSetOptions {
   maxRetries?: number;
@@ -7,9 +8,13 @@ export interface ResumeAdSetOptions {
 
 /**
  * Resume a paused ad set by setting status to ACTIVE.
- * POST /{adset_id} with status=ACTIVE
+ * POST /{adset_id} with status=ACTIVE, then read the status back.
  *
- * Returns { success, id } on success.
+ * `success` is true only when the read-back confirms the ad set is ACTIVE.
+ * An ad set that really is ACTIVE still reports `effective_status:
+ * CAMPAIGN_PAUSED` while its parent campaign is paused — that lands in
+ * `response.read_back.note`, not in a failure.
+ *
  * Throws MetaApiError if the API returns an error.
  */
 export async function resumeAdSet(
@@ -17,19 +22,10 @@ export async function resumeAdSet(
   adSetId: string,
   options: ResumeAdSetOptions = {}
 ): Promise<MutationResult> {
-  const maxRetries = options.maxRetries ?? 3;
-
-  const result = await client.metaPost<{ success: boolean }>(
-    `/${adSetId}`,
-    { status: 'ACTIVE' },
-    maxRetries
-  );
-
-  return {
-    success: result.success ?? true,
-    id: adSetId,
+  return mutateStatusWithReadBack(client, adSetId, {
+    status: 'ACTIVE',
     operation: 'resume',
     entityType: 'adset',
-    response: result as unknown as Record<string, unknown>,
-  };
+    maxRetries: options.maxRetries ?? 3,
+  });
 }

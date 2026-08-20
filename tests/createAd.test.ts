@@ -205,7 +205,7 @@ describe('createAd', () => {
 
     const r = await createAd(mockClient, baseOpts);
 
-    expect(r.status).toBe('failed');
+    expect(r.status).toBe('preflight_blocked');
     expect(r.error).toContain('applink_treatment');
     expect(r.error).toContain('object_store_urls');
     expect(mockMetaPost).not.toHaveBeenCalled();
@@ -285,7 +285,7 @@ describe('createAd', () => {
     const r = await createAd(mockClient, baseOpts, { dryRun: false, confirmed: true });
 
     expect(r).toMatchObject({
-      status: 'failed',
+      status: 'preflight_blocked',
       executed: false,
       error: expect.stringMatching(/WhatsApp.*placement|placement.*WhatsApp/i),
     });
@@ -310,9 +310,9 @@ describe('createAd', () => {
     const r = await createAd(mockClient, baseOpts, { dryRun: false, confirmed: true });
 
     expect(r).toMatchObject({
-      status: 'failed',
+      status: 'preflight_blocked',
       executed: false,
-      error: expect.stringMatching(/TANPA asset_customization_rules/i),
+      error: expect.stringMatching(/optimization_type.*Dynamic Creative|DEGREES_OF_FREEDOM/i),
     });
     expect(mockMetaPost).not.toHaveBeenCalled();
   });
@@ -334,27 +334,39 @@ describe('createAd', () => {
 
     const r = await createAd(mockClient, baseOpts);
 
-    expect(r.status).toBe('failed');
-    expect(r.error).toMatch(/TANPA asset_customization_rules/i);
+    expect(r.status).toBe('preflight_blocked');
+    expect(r.error).toMatch(/optimization_type.*Dynamic Creative|DEGREES_OF_FREEDOM/i);
     expect(mockMetaPost).not.toHaveBeenCalled();
   });
 
-  it('blocks attaching a manual creative to an ad set that already contains dynamic asset-feed ads', async () => {
-    mockMetaGet.mockResolvedValueOnce({
+  // Regresi untuk klaim #1885274 yang dikarang. Bentuk payload di bawah disalin
+  // dari ad set produksi (is_dynamic_creative:false) yang menjalankan empat ad
+  // DEGREES_OF_FREEDOM berdampingan dengan satu ad manual/static — Meta menerima
+  // kombinasi ini. Tidak ada aturan Meta yang melarang campuran format creative.
+  it('allows a manual creative into an ad set that already runs DEGREES_OF_FREEDOM ads', async () => {
+    mockMetaGetObject.mockImplementation(async (path: string) =>
+      path === '/as456'
+        ? { destination_type: 'WEBSITE', is_dynamic_creative: false }
+        : {
+            id: 'cr789',
+            object_story_spec: {
+              page_id: 'page_1',
+              link_data: { image_hash: 'image_hash_1', link: 'https://example.com' },
+            },
+          }
+    );
+    mockMetaGet.mockResolvedValue({
       data: [
         {
-          id: 'existing_dynamic_ad_1',
-          name: 'Existing Dynamic Creative',
+          id: 'existing_advantage_ad_1',
+          name: 'ADS Skincare malay 3',
           status: 'ACTIVE',
           creative: {
             id: 'existing_creative_1',
             asset_feed_spec: {
-              ad_formats: ['AUTOMATIC_FORMAT'],
               bodies: [{ text: 'Primary text A' }, { text: 'Primary text B' }],
               titles: [{ text: 'Headline A' }, { text: 'Headline B' }],
-              images: [{ hash: 'image_hash_1' }],
-              link_urls: [{ website_url: 'https://example.com/product' }],
-              call_to_action_types: ['LEARN_MORE'],
+              optimization_type: 'DEGREES_OF_FREEDOM',
             },
           },
         },
@@ -363,15 +375,44 @@ describe('createAd', () => {
 
     const r = await createAd(mockClient, baseOpts);
 
-    expect(r).toMatchObject({
-      status: 'failed',
-      executed: false,
-      error: expect.stringMatching(/Ad Set.*dynamic|dynamic.*Ad Set/i),
-    });
-    expect(mockMetaPost).not.toHaveBeenCalled();
+    expect(r.status).toBe('dry_run');
+    expect(r.error).toBeUndefined();
   });
 
-  it('keeps the creative-family guard active with Meta-readable creative fields', async () => {
+  it('allows a DEGREES_OF_FREEDOM creative into a non-dynamic ad set that already has ads', async () => {
+    mockMetaGetObject.mockImplementation(async (path: string) =>
+      path === '/as456'
+        ? { destination_type: 'WEBSITE', is_dynamic_creative: false }
+        : {
+            id: 'cr789',
+            asset_feed_spec: {
+              bodies: [{ text: 'Primary text A' }, { text: 'Primary text B' }],
+              titles: [{ text: 'Headline A' }, { text: 'Headline B' }],
+              optimization_type: 'DEGREES_OF_FREEDOM',
+            },
+          }
+    );
+    mockMetaGet.mockResolvedValue({
+      data: [
+        {
+          id: 'existing_manual_ad_1',
+          name: 'Existing Manual Creative',
+          status: 'ACTIVE',
+          creative: {
+            id: 'existing_creative_1',
+            object_story_spec: { page_id: 'page_1', link_data: { link: 'https://example.com' } },
+          },
+        },
+      ],
+    });
+
+    const r = await createAd(mockClient, baseOpts);
+
+    expect(r.status).toBe('dry_run');
+    expect(r.error).toBeUndefined();
+  });
+
+  it('does not invent a conflict when only part of the creative fields are readable', async () => {
     mockMetaGetObject.mockImplementation(async (path: string, params: Record<string, unknown>) => {
       if (String(params.fields).includes('template_data')) {
         throw new Error('Unsupported creative field template_data');
@@ -380,36 +421,69 @@ describe('createAd', () => {
         ? { destination_type: 'WEBSITE', is_dynamic_creative: false }
         : { object_story_spec: { page_id: 'page_1', link_data: { link: 'https://example.com' } } };
     });
-    mockMetaGet.mockImplementation(async (_path: string, params: Record<string, unknown>) => {
-      if (String(params.fields).includes('template_data')) {
-        throw new Error('Unsupported creative field template_data');
-      }
-      return {
-        data: [
-          {
-            id: 'existing_dynamic_ad_1',
-            name: 'Existing Dynamic Creative',
-            status: 'ACTIVE',
-            creative: {
-              id: 'existing_creative_1',
-              asset_feed_spec: {
-                ad_formats: ['AUTOMATIC_FORMAT'],
-                bodies: [{ text: 'Primary text A' }, { text: 'Primary text B' }],
-                titles: [{ text: 'Headline A' }, { text: 'Headline B' }],
-                images: [{ hash: 'image_hash_1' }],
-                link_urls: [{ website_url: 'https://example.com/product' }],
-                call_to_action_types: ['LEARN_MORE'],
-              },
+    mockMetaGet.mockImplementation(async () => ({
+      data: [
+        {
+          id: 'existing_advantage_ad_1',
+          name: 'Existing Advantage+ text ad',
+          status: 'ACTIVE',
+          creative: {
+            id: 'existing_creative_1',
+            asset_feed_spec: {
+              bodies: [{ text: 'Primary text A' }, { text: 'Primary text B' }],
+              optimization_type: 'DEGREES_OF_FREEDOM',
             },
           },
-        ],
-      };
-    });
+        },
+      ],
+    }));
 
     const r = await createAd(mockClient, baseOpts);
 
-    expect(r.status).toBe('failed');
-    expect(r.error).toMatch(/#1885274|campuran format creative/i);
+    expect(r.status).toBe('dry_run');
+    expect(JSON.stringify(r)).not.toContain('1885274');
+  });
+
+  // optimization_type REGULAR yang eksplisit adalah Dynamic Creative sungguhan,
+  // dan itu tetap diblokir — persis seperti REGULAR yang di-default Meta.
+  it('blocks an explicitly REGULAR asset-feed creative', async () => {
+    mockMetaGetObject.mockImplementation(async (path: string) =>
+      path === '/as456'
+        ? { destination_type: 'WEBSITE', is_dynamic_creative: false }
+        : {
+            id: 'cr789',
+            asset_feed_spec: {
+              bodies: [{ text: 'Primary text A' }, { text: 'Primary text B' }],
+              optimization_type: 'REGULAR',
+            },
+          }
+    );
+
+    const r = await createAd(mockClient, baseOpts);
+
+    expect(r.status).toBe('preflight_blocked');
+    expect(r.errorSource).toBe('local_preflight');
+    expect(r.preflightCheck).toBe('placement_compatibility');
+    expect(r.error).toMatch(/DEGREES_OF_FREEDOM/);
+    expect(mockMetaPost).not.toHaveBeenCalled();
+  });
+
+  // Jejak audit: sebuah pre-flight lokal tidak boleh terbaca sebagai penolakan Meta.
+  it('never labels a local pre-flight block as a Meta API rejection', async () => {
+    mockMetaGetObject.mockImplementation(async (path: string) =>
+      path === '/as456'
+        ? { destination_type: 'WEBSITE', is_dynamic_creative: false }
+        : { id: 'cr789', asset_feed_spec: { bodies: [{ text: 'a' }, { text: 'b' }] } }
+    );
+
+    const r = await createAd(mockClient, baseOpts);
+
+    expect(r.status).toBe('preflight_blocked');
+    expect(r.status).not.toBe('failed');
+    expect(r.errorSource).toBe('local_preflight');
+    expect(r.structuredError).toBeUndefined();
+    expect(mockMetaGetObject).toHaveBeenCalled();
+    expect(mockMetaPost).not.toHaveBeenCalled();
   });
 
   it('blocks attaching a dynamic asset-feed creative to an ad set that already contains manual ads', async () => {
@@ -447,7 +521,7 @@ describe('createAd', () => {
     const r = await createAd(mockClient, baseOpts);
 
     expect(r).toMatchObject({
-      status: 'failed',
+      status: 'preflight_blocked',
       executed: false,
       error: expect.stringMatching(/manual.*dynamic|dynamic.*manual/i),
     });
@@ -471,7 +545,7 @@ describe('createAd', () => {
     const r = await createAd(mockClient, baseOpts);
 
     expect(r).toMatchObject({
-      status: 'failed',
+      status: 'preflight_blocked',
       executed: false,
       error: expect.stringMatching(/Dynamic Creative ad set.*disabled/i),
     });
@@ -497,9 +571,9 @@ describe('createAd', () => {
     });
 
     expect(r).toMatchObject({
-      status: 'failed',
+      status: 'preflight_blocked',
       executed: false,
-      error: expect.stringMatching(/TANPA asset_customization_rules/i),
+      error: expect.stringMatching(/optimization_type.*Dynamic Creative|DEGREES_OF_FREEDOM/i),
     });
     expect(mockMetaPost).not.toHaveBeenCalled();
   });
@@ -525,18 +599,19 @@ describe('createAd', () => {
     });
 
     expect(r).toMatchObject({
-      status: 'failed',
+      status: 'preflight_blocked',
       executed: false,
-      error: expect.stringMatching(/asset_feed_spec tanpa asset_customization_rules/i),
+      error: expect.stringMatching(/optimization_type.*Dynamic Creative/i),
     });
     expect(mockMetaPost).not.toHaveBeenCalled();
   });
 
-  it('allows bypassing the ad-set creative-family preflight with an explicit warning', async () => {
+  it('accepts the retired skipAdSetCreativeFamilyCheck flag and says it is a no-op', async () => {
     const r = await createAd(mockClient, { ...baseOpts, skipAdSetCreativeFamilyCheck: true });
 
     expect(r.status).toBe('dry_run');
-    expect(r.warnings?.join(' ')).toMatch(/creative-family/i);
+    expect(r.warnings?.join(' ')).toMatch(/tidak berlaku dan diabaikan/i);
+    expect(r.warnings?.join(' ')).toContain('1885274');
   });
 
   it('allows placement compatibility bypass with an explicit warning', async () => {
@@ -563,7 +638,9 @@ describe('createAd', () => {
   });
 
   it('does not create a duplicate ad when dedupeByName finds an existing one', async () => {
-    mockMetaGet.mockResolvedValueOnce({ data: [] }).mockResolvedValueOnce({
+    // Satu-satunya metaGet di jalur ini adalah lookup dedupe: pre-flight yang
+    // dulu memindai /{adset}/ads sudah dihapus bersama guard "campuran format".
+    mockMetaGet.mockResolvedValueOnce({
       data: [{ id: 'existing_ad_1', name: 'Test Ad', status: 'PAUSED' }],
     });
 
@@ -576,6 +653,7 @@ describe('createAd', () => {
       { dryRun: false, confirmed: true }
     );
 
+    expect(mockMetaGet).toHaveBeenCalledTimes(1);
     expect(r.status).toBe('deduped');
     expect(r.executed).toBe(false);
     expect(r.id).toBe('existing_ad_1');
@@ -605,7 +683,7 @@ describe('createAd', () => {
 
       const r = await createAd(mockClient, baseOpts);
 
-      expect(r.status).toBe('failed');
+      expect(r.status).toBe('preflight_blocked');
       expect(r.error).toContain(destinationType);
       expect(r.error).toContain(ctaType);
       expect(mockMetaPost).not.toHaveBeenCalled();
@@ -653,7 +731,7 @@ describe('createAd', () => {
 
     const r = await createAd(mockClient, baseOpts);
 
-    expect(r.status).toBe('failed');
+    expect(r.status).toBe('preflight_blocked');
     expect(r.error).toMatch(/app_destination/i);
   });
 

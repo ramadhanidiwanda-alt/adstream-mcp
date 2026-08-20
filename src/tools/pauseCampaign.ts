@@ -1,5 +1,6 @@
 import type { MetaClient } from '../metaClient.js';
 import type { MutationResult } from '../types.js';
+import { mutateStatusWithReadBack } from '../providers/meta/statusMutationReadBack.js';
 
 export interface PauseCampaignOptions {
   /** Max retries on rate limit */
@@ -8,9 +9,11 @@ export interface PauseCampaignOptions {
 
 /**
  * Pause a campaign by setting status to PAUSED.
- * POST /{campaign_id} with status=PAUSED
+ * POST /{campaign_id} with status=PAUSED, then read the status back.
  *
- * Returns { success, id } on success.
+ * `success` is true only when the read-back confirms the campaign is PAUSED;
+ * `response.read_back` carries the observed status and effective_status.
+ *
  * Throws MetaApiError if the API returns an error.
  */
 export async function pauseCampaign(
@@ -18,19 +21,10 @@ export async function pauseCampaign(
   campaignId: string,
   options: PauseCampaignOptions = {}
 ): Promise<MutationResult> {
-  const maxRetries = options.maxRetries ?? 3;
-
-  const result = await client.metaPost<{ success: boolean }>(
-    `/${campaignId}`,
-    { status: 'PAUSED' },
-    maxRetries
-  );
-
-  return {
-    success: result.success ?? true,
-    id: campaignId,
+  return mutateStatusWithReadBack(client, campaignId, {
+    status: 'PAUSED',
     operation: 'pause',
     entityType: 'campaign',
-    response: result as unknown as Record<string, unknown>,
-  };
+    maxRetries: options.maxRetries ?? 3,
+  });
 }

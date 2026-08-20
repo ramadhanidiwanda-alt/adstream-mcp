@@ -2305,7 +2305,11 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
           confirmed: request.params.confirmed === true,
         }
       );
-      return { ok: result.status !== 'failed', provider: 'meta', data: result };
+      // preflight_blocked juga bukan sukses: tidak ada ad yang dibuat. Bedanya
+      // dengan failed hanya asal penolakannya (heuristik lokal vs Graph API),
+      // yang dibawa di result.errorSource.
+      const blocked = result.status === 'failed' || result.status === 'preflight_blocked';
+      return { ok: !blocked, provider: 'meta', data: result };
     } catch (error) {
       return this.writeErrorResponse(error);
     }

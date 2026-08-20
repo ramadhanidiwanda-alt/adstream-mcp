@@ -2337,7 +2337,7 @@ describe('MetaAdsAdapter', () => {
     });
 
     expect(response.ok).toBe(false);
-    expect(response.errors?.[0]?.message).toMatch(/asset_feed_spec tanpa asset_customization_rules/i);
+    expect(response.errors?.[0]?.message).toMatch(/optimization_type REGULAR.*Dynamic Creative/i);
     expect(receivedOptions).toBeUndefined();
   });
 
@@ -3997,7 +3997,7 @@ describe('MetaAdsAdapter', () => {
 
     expect(response.ok).toBe(false);
     expect(receivedOptions).toBeUndefined();
-    expect(response.errors?.[0]?.message).toMatch(/asset_feed_spec tanpa asset_customization_rules/i);
+    expect(response.errors?.[0]?.message).toMatch(/optimization_type REGULAR.*Dynamic Creative/i);
   });
 
   it('still rejects when neither top-level pageId nor objectStorySpec.page_id is given', async () => {
@@ -4240,7 +4240,7 @@ describe('MetaAdsAdapter', () => {
 
     expect(response.errors?.[0]).toMatchObject({
       code: 'VALIDATION_ERROR',
-      message: expect.stringContaining('asset_feed_spec tanpa asset_customization_rules'),
+      message: expect.stringContaining('DEGREES_OF_FREEDOM'),
     });
   });
 
