@@ -189,6 +189,7 @@ export interface CreateAdSetResult {
   response?: Record<string, unknown>;
   error?: string;
   structuredError?: StructuredMutationError;
+  warnings?: string[];
 }
 
 interface MetaIdResponse extends Record<string, unknown> {
@@ -481,12 +482,16 @@ export async function createAdSet(
   }
 
   // --- PRE-FLIGHT CHECK: fetch campaign data ---
+  // Hoisted so the optimization-goal consistency check below can reuse this read
+  // instead of fetching the campaign node a second time.
+  let campaignInfo: CampaignInfo | undefined;
   try {
     const campaign = await client.metaGetObject<CampaignInfo>(
       `/${options.campaignId}`,
       { fields: 'id,objective,bid_strategy,daily_budget,lifetime_budget' },
       maxRetries
     );
+    campaignInfo = campaign;
 
     if (options.conversionLocation !== undefined) {
       if (campaign.objective === undefined) {
@@ -636,12 +641,13 @@ export async function createAdSet(
     }
   }
 
+  const consistencyWarnings: string[] = [];
   try {
     const consistencyIssue = await checkCampaignOptimizationGoalConsistency(
       client,
       options.campaignId,
       preview.optimization_goal,
-      { maxRetries }
+      { maxRetries, campaign: campaignInfo }
     );
     if (consistencyIssue) {
       return {
@@ -652,21 +658,17 @@ export async function createAdSet(
       };
     }
   } catch (error) {
-    return {
-      ...baseResult,
-      status: 'failed',
-      error:
-        `Failed to verify sibling ad set optimization goals before creation; ` +
-        `aborting rather than risking Meta error #1885760. ${formatMetaWriteError(error)}`,
-      structuredError: {
-        ...formatStructuredMetaWriteError(error),
-        code: 'OPTIMIZATION_GOAL_CONSISTENCY_CHECK_FAILED',
-        provider: 'meta',
-        actionableFix:
-          'Retry once sibling ad sets can be read, or create the ad set in a separate campaign for a different optimization goal.',
-      },
-    };
+    // Fail open: an unreadable sibling list is not evidence of a conflict, and
+    // the rule only binds CBO campaigns under auto bid anyway. A create Meta
+    // rejects leaves nothing behind, so blocking here costs more than it saves.
+    consistencyWarnings.push(
+      `Could not verify sibling ad set optimization goals before creation; continuing. ` +
+        `If this campaign holds its own budget and runs under auto bid, Meta may reject a ` +
+        `differing optimization_goal. ${formatMetaWriteError(error)}`
+    );
   }
+  const withConsistencyWarnings =
+    consistencyWarnings.length > 0 ? { warnings: consistencyWarnings } : {};
 
   try {
     const response = await client.metaPost<MetaIdResponse>(
@@ -678,6 +680,7 @@ export async function createAdSet(
     if (!response.id || typeof response.id !== 'string') {
       return {
         ...baseResult,
+        ...withConsistencyWarnings,
         status: 'failed',
         error: 'Meta did not return an id for created ad set',
       };
@@ -685,6 +688,7 @@ export async function createAdSet(
 
     return {
       ...baseResult,
+      ...withConsistencyWarnings,
       status: 'executed',
       executed: true,
       id: response.id,
@@ -701,6 +705,7 @@ export async function createAdSet(
     }
     return {
       ...baseResult,
+      ...withConsistencyWarnings,
       status: 'failed',
       error: errorMsg,
       structuredError: formatStructuredMetaWriteError(error),

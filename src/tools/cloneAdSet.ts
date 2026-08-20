@@ -50,6 +50,7 @@ export interface CloneAdSetResult {
   response?: Record<string, unknown>;
   error?: string;
   structuredError?: StructuredMutationError;
+  warnings?: string[];
 }
 
 // Fields copied from the source ad set.
@@ -199,6 +200,7 @@ export async function cloneAdSet(
     };
   }
 
+  const consistencyWarnings: string[] = [];
   try {
     const campaignId = preview.campaign_id;
     if (typeof campaignId === 'string') {
@@ -218,21 +220,16 @@ export async function cloneAdSet(
       }
     }
   } catch (error) {
-    return {
-      ...baseResult,
-      status: 'failed',
-      error:
-        `Failed to verify sibling ad set optimization goals before cloning; ` +
-        `aborting rather than risking Meta error #1885760. ${formatMetaWriteError(error)}`,
-      structuredError: {
-        ...formatStructuredMetaWriteError(error),
-        code: 'OPTIMIZATION_GOAL_CONSISTENCY_CHECK_FAILED',
-        provider: 'meta',
-        actionableFix:
-          'Retry once sibling ad sets can be read, or clone into a separate campaign for a different optimization goal.',
-      },
-    };
+    // Fail open: an unreadable campaign or sibling list is not evidence of a
+    // conflict, and the rule only binds CBO campaigns under auto bid anyway.
+    consistencyWarnings.push(
+      `Could not verify sibling ad set optimization goals before cloning; continuing. ` +
+        `If this campaign holds its own budget and runs under auto bid, Meta may reject a ` +
+        `differing optimization_goal. ${formatMetaWriteError(error)}`
+    );
   }
+  const withConsistencyWarnings =
+    consistencyWarnings.length > 0 ? { warnings: consistencyWarnings } : {};
 
   try {
     const response = await client.metaPost<{ id?: string }>(
@@ -244,6 +241,7 @@ export async function cloneAdSet(
     if (!response.id || typeof response.id !== 'string') {
       return {
         ...baseResult,
+        ...withConsistencyWarnings,
         status: 'failed',
         error: 'Meta did not return an id for cloned ad set',
       };
@@ -251,6 +249,7 @@ export async function cloneAdSet(
 
     return {
       ...baseResult,
+      ...withConsistencyWarnings,
       status: 'executed',
       executed: true,
       id: response.id,
@@ -259,6 +258,7 @@ export async function cloneAdSet(
   } catch (error) {
     return {
       ...baseResult,
+      ...withConsistencyWarnings,
       status: 'failed',
       error: formatMetaWriteError(error),
       structuredError: formatStructuredMetaWriteError(error),

@@ -164,19 +164,33 @@ describe('cloneAdSet', () => {
     expect(r.id).toBe('as_new');
   });
 
-  it('rejects clones whose optimization goal differs from target campaign siblings', async () => {
+  function clientWithSiblings(post: ReturnType<typeof vi.fn>, campaign: Record<string, unknown>) {
+    return {
+      metaGetObject: vi
+        .fn()
+        .mockImplementation(async (path: string) =>
+          path === '/cmp_1' ? { id: 'cmp_1', ...campaign } : source
+        ),
+      metaGet: vi.fn().mockResolvedValue({
+        data: [
+          {
+            id: 'as_existing',
+            name: 'Existing Messaging Purchases',
+            status: 'ACTIVE',
+            effective_status: 'ACTIVE',
+            optimization_goal: 'MESSAGING_PURCHASE_CONVERSION',
+          },
+        ],
+      }),
+      metaPost: post,
+    } as unknown as MetaClient;
+  }
+
+  it('rejects clones whose optimization goal differs from siblings under CBO auto bid', async () => {
     const post = vi.fn();
-    const mockClient = client(post);
-    vi.mocked(mockClient.metaGet).mockResolvedValueOnce({
-      data: [
-        {
-          id: 'as_existing',
-          name: 'Existing Messaging Purchases',
-          status: 'ACTIVE',
-          effective_status: 'ACTIVE',
-          optimization_goal: 'MESSAGING_PURCHASE_CONVERSION',
-        },
-      ],
+    const mockClient = clientWithSiblings(post, {
+      bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+      daily_budget: 100000,
     });
 
     const r = await cloneAdSet(
@@ -190,6 +204,41 @@ describe('cloneAdSet', () => {
     expect(r.error).toContain('OFFSITE_CONVERSIONS');
     expect(r.error).toContain('MESSAGING_PURCHASE_CONVERSION');
     expect(post).not.toHaveBeenCalled();
+  });
+
+  it('allows the clone when the campaign has no campaign-level budget', async () => {
+    const post = vi.fn().mockResolvedValue({ id: 'as_new' });
+    const mockClient = clientWithSiblings(post, { bid_strategy: 'LOWEST_COST_WITHOUT_CAP' });
+
+    const r = await cloneAdSet(
+      mockClient,
+      { adAccountId: 'act_1', sourceAdSetId: 'as_src' },
+      { dryRun: false, confirmed: true }
+    );
+
+    expect(r.status).toBe('executed');
+    expect(post).toHaveBeenCalled();
+  });
+
+  it('proceeds with a warning when the optimization goal check cannot read the campaign', async () => {
+    const post = vi.fn().mockResolvedValue({ id: 'as_new' });
+    const mockClient = {
+      metaGetObject: vi.fn().mockImplementation(async (path: string) => {
+        if (path === '/cmp_1') throw new Error('rate limited');
+        return source;
+      }),
+      metaGet: vi.fn().mockResolvedValue({ data: [] }),
+      metaPost: post,
+    } as unknown as MetaClient;
+
+    const r = await cloneAdSet(
+      mockClient,
+      { adAccountId: 'act_1', sourceAdSetId: 'as_src' },
+      { dryRun: false, confirmed: true }
+    );
+
+    expect(r.status).toBe('executed');
+    expect(r.warnings?.join(' ')).toMatch(/optimization goal/i);
   });
 });
 

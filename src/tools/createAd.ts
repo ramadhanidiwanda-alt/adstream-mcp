@@ -52,7 +52,7 @@ export interface CreateAdOptions {
   skipPlacementCompatibilityCheck?: boolean;
   /** Skip the messaging destination/CTA cross-check (use only if the mapping misfires). */
   skipMessagingDestinationCheck?: boolean;
-  /** Skip the ad-set creative-family pre-flight check (use only if Meta changes this constraint). */
+  /** Skip the ad-set creative-family advisory (suppresses the warning and its Graph reads). */
   skipAdSetCreativeFamilyCheck?: boolean;
 }
 
@@ -107,18 +107,19 @@ export async function createAd(
       : []),
     ...(options.skipAdSetCreativeFamilyCheck
       ? [
-          'Ad Set creative-family pre-flight skipped by request. Continue only if Ads Manager confirms this Ad Set can accept the new creative format.',
+          'Ad Set creative-family advisory skipped by request. Mixing formats is not blocked either way; without the advisory you will not be told what the Ad Set already contains.',
         ]
       : []),
   ];
-  const warnings = skipWarnings.length > 0 ? skipWarnings : undefined;
-  const baseResult: CreateAdResult = {
+  const advisories: string[] = [...skipWarnings];
+  const buildResult = (overrides: Partial<CreateAdResult> = {}): CreateAdResult => ({
     operation: 'create_ad',
     status: 'dry_run',
     executed: false,
     preview,
-    ...(warnings ? { warnings } : {}),
-  };
+    ...(advisories.length > 0 ? { warnings: [...advisories] } : {}),
+    ...overrides,
+  });
 
   // Pre-flight: an omnichannel ad set requires an omnichannel-ready creative.
   // Surface this during dry-run so the mismatch is caught before any ad is made.
@@ -130,7 +131,7 @@ export async function createAd(
       maxRetries
     );
     if (omnichannelError) {
-      return { ...baseResult, status: 'failed', executed: false, error: omnichannelError };
+      return buildResult({ status: 'failed', executed: false, error: omnichannelError });
     }
   }
 
@@ -144,12 +145,11 @@ export async function createAd(
       maxRetries
     );
     if (messagingDestinationError) {
-      return {
-        ...baseResult,
+      return buildResult({
         status: 'failed',
         executed: false,
         error: messagingDestinationError,
-      };
+      });
     }
   }
 
@@ -161,12 +161,11 @@ export async function createAd(
       maxRetries
     );
     if (dynamicCreativePolicyError) {
-      return {
-        ...baseResult,
+      return buildResult({
         status: 'failed',
         executed: false,
         error: dynamicCreativePolicyError,
-      };
+      });
     }
   } else if (options.creativeId) {
     const placementCompatibility = await getPlacementCompatibilityError(
@@ -176,40 +175,38 @@ export async function createAd(
       maxRetries
     );
     if (placementCompatibility) {
-      return {
-        ...baseResult,
+      return buildResult({
         status: 'failed',
         executed: false,
         error: placementCompatibility.message,
-      };
+      });
     }
   }
 
+  // Advisory only. Meta's documented constraint lives on the AD SET
+  // (`is_dynamic_creative=true` requires an empty ad set and allows a single ad),
+  // and that case is already hard-blocked above by the Dynamic Creative policy
+  // check. Meta publishes no error for mixing creative families inside a normal
+  // `is_dynamic_creative=false` ad set, and live creates on 2026-08-18 confirmed
+  // it accepts manual/static ads next to an existing asset-feed ad. So surface
+  // the mismatch and let Meta decide — a rejected POST creates nothing.
   if (options.creativeId && !options.skipAdSetCreativeFamilyCheck) {
-    const adSetCreativeFamilyError = await getAdSetCreativeFamilyCompatibilityError(
+    const adSetCreativeFamilyWarning = await getAdSetCreativeFamilyWarning(
       client,
       options.adSetId,
       options.creativeId,
       maxRetries
     );
-    if (adSetCreativeFamilyError) {
-      return {
-        ...baseResult,
-        status: 'failed',
-        executed: false,
-        error: adSetCreativeFamilyError,
-      };
-    }
+    if (adSetCreativeFamilyWarning) advisories.push(adSetCreativeFamilyWarning);
   }
 
-  if (dryRun) return baseResult;
+  if (dryRun) return buildResult();
 
   if (!confirmed) {
-    return {
-      ...baseResult,
+    return buildResult({
       status: 'pending_confirmation',
       error: 'Explicit confirmation is required after reviewing the dry-run preview.',
-    };
+    });
   }
 
   const accountPath = normalizeAccountPath(options.adAccountId);
@@ -217,13 +214,12 @@ export async function createAd(
   if (options.dedupeByName) {
     const existing = await findExistingAdByName(client, options.adSetId, options.name, maxRetries);
     if (existing) {
-      return {
-        ...baseResult,
+      return buildResult({
         status: 'deduped',
         executed: false,
         id: existing.id,
         response: { deduped: true, existing },
-      };
+      });
     }
   }
 
@@ -235,27 +231,24 @@ export async function createAd(
     );
 
     if (!response.id || typeof response.id !== 'string') {
-      return {
-        ...baseResult,
+      return buildResult({
         status: 'failed',
         error: 'Meta did not return an id for created ad',
-      };
+      });
     }
 
-    return {
-      ...baseResult,
+    return buildResult({
       status: 'executed',
       executed: true,
       id: response.id,
       response,
-    };
+    });
   } catch (error) {
-    return {
-      ...baseResult,
+    return buildResult({
       status: 'failed',
       error: formatMetaWriteError(error),
       structuredError: formatStructuredMetaWriteError(error),
-    };
+    });
   }
 }
 
@@ -561,7 +554,13 @@ interface ExistingAdWithCreative extends Record<string, unknown> {
   creative?: Record<string, unknown>;
 }
 
-async function getAdSetCreativeFamilyCompatibilityError(
+/**
+ * Report a creative-family mismatch between the target Ad Set's existing ads and
+ * the creative being attached. Advisory: Meta only enforces the "one format per
+ * ad set" rule through the ad set's own `is_dynamic_creative` flag, so this
+ * never blocks a create on its own.
+ */
+async function getAdSetCreativeFamilyWarning(
   client: MetaClient,
   adSetId: string,
   creativeId: string,
@@ -599,9 +598,12 @@ async function getAdSetCreativeFamilyCompatibilityError(
     return (
       `Ad Set ${adSetId} sudah berisi iklan ${creativeFamilyLabel(conflictingAd.family)} ` +
       `(${conflictingAd.ad.name ?? conflictingAd.ad.id ?? 'existing ad'}), tetapi creative baru ` +
-      `${creativeId} terdeteksi sebagai ${creativeFamilyLabel(newFamily)}. Meta menolak campuran ` +
-      'format creative yang berbeda dalam 1 Ad Set (sering muncul sebagai error #1885274). ' +
-      'Buat Ad Set baru/duplikat untuk format baru ini, atau gunakan creative dengan family yang sama.'
+      `${creativeId} terdeteksi sebagai ${creativeFamilyLabel(newFamily)}. Ini peringatan, bukan ` +
+      'penolakan: Ad Set non-Dynamic Creative (is_dynamic_creative=false) umumnya menerima ' +
+      'campuran ini, dan create tetap dilanjutkan ke Meta. Kalau Meta menolak (mis. campuran ' +
+      'format creative, kadang muncul sebagai error #1885274), tidak ada objek yang terbentuk — ' +
+      'buat Ad Set baru/duplikat untuk format ini atau pakai creative dengan family yang sama. ' +
+      'Set skipAdSetCreativeFamilyCheck=true untuk mematikan pemeriksaan ini.'
     );
   } catch {
     return undefined;

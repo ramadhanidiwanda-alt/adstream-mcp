@@ -1710,7 +1710,7 @@ const createAdInputSchema = {
     .boolean()
     .optional()
     .describe(
-      'Skip the Ad Set creative-family pre-flight check. Only set after Ads Manager review; one Ad Set normally should not mix manual/static ads with dynamic/flexible/catalog/placement-customized asset-feed ads.'
+      'Skip the Ad Set creative-family advisory. The advisory only warns when the Ad Set already holds a different creative family (manual/static vs dynamic/flexible/catalog/placement-customized asset-feed) — it never blocks the create, so set this only to skip the extra Graph reads.'
     ),
   externalReference: z
     .string()
@@ -2449,7 +2449,8 @@ export function createMetaAdsMcpServer(options: CreateMetaAdsMcpServerOptions = 
   server.registerTool(
     'meta_get_campaigns',
     {
-      description: 'Fetch campaigns from a Meta ad account with optional filters',
+      description:
+        'Fetch campaigns from a Meta ad account with optional filters. Returns bid_strategy plus daily_budget/lifetime_budget when the campaign holds its own budget (Advantage campaign budget); Meta omits the budget fields when the budget lives on the ad sets instead, so their absence identifies a non-CBO campaign.',
       inputSchema: {
         adAccountId: legacyAdAccountId,
         limit: z.number().optional().describe('Maximum number of campaigns to fetch (default: 50)'),

@@ -339,7 +339,37 @@ describe('createAd', () => {
     expect(mockMetaPost).not.toHaveBeenCalled();
   });
 
-  it('blocks attaching a manual creative to an ad set that already contains dynamic asset-feed ads', async () => {
+  it('does not block a manual/static ad when a non-Dynamic ad set already holds an asset-feed ad', async () => {
+    // Live evidence 2026-08-18 (act_2086409658377471, ad set 120232559040860415,
+    // is_dynamic_creative=false): Meta accepted manual video creatives alongside a
+    // dynamic asset-feed ad created 2026-07-01. Mixing is advisory, never a hard block.
+    mockMetaGet.mockResolvedValueOnce({
+      data: [
+        {
+          id: 'existing_dynamic_ad_1',
+          name: '01/07 | KOL Celine Juli Shape+ - Instant Lifting',
+          status: 'ACTIVE',
+          creative: {
+            id: 'existing_creative_1',
+            asset_feed_spec: {
+              ad_formats: ['AUTOMATIC_FORMAT'],
+              bodies: [{ text: 'Primary text A' }, { text: 'Primary text B' }],
+              titles: [{ text: 'Headline A' }, { text: 'Headline B' }],
+              images: [{ hash: 'image_hash_1' }],
+            },
+          },
+        },
+      ],
+    });
+
+    const r = await createAd(mockClient, baseOpts);
+
+    expect(r.status).toBe('dry_run');
+    expect(r.executed).toBe(false);
+    expect(r.error).toBeUndefined();
+  });
+
+  it('warns instead of failing when the ad set mixes creative families', async () => {
     mockMetaGet.mockResolvedValueOnce({
       data: [
         {
@@ -363,15 +393,14 @@ describe('createAd', () => {
 
     const r = await createAd(mockClient, baseOpts);
 
-    expect(r).toMatchObject({
-      status: 'failed',
-      executed: false,
-      error: expect.stringMatching(/Ad Set.*dynamic|dynamic.*Ad Set/i),
-    });
+    expect(r.status).toBe('dry_run');
+    expect(r.error).toBeUndefined();
+    expect(r.warnings?.join(' ')).toMatch(/sudah berisi iklan dynamic\/flexible asset-feed/);
+    expect(r.warnings?.join(' ')).toMatch(/skipAdSetCreativeFamilyCheck/);
     expect(mockMetaPost).not.toHaveBeenCalled();
   });
 
-  it('keeps the creative-family guard active with Meta-readable creative fields', async () => {
+  it('keeps the creative-family advisory working with Meta-readable creative fields', async () => {
     mockMetaGetObject.mockImplementation(async (path: string, params: Record<string, unknown>) => {
       if (String(params.fields).includes('template_data')) {
         throw new Error('Unsupported creative field template_data');
@@ -408,11 +437,12 @@ describe('createAd', () => {
 
     const r = await createAd(mockClient, baseOpts);
 
-    expect(r.status).toBe('failed');
-    expect(r.error).toMatch(/#1885274|campuran format creative/i);
+    expect(r.status).toBe('dry_run');
+    expect(r.error).toBeUndefined();
+    expect(r.warnings?.join(' ')).toMatch(/#1885274|campuran format creative/i);
   });
 
-  it('blocks attaching a dynamic asset-feed creative to an ad set that already contains manual ads', async () => {
+  it('blocks a Dynamic Creative ad set outright, whatever ads it already contains', async () => {
     mockMetaGetObject.mockImplementation(async (path: string) =>
       path === '/as456'
         ? { destination_type: 'WEBSITE', is_dynamic_creative: true }
@@ -449,7 +479,7 @@ describe('createAd', () => {
     expect(r).toMatchObject({
       status: 'failed',
       executed: false,
-      error: expect.stringMatching(/manual.*dynamic|dynamic.*manual/i),
+      error: expect.stringMatching(/Dynamic Creative ad set.*disabled/i),
     });
     expect(mockMetaPost).not.toHaveBeenCalled();
   });
@@ -654,7 +684,7 @@ describe('createAd', () => {
     const r = await createAd(mockClient, baseOpts);
 
     expect(r.status).toBe('failed');
-    expect(r.error).toMatch(/app_destination/i);
+    expect(r.error).toMatch(/call_to_action\.value\.app_destination WHATSAPP/);
   });
 
   it('leaves non-messaging ad sets to Meta', async () => {
@@ -679,7 +709,7 @@ describe('createAd', () => {
     const r = await createAd(mockClient, { ...baseOpts, skipMessagingDestinationCheck: true });
 
     expect(r.status).toBe('dry_run');
-    expect(r.warnings?.join(' ')).toMatch(/messaging/i);
+    expect(r.warnings?.join(' ')).toMatch(/Messaging destination\/CTA cross-check skipped/);
   });
 
   it('returns failed on error', async () => {

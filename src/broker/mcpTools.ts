@@ -268,7 +268,8 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
   },
   {
     name: 'ads_list_campaigns',
-    description: 'List campaigns under an ad account through the AdsBroker',
+    description:
+      'List campaigns under an ad account through the AdsBroker. Returns bid_strategy plus daily_budget/lifetime_budget when the campaign holds its own budget (Advantage campaign budget); Meta omits the budget fields when the budget lives on the ad sets instead, so their absence identifies a non-CBO campaign. Those three fields decide whether the one-optimization_goal-per-campaign rule applies to ad-set writes.',
     inputSchema: createListCampaignsInputSchema(),
   },
   {
@@ -2698,7 +2699,7 @@ function createCreateAdInputSchema() {
       skipAdSetCreativeFamilyCheck: {
         type: 'boolean',
         description:
-          'Skip the Ad Set creative-family pre-flight check. Only set after Ads Manager review; one Ad Set normally should not mix manual/static ads with dynamic/flexible/catalog/placement-customized asset-feed ads.',
+          'Skip the Ad Set creative-family advisory. The advisory only warns when the Ad Set already holds a different creative family (manual/static vs dynamic/flexible/catalog/placement-customized asset-feed) — it never blocks the create, so set this only to skip the extra Graph reads.',
       },
       externalReference: {
         type: 'string',

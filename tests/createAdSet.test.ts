@@ -434,6 +434,56 @@ describe('createAdSet — bid strategy + pre-flight validation', () => {
       expect(result.error).toContain('CONVERSATIONS');
       expect(client.metaPost).not.toHaveBeenCalled();
     });
+
+    it('proceeds with a warning when the sibling optimization goal read fails', async () => {
+      const client = createMockClient({
+        objective: 'OUTCOME_SALES',
+        bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+      });
+      vi.mocked(client.metaGet).mockRejectedValueOnce(new Error('rate limited'));
+      vi.mocked(client.metaPost).mockResolvedValue({ id: 'as_new' });
+
+      const result = await createAdSet(
+        client,
+        { ...defaultOptions, optimizationGoal: 'CONVERSATIONS' },
+        { dryRun: false, confirmed: true }
+      );
+
+      expect(result.status).toBe('executed');
+      expect(result.warnings?.join(' ')).toMatch(/optimization goal/i);
+      expect(client.metaPost).toHaveBeenCalled();
+    });
+
+    it('allows a differing optimization goal when the budget lives on the ad sets', async () => {
+      // Meta only requires one goal per campaign under Advantage campaign budget
+      // + auto bid. Without a campaign-level budget the ad sets may differ.
+      const client = createMockClient({
+        objective: 'OUTCOME_SALES',
+        bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+        daily_budget: undefined,
+      });
+      vi.mocked(client.metaGet).mockResolvedValueOnce({
+        data: [
+          {
+            id: 'sibling_1',
+            name: 'Existing Purchase Messages',
+            status: 'ACTIVE',
+            effective_status: 'ACTIVE',
+            optimization_goal: 'MESSAGING_PURCHASE_CONVERSION',
+          },
+        ],
+      });
+      vi.mocked(client.metaPost).mockResolvedValue({ id: 'as_new' });
+
+      const result = await createAdSet(
+        client,
+        { ...defaultOptions, optimizationGoal: 'CONVERSATIONS' },
+        { dryRun: false, confirmed: true }
+      );
+
+      expect(result.status).toBe('executed');
+      expect(client.metaPost).toHaveBeenCalled();
+    });
   });
 
   describe('pre-flight: campaign bid strategy requires bidAmount', () => {
@@ -977,7 +1027,7 @@ describe('createAdSet — bid strategy + pre-flight validation', () => {
       );
 
       expect(result.status).toBe('failed');
-      expect(result.error).toMatch(/product set.*harus sama/i);
+      expect(result.error).toMatch(/collaborativeCatalog dan promotedObject harus sama/);
       expect(client.metaPost).not.toHaveBeenCalled();
     });
   });
