@@ -280,6 +280,37 @@ export async function createAd(
   }
 }
 
+/**
+ * Baca creative untuk pre-flight kompatibilitas.
+ *
+ * `object_story_spec` dan `product_set_id` dibutuhkan untuk mendeteksi sinyal
+ * katalog; tanpa keduanya creative katalog salah diklasifikasi sebagai Dynamic
+ * Creative dan diblokir. Tapi Meta menolak sebagian field per creative/versi API
+ * dengan `(#100) Tried accessing nonexisting field`, dan pemanggil pre-flight ini
+ * tidak dibungkus try/catch — satu field yang ditolak akan menggagalkan seluruh
+ * create. Karena itu field tambahan bersifat best-effort: kalau ditolak, ulangi
+ * dengan `asset_feed_spec` saja, yang cukup untuk keputusan Dynamic Creative.
+ */
+async function readCreativeForCompatibility(
+  client: MetaClient,
+  creativeId: string,
+  maxRetries: number
+): Promise<Record<string, unknown>> {
+  try {
+    return await client.metaGetObject<Record<string, unknown>>(
+      `/${creativeId}`,
+      { fields: 'asset_feed_spec,object_story_spec,product_set_id' },
+      maxRetries
+    );
+  } catch {
+    return client.metaGetObject<Record<string, unknown>>(
+      `/${creativeId}`,
+      { fields: 'asset_feed_spec' },
+      maxRetries
+    );
+  }
+}
+
 async function getPlacementCompatibilityError(
   client: MetaClient,
   adSetId: string,
@@ -292,11 +323,7 @@ async function getPlacementCompatibilityError(
       { fields: 'destination_type,is_dynamic_creative' },
       maxRetries
     ),
-    client.metaGetObject<Record<string, unknown>>(
-      `/${creativeId}`,
-      { fields: 'asset_feed_spec,object_story_spec,product_set_id' },
-      maxRetries
-    ),
+    readCreativeForCompatibility(client, creativeId, maxRetries),
   ]);
 
   const assetFeedSpec = isRecord(creative.asset_feed_spec) ? creative.asset_feed_spec : undefined;

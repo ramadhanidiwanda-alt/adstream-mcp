@@ -412,6 +412,27 @@ describe('createAd', () => {
     expect(r.error).toBeUndefined();
   });
 
+  it('falls back to asset_feed_spec when Meta rejects the wider compatibility field list', async () => {
+    mockMetaGetObject.mockImplementation(async (path: string, params: Record<string, unknown>) => {
+      if (path === '/as456') return { destination_type: 'WEBSITE', is_dynamic_creative: false };
+      if (String(params.fields).includes('product_set_id')) {
+        throw new Error('(#100) Tried accessing nonexisting field (product_set_id)');
+      }
+      return {
+        asset_feed_spec: {
+          bodies: [{ text: 'A' }, { text: 'B' }],
+          optimization_type: 'DEGREES_OF_FREEDOM',
+        },
+      };
+    });
+
+    const r = await createAd(mockClient, baseOpts);
+
+    // Tanpa fallback, createAd akan melempar dan bukan mengembalikan dry_run.
+    expect(r.status).toBe('dry_run');
+    expect(r.error).toBeUndefined();
+  });
+
   it('does not invent a conflict when only part of the creative fields are readable', async () => {
     mockMetaGetObject.mockImplementation(async (path: string, params: Record<string, unknown>) => {
       if (String(params.fields).includes('template_data')) {
