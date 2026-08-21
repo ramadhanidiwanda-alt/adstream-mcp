@@ -180,7 +180,31 @@ Then in `claude_desktop_config.json`:
 }
 ```
 
-### 3. Docker (Production / Self-Hosted)
+### 3. Claude Code plugin (server + skills in one install)
+
+Installing the MCP server alone gives an agent the tools but none of the launch, manage, audit, or
+reporting skills under `skills/` — those live on disk and are invisible to a plain MCP connection.
+The plugin ships both together.
+
+```bash
+git clone https://github.com/ramadhanidiwanda-alt/adstream-mcp.git
+cd adstream-mcp && npm install && npm run build
+```
+
+Then from the directory that contains the clone:
+
+```text
+/plugin marketplace add ./adstream-mcp
+/plugin install adstream-ads@adstream
+```
+
+The plugin reads `META_ACCESS_TOKEN`, `META_AD_ACCOUNT_ID`, `TIKTOK_ACCESS_TOKEN`, and
+`ADSTREAM_ENABLE_WRITES` from the environment Claude Code was started in.
+
+> The build step is required: `dist/` is gitignored, and the plugin launches
+> `${CLAUDE_PLUGIN_ROOT}/dist/mcp/index.js`. Re-run `npm run build` after pulling updates.
+
+### 4. Docker (Production / Self-Hosted)
 
 ```bash
 docker compose up -d
@@ -190,7 +214,7 @@ The HTTP MCP server listens on `http://127.0.0.1:8000` (configurable via env).
 
 See [docs/DOCKER_MCP.md](docs/DOCKER_MCP.md) for full Docker setup.
 
-### 4. Remote Mode (Cuan Insight Credential Broker)
+### 5. Remote Mode (Cuan Insight Credential Broker)
 
 For hosted multi-user deployments with credential resolution via Cuan Insight:
 

@@ -101,8 +101,20 @@ function getActionableFix(error: MetaApiError, message: string): string {
       'https://www.facebook.com/business/help/1214599109289826'
     );
   }
+  if (text.includes('image') && text.includes('hash')) {
+    return 'The image hash is not usable by this ad account. List the account library with ads_list_adimages, or upload the file again with ads_upload_image, and use the hash it returns. An image hash is not portable between ad accounts.';
+  }
+  if (text.includes('instagram')) {
+    return 'The Instagram identity is not linked to this ad account or Page. Call ads_list_instagram_accounts to get an identity the account can post as, instead of reusing the failing ID.';
+  }
+  if (text.includes('pixel')) {
+    return 'The pixel is missing or not shared with this ad account. Call ads_list_pixels to get the pixel this account can use, and confirm the required event is installed before optimizing for it.';
+  }
+  if (text.includes('targeting') || text.includes('interest')) {
+    return 'The targeting spec contains a value Meta does not accept. Resolve every interest, behaviour, and location through ads_get_targeting_options and send the IDs it returns — do not guess targeting IDs.';
+  }
   if (text.includes('page'))
-    return 'Verify the Page ID or identity is accessible to the connected ad account.';
+    return 'Verify the Page ID or identity is accessible to the connected ad account. Call ads_list_pages to pick a Page this account can actually publish as, rather than retrying the failing ID.';
   if (text.includes('budget'))
     return 'Check budget units, campaign budget settings, and provider budget constraints.';
   if (text.includes('bid'))
@@ -111,7 +123,7 @@ function getActionableFix(error: MetaApiError, message: string): string {
     return 'Use a unique name or retry with an idempotency/deduplication key when supported.';
   if (error.code === 4 || error.code === 17 || error.code === 613)
     return 'Retry later or reduce request rate for this provider account.';
-  return 'Review the provider error details, fix the highlighted input, and retry the dry-run before executing.';
+  return 'Review providerMessage and providerSubcode, fix the highlighted input, and retry the dry-run before executing. If it is unclear which input is wrong, re-run ads_check_launch_readiness for this workflow and resolve every ID through its discovery tool instead of resending the same payload.';
 }
 
 function hasApplicationCapabilityError(error: MetaApiError): boolean {

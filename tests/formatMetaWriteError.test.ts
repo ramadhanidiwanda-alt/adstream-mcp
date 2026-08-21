@@ -209,3 +209,55 @@ describe('formatMetaWriteError', () => {
     expect(actionableFix).toContain('Do not substitute OFFSITE_CONVERSIONS');
   });
 });
+
+describe('formatStructuredMetaWriteError recovery hints', () => {
+  // An agent that cannot name the tool it needs next tends to retry the same bad
+  // payload; every recovery hint should point at the tool that resolves the input.
+  describe('actionable fixes name the recovery tool', () => {
+    function fixFor(overrides: Partial<Parameters<typeof metaError>[0]> = {}) {
+      return formatStructuredMetaWriteError(metaError(overrides)).actionableFix;
+    }
+
+    function metaError(overrides: Record<string, unknown> = {}) {
+      return new MetaApiError({
+        message: 'Invalid parameter',
+        type: 'OAuthException',
+        code: 100,
+        ...overrides,
+      } as never);
+    }
+
+    it('points a Page failure at ads_list_pages', () => {
+      expect(fixFor({ error_user_title: 'Invalid Page ID' })).toContain('ads_list_pages');
+    });
+
+    it('points a pixel failure at ads_list_pixels', () => {
+      expect(fixFor({ error_user_msg: 'The pixel id is invalid' })).toContain('ads_list_pixels');
+    });
+
+    it('points an image hash failure at the upload and library tools', () => {
+      const fix = fixFor({ error_user_msg: 'Invalid image hash supplied' });
+
+      expect(fix).toContain('ads_list_adimages');
+      expect(fix).toContain('ads_upload_image');
+    });
+
+    it('points an Instagram identity failure at ads_list_instagram_accounts', () => {
+      expect(fixFor({ error_user_title: 'Instagram account not available' })).toContain(
+        'ads_list_instagram_accounts'
+      );
+    });
+
+    it('points a targeting failure at ads_get_targeting_options', () => {
+      expect(fixFor({ error_user_msg: 'Invalid targeting interest id' })).toContain(
+        'ads_get_targeting_options'
+      );
+    });
+
+    it('falls back to re-running the readiness check instead of a bare retry', () => {
+      expect(fixFor({ error_user_title: 'Something unclassified' })).toContain(
+        'ads_check_launch_readiness'
+      );
+    });
+  });
+});

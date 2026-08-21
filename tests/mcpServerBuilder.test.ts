@@ -366,7 +366,9 @@ describe('MCP server builder', () => {
     expect(creativeTool?.inputSchema.required).not.toContain('message');
     expect(creativeTool?.description).toContain('asset_customization_rules');
     expect(creativeTool?.description).toMatch(/variasi.*headline.*caption.*manual/i);
-    expect(creativeTool?.description).toMatch(/dinonaktifkan hanya asset_feed_spec TANPA asset_customization_rules/i);
+    expect(creativeTool?.description).toMatch(
+      /dinonaktifkan hanya asset_feed_spec TANPA asset_customization_rules/i
+    );
     expect(toolSchemaProperty(creativeTool, 'assetFeedSpec').description).toMatch(/disabled/i);
     expect(toolSchemaProperty(creativeTool, 'assetFeedSpec').description).toMatch(
       /manual creative\/ad/i
@@ -939,5 +941,71 @@ describe('MCP server builder', () => {
     delete process.env.META_AD_ACCOUNT_ID;
 
     expect(() => createMetaAdsMcpServer()).toThrow('META_ACCESS_TOKEN is required');
+  });
+});
+
+describe('MCP server instructions', () => {
+  afterEach(() => {
+    restoreEnv();
+  });
+
+  async function getInstructions(): Promise<string> {
+    const { client, server } = await createConnectedClient();
+
+    try {
+      return client.getInstructions() ?? '';
+    } finally {
+      await Promise.all([client.close(), server.close()]);
+    }
+  }
+
+  it('sends server instructions on initialize', async () => {
+    const instructions = await getInstructions();
+
+    expect(instructions.length).toBeGreaterThan(200);
+  });
+
+  it('points agents at the readiness check before any create call', async () => {
+    const instructions = await getInstructions();
+
+    expect(instructions).toContain('ads_check_launch_readiness');
+    expect(instructions).toContain('PAUSED');
+  });
+
+  // Instructions are the only guidance a remote client ever sees, so a tool name
+  // that drifts out of the registry would silently teach agents to call nothing.
+  it('only references tools that are actually registered', async () => {
+    const [instructions, registered] = await Promise.all([
+      getInstructions(),
+      listRegisteredTools(),
+    ]);
+    const registeredNames = new Set(registered.tools.map((tool) => tool.name));
+    const referenced = [...new Set(instructions.match(/\bads_[a-z0-9_]+/g) ?? [])];
+
+    expect(referenced.length).toBeGreaterThan(0);
+    expect(referenced.filter((name) => !registeredNames.has(name))).toEqual([]);
+  });
+
+  it('tells the agent writes are unavailable when they are disabled', async () => {
+    delete process.env.ADSTREAM_ENABLE_WRITES;
+
+    const instructions = await getInstructions();
+
+    expect(instructions).toContain('WRITES ARE DISABLED');
+    expect(instructions).not.toContain('ads_create_campaign');
+  });
+
+  it('teaches the create ordering, and only registered tools, when writes are enabled', async () => {
+    process.env.ADSTREAM_ENABLE_WRITES = 'true';
+
+    const [instructions, registered] = await Promise.all([
+      getInstructions(),
+      listRegisteredTools(),
+    ]);
+    const registeredNames = new Set(registered.tools.map((tool) => tool.name));
+    const referenced = [...new Set(instructions.match(/\bads_[a-z0-9_]+/g) ?? [])];
+
+    expect(instructions).toContain('ads_create_campaign');
+    expect(referenced.filter((name) => !registeredNames.has(name))).toEqual([]);
   });
 });

@@ -5,7 +5,11 @@ import { createCampaign } from './createCampaign.js';
 import { createAdSet } from './createAdSet.js';
 import { createAdCreative } from './createAdCreative.js';
 import { createAd } from './createAd.js';
-import { formatMetaWriteError } from '../utils/formatMetaWriteError.js';
+import {
+  formatMetaWriteError,
+  formatStructuredMetaWriteError,
+} from '../utils/formatMetaWriteError.js';
+import type { StructuredMutationError } from '../types.js';
 import {
   buildMetaPromotedObject,
   resolveMetaObjectiveLaunchSpec,
@@ -14,6 +18,13 @@ import {
 import type { BillingEvent, OptimizationGoal } from './createAdSet.js';
 
 export type EcommerceLaunchStatus = 'dry_run' | 'pending_confirmation' | 'executed' | 'failed';
+export type EcommerceBundleStep =
+  | 'campaign'
+  | 'adSet'
+  | 'imageUpload'
+  | 'videoUpload'
+  | 'creative'
+  | 'ad';
 export type MetaEcommerceCallToActionType = 'SHOP_NOW' | 'LEARN_MORE' | 'SIGN_UP' | 'GET_OFFER';
 
 export interface EcommerceCampaignBundlePayload {
@@ -87,6 +98,10 @@ export interface EcommerceCampaignBundleResult {
     ad?: Record<string, unknown>;
   };
   error?: string;
+  /** Which step failed, so the caller knows which input to correct. */
+  failedStep?: EcommerceBundleStep;
+  /** Forwarded from the failing step; carries actionableFix and the provider subcode. */
+  structuredError?: StructuredMutationError;
   warnings: string[];
 }
 
@@ -152,6 +167,22 @@ export async function createEcommerceCampaignBundle(
     status: 'failed',
     ...(Object.keys(ids).length > 0 ? { ids: { ...ids } } : {}),
     error: formatMetaWriteError(error),
+    structuredError: formatStructuredMetaWriteError(error),
+  });
+
+  /**
+   * Fail on behalf of a sub-tool. The sub-tool already turned the provider error into a
+   * StructuredMutationError with an actionableFix; flattening it to a string here would strip the
+   * only field telling the caller how to recover.
+   */
+  const failedStepResult = (
+    step: EcommerceBundleStep,
+    label: string,
+    stepResult: { error?: string; structuredError?: StructuredMutationError }
+  ): EcommerceCampaignBundleResult => ({
+    ...failedResult(`${label}: ${stepResult.error ?? 'unknown error'}`),
+    failedStep: step,
+    ...(stepResult.structuredError ? { structuredError: stepResult.structuredError } : {}),
   });
 
   try {
@@ -171,7 +202,7 @@ export async function createEcommerceCampaignBundle(
     );
 
     if (campaignResult.status === 'failed' || !campaignResult.id) {
-      return failedResult(`Campaign creation failed: ${campaignResult.error}`);
+      return failedStepResult('campaign', 'Campaign creation failed', campaignResult);
     }
     const campaignId = campaignResult.id;
     ids.campaignId = campaignId;
@@ -203,7 +234,7 @@ export async function createEcommerceCampaignBundle(
     );
 
     if (adSetResult.status === 'failed' || !adSetResult.id) {
-      return failedResult(`Ad set creation failed: ${adSetResult.error}`);
+      return failedStepResult('adSet', 'Ad set creation failed', adSetResult);
     }
     const adSetId = adSetResult.id;
     ids.adSetId = adSetId;
@@ -217,7 +248,7 @@ export async function createEcommerceCampaignBundle(
         maxRetries,
       });
       if (uploadResult.status === 'failed' || !uploadResult.image_hash) {
-        return failedResult(`Image upload failed: ${uploadResult.error ?? 'unknown error'}`);
+        return failedStepResult('imageUpload', 'Image upload failed', uploadResult);
       }
       imageHash = uploadResult.image_hash;
     }
@@ -232,7 +263,7 @@ export async function createEcommerceCampaignBundle(
         filePath: payload.videoFilePath.trim(),
       });
       if (uploadResult.status === 'failed' || !uploadResult.video_id) {
-        return failedResult(`Video upload failed: ${uploadResult.error ?? 'unknown error'}`);
+        return failedStepResult('videoUpload', 'Video upload failed', uploadResult);
       }
       videoId = uploadResult.video_id;
     }
@@ -277,7 +308,7 @@ export async function createEcommerceCampaignBundle(
     );
 
     if (creativeResult.status === 'failed' || !creativeResult.id) {
-      return failedResult(`Creative creation failed: ${creativeResult.error}`);
+      return failedStepResult('creative', 'Creative creation failed', creativeResult);
     }
     const creativeId = creativeResult.id;
     ids.creativeId = creativeId;
@@ -296,7 +327,7 @@ export async function createEcommerceCampaignBundle(
     );
 
     if (adResult.status === 'failed' || !adResult.id) {
-      return failedResult(`Ad creation failed: ${adResult.error}`);
+      return failedStepResult('ad', 'Ad creation failed', adResult);
     }
     const adId = adResult.id;
     ids.adId = adId;
