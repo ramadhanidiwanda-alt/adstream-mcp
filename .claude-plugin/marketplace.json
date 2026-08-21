@@ -1,0 +1,14 @@
+{
+  "name": "adstream",
+  "owner": {
+    "name": "Ramadhani"
+  },
+  "plugins": [
+    {
+      "name": "adstream-ads",
+      "source": "./",
+      "version": "0.6.0",
+      "description": "Meta and TikTok ads execution: the adstream MCP server plus the launch, manage, audit, and reporting skills that teach an agent how to drive it safely."
+    }
+  ]
+}

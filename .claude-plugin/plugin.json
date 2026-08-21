@@ -1,0 +1,24 @@
+{
+  "name": "adstream-ads",
+  "version": "0.6.0",
+  "description": "Meta and TikTok ads execution: the adstream MCP server plus the launch, manage, audit, and reporting skills that teach an agent how to drive it safely.",
+  "author": {
+    "name": "Ramadhani"
+  },
+  "homepage": "https://github.com/ramadhanidiwanda-alt/adstream-mcp",
+  "license": "MIT",
+  "keywords": ["meta-ads", "tiktok-ads", "facebook-ads", "instagram-ads", "marketing-api"],
+  "skills": ["./skills/meta-ads", "./skills/tiktok-ads", "./skills/prompts"],
+  "mcpServers": {
+    "adstream-mcp": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/dist/mcp/index.js"],
+      "env": {
+        "META_ACCESS_TOKEN": "${META_ACCESS_TOKEN}",
+        "META_AD_ACCOUNT_ID": "${META_AD_ACCOUNT_ID}",
+        "TIKTOK_ACCESS_TOKEN": "${TIKTOK_ACCESS_TOKEN}",
+        "ADSTREAM_ENABLE_WRITES": "${ADSTREAM_ENABLE_WRITES}"
+      }
+    }
+  }
+}

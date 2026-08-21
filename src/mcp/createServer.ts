@@ -1,4 +1,5 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { buildServerInstructions } from './serverInstructions.js';
 import type { RequestHandlerExtra } from '@modelcontextprotocol/sdk/shared/protocol.js';
 import type { ServerRequest, ServerNotification } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
@@ -2150,6 +2151,7 @@ const legacyLocationInsightsInputSchema = {
 };
 
 export function createMetaAdsMcpServer(options: CreateMetaAdsMcpServerOptions = {}): McpServer {
+  const writesEnabled = areAdsWriteToolsEnabled();
   const server = new McpServer(
     {
       name: 'adstream-mcp-server',
@@ -2159,6 +2161,9 @@ export function createMetaAdsMcpServer(options: CreateMetaAdsMcpServerOptions = 
       capabilities: {
         tools: {},
       },
+      // The skills/ directory is invisible to clients that only connect over MCP,
+      // so the initialize instructions are the sole guidance a remote agent gets.
+      instructions: buildServerInstructions({ writesEnabled }),
     }
   );
 
@@ -2183,7 +2188,7 @@ export function createMetaAdsMcpServer(options: CreateMetaAdsMcpServerOptions = 
   const adsBroker = options.adsBroker ?? createAdsBrokerFromConfig(brokerConfig);
 
   const adsToolDefinitions = getAdsMcpToolDefinitions({
-    includeWrites: areAdsWriteToolsEnabled(),
+    includeWrites: writesEnabled,
   });
 
   for (const toolDefinition of adsToolDefinitions) {

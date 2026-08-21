@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { createEcommerceCampaignBundle } from '../src/tools/createEcommerceCampaignBundle.js';
 import type { MetaClient } from '../src/metaClient.js';
+import { MetaApiError } from '../src/utils/metaError.js';
 
 type MetaPostMock = ReturnType<typeof vi.fn>;
 
@@ -224,6 +225,31 @@ describe('createEcommerceCampaignBundle', () => {
     } finally {
       fs.rmSync(tempDir, { recursive: true, force: true });
     }
+  });
+
+  // The bundle is the tool agents reach for first; if it flattens a step failure
+  // into a bare string the agent loses the only instruction telling it what to fix.
+  it('propagates the failing step and its actionable fix', async () => {
+    const client = createMockClient();
+    const mockPost = client.metaPost as MetaPostMock;
+    mockPost.mockResolvedValueOnce({ id: 'cmp_partial' }).mockRejectedValueOnce(
+      new MetaApiError({
+        message: 'Invalid parameter',
+        type: 'OAuthException',
+        code: 100,
+        error_subcode: 1885760,
+      })
+    );
+
+    const result = await createEcommerceCampaignBundle(client, payload, {
+      dryRun: false,
+      confirmed: true,
+    });
+
+    expect(result.status).toBe('failed');
+    expect(result.failedStep).toBe('adSet');
+    expect(result.structuredError?.providerSubcode).toBe('1885760');
+    expect(result.structuredError?.actionableFix).toContain('optimization_goal');
   });
 
   it('retains completed campaign and ad set IDs when creative creation fails', async () => {
