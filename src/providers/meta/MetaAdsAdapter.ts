@@ -491,7 +491,8 @@ export interface MetaAdsAdapterTools {
       businessId: string;
       fbPageId?: string;
       igUserId?: string;
-      creatorUsername?: string;
+      adPartnerPageIds?: string[];
+      adPartnerIgUserIds?: string[];
       adCodes?: string[];
       permalinks?: string[];
       platform?: string;
@@ -3805,7 +3806,11 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
         businessId,
         fbPageId: optionalPlainString(request.params.fbPageId),
         igUserId: optionalPlainString(request.params.igUserId),
-        creatorUsername: optionalPlainString(request.params.creatorUsername),
+        adPartnerPageIds: optionalStringArray(request.params.adPartnerPageIds, 'adPartnerPageIds'),
+        adPartnerIgUserIds: optionalStringArray(
+          request.params.adPartnerIgUserIds,
+          'adPartnerIgUserIds'
+        ),
         adCodes,
         permalinks,
         platform: optionalPlainString(request.params.platform),

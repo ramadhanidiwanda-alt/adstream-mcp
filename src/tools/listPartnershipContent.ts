@@ -11,7 +11,16 @@ export interface ListPartnershipContentOptions {
   businessId: string;
   fbPageId?: string;
   igUserId?: string;
-  creatorUsername?: string;
+  /**
+   * @deprecated Meta menerimanya dengan HTTP 200 tapi tidak memfilter apa pun.
+   * Diisi -> error, supaya tidak diam-diam mengembalikan seluruh korpus.
+   * Pakai adPartnerPageIds / adPartnerIgUserIds.
+   */
+  creatorUsername?: never;
+  /** ID Facebook Page kreator/partner. Pengganti creatorUsername yang berfungsi. */
+  adPartnerPageIds?: string[];
+  /** ID akun Instagram kreator/partner. */
+  adPartnerIgUserIds?: string[];
   /** Maksimal 50 ad code. Direct lookup — tidak bisa digabung filter/cursor. */
   adCodes?: string[];
   /**
@@ -82,6 +91,43 @@ const PARTNERSHIP_CONTENT_FIELDS = [
   'partnership_info{ad_eligibility,tagged_partner,permission_status,permission_type,ad_code,content_types}',
   'organic_insights{likes,comments,views,reach,shares,interaction,saves}',
 ].join(',');
+
+/**
+ * Meta menerima filter ini HANYA dengan nama jamak dan nilai huruf kecil.
+ * Verified live pada Graph v25.0/v26.0/v27.0 (2026-08-21):
+ * - nama tunggal (platform, media_type, post_type) -> HTTP 200 tapi TIDAK memfilter,
+ *   persis seperti parameter karangan; `platform=instagram` tetap mengembalikan
+ *   8 baris facebook.
+ * - nilai huruf besar (media_types=VIDEO) -> HTTP 400 "Invalid parameter".
+ * - ejaan dokumentasi 'REEL'/'STORY' -> HTTP 400; nilai sebenarnya jamak.
+ * Alias di bawah memetakan ejaan dokumentasi Meta ke nilai yang benar-benar jalan,
+ * supaya pemanggil yang mengikuti dokumentasi resmi tidak kena 400.
+ */
+const FILTER_VALUES = {
+  platform: { valid: ['facebook', 'instagram'], alias: {} as Record<string, string> },
+  mediaType: { valid: ['image', 'video', 'carousel', 'link'], alias: {} as Record<string, string> },
+  postType: {
+    valid: ['feed', 'reels', 'stories'],
+    alias: { reel: 'reels', story: 'stories' } as Record<string, string>,
+  },
+} as const;
+
+function normalizeFilter(
+  option: keyof typeof FILTER_VALUES,
+  raw: string | undefined
+): string | undefined {
+  const trimmed = raw?.trim();
+  if (!trimmed) return undefined;
+  const lowered = trimmed.toLowerCase();
+  const spec = FILTER_VALUES[option];
+  const value = spec.alias[lowered] ?? lowered;
+  if (!(spec.valid as readonly string[]).includes(value)) {
+    throw new Error(
+      `${option} "${trimmed}" tidak dikenal Meta. Nilai yang valid: ${spec.valid.join(', ')}.`
+    );
+  }
+  return value;
+}
 
 const PERMALINK_PATTERN = /^https?:\/\/(?:[a-z0-9-]+\.)*(?:instagram|facebook)\.com\//i;
 
@@ -172,6 +218,17 @@ export async function listPartnershipContent(
     );
   }
 
+  if ((options as { creatorUsername?: string }).creatorUsername) {
+    throw new Error(
+      'creatorUsername tidak difilter Meta (HTTP 200 tapi seluruh korpus tetap dikembalikan). ' +
+        'Pakai adPartnerPageIds (ID Facebook Page kreator) atau adPartnerIgUserIds.'
+    );
+  }
+
+  const platformTypes = normalizeFilter('platform', options.platform);
+  const mediaTypes = normalizeFilter('mediaType', options.mediaType);
+  const postTypes = normalizeFilter('postType', options.postType);
+
   const adCodes = options.adCodes?.length ? options.adCodes : undefined;
   const permalinks = options.permalinks?.length ? options.permalinks : undefined;
 
@@ -201,10 +258,11 @@ export async function listPartnershipContent(
     }
 
     const conflicting = [
-      options.creatorUsername?.trim() ? 'creatorUsername' : undefined,
-      options.platform ? 'platform' : undefined,
-      options.mediaType ? 'mediaType' : undefined,
-      options.postType ? 'postType' : undefined,
+      platformTypes ? 'platform' : undefined,
+      mediaTypes ? 'mediaType' : undefined,
+      postTypes ? 'postType' : undefined,
+      options.adPartnerPageIds?.length ? 'adPartnerPageIds' : undefined,
+      options.adPartnerIgUserIds?.length ? 'adPartnerIgUserIds' : undefined,
       options.cursor?.trim() ? 'cursor' : undefined,
     ].filter((name): name is string => Boolean(name));
     if (conflicting.length) {
@@ -229,12 +287,17 @@ export async function listPartnershipContent(
       fields: PARTNERSHIP_CONTENT_FIELDS,
       fb_page_id: fbPageId,
       ig_user_id: igUserId,
-      creator_username: options.creatorUsername?.trim() || undefined,
       ad_codes: adCodes?.join(','),
       permalinks: permalinks?.map((url) => url.trim()).join(','),
-      platform: options.platform,
-      media_type: options.mediaType,
-      post_type: options.postType,
+      platform_types: platformTypes,
+      media_types: mediaTypes,
+      post_types: postTypes,
+      ad_partner_page_ids: options.adPartnerPageIds?.length
+        ? options.adPartnerPageIds.join(',')
+        : undefined,
+      ad_partner_ig_user_ids: options.adPartnerIgUserIds?.length
+        ? options.adPartnerIgUserIds.join(',')
+        : undefined,
       limit: directLookup ? undefined : (options.limit ?? 25),
       after: directLookup ? undefined : options.cursor,
     },

@@ -104,13 +104,12 @@ describe('listPartnershipContent', () => {
     expect(result).toEqual([{ contentId: 'fb-post-1', platform: 'FACEBOOK' }]);
   });
 
-  it('meneruskan filter dan cursor sebagai parameter Meta', async () => {
+  it('mengirim filter memakai nama plural dan nilai huruf kecil yang diterima Meta', async () => {
     const { client, metaGet } = clientReturning({ data: [] });
 
     await listPartnershipContent(client, {
       businessId: 'biz-1',
       igUserId: 'brand-ig-1',
-      creatorUsername: 'kreator_a',
       adCodes: ['AD-1', 'AD-2'],
       platform: 'INSTAGRAM',
       mediaType: 'VIDEO',
@@ -119,19 +118,81 @@ describe('listPartnershipContent', () => {
       cursor: 'cursor-abc',
     });
 
-    expect(metaGet).toHaveBeenCalledWith(
-      '/biz-1/partnership-ads-advertisable-content',
-      expect.objectContaining({
-        creator_username: 'kreator_a',
-        ad_codes: 'AD-1,AD-2',
-        platform: 'INSTAGRAM',
-        media_type: 'VIDEO',
-        post_type: 'REEL',
-        limit: 50,
-        after: 'cursor-abc',
-      }),
-      expect.anything()
-    );
+    const params = metaGet.mock.calls[0][1] as Record<string, unknown>;
+    // Nama singular platform/media_type/post_type diterima Meta dengan HTTP 200
+    // tapi tidak memfilter apa pun, jadi tidak boleh dikirim sama sekali.
+    expect(params.platform).toBeUndefined();
+    expect(params.media_type).toBeUndefined();
+    expect(params.post_type).toBeUndefined();
+    expect(params).toMatchObject({
+      ad_codes: 'AD-1,AD-2',
+      platform_types: 'instagram',
+      media_types: 'video',
+      // Meta menolak 'reel' dan 'story'; nilainya jamak.
+      post_types: 'reels',
+      limit: 50,
+      after: 'cursor-abc',
+    });
+  });
+
+  it('menerima nilai filter apa adanya lalu menormalkannya', async () => {
+    const cases: Array<[Record<string, string>, Record<string, string>]> = [
+      [{ postType: 'STORY' }, { post_types: 'stories' }],
+      [{ postType: 'stories' }, { post_types: 'stories' }],
+      [{ postType: 'reels' }, { post_types: 'reels' }],
+      [{ mediaType: 'carousel' }, { media_types: 'carousel' }],
+      [{ platform: 'facebook' }, { platform_types: 'facebook' }],
+    ];
+
+    for (const [input, expected] of cases) {
+      const { client, metaGet } = clientReturning({ data: [] });
+      await listPartnershipContent(client, {
+        businessId: 'biz-1',
+        igUserId: 'brand-ig-1',
+        ...input,
+      });
+      expect(metaGet.mock.calls[0][1]).toMatchObject(expected);
+    }
+  });
+
+  it('menolak nilai filter yang tidak dikenal Meta, bukan meneruskannya', async () => {
+    const { client, metaGet } = clientReturning({ data: [] });
+    await expect(
+      listPartnershipContent(client, {
+        businessId: 'biz-1',
+        igUserId: 'brand-ig-1',
+        mediaType: 'TEXT',
+      })
+    ).rejects.toThrow(/mediaType/);
+    expect(metaGet).not.toHaveBeenCalled();
+  });
+
+  it('menolak creatorUsername karena terbukti tidak memfilter apa pun', async () => {
+    const { client, metaGet } = clientReturning({ data: [] });
+    await expect(
+      listPartnershipContent(client, {
+        businessId: 'biz-1',
+        igUserId: 'brand-ig-1',
+        creatorUsername: 'kreator_a',
+      } as never)
+    ).rejects.toThrow(/adPartnerPageIds/);
+    expect(metaGet).not.toHaveBeenCalled();
+  });
+
+  it('meneruskan adPartnerPageIds dan adPartnerIgUserIds sebagai pengganti creatorUsername', async () => {
+    const { client, metaGet } = clientReturning({ data: [] });
+
+    await listPartnershipContent(client, {
+      businessId: 'biz-1',
+      igUserId: 'brand-ig-1',
+      adPartnerPageIds: ['1046674028528303', '102818401067554'],
+      adPartnerIgUserIds: ['17841400000000000'],
+    });
+
+    expect(metaGet.mock.calls[0][1]).toMatchObject({
+      ad_partner_page_ids: '1046674028528303,102818401067554',
+      ad_partner_ig_user_ids: '17841400000000000',
+    });
   });
 
   it('menolak businessId kosong', async () => {
@@ -214,7 +275,6 @@ describe('listPartnershipContent', () => {
     ).rejects.toThrow(/hanya satu/i);
 
     for (const filter of [
-      { creatorUsername: 'kreator_a' },
       { platform: 'INSTAGRAM' },
       { mediaType: 'VIDEO' },
       { postType: 'REEL' },

@@ -3842,7 +3842,17 @@ function createPartnershipContentInputSchema() {
           'Facebook Page ID brand. Isi minimal satu dari fbPageId atau igUserId; bila keduanya diisi, kedua akun harus sudah ter-link.',
       },
       igUserId: { type: 'string', description: 'Instagram professional account ID brand.' },
-      creatorUsername: { type: 'string', description: 'Filter konten dari satu kreator.' },
+      adPartnerPageIds: {
+        type: 'array',
+        items: { type: 'string' },
+        description:
+          'Filter konten dari kreator/partner tertentu lewat ID Facebook Page mereka (ada di author.fbPageId hasil panggilan tanpa filter). Pengganti creatorUsername, yang dihapus karena Meta tidak memfilternya.',
+      },
+      adPartnerIgUserIds: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'Filter konten dari kreator/partner tertentu lewat ID akun Instagram mereka.',
+      },
       adCodes: {
         type: 'array',
         items: { type: 'string' },
@@ -3853,11 +3863,25 @@ function createPartnershipContentInputSchema() {
         type: 'array',
         items: { type: 'string' },
         description:
-          'Cari konten langsung dari URL permalink Instagram/Facebook yang dikirim kreator atau klien — pakai ini ketika yang diketahui cuma link postingannya. Maksimal 50 URL lengkap (https://www.instagram.com/reel/...). Direct lookup: tidak bisa digabung adCodes, creatorUsername, platform, mediaType, postType, atau cursor.',
+          'Cari konten langsung dari URL permalink Instagram/Facebook yang dikirim kreator atau klien — pakai ini ketika yang diketahui cuma link postingannya. Maksimal 50 URL lengkap (https://www.instagram.com/reel/...). Direct lookup: tidak bisa digabung adCodes, platform, mediaType, postType, adPartnerPageIds, adPartnerIgUserIds, atau cursor.',
       },
-      platform: { type: 'string', enum: ['INSTAGRAM', 'FACEBOOK'] },
-      mediaType: { type: 'string', enum: ['IMAGE', 'VIDEO', 'CAROUSEL', 'LINK'] },
-      postType: { type: 'string', enum: ['FEED', 'STORY', 'REEL'] },
+      platform: {
+        type: 'string',
+        enum: ['instagram', 'facebook'],
+        description:
+          'Filter platform. Huruf besar/kecil bebas. Catatan: instagram butuh scope instagram_branded_content_ads_brand; tanpa itu Meta menolak filternya.',
+      },
+      mediaType: {
+        type: 'string',
+        enum: ['image', 'video', 'carousel', 'link'],
+        description: 'Filter jenis media. Huruf besar/kecil bebas.',
+      },
+      postType: {
+        type: 'string',
+        enum: ['feed', 'reels', 'stories'],
+        description:
+          "Filter jenis postingan. Huruf besar/kecil bebas; ejaan dokumentasi Meta 'REEL' dan 'STORY' otomatis dipetakan ke 'reels' dan 'stories'.",
+      },
       limit: { type: 'number', description: 'Jumlah baris per halaman, 1-50. Default 25.' },
       cursor: { type: 'string', description: 'Pagination cursor dari panggilan sebelumnya.' },
     },
