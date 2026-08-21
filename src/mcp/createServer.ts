@@ -780,6 +780,12 @@ const instagramMediaInputSchema = {
     .describe(
       'Raw instagram.com post/reel/tv URLs to resolve into media IDs by matching shortcode. When set, only matching media is returned.'
     ),
+  maxPages: z
+    .number()
+    .optional()
+    .describe(
+      'How many pages of media to walk when resolving permalinkUrls (1-100, default 10 ~= 500 media). Raise it when a pasted URL points at an older archive post and the default search comes back empty.'
+    ),
 };
 
 const partnershipContentInputSchema = {
@@ -790,14 +796,44 @@ const partnershipContentInputSchema = {
     .optional()
     .describe('Facebook Page ID brand. Isi minimal satu dari fbPageId atau igUserId.'),
   igUserId: z.string().optional().describe('Instagram professional account ID brand.'),
-  creatorUsername: z.string().optional().describe('Filter konten dari satu kreator.'),
+  adPartnerPageIds: z
+    .array(z.string())
+    .optional()
+    .describe(
+      'Filter konten dari kreator/partner tertentu lewat ID Facebook Page mereka (ada di author.fbPageId hasil panggilan tanpa filter). Pengganti creatorUsername, yang dihapus karena Meta tidak memfilternya.'
+    ),
+  adPartnerIgUserIds: z
+    .array(z.string())
+    .optional()
+    .describe('Filter konten dari kreator/partner tertentu lewat ID akun Instagram mereka.'),
   adCodes: z
     .array(z.string())
     .optional()
-    .describe('Cari berdasarkan partnership ad code. Maksimal 50.'),
-  platform: z.enum(['INSTAGRAM', 'FACEBOOK']).optional(),
-  mediaType: z.enum(['IMAGE', 'VIDEO', 'CAROUSEL', 'LINK']).optional(),
-  postType: z.enum(['FEED', 'STORY', 'REEL']).optional(),
+    .describe(
+      'Cari berdasarkan partnership ad code. Maksimal 50. Direct lookup: tidak bisa digabung permalinks, filter, atau cursor.'
+    ),
+  permalinks: z
+    .array(z.string())
+    .optional()
+    .describe(
+      'Cari konten langsung dari URL permalink Instagram/Facebook yang dikirim kreator atau klien — pakai ini ketika yang diketahui cuma link postingannya. Maksimal 50 URL lengkap (https://www.instagram.com/reel/...). Direct lookup: tidak bisa digabung adCodes, platform, mediaType, postType, adPartnerPageIds, adPartnerIgUserIds, atau cursor.'
+    ),
+  platform: z
+    .enum(['instagram', 'facebook'])
+    .optional()
+    .describe(
+      'Filter platform. Huruf besar/kecil bebas. Catatan: instagram butuh scope instagram_branded_content_ads_brand; tanpa itu Meta menolak filternya.'
+    ),
+  mediaType: z
+    .enum(['image', 'video', 'carousel', 'link'])
+    .optional()
+    .describe('Filter jenis media. Huruf besar/kecil bebas.'),
+  postType: z
+    .enum(['feed', 'reels', 'stories'])
+    .optional()
+    .describe(
+      "Filter jenis postingan. Huruf besar/kecil bebas; ejaan dokumentasi Meta 'REEL' dan 'STORY' otomatis dipetakan ke 'reels' dan 'stories'."
+    ),
   limit: z.number().optional().describe('Jumlah baris per halaman, 1-50. Default 25.'),
   cursor: z.string().optional().describe('Pagination cursor dari panggilan sebelumnya.'),
 };

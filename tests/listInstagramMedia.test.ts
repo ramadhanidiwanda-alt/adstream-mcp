@@ -90,4 +90,69 @@ describe('listInstagramMedia', () => {
 
     expect(result).toEqual([]);
   });
+  it('requests boost_eligibility_info and surfaces it as eligibleToBoost', async () => {
+    const mockMetaGet = vi.fn().mockResolvedValue({
+      data: [
+        {
+          id: '1',
+          permalink: 'https://www.instagram.com/reel/DbFng09vfYg/',
+          boost_eligibility_info: { eligible_to_boost: true },
+        },
+        {
+          id: '2',
+          permalink: 'https://www.instagram.com/reel/DbFrCXuv5R9/',
+          boost_eligibility_info: { eligible_to_boost: false },
+        },
+        // Meta omits the object entirely on some media -> stays undefined,
+        // which must not be read as "not eligible".
+        { id: '3', permalink: 'https://www.instagram.com/p/Da36ZlGPTNS/' },
+      ],
+    });
+
+    const result = await listInstagramMedia(makeClient(mockMetaGet), { igUserId: 'ig-1' });
+
+    expect(result.map((item) => item.eligibleToBoost)).toEqual([true, false, undefined]);
+    expect(mockMetaGet).toHaveBeenCalledWith(
+      '/ig-1/media',
+      expect.objectContaining({
+        fields: expect.stringContaining('boost_eligibility_info'),
+      }),
+      expect.anything()
+    );
+  });
+
+  it('paginates 10 pages by default and honours a maxPages override', async () => {
+    const mockMetaGet = vi.fn().mockResolvedValue({ data: [] });
+
+    await listInstagramMedia(makeClient(mockMetaGet), {
+      igUserId: 'ig-1',
+      permalinkUrls: ['https://www.instagram.com/reel/DbFng09vfYg/'],
+    });
+    expect(mockMetaGet).toHaveBeenLastCalledWith(
+      '/ig-1/media',
+      expect.anything(),
+      expect.objectContaining({ paginate: true, maxPages: 10 })
+    );
+
+    await listInstagramMedia(makeClient(mockMetaGet), {
+      igUserId: 'ig-1',
+      permalinkUrls: ['https://www.instagram.com/reel/DbFng09vfYg/'],
+      maxPages: 40,
+    });
+    expect(mockMetaGet).toHaveBeenLastCalledWith(
+      '/ig-1/media',
+      expect.anything(),
+      expect.objectContaining({ paginate: true, maxPages: 40 })
+    );
+  });
+
+  it('rejects a maxPages that is not a positive integer within range', async () => {
+    const mockMetaGet = vi.fn();
+    for (const maxPages of [0, -1, 2.5, 101]) {
+      await expect(
+        listInstagramMedia(makeClient(mockMetaGet), { igUserId: 'ig-1', maxPages })
+      ).rejects.toThrow(/maxPages/);
+    }
+    expect(mockMetaGet).not.toHaveBeenCalled();
+  });
 });

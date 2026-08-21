@@ -12,6 +12,12 @@ export interface ListInstagramMediaOptions {
    * returned — each item's permalink still carries the matched shortcode.
    */
   permalinkUrls?: string[];
+  /**
+   * How many pages of media to walk when resolving permalinkUrls. Default 10
+   * (~500 media). Raise it for archive posts that sit deeper in the feed; each
+   * extra page is another Graph call, so it is opt-in rather than unbounded.
+   */
+  maxPages?: number;
   maxRetries?: number;
 }
 
@@ -24,6 +30,7 @@ interface InstagramMediaRaw {
   timestamp?: string;
   thumbnail_url?: string;
   media_url?: string;
+  boost_eligibility_info?: { eligible_to_boost?: boolean };
 }
 
 const INSTAGRAM_MEDIA_FIELDS = [
@@ -35,7 +42,13 @@ const INSTAGRAM_MEDIA_FIELDS = [
   'timestamp',
   'thumbnail_url',
   'media_url',
+  // Meta only exposes eligible_to_boost here; every other sub-field is rejected
+  // with (#100) nonexisting field, so there is no reason code to surface.
+  'boost_eligibility_info',
 ].join(',');
+
+const DEFAULT_MAX_PAGES = 10;
+const MAX_MAX_PAGES = 100;
 
 const SHORTCODE_PATTERN = /instagram\.com\/(?:[a-z]{2}\/)?(?:p|reel|tv)\/([A-Za-z0-9_-]+)/i;
 
@@ -53,6 +66,7 @@ function toResult(item: InstagramMediaRaw): InstagramMediaResult {
     timestamp: item.timestamp,
     thumbnailUrl: item.thumbnail_url,
     mediaUrl: item.media_url,
+    eligibleToBoost: item.boost_eligibility_info?.eligible_to_boost,
   };
 }
 
@@ -72,6 +86,11 @@ export async function listInstagramMedia(
   const igUserId = options.igUserId.trim();
   if (!igUserId) throw new Error('igUserId wajib diisi.');
 
+  const maxPages = options.maxPages ?? DEFAULT_MAX_PAGES;
+  if (!Number.isInteger(maxPages) || maxPages < 1 || maxPages > MAX_MAX_PAGES) {
+    throw new Error(`maxPages harus bilangan bulat 1-${MAX_MAX_PAGES}.`);
+  }
+
   const wantedShortcodes = options.permalinkUrls
     ?.map((url) => extractShortcode(url))
     .filter((code): code is string => Boolean(code));
@@ -86,7 +105,7 @@ export async function listInstagramMedia(
       after: shouldPaginate ? undefined : options.cursor,
     },
     shouldPaginate
-      ? { paginate: true, maxPages: 10, maxRetries: options.maxRetries ?? 3 }
+      ? { paginate: true, maxPages, maxRetries: options.maxRetries ?? 3 }
       : { maxRetries: options.maxRetries ?? 3 }
   );
 

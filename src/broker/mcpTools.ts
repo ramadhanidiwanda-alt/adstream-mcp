@@ -604,13 +604,13 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
   {
     name: 'ads_list_instagram_media',
     description:
-      'List media (feed posts, Reels, carousels) for an Instagram Business Account. Calls GET /{ig-user-id}/media. Requires igUserId (from ads_list_instagram_accounts). Pass permalinkUrls (raw instagram.com/reel or /p URLs pasted by a user) to resolve them into media IDs by matching shortcode — paginates up to 10 pages looking for matches and returns only the matched media, ready to use as sourceInstagramMediaId on an existing_post ad creative.',
+      'List media (feed posts, Reels, carousels) for an Instagram Business Account. Calls GET /{ig-user-id}/media. Requires igUserId (from ads_list_instagram_accounts). Pass permalinkUrls (raw instagram.com/reel or /p URLs pasted by a user) to resolve them into media IDs by matching shortcode — paginates up to maxPages (default 10) looking for matches and returns only the matched media, ready to use as sourceInstagramMediaId on an existing_post ad creative. Each row carries eligibleToBoost from the boost_eligibility_info field — check it before building the creative, because false means Meta will not let that post run as an ad (no reason code is exposed; pick another post).',
     inputSchema: createInstagramMediaInputSchema(),
   },
   {
     name: 'ads_list_partnership_content',
     description:
-      'Discovery konten kemitraan (branded content, UGC, affiliate, Collab post) lintas Instagram dan Facebook dalam satu endpoint. Calls GET /{business-id}/partnership-ads-advertisable-content. Pakai sebelum membuat Partnership Ads untuk menemukan konten kreator yang boleh diiklankan, status izinnya, ad code yang tersedia, dan metrik organiknya. Wajib businessId plus minimal satu dari fbPageId atau igUserId — bila keduanya diisi, kedua akun harus sudah ter-link. Butuh scope business_management plus instagram_branded_content_ads_brand dan/atau facebook_branded_content_ads_brand; hanya satu scope berarti hasil terbatas ke platform itu saja, dan instagram_branded_content_ads_brand tanpa instagram_basic menghasilkan 403. contentId hasilnya dipakai sebagai creativeSpec.sourceInstagramMediaId pada ads_create_adcreative creativeFormat existing_post HANYA untuk baris ber-platform INSTAGRAM; baris ber-platform FACEBOOK adalah post ID Facebook, yang masuk lewat creativeSpec.objectStoryId.',
+      'Discovery konten kemitraan (branded content, UGC, affiliate, Collab post) lintas Instagram dan Facebook dalam satu endpoint. Calls GET /{business-id}/partnership-ads-advertisable-content. Pakai sebelum membuat Partnership Ads untuk menemukan konten kreator yang boleh diiklankan, status izinnya, ad code yang tersedia, dan metrik organiknya. Wajib businessId plus minimal satu dari fbPageId atau igUserId — bila keduanya diisi, kedua akun harus sudah ter-link. Bila yang diketahui hanya link postingan kreator, isi permalinks (maksimal 50 URL) untuk lookup langsung; permalinks/adCodes adalah direct lookup dan tidak boleh digabung filter atau cursor. Butuh scope business_management plus instagram_branded_content_ads_brand dan/atau facebook_branded_content_ads_brand; hanya satu scope berarti hasil terbatas ke platform itu saja, dan instagram_branded_content_ads_brand tanpa instagram_basic menghasilkan 403. contentId hasilnya dipakai sebagai creativeSpec.sourceInstagramMediaId pada ads_create_adcreative creativeFormat existing_post HANYA untuk baris ber-platform INSTAGRAM; baris ber-platform FACEBOOK adalah post ID Facebook, yang masuk lewat creativeSpec.objectStoryId.',
     inputSchema: createPartnershipContentInputSchema(),
   },
   {
@@ -3819,6 +3819,11 @@ function createInstagramMediaInputSchema() {
         description:
           'Raw instagram.com post/reel/tv URLs to resolve into media IDs by matching shortcode. When set, only matching media is returned.',
       },
+      maxPages: {
+        type: 'number',
+        description:
+          'How many pages of media to walk when resolving permalinkUrls (1-100, default 10 ~= 500 media). Raise it when a pasted URL points at an older archive post and the default search comes back empty.',
+      },
     },
     required: ['igUserId'],
   };
@@ -3837,15 +3842,46 @@ function createPartnershipContentInputSchema() {
           'Facebook Page ID brand. Isi minimal satu dari fbPageId atau igUserId; bila keduanya diisi, kedua akun harus sudah ter-link.',
       },
       igUserId: { type: 'string', description: 'Instagram professional account ID brand.' },
-      creatorUsername: { type: 'string', description: 'Filter konten dari satu kreator.' },
+      adPartnerPageIds: {
+        type: 'array',
+        items: { type: 'string' },
+        description:
+          'Filter konten dari kreator/partner tertentu lewat ID Facebook Page mereka (ada di author.fbPageId hasil panggilan tanpa filter). Pengganti creatorUsername, yang dihapus karena Meta tidak memfilternya.',
+      },
+      adPartnerIgUserIds: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'Filter konten dari kreator/partner tertentu lewat ID akun Instagram mereka.',
+      },
       adCodes: {
         type: 'array',
         items: { type: 'string' },
-        description: 'Cari berdasarkan partnership ad code. Maksimal 50.',
+        description:
+          'Cari berdasarkan partnership ad code. Maksimal 50. Direct lookup: tidak bisa digabung permalinks, filter, atau cursor.',
       },
-      platform: { type: 'string', enum: ['INSTAGRAM', 'FACEBOOK'] },
-      mediaType: { type: 'string', enum: ['IMAGE', 'VIDEO', 'CAROUSEL', 'LINK'] },
-      postType: { type: 'string', enum: ['FEED', 'STORY', 'REEL'] },
+      permalinks: {
+        type: 'array',
+        items: { type: 'string' },
+        description:
+          'Cari konten langsung dari URL permalink Instagram/Facebook yang dikirim kreator atau klien — pakai ini ketika yang diketahui cuma link postingannya. Maksimal 50 URL lengkap (https://www.instagram.com/reel/...). Direct lookup: tidak bisa digabung adCodes, platform, mediaType, postType, adPartnerPageIds, adPartnerIgUserIds, atau cursor.',
+      },
+      platform: {
+        type: 'string',
+        enum: ['instagram', 'facebook'],
+        description:
+          'Filter platform. Huruf besar/kecil bebas. Catatan: instagram butuh scope instagram_branded_content_ads_brand; tanpa itu Meta menolak filternya.',
+      },
+      mediaType: {
+        type: 'string',
+        enum: ['image', 'video', 'carousel', 'link'],
+        description: 'Filter jenis media. Huruf besar/kecil bebas.',
+      },
+      postType: {
+        type: 'string',
+        enum: ['feed', 'reels', 'stories'],
+        description:
+          "Filter jenis postingan. Huruf besar/kecil bebas; ejaan dokumentasi Meta 'REEL' dan 'STORY' otomatis dipetakan ke 'reels' dan 'stories'.",
+      },
       limit: { type: 'number', description: 'Jumlah baris per halaman, 1-50. Default 25.' },
       cursor: { type: 'string', description: 'Pagination cursor dari panggilan sebelumnya.' },
     },

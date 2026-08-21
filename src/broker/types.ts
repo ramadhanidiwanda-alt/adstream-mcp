@@ -1233,6 +1233,13 @@ export interface InstagramMediaResult {
   timestamp?: string;
   thumbnailUrl?: string;
   mediaUrl?: string;
+  /**
+   * Meta's own pre-flight verdict on whether this media can be boosted as an ad
+   * (boost_eligibility_info.eligible_to_boost). Undefined when Meta omits the
+   * object — that is "unknown", not "not eligible". Meta exposes no reason code
+   * alongside it, so a false here means: pick another post.
+   */
+  eligibleToBoost?: boolean;
 }
 
 export interface PartnershipContentAuthor {
