@@ -780,6 +780,12 @@ const instagramMediaInputSchema = {
     .describe(
       'Raw instagram.com post/reel/tv URLs to resolve into media IDs by matching shortcode. When set, only matching media is returned.'
     ),
+  maxPages: z
+    .number()
+    .optional()
+    .describe(
+      'How many pages of media to walk when resolving permalinkUrls (1-100, default 10 ~= 500 media). Raise it when a pasted URL points at an older archive post and the default search comes back empty.'
+    ),
 };
 
 const partnershipContentInputSchema = {
@@ -794,7 +800,15 @@ const partnershipContentInputSchema = {
   adCodes: z
     .array(z.string())
     .optional()
-    .describe('Cari berdasarkan partnership ad code. Maksimal 50.'),
+    .describe(
+      'Cari berdasarkan partnership ad code. Maksimal 50. Direct lookup: tidak bisa digabung permalinks, filter, atau cursor.'
+    ),
+  permalinks: z
+    .array(z.string())
+    .optional()
+    .describe(
+      'Cari konten langsung dari URL permalink Instagram/Facebook yang dikirim kreator atau klien — pakai ini ketika yang diketahui cuma link postingannya. Maksimal 50 URL lengkap (https://www.instagram.com/reel/...). Direct lookup: tidak bisa digabung adCodes, creatorUsername, platform, mediaType, postType, atau cursor.'
+    ),
   platform: z.enum(['INSTAGRAM', 'FACEBOOK']).optional(),
   mediaType: z.enum(['IMAGE', 'VIDEO', 'CAROUSEL', 'LINK']).optional(),
   postType: z.enum(['FEED', 'STORY', 'REEL']).optional(),

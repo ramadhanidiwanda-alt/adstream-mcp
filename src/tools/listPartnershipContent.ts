@@ -12,8 +12,14 @@ export interface ListPartnershipContentOptions {
   fbPageId?: string;
   igUserId?: string;
   creatorUsername?: string;
-  /** Maksimal 50 ad code. */
+  /** Maksimal 50 ad code. Direct lookup — tidak bisa digabung filter/cursor. */
   adCodes?: string[];
+  /**
+   * URL permalink Instagram/Facebook yang dikirim kreator atau klien, maksimal
+   * 50. Direct lookup: Meta menolak bila digabung dengan filter, sort, atau
+   * pagination cursor, dan hanya satu jenis direct lookup boleh per panggilan.
+   */
+  permalinks?: string[];
   platform?: string;
   mediaType?: string;
   postType?: string;
@@ -76,6 +82,8 @@ const PARTNERSHIP_CONTENT_FIELDS = [
   'partnership_info{ad_eligibility,tagged_partner,permission_status,permission_type,ad_code,content_types}',
   'organic_insights{likes,comments,views,reach,shares,interaction,saves}',
 ].join(',');
+
+const PERMALINK_PATTERN = /^https?:\/\/(?:[a-z0-9-]+\.)*(?:instagram|facebook)\.com\//i;
 
 function toAuthor(raw: PartnershipContentRaw['author']): PartnershipContentAuthor | undefined {
   if (!raw) return undefined;
@@ -164,8 +172,46 @@ export async function listPartnershipContent(
     );
   }
 
-  if (options.adCodes && options.adCodes.length > 50) {
+  const adCodes = options.adCodes?.length ? options.adCodes : undefined;
+  const permalinks = options.permalinks?.length ? options.permalinks : undefined;
+
+  if (adCodes && adCodes.length > 50) {
     throw new Error('adCodes maksimal 50 entri per panggilan.');
+  }
+  if (permalinks && permalinks.length > 50) {
+    throw new Error('permalinks maksimal 50 entri per panggilan.');
+  }
+
+  // Meta membagi parameter jadi dua mode yang tidak boleh dicampur: direct
+  // lookup (content_ids / permalinks / ad_codes, maksimal satu jenis) dan search
+  // query (filter + sort + pagination). Dicampur, Meta menolak permintaannya —
+  // jadi ditahan di sini supaya pesannya jelas, bukan berupa error Graph mentah.
+  if (adCodes && permalinks) {
+    throw new Error(
+      'adCodes dan permalinks adalah direct lookup; hanya satu yang boleh diisi per panggilan.'
+    );
+  }
+
+  if (permalinks) {
+    const invalid = permalinks.filter((url) => !PERMALINK_PATTERN.test(url.trim()));
+    if (invalid.length) {
+      throw new Error(
+        `permalinks harus URL lengkap instagram.com atau facebook.com. Tidak valid: ${invalid.join(', ')}`
+      );
+    }
+
+    const conflicting = [
+      options.creatorUsername?.trim() ? 'creatorUsername' : undefined,
+      options.platform ? 'platform' : undefined,
+      options.mediaType ? 'mediaType' : undefined,
+      options.postType ? 'postType' : undefined,
+      options.cursor?.trim() ? 'cursor' : undefined,
+    ].filter((name): name is string => Boolean(name));
+    if (conflicting.length) {
+      throw new Error(
+        `permalinks tidak bisa digabung dengan filter atau pagination: ${conflicting.join(', ')}.`
+      );
+    }
   }
 
   if (
@@ -175,6 +221,8 @@ export async function listPartnershipContent(
     throw new Error('limit harus bilangan bulat 1-50.');
   }
 
+  const directLookup = Boolean(permalinks);
+
   const response = await client.metaGet<{ data: PartnershipContentRaw[] }>(
     `/${businessId}/partnership-ads-advertisable-content`,
     {
@@ -182,12 +230,13 @@ export async function listPartnershipContent(
       fb_page_id: fbPageId,
       ig_user_id: igUserId,
       creator_username: options.creatorUsername?.trim() || undefined,
-      ad_codes: options.adCodes?.length ? options.adCodes.join(',') : undefined,
+      ad_codes: adCodes?.join(','),
+      permalinks: permalinks?.map((url) => url.trim()).join(','),
       platform: options.platform,
       media_type: options.mediaType,
       post_type: options.postType,
-      limit: options.limit ?? 25,
-      after: options.cursor,
+      limit: directLookup ? undefined : (options.limit ?? 25),
+      after: directLookup ? undefined : options.cursor,
     },
     { maxRetries: options.maxRetries ?? 3 }
   );

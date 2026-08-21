@@ -171,4 +171,72 @@ describe('listPartnershipContent', () => {
       })
     ).rejects.toThrow(/maksimal 50/);
   });
+  it('mengirim permalinks sebagai direct lookup dan tidak memakai filter apa pun', async () => {
+    const { client, metaGet } = clientReturning({ data: [] });
+
+    await listPartnershipContent(client, {
+      businessId: 'biz-1',
+      igUserId: 'brand-ig-1',
+      permalinks: [
+        'https://www.instagram.com/reel/DbyM-xqzsC-/?igsh=Mm95Y25vMnJhaTh3',
+        'https://www.instagram.com/p/Da36ZlGPTNS/',
+      ],
+    });
+
+    const params = metaGet.mock.calls[0][1] as Record<string, unknown>;
+    expect(params.permalinks).toBe(
+      'https://www.instagram.com/reel/DbyM-xqzsC-/?igsh=Mm95Y25vMnJhaTh3,https://www.instagram.com/p/Da36ZlGPTNS/'
+    );
+    // Direct lookup tidak boleh membawa limit/cursor — Meta menolak kombinasinya.
+    expect(params.limit).toBeUndefined();
+    expect(params.after).toBeUndefined();
+  });
+
+  it('menolak permalinks lebih dari 50', async () => {
+    const { client, metaGet } = clientReturning({ data: [] });
+    await expect(
+      listPartnershipContent(client, {
+        businessId: 'biz-1',
+        igUserId: 'brand-ig-1',
+        permalinks: Array.from({ length: 51 }, (_, i) => `https://www.instagram.com/p/code${i}/`),
+      })
+    ).rejects.toThrow(/permalinks maksimal 50/);
+    expect(metaGet).not.toHaveBeenCalled();
+  });
+
+  it('menolak permalinks digabung dengan direct lookup lain atau dengan filter', async () => {
+    const { client, metaGet } = clientReturning({ data: [] });
+    const base = { businessId: 'biz-1', igUserId: 'brand-ig-1' } as const;
+    const permalinks = ['https://www.instagram.com/reel/DbyM-xqzsC-/'];
+
+    await expect(
+      listPartnershipContent(client, { ...base, permalinks, adCodes: ['AD-1'] })
+    ).rejects.toThrow(/hanya satu/i);
+
+    for (const filter of [
+      { creatorUsername: 'kreator_a' },
+      { platform: 'INSTAGRAM' },
+      { mediaType: 'VIDEO' },
+      { postType: 'REEL' },
+      { cursor: 'cursor-abc' },
+    ]) {
+      await expect(
+        listPartnershipContent(client, { ...base, permalinks, ...filter })
+      ).rejects.toThrow(/tidak bisa digabung/i);
+    }
+
+    expect(metaGet).not.toHaveBeenCalled();
+  });
+
+  it('menolak permalinks yang bukan URL instagram.com atau facebook.com', async () => {
+    const { client, metaGet } = clientReturning({ data: [] });
+    await expect(
+      listPartnershipContent(client, {
+        businessId: 'biz-1',
+        igUserId: 'brand-ig-1',
+        permalinks: ['DbyM-xqzsC-'],
+      })
+    ).rejects.toThrow(/permalinks/);
+    expect(metaGet).not.toHaveBeenCalled();
+  });
 });

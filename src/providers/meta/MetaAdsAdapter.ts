@@ -59,10 +59,7 @@ import {
   type MetaMessagingDestination,
   type MetaOdaxObjective,
 } from './objectiveLaunchMatrix.js';
-import {
-  supportsMediaSourcingSpec,
-  supportsThreadsUserIdField,
-} from './metaApiVersionSupport.js';
+import { supportsMediaSourcingSpec, supportsThreadsUserIdField } from './metaApiVersionSupport.js';
 import type { MutationResult } from '../../types.js';
 import type { LocationBreakdown } from '../../types.js';
 import { pauseCampaign as pauseCampaignTool } from '../../tools/pauseCampaign.js';
@@ -144,7 +141,10 @@ import {
   type CreateCustomAudienceOptions,
 } from '../../tools/createCustomAudience.js';
 import { listAudiences as listAudiencesTool } from '../../tools/listAudiences.js';
-import { createPixel as createPixelTool, type CreatePixelOptions } from '../../tools/createPixel.js';
+import {
+  createPixel as createPixelTool,
+  type CreatePixelOptions,
+} from '../../tools/createPixel.js';
 import { listPixels as listPixelsTool } from '../../tools/listPixels.js';
 import { listCatalogs as listCatalogsTool } from '../../tools/listCatalogs.js';
 import { listProductSets as listProductSetsTool } from '../../tools/listProductSets.js';
@@ -482,6 +482,7 @@ export interface MetaAdsAdapterTools {
       limit?: number;
       cursor?: string;
       permalinkUrls?: string[];
+      maxPages?: number;
     }
   ): Promise<InstagramMediaResult[]>;
   listPartnershipContent(
@@ -492,6 +493,7 @@ export interface MetaAdsAdapterTools {
       igUserId?: string;
       creatorUsername?: string;
       adCodes?: string[];
+      permalinks?: string[];
       platform?: string;
       mediaType?: string;
       postType?: string;
@@ -1791,7 +1793,11 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
         ok: false,
         provider: 'meta',
         errors: [
-          { provider: 'meta', code: 'MISSING_REQUIRED_PARAMS', message: 'name is required in request.params' },
+          {
+            provider: 'meta',
+            code: 'MISSING_REQUIRED_PARAMS',
+            message: 'name is required in request.params',
+          },
         ],
       };
     }
@@ -3757,11 +3763,14 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       const permalinkUrls = Array.isArray(request.params.permalinkUrls)
         ? request.params.permalinkUrls.filter((url): url is string => typeof url === 'string')
         : undefined;
+      const maxPages =
+        typeof request.params.maxPages === 'number' ? request.params.maxPages : undefined;
       const media = await this.tools.listInstagramMedia(client, {
         igUserId,
         limit,
         cursor,
         permalinkUrls,
+        maxPages,
       });
       return { ok: true, provider: 'meta', data: media };
     } catch (error) {
@@ -3791,12 +3800,14 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       // Entri non-string ditolak, bukan disaring diam-diam: ad code yang hilang
       // tanpa kabar membuat hasil discovery tampak lengkap padahal tidak.
       const adCodes = optionalStringArray(request.params.adCodes, 'adCodes');
+      const permalinks = optionalStringArray(request.params.permalinks, 'permalinks');
       const content = await this.tools.listPartnershipContent(client, {
         businessId,
         fbPageId: optionalPlainString(request.params.fbPageId),
         igUserId: optionalPlainString(request.params.igUserId),
         creatorUsername: optionalPlainString(request.params.creatorUsername),
         adCodes,
+        permalinks,
         platform: optionalPlainString(request.params.platform),
         mediaType: optionalPlainString(request.params.mediaType),
         postType: optionalPlainString(request.params.postType),
