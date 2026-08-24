@@ -47,8 +47,11 @@ function readString(value: unknown): string | undefined {
 /**
  * Where a CTA can live on a creative: at the root for existing-post creatives (the
  * shape Ads Manager writes), inside object_story_spec's link/video/photo data for the
- * built formats, and as asset_feed_spec.call_to_action_types for asset-feed creatives.
- * Collect from all of them so the check is not fooled by format.
+ * built formats, inside template_data for catalog creatives, per card in
+ * link_data.child_attachments for carousels, and as asset_feed_spec.call_to_action_types
+ * for asset-feed creatives. Collect from all of them so the check is not fooled by
+ * format — an empty result has to mean "this creative has no CTA", not "we looked in
+ * the wrong place", because that emptiness is now what blocks a create.
  */
 function collectCallToActions(creative: Record<string, unknown>): Record<string, unknown>[] {
   const found: Record<string, unknown>[] = [];
@@ -56,9 +59,15 @@ function collectCallToActions(creative: Record<string, unknown>): Record<string,
   if (isRecord(creative.call_to_action)) found.push(creative.call_to_action);
 
   const storySpec = isRecord(creative.object_story_spec) ? creative.object_story_spec : undefined;
-  for (const key of ['link_data', 'video_data', 'photo_data']) {
+  for (const key of ['link_data', 'video_data', 'photo_data', 'template_data']) {
     const data = storySpec && isRecord(storySpec[key]) ? storySpec[key] : undefined;
-    if (data && isRecord(data.call_to_action)) found.push(data.call_to_action);
+    if (!data) continue;
+    if (isRecord(data.call_to_action)) found.push(data.call_to_action);
+    if (Array.isArray(data.child_attachments)) {
+      for (const card of data.child_attachments) {
+        if (isRecord(card) && isRecord(card.call_to_action)) found.push(card.call_to_action);
+      }
+    }
   }
 
   const feedSpec = isRecord(creative.asset_feed_spec) ? creative.asset_feed_spec : undefined;
@@ -75,9 +84,15 @@ function collectCallToActions(creative: Record<string, unknown>): Record<string,
  * Pure form of the check, so the rule can be exercised without a Meta client.
  * Returns undefined when the pairing is fine or when no rule applies.
  *
- * A creative with no discoverable CTA gets no opinion rather than an error: the read
- * may simply not have surfaced it, and a false block here would be worse than the
- * mismatch this exists to catch.
+ * A creative with NO call_to_action anywhere is blocked, not excused. That used to be
+ * the one case this check stayed silent on — the worry being that the read might not
+ * have surfaced the CTA — and on 2026-08-24 it let an existing-post Reel creative into
+ * a WHATSAPP ad set. Meta accepted the create, then rejected it asynchronously with
+ * error_code 1487891 (HARD_ERROR, "Materi Iklan Tidak Valid untuk Tujuan"): the ad
+ * flipped back to PAUSED / WITH_ISSUES and never ran. The read either returns all three
+ * CTA-bearing fields or throws (and a throw is already treated as "no opinion"), so an
+ * empty result is evidence, not a blind spot. `skipMessagingDestinationCheck: true`
+ * remains the escape hatch if the rule ever misfires.
  */
 export function getMessagingDestinationMismatch(
   adSet: Record<string, unknown>,
@@ -90,6 +105,22 @@ export function getMessagingDestinationMismatch(
   if (!allowedCtaTypes) return undefined;
 
   const callToActions = collectCallToActions(creative);
+  // Asset-feed creatives declare their CTAs in asset_feed_spec.call_to_action_types.
+  // When that array is missing the creative is malformed as an asset feed, and the
+  // dynamic-creative and placement pre-flights that run straight after this one
+  // diagnose it far more precisely than "no CTA" would. Leave them to it.
+  if (callToActions.length === 0 && !isRecord(creative.asset_feed_spec)) {
+    const whatsappHint = allowedCtaTypes.includes('WHATSAPP_MESSAGE')
+      ? ' Untuk WHATSAPP_MESSAGE pada creative existing_post, isi juga destinationUrl "https://api.whatsapp.com/send".'
+      : '';
+    return (
+      `Ad set memakai destination_type ${destinationType} tetapi creative ini tidak punya call_to_action sama sekali. ` +
+      `Iklan click-to-message wajib punya CTA yang membuka inbox tujuannya — pakai salah satu dari: ${allowedCtaTypes.join(', ')}.${whatsappHint} ` +
+      'Meta menerima create-nya lalu menolak asinkron dengan error_code 1487891 ("Materi Iklan Tidak Valid untuk Tujuan"), dan ad-nya berhenti di effective_status WITH_ISSUES tanpa pernah tayang. ' +
+      'Buat ulang creative dengan CTA tersebut. Bila creative ini memang sudah benar, ulangi dengan skipMessagingDestinationCheck: true.'
+    );
+  }
+
   const ctaTypes = callToActions
     .map((callToAction) => readString(callToAction.type))
     .filter((type): type is string => type !== undefined);

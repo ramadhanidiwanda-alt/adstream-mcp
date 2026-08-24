@@ -899,6 +899,77 @@ describe('createAd', () => {
     }
   );
 
+  // The 2026-08-24 incident: an existing-post creative with no call_to_action at
+  // all went into a WHATSAPP ad set unchallenged. Meta accepted the create and
+  // rejected it asynchronously with HARD_ERROR 1487891.
+  it('blocks at dry-run when a WHATSAPP ad set gets a creative with no call_to_action', async () => {
+    mockMetaGetObject.mockImplementation(async (path: string) =>
+      path === '/as456'
+        ? { destination_type: 'WHATSAPP', is_dynamic_creative: false }
+        : { source_instagram_media_id: 'ig-media-1' }
+    );
+
+    const r = await createAd(mockClient, baseOpts);
+
+    expect(r.status).toBe('preflight_blocked');
+    expect(r.preflightCheck).toBe('messaging_destination');
+    expect(r.error).toContain('WHATSAPP');
+    expect(r.error).toContain('WHATSAPP_MESSAGE');
+    expect(mockMetaPost).not.toHaveBeenCalled();
+  });
+
+  it('leaves a creative with no call_to_action alone on a non-messaging ad set', async () => {
+    mockMetaGetObject.mockImplementation(async (path: string) =>
+      path === '/as456'
+        ? { destination_type: 'WEBSITE', is_dynamic_creative: false }
+        : { source_instagram_media_id: 'ig-media-1' }
+    );
+
+    const r = await createAd(mockClient, baseOpts);
+
+    expect(r.status).toBe('dry_run');
+  });
+
+  // A catalog creative keeps its CTA in template_data, and a carousel keeps one per
+  // card. Neither is missing a CTA, so neither may be blocked as if it were.
+  it.each([
+    ['template_data', { template_data: { call_to_action: { type: 'WHATSAPP_MESSAGE' } } }],
+    [
+      'child_attachments',
+      {
+        link_data: {
+          child_attachments: [{ call_to_action: { type: 'WHATSAPP_MESSAGE' } }],
+        },
+      },
+    ],
+  ])('accepts a creative whose CTA lives in %s', async (_label, objectStorySpec) => {
+    mockMetaGetObject.mockImplementation(async (path: string) =>
+      path === '/as456'
+        ? { destination_type: 'WHATSAPP', is_dynamic_creative: false }
+        : { object_story_spec: objectStorySpec }
+    );
+
+    const r = await createAd(mockClient, baseOpts);
+
+    expect(r.status).toBe('dry_run');
+  });
+
+  // An asset-feed creative keeps its CTAs in asset_feed_spec.call_to_action_types.
+  // A missing array there is an asset-feed defect, and the dynamic-creative and
+  // placement pre-flights name it precisely — this check must not pre-empt them.
+  it('leaves an asset-feed creative to the asset-feed pre-flights', async () => {
+    mockMetaGetObject.mockImplementation(async (path: string) =>
+      path === '/as456'
+        ? { destination_type: 'WHATSAPP', is_dynamic_creative: false }
+        : { asset_feed_spec: { asset_customization_rules: [{ image_label: { name: 'feed' } }] } }
+    );
+
+    const r = await createAd(mockClient, baseOpts);
+
+    expect(r.status).toBe('preflight_blocked');
+    expect(r.preflightCheck).toBe('placement_compatibility');
+  });
+
   it('blocks at dry-run when app_destination contradicts the ad set destination', async () => {
     mockMetaGetObject.mockImplementation(async (path: string) =>
       path === '/as456'
