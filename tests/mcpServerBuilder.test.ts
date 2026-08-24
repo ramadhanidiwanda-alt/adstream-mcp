@@ -352,6 +352,21 @@ describe('MCP server builder', () => {
     }
   });
 
+  // Kedua tool surface memuat salinan deskripsi yang sama, jadi keduanya harus
+  // menyebut pageWelcomeMessage pada existing_post — bukan hanya salah satu.
+  it('documents pageWelcomeMessage for existing_post on the MCP server surface too', async () => {
+    process.env.ADSTREAM_ENABLE_WRITES = 'true';
+    const response = await listRegisteredTools();
+    const creativeTool = response.tools.find((tool) => tool.name === 'ads_create_adcreative');
+
+    expect(toolSchemaProperty(creativeTool, 'creativeSpec').description).toMatch(
+      /existing_post memakai[\s\S]*?pageWelcomeMessage[\s\S]*?Untuk mengarahkan post yang di-boost/
+    );
+    expect(toolSchemaProperty(creativeTool, 'welcomeMessageTemplateName').description).toMatch(
+      /existing_post/
+    );
+  });
+
   it('documents flexible asset-feed inputs without encouraging legacy Dynamic Creative defaults', async () => {
     process.env.ADSTREAM_ENABLE_WRITES = 'true';
     const response = await listRegisteredTools();

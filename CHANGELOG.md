@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — Welcome message pada existing_post tidak terlihat di schema tool
+
+`creativeSpec.pageWelcomeMessage` sudah lama didukung untuk `creativeFormat: "existing_post"`
+— field-nya terdaftar sah dan builder menulisnya di level atas creative — tetapi daftar
+"Field per format" pada deskripsi `ads_create_adcreative` hanya menyebutnya untuk
+`single_image` dan `video`. Paragraf yang khusus membahas click-to-message pada
+`existing_post` pun tidak menyebutnya. Pembaca daftar itu menyimpulkan boost post tidak
+bisa punya welcome message, lalu tidak pernah mencobanya. Kemampuannya ada; yang hilang
+hanya keterangannya.
+
+- `pageWelcomeMessage` kini tercantum di daftar field `existing_post`, setara dengan
+  `single_image` dan `video`, berikut catatan bahwa penempatannya di LEVEL ATAS creative.
+- Paragraf click-to-message `existing_post` kini menyatakan welcome message didukung, dan
+  bahwa bentuk yang didokumentasikan Meta (`page_welcome_message` di dalam
+  `object_story_spec`) DITOLAK untuk `existing_post` karena `object_story_spec` tidak boleh
+  berbarengan dengan `source_instagram_media_id` — terverifikasi live di v25.0.
+- `welcomeMessageTemplateName` kini menyatakan berlaku untuk semua creativeFormat yang
+  mendukung `pageWelcomeMessage`, termasuk `existing_post`.
+
+Deskripsi saja; tidak ada perubahan perilaku pada jalur eksekusi mana pun.
+
+
 ### Fixed — Iklan Click-to-WhatsApp dari existing Instagram Reel
 
 Empat masalah yang bersama-sama membuat sebuah iklan Click-to-WhatsApp dilaporkan
