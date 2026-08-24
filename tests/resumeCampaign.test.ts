@@ -30,7 +30,7 @@ describe('resumeCampaign', () => {
     expect(client.metaPost).toHaveBeenCalledWith('/120248446250030168', { status: 'ACTIVE' }, 3);
     expect(client.metaGetObject).toHaveBeenCalledWith(
       '/120248446250030168',
-      { fields: 'status,effective_status' },
+      { fields: 'status,effective_status,issues_info' },
       3
     );
     expect(result).toEqual({
