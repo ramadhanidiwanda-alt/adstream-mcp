@@ -348,11 +348,35 @@ describe('ads MCP broker tools', () => {
 
     expect(tool?.description).toMatch(/variasi.*headline.*caption.*manual/i);
     expect(tool?.description).toMatch(/image\/video/i);
-    expect(tool?.description).toMatch(/dinonaktifkan hanya asset_feed_spec TANPA asset_customization_rules/i);
+    expect(tool?.description).toMatch(
+      /dinonaktifkan hanya asset_feed_spec TANPA asset_customization_rules/i
+    );
     expect(creativeSpec.description).toMatch(/opsi.*headline.*caption.*manual/i);
     expect(creativeSpec.description).toMatch(/image\/video/i);
     expect(assetFeedSpec.description).toMatch(/disabled/i);
     expect(assetFeedSpec.description).toMatch(/placement customization/i);
+  });
+
+  // Welcome message sudah lama didukung untuk existing_post (pageWelcomeMessage ada di
+  // ALLOWED_CREATIVE_SPEC_FIELDS.existing_post dan builder menulisnya di root creative),
+  // tapi daftar "Field per format" hanya menyebutnya untuk single_image dan video.
+  // Pembaca daftar itu menyimpulkan boost post tidak bisa punya welcome message.
+  it('lists pageWelcomeMessage among the existing_post fields, like it does for single_image and video', () => {
+    const tool = ADS_MCP_TOOL_DEFINITIONS.find(({ name }) => name === 'ads_create_adcreative');
+    const properties = tool?.inputSchema.properties as Record<string, unknown>;
+    const creativeSpec = properties.creativeSpec as { description?: string };
+
+    expect(creativeSpec.description).toMatch(
+      /existing_post memakai[\s\S]*?pageWelcomeMessage[\s\S]*?Untuk mengarahkan post yang di-boost/
+    );
+  });
+
+  it('says welcomeMessageTemplateName works for existing_post too', () => {
+    const tool = ADS_MCP_TOOL_DEFINITIONS.find(({ name }) => name === 'ads_create_adcreative');
+    const properties = tool?.inputSchema.properties as Record<string, unknown>;
+    const templateName = properties.welcomeMessageTemplateName as { description?: string };
+
+    expect(templateName.description).toMatch(/existing_post/);
   });
 
   it('exposes applinkTreatment enum on ads_create_adcreative for omnichannel creatives', () => {
