@@ -236,6 +236,37 @@ export function normalizeWorkflow(workflow: string | undefined): MetaLaunchWorkf
   return 'sales_website';
 }
 
+/**
+ * `existing_post` diterima sebagai nilai `workflow` karena alias historis, padahal
+ * ia nama creativeFormat. LEGACY_WORKFLOW_ALIASES menormalisasinya ke
+ * engagement_post, yang mengunci destination_type ON_POST — boost like dan komentar,
+ * bukan percakapan. Operator yang mem-boost postingan untuk Click-to-WhatsApp
+ * membaca jawaban itu sebagai "boost post tidak bisa CTWA", padahal Meta mendukung
+ * existing post pada destination messaging maupun website.
+ *
+ * Alias-nya tetap diterima demi kompatibilitas; yang ditambahkan di sini adalah
+ * penjelasan apa yang barusan terjadi dan workflow mana yang sebenarnya dicari.
+ */
+export function getWorkflowAliasWarning(
+  workflow: string | undefined,
+  resolved: MetaLaunchWorkflow
+): string | undefined {
+  if (workflow !== 'existing_post') return undefined;
+
+  if (resolved === 'engagement_post') {
+    return (
+      'existing_post adalah creativeFormat, bukan workflow. Permintaan ini dinormalisasi ke workflow engagement_post (destination_type ON_POST, optimizationGoal POST_ENGAGEMENT) — itu boost like/komentar pada postingan, BUKAN click-to-message. ' +
+      'Existing post juga didukung untuk tujuan lain: pakai engagement_messaging atau sales_messaging dengan messagingDestination (mis. WHATSAPP) untuk Click-to-WhatsApp, atau traffic_website/leads_website/sales_website untuk mengarah ke landing page. ' +
+      'Pada semua workflow itu, boost postingan tetap dipilih lewat creativeFormat: "existing_post".'
+    );
+  }
+
+  return (
+    `existing_post adalah creativeFormat, bukan workflow. Karena messagingDestination diisi, permintaan ini dinormalisasi ke workflow ${resolved}, bukan engagement_post. ` +
+    'Sebutkan workflow secara eksplisit (engagement_messaging atau sales_messaging) supaya hasilnya tidak bergantung pada penyimpulan ini.'
+  );
+}
+
 export function getWorkflowDeprecationWarning(workflow: string | undefined): string | undefined {
   if (workflow && workflow in DEPRECATED_WORKFLOW_ALIASES) {
     return `${workflow} is deprecated and is not a canonical Meta v25 baseline workflow; use ${normalizeWorkflow(workflow)} instead.`;

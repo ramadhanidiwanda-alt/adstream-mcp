@@ -166,4 +166,32 @@ describe('getAdDestinations status filter reporting', () => {
     });
     expect(page.statusFilter).toEqual({ applied: ['ACTIVE', 'PAUSED'], defaulted: false });
   });
+
+  // `defaulted: true` is easy to scroll past. An empty page caused by the default
+  // filter needs to say so in words, or "my ad is missing" reads as "never created".
+  it('spells out an empty page that came from the default filter', async () => {
+    const page = await getAdDestinations(client, { adAccountId: 'act_1' });
+
+    expect(page.statusFilterNotice).toMatch(/ACTIVE/);
+    expect(page.statusFilterNotice).toMatch(/effectiveStatus/);
+  });
+
+  it('adds no notice when the caller chose the filter', async () => {
+    const page = await getAdDestinations(client, {
+      adAccountId: 'act_1',
+      effectiveStatus: ['ACTIVE', 'PAUSED'],
+    });
+
+    expect(page.statusFilterNotice).toBeUndefined();
+  });
+
+  it('adds no notice when the default filter did return ads', async () => {
+    mockMetaGet.mockResolvedValue({
+      data: [{ id: 'ad-1', name: 'Ad', status: 'ACTIVE', effective_status: 'ACTIVE' }],
+    });
+
+    const page = await getAdDestinations(client, { adAccountId: 'act_1' });
+
+    expect(page.statusFilterNotice).toBeUndefined();
+  });
 });

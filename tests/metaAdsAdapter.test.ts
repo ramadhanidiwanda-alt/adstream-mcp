@@ -2341,6 +2341,41 @@ describe('MetaAdsAdapter', () => {
     expect(receivedOptions).toBeUndefined();
   });
 
+  // videoId is an accepted, documented param on the legacy path, yet the adapter
+  // never passed it on — the creative came out with no media at all and no warning.
+  it('forwards top-level videoId to the Meta creative tool instead of dropping it', async () => {
+    let receivedOptions: Record<string, unknown> | undefined;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        createAdCreative: async (_client, options) => {
+          receivedOptions = options as unknown as Record<string, unknown>;
+          return {
+            operation: 'create_adcreative',
+            status: 'dry_run',
+            executed: false,
+            preview: {},
+          };
+        },
+      },
+    });
+
+    await adapter.createAdCreative({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {
+        name: 'Legacy video creative',
+        pageId: 'page_123',
+        link: 'https://api.whatsapp.com/send',
+        message: 'caption',
+        videoId: '1067354122547412',
+      },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    });
+
+    expect(receivedOptions?.videoId).toBe('1067354122547412');
+  });
+
   it('forwards urlTags to the Meta creative tool as URL parameters', async () => {
     let receivedOptions: Record<string, unknown> | undefined;
     const urlTags =

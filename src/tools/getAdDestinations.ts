@@ -53,6 +53,12 @@ export type AdDestinationPage = AdDestinationInfo[] & {
    * `defaulted: true` usually means the ads exist but are not ACTIVE.
    */
   statusFilter?: { applied: string[]; defaulted: boolean };
+  /**
+   * Terisi hanya ketika hasil kosong DAN filter status berasal dari default.
+   * `defaulted: true` sendirian gampang terlewat, sedangkan beda antara "tidak ada
+   * ad" dan "ada ad tapi tidak ACTIVE" menentukan tindakan berikutnya.
+   */
+  statusFilterNotice?: string;
 };
 
 // ── Meta API response types ──
@@ -387,8 +393,14 @@ export async function getAdDestinations(
     };
   });
 
+  const statusFilterNotice =
+    result.length === 0 && statusFilterDefaulted
+      ? `Kosong karena filter default effective_status ${JSON.stringify(effectiveStatus)}, bukan berarti ad-nya tidak ada. Ad yang PAUSED, PENDING_REVIEW, DISAPPROVED, atau WITH_ISSUES tidak ikut terbawa. Ulangi dengan effectiveStatus eksplisit (mis. ["ACTIVE","PAUSED","PENDING_REVIEW","WITH_ISSUES"]) untuk melihatnya.`
+      : undefined;
+
   return Object.assign(result, {
     paging: response.paging,
     statusFilter: { applied: effectiveStatus, defaulted: statusFilterDefaulted },
+    ...(statusFilterNotice ? { statusFilterNotice } : {}),
   }) as AdDestinationPage;
 }

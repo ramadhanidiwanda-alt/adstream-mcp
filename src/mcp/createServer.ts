@@ -1549,7 +1549,9 @@ export const createAdCreativeInputSchema = {
   videoId: z
     .string()
     .optional()
-    .describe('Field legacy/backward-compatible untuk ID video Meta yang sudah diunggah.'),
+    .describe(
+      'DITOLAK, bukan diabaikan. Jalur legacy top-level (link + message) membangun object_story_spec.link_data, yang tidak punya tempat untuk video — field ini dulu dibuang diam-diam sehingga creative keluar tanpa media sama sekali. Untuk video creative pakai creativeFormat: "video" dengan creativeSpec.videoId.'
+    ),
   callToActionType: z
     .string()
     .optional()
@@ -1730,7 +1732,7 @@ const createAdInputSchema = {
     .boolean()
     .optional()
     .describe(
-      'Skip the messaging destination/CTA cross-check. Only set if the mapping misfires; a click-to-message ad set (INSTAGRAM_DIRECT, MESSENGER, WHATSAPP, MESSAGING_*) normally needs a creative whose CTA opens the same inbox.'
+      'Skip the messaging destination/CTA cross-check. Only set if the mapping misfires; a click-to-message ad set (INSTAGRAM_DIRECT, MESSENGER, WHATSAPP, MESSAGING_*) needs a creative whose CTA opens the same inbox, and a creative carrying NO call_to_action at all is blocked outright — Meta accepts that create and then rejects it asynchronously with error_code 1487891, leaving the ad in WITH_ISSUES without ever running.'
     ),
   skipAdSetCreativeFamilyCheck: z
     .boolean()

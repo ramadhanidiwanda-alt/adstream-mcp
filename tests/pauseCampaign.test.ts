@@ -72,7 +72,7 @@ describe('pauseCampaign', () => {
     expect(client.metaPost).toHaveBeenCalledWith('/120248446250030168', { status: 'PAUSED' }, 1);
     expect(client.metaGetObject).toHaveBeenCalledWith(
       '/120248446250030168',
-      { fields: 'status,effective_status' },
+      { fields: 'status,effective_status,issues_info' },
       1
     );
   });

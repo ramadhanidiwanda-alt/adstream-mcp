@@ -5,7 +5,11 @@ import {
   type MetaMessagingDestination,
   type MetaOdaxObjective,
 } from '../providers/meta/objectiveLaunchMatrix.js';
-import { getLaunchPreset, getWorkflowDeprecationWarning } from './launchPresets.js';
+import {
+  getLaunchPreset,
+  getWorkflowAliasWarning,
+  getWorkflowDeprecationWarning,
+} from './launchPresets.js';
 
 export type MetaLaunchWorkflow =
   | 'awareness'
@@ -150,8 +154,21 @@ const ACTIVATION_ORDER: LaunchReadinessResult['activationOrder'] = [
   'ads_resume_ad',
 ];
 
+/**
+ * `existing_post` bukan nama workflow, melainkan nama creativeFormat yang diterima
+ * sebagai alias historis dan menormalisasi ke engagement_post (ON_POST). Begitu
+ * pemanggil ikut menyebut inbox tujuannya, maksudnya tidak ambigu lagi: itu launch
+ * click-to-message, bukan boost engagement. Lihat getWorkflowAliasWarning().
+ */
+function resolveWorkflowInput(options: LaunchReadinessOptions): string | undefined {
+  if (options.workflow === 'existing_post' && options.messagingDestination !== undefined) {
+    return 'engagement_messaging';
+  }
+  return options.workflow;
+}
+
 export function checkLaunchReadiness(options: LaunchReadinessOptions): LaunchReadinessResult {
-  const preset = getLaunchPreset(options.workflow);
+  const preset = getLaunchPreset(resolveWorkflowInput(options));
   const resolvedSpec = resolveMetaObjectiveLaunchSpec({
     objective: options.objective ?? preset.objective,
     conversionLocation: options.conversionLocation ?? preset.conversionLocation,
@@ -170,6 +187,8 @@ export function checkLaunchReadiness(options: LaunchReadinessOptions): LaunchRea
   }
   const deprecationWarning = getWorkflowDeprecationWarning(options.workflow);
   if (deprecationWarning) warnings.push(deprecationWarning);
+  const aliasWarning = getWorkflowAliasWarning(options.workflow, resolvedSpec.key);
+  if (aliasWarning) warnings.push(aliasWarning);
   if (
     resolvedSpec.key === 'engagement_messaging' &&
     resolvedSpec.optimizationGoal === 'CONVERSATIONS'

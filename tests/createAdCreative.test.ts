@@ -2705,3 +2705,57 @@ describe('createAdCreative', () => {
     });
   });
 });
+
+// Jalur legacy top-level (tanpa creativeFormat/creativeSpec) membangun link_data.
+// videoId tidak punya tempat di sana: sebelum perbaikan ini field-nya dibuang
+// diam-diam sehingga creative jadi tanpa media sama sekali (insiden 2026-08-24).
+describe('createAdCreative — videoId di jalur legacy', () => {
+  const mockMetaPost = vi.fn();
+  const mockClient = {
+    metaPost: mockMetaPost,
+    metaGet: vi.fn(),
+    metaGetObject: vi.fn(),
+  } as unknown as MetaClient;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('menolak videoId top-level alih-alih membuangnya diam-diam', async () => {
+    const result = await createAdCreative(mockClient, {
+      adAccountId: 'act_123',
+      name: 'Legacy Video Creative',
+      pageId: '1001',
+      videoId: '1067354122547412',
+      linkData: {
+        link: 'https://api.whatsapp.com/send',
+        message: 'caption',
+        name: 'Legacy Video Creative',
+        callToAction: {
+          type: 'WHATSAPP_MESSAGE',
+          value: { link: 'https://api.whatsapp.com/send' },
+        },
+      },
+    });
+
+    expect(result.status).toBe('failed');
+    expect(result.error).toMatch(/videoId/);
+    expect(result.error).toMatch(/creativeFormat/);
+    expect(mockMetaPost).not.toHaveBeenCalled();
+  });
+
+  it('tetap menerima jalur legacy tanpa videoId', async () => {
+    const result = await createAdCreative(mockClient, {
+      adAccountId: 'act_123',
+      name: 'Legacy Video Creative',
+      pageId: '1001',
+      linkData: {
+        link: 'https://example.com',
+        message: 'caption',
+        callToAction: { type: 'SHOP_NOW', value: { link: 'https://example.com' } },
+      },
+    });
+
+    expect(result.status).toBe('dry_run');
+  });
+});
