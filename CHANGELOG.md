@@ -7,6 +7,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — Iklan Click-to-WhatsApp dari existing Instagram Reel
+
+Empat masalah yang bersama-sama membuat sebuah iklan Click-to-WhatsApp dilaporkan
+berhasil padahal ditolak keras Meta: creative tanpa `call_to_action` diterima
+begitu saja, readiness mengarahkan boost post ke workflow yang salah, `videoId`
+hilang tanpa jejak, dan read-back status menyalahkan parent yang sebenarnya sehat
+sambil menyembunyikan `issues_info` milik Meta.
+
+- **`ads_create_ad`** — pre-flight messaging destination kini MEMBLOKIR creative
+  yang tidak punya `call_to_action` sama sekali ketika ad set memakai
+  `destination_type` messaging (`WHATSAPP`, `MESSENGER`, `INSTAGRAM_DIRECT`,
+  `MESSAGING_*`). Sebelumnya kasus itu justru satu-satunya yang dilewatkan tanpa
+  komentar; Meta menerima create-nya lalu menolak asinkron dengan `error_code`
+  1487891 (`HARD_ERROR`, "Materi Iklan Tidak Valid untuk Tujuan") dan iklannya
+  berhenti di `WITH_ISSUES` tanpa pernah tayang. Pesannya menyebut CTA yang benar
+  beserta URL send WhatsApp. Pencarian CTA kini juga menengok `template_data`
+  (katalog) dan `child_attachments` (carousel); creative ber-`asset_feed_spec`
+  sengaja dikecualikan karena pre-flight dynamic-creative/placement lebih tepat
+  mendiagnosisnya. Jalan keluar tetap `skipMessagingDestinationCheck: true`.
+- **`ads_check_launch_readiness`** — `workflow: "existing_post"` (nama
+  creativeFormat, bukan nama workflow) tidak lagi dinormalisasi ke
+  `engagement_post` tanpa penjelasan. Sekarang muncul warning yang menyebut apa
+  yang terjadi dan workflow mana yang sebenarnya dicari, dan bila
+  `messagingDestination` ikut diisi permintaannya diarahkan ke
+  `engagement_messaging`. Sebelumnya jawabannya selalu `destinationType: ON_POST`
+  / `POST_ENGAGEMENT`, yang terbaca sebagai "boost post tidak bisa untuk CTWA".
+- **`ads_create_adcreative`** — `videoId` di level atas kini DITOLAK dengan pesan
+  yang menyebut nama field-nya dan mengarahkan ke `creativeFormat: "video"` +
+  `creativeSpec.videoId`. Sebelumnya field itu hilang di dua lapis (adapter tidak
+  meneruskannya, builder tidak membacanya) sehingga creative terbentuk tanpa
+  media sama sekali, tanpa error maupun warning.
+- **`ads_resume_ad` / `ads_pause_*` / `ads_resume_*`** — read-back status kini
+  MEMBACA penyebabnya sebelum melapor. Status parent diambil dari Graph API
+  sebelum disebut sebagai penyebab (parent yang benar-benar paused disebut
+  namanya; parent yang ACTIVE dinyatakan ACTIVE; read yang gagal diakui sebagai
+  tidak diketahui), dan `issues_info` ikut dibaca lalu diekspos sebagai
+  `read_back.issues` plus ringkasannya di `read_back.note`. Read tambahan itu
+  hanya jalan saat `effective_status` memang berbeda dari `status`.
+- **`ads_get_ad_destinations`** — hasil kosong yang berasal dari filter default
+  `effective_status: ["ACTIVE"]` kini disertai `statusFilterNotice`, supaya "ad
+  saya tidak ada" tidak tertukar dengan "ad saya tidak ACTIVE".
+- Baru: `scripts/verifyLiveReadPaths.ts`, verifikasi read-only ke Graph API untuk
+  pre-flight messaging dan kedua bentuk field read-back di atas. Tidak melakukan
+  satu pun POST.
+
+
 ### Added — Ad set spend controls & audience segments
 
 - **`ads_create_adset`** and **`ads_update_adset`** — new `dailySpendCap`,
