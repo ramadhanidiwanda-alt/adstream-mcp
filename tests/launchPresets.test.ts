@@ -453,3 +453,33 @@ describe('checkLaunchReadiness — jalur partnership ad code', () => {
     expect(result.nextQuestions.join(' ')).toMatch(/ad code/i);
   });
 });
+
+describe('workflow existing_post — nama creativeFormat, bukan nama workflow', () => {
+  it('memperingatkan bahwa existing_post dinormalisasi ke engagement_post ON_POST', () => {
+    const result = checkLaunchReadiness({ workflow: 'existing_post', writesEnabled: true });
+
+    expect(result.workflow).toBe('engagement_post');
+    expect(result.warnings.join(' ')).toMatch(/existing_post adalah creativeFormat/i);
+    expect(result.warnings.join(' ')).toMatch(/engagement_messaging/);
+    expect(result.warnings.join(' ')).toMatch(/sales_messaging/);
+  });
+
+  it('memakai workflow messaging saat existing_post disertai messagingDestination', () => {
+    const result = checkLaunchReadiness({
+      workflow: 'existing_post',
+      messagingDestination: 'WHATSAPP',
+      creativeFormat: 'existing_post',
+      writesEnabled: true,
+    });
+
+    expect(result.workflow).toBe('engagement_messaging');
+    expect(result.resolvedSpec?.destinationType).toBe('WHATSAPP');
+    expect(result.resolvedSpec?.defaultCallToAction).toBe('WHATSAPP_MESSAGE');
+  });
+
+  it('tidak memperingatkan apa pun untuk workflow kanonik engagement_post', () => {
+    const result = checkLaunchReadiness({ workflow: 'engagement_post', writesEnabled: true });
+
+    expect(result.warnings.join(' ')).not.toMatch(/existing_post adalah creativeFormat/i);
+  });
+});
