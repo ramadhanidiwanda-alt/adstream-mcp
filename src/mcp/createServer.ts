@@ -1549,7 +1549,9 @@ export const createAdCreativeInputSchema = {
   videoId: z
     .string()
     .optional()
-    .describe('Field legacy/backward-compatible untuk ID video Meta yang sudah diunggah.'),
+    .describe(
+      'DITOLAK, bukan diabaikan. Jalur legacy top-level (link + message) membangun object_story_spec.link_data, yang tidak punya tempat untuk video — field ini dulu dibuang diam-diam sehingga creative keluar tanpa media sama sekali. Untuk video creative pakai creativeFormat: "video" dengan creativeSpec.videoId.'
+    ),
   callToActionType: z
     .string()
     .optional()

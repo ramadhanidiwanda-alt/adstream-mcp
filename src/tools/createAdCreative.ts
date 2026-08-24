@@ -93,6 +93,13 @@ export interface CreateAdCreativeOptions {
     attachmentStyle?: string;
   };
   imageHash?: string;
+  /**
+   * DITOLAK, tidak pernah dipakai. Jalur legacy top-level membangun
+   * object_story_spec.link_data yang tidak punya tempat untuk video, dan field ini
+   * dulu dibuang diam-diam sehingga creative keluar tanpa media. Dipertahankan
+   * supaya penolakannya bisa menyebut nama field-nya. Pakai
+   * creative.creativeFormat 'video' untuk video creative.
+   */
   videoId?: string;
   instagramUserId?: string;
   threadsProfileId?: string;
@@ -780,6 +787,7 @@ function buildCreativePayload(options: CreateAdCreativeOptions): Record<string, 
     );
   }
   assertNoDynamicCreativeCreatePath(options);
+  assertNoUnusedTopLevelVideoId(options);
   assertSupportedCreativeFeatureOptOuts(options.optOutEnhancements);
 
   const payload: Record<string, unknown> = {
@@ -875,6 +883,28 @@ function buildCreativePayload(options: CreateAdCreativeOptions): Record<string, 
   if (options.urlTags) payload.url_tags = options.urlTags;
 
   return payload;
+}
+
+/**
+ * `videoId` di level atas tidak pernah dibaca oleh pembangun payload mana pun:
+ * jalur legacy menulis `link_data`, jalur objectStorySpec memakai payload mentah
+ * milik pemanggil, dan jalur creative memakai `creativeSpec.videoId`. Sebelumnya
+ * field ini hilang tanpa error maupun warning, dan pada 2026-08-24 itu menghasilkan
+ * preview creative tanpa `video_data`, tanpa `image_hash` — tanpa media sama sekali.
+ *
+ * Membangun `video_data` dari sini akan berarti menambah jalur baru yang belum
+ * pernah diuji ke Graph API, padahal `creativeFormat: 'video'` sudah menghasilkan
+ * payload yang terverifikasi. Jadi tolak dan tunjukkan jalannya — prinsip yang sama
+ * dipakai `destinationUrl` tanpa `callToAction` pada existing_post.
+ */
+function assertNoUnusedTopLevelVideoId(options: CreateAdCreativeOptions): void {
+  if (!options.videoId?.trim()) return;
+
+  throw new Error(
+    'videoId di level atas tidak dipakai oleh jalur pembangun payload mana pun dan sebelumnya dibuang diam-diam, menghasilkan creative TANPA media. ' +
+      'Jalur legacy (link + message) membangun object_story_spec.link_data, yang tidak punya tempat untuk video. ' +
+      'Pakai creativeFormat: "video" dengan creativeSpec: { videoId, primaryText, headline, destinationUrl, callToAction } — jalur itu membangun video_data lengkap beserta thumbnail dan call_to_action.value.link.'
+  );
 }
 
 function assertNoDynamicCreativeCreatePath(options: CreateAdCreativeOptions): void {

@@ -2211,6 +2211,10 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
           assetFeedSpec: creative ? undefined : assetFeedSpec,
           imageHash:
             typeof request.params.imageHash === 'string' ? request.params.imageHash : undefined,
+          // Diteruskan supaya createAdCreative bisa MENOLAKNYA dengan pesan yang
+          // menyebut field-nya. Sebelum ini videoId berhenti di sini tanpa jejak,
+          // dan creative-nya keluar tanpa media sama sekali.
+          videoId: typeof request.params.videoId === 'string' ? request.params.videoId : undefined,
           urlTags: typeof request.params.urlTags === 'string' ? request.params.urlTags : undefined,
           instagramUserId:
             typeof request.params.instagramUserId === 'string'
@@ -4305,10 +4309,13 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
   }
 }
 
-// Top-level params that only apply to the legacy (no creativeFormat/creativeSpec)
+// Top-level params that belong to the legacy (no creativeFormat/creativeSpec)
 // linkData path in createAdCreative. When creativeFormat+creativeSpec are used
 // instead, these are silently ignored rather than merged — flag the ambiguity
 // instead of letting the caller assume they were applied.
+// `videoId` is listed here for that same ambiguity check, but it is not actually
+// buildable on the legacy path either: createAdCreative rejects it outright, since
+// link_data has nowhere to put a video. See assertNoUnusedTopLevelVideoId.
 const LEGACY_CREATIVE_FIELDS = [
   'link',
   'message',

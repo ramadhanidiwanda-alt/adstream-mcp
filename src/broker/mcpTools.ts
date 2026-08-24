@@ -2385,7 +2385,8 @@ function createCreateAdCreativeInputSchema() {
       },
       videoId: {
         type: 'string',
-        description: 'Field legacy/backward-compatible untuk ID video Meta yang sudah diunggah.',
+        description:
+          'DITOLAK, bukan diabaikan. Jalur legacy top-level (link + message) membangun object_story_spec.link_data, yang tidak punya tempat untuk video — field ini dulu dibuang diam-diam sehingga creative keluar tanpa media sama sekali. Untuk video creative pakai creativeFormat: "video" dengan creativeSpec.videoId.',
       },
       callToActionType: {
         type: 'string',
