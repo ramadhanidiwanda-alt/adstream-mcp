@@ -98,6 +98,7 @@ export type CreativeFamily =
   | 'advantage_text'
   | 'asset_customized'
   | 'dynamic_creative'
+  | 'flexible_ad'
   | 'catalog_dynamic';
 
 export function creativeFamilyLabel(family: CreativeFamily): string {
@@ -110,6 +111,8 @@ export function creativeFamilyLabel(family: CreativeFamily): string {
       return 'asset customization (asset_customization_rules)';
     case 'dynamic_creative':
       return 'Dynamic Creative (REGULAR tanpa rules)';
+    case 'flexible_ad':
+      return 'asset_feed_spec ad (non-dynamic creative ad set)';
     case 'catalog_dynamic':
       return 'catalog/dynamic product';
   }
@@ -122,6 +125,18 @@ export function creativeFamilyLabel(family: CreativeFamily): string {
  */
 export function familyRequiresDynamicCreativeAdSet(family: CreativeFamily): boolean {
   return family === 'dynamic_creative';
+}
+
+/**
+ * Di ad set non-dynamic (`is_dynamic_creative` false/absent), creative dengan
+ * asset_feed_spec REGULAR bukan Dynamic Creative yang fungsional — Ads Manager
+ * bisa membuat creative dengan `asset_feed_spec` REGULAR di ad set biasa lewat
+ * jalur internal yang tidak terdokumentasi di Marketing API publik. Fungsi ini
+ * me-remap `dynamic_creative` → `flexible_ad` supaya label dan perbandingan di
+ * advisory akurat dan tidak menyesatkan user.
+ */
+export function remapFamilyForNonDynamicAdSet(family: CreativeFamily): CreativeFamily {
+  return family === 'dynamic_creative' ? 'flexible_ad' : family;
 }
 
 /**

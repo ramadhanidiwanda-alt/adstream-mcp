@@ -471,8 +471,8 @@ describe('createAd', () => {
     mockMetaGet.mockResolvedValueOnce({
       data: [
         {
-          id: 'existing_dynamic_ad_1',
-          name: 'Existing Dynamic Creative',
+          id: 'existing_flexible_ad_1',
+          name: 'Existing Flexible Ad',
           status: 'ACTIVE',
           creative: {
             id: 'existing_creative_1',
@@ -493,10 +493,11 @@ describe('createAd', () => {
 
     expect(r.status).toBe('dry_run');
     expect(r.error).toBeUndefined();
-    expect(r.warnings?.join(' ')).toMatch(/sudah berisi iklan Dynamic Creative/);
+    // In a non-dynamic ad set, asset_feed_spec REGULAR is not functional Dynamic
+    // Creative — the advisory must not label it "Dynamic Creative".
+    expect(r.warnings?.join(' ')).toMatch(/sudah berisi iklan asset_feed_spec ad/);
+    expect(r.warnings?.join(' ')).not.toMatch(/sudah berisi iklan Dynamic Creative/);
     expect(r.warnings?.join(' ')).toMatch(/skipAdSetCreativeFamilyCheck/);
-    // Catatan ini tidak boleh mengklaim Meta melarang campuran, dan tidak boleh
-    // menyebut #1885274 — kode itu tidak ada di error reference Meta.
     expect(r.warnings?.join(' ')).not.toContain('1885274');
     expect(r.warnings?.join(' ')).toMatch(/tidak ada aturan Meta yang melarang/i);
     expect(mockMetaPost).not.toHaveBeenCalled();
@@ -646,8 +647,8 @@ describe('createAd', () => {
       return {
         data: [
           {
-            id: 'existing_dynamic_ad_1',
-            name: 'Existing Dynamic Creative',
+            id: 'existing_flexible_ad_1',
+            name: 'Existing Flexible Ad',
             status: 'ACTIVE',
             creative: {
               id: 'existing_creative_1',
@@ -669,7 +670,7 @@ describe('createAd', () => {
 
     expect(r.status).toBe('dry_run');
     expect(r.error).toBeUndefined();
-    expect(r.warnings?.join(' ')).toMatch(/#1885274|campuran format creative/i);
+    expect(r.warnings?.join(' ')).toMatch(/campuran format creative|asset_feed_spec ad/i);
   });
 
   it('blocks a Dynamic Creative ad set outright, whatever ads it already contains', async () => {

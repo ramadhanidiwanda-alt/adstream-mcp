@@ -5,6 +5,7 @@ import {
   countCustomizationRules,
   familyRequiresDynamicCreativeAdSet,
   readOptimizationType,
+  remapFamilyForNonDynamicAdSet,
 } from '../src/providers/meta/assetFeedSpecFamily.js';
 
 // Bentuk payload di bawah disalin dari creative produksi (GET /{creative_id}).
@@ -98,10 +99,19 @@ describe('classifyCreativeFamily (read path)', () => {
       'manual_static',
       'advantage_text',
       'asset_customized',
+      'flexible_ad',
       'catalog_dynamic',
     ] as const) {
       expect(familyRequiresDynamicCreativeAdSet(family)).toBe(false);
     }
+  });
+
+  it('remaps dynamic_creative to flexible_ad for non-dynamic ad sets', () => {
+    expect(remapFamilyForNonDynamicAdSet('dynamic_creative')).toBe('flexible_ad');
+    expect(remapFamilyForNonDynamicAdSet('manual_static')).toBe('manual_static');
+    expect(remapFamilyForNonDynamicAdSet('advantage_text')).toBe('advantage_text');
+    expect(remapFamilyForNonDynamicAdSet('flexible_ad')).toBe('flexible_ad');
+    expect(remapFamilyForNonDynamicAdSet('catalog_dynamic')).toBe('catalog_dynamic');
   });
 });
 
