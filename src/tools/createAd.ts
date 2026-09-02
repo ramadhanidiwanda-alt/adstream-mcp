@@ -17,6 +17,7 @@ import {
   creativeFamilyLabel,
   familyRequiresDynamicCreativeAdSet,
   readOptimizationType,
+  remapFamilyForNonDynamicAdSet,
   type CreativeFamily,
 } from '../providers/meta/assetFeedSpecFamily.js';
 
@@ -664,8 +665,9 @@ interface ExistingAdWithCreative extends Record<string, unknown> {
  * batasan level ad set yang terdokumentasi milik Dynamic Creative, dan itu
  * ditegakkan terpisah oleh getPlacementCompatibilityError.
  *
- * Klasifikasinya memakai optimization_type supaya varian teks Advantage+ tidak
- * salah dilabeli Dynamic Creative di teks catatan ini.
+ * Klasifikasinya memakai optimization_type dan di-remap untuk ad set non-dynamic:
+ * creative dengan asset_feed_spec REGULAR di ad set `is_dynamic_creative=false`
+ * adalah Flexible Ad, bukan Dynamic Creative.
  */
 async function getAdSetCreativeFamilyWarning(
   client: MetaClient,
@@ -704,10 +706,13 @@ async function getAdSetCreativeFamilyWarning(
           : false,
       });
 
-    const newFamily = classify(newCreative);
+    // This function is only reached when the ad set is NOT dynamic creative
+    // (the hard-block fires first), so remap `dynamic_creative` → `flexible_ad`
+    // to avoid mislabelling Flexible Ads created by Ads Manager.
+    const newFamily = remapFamilyForNonDynamicAdSet(classify(newCreative));
     const differentAd = existingAdsResponse.data
       ?.filter((ad) => !isArchivedOrDeleted(ad))
-      .map((ad) => ({ ad, family: classify(ad.creative) }))
+      .map((ad) => ({ ad, family: remapFamilyForNonDynamicAdSet(classify(ad.creative)) }))
       .find(({ family }) => family !== newFamily);
 
     if (!differentAd) return undefined;
