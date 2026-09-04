@@ -249,6 +249,8 @@ export async function listPartnershipContent(
     );
   }
 
+  const directLookupKind = permalinks ? 'permalinks' : adCodes ? 'adCodes' : undefined;
+
   if (permalinks) {
     const invalid = permalinks.filter((url) => !PERMALINK_PATTERN.test(url.trim()));
     if (invalid.length) {
@@ -256,7 +258,9 @@ export async function listPartnershipContent(
         `permalinks harus URL lengkap instagram.com atau facebook.com. Tidak valid: ${invalid.join(', ')}`
       );
     }
+  }
 
+  if (directLookupKind) {
     const conflicting = [
       platformTypes ? 'platform' : undefined,
       mediaTypes ? 'mediaType' : undefined,
@@ -267,7 +271,7 @@ export async function listPartnershipContent(
     ].filter((name): name is string => Boolean(name));
     if (conflicting.length) {
       throw new Error(
-        `permalinks tidak bisa digabung dengan filter atau pagination: ${conflicting.join(', ')}.`
+        `${directLookupKind} tidak bisa digabung dengan filter atau pagination: ${conflicting.join(', ')}.`
       );
     }
   }
@@ -279,7 +283,7 @@ export async function listPartnershipContent(
     throw new Error('limit harus bilangan bulat 1-50.');
   }
 
-  const directLookup = Boolean(permalinks);
+  const directLookup = Boolean(directLookupKind);
 
   const response = await client.metaGet<{ data: PartnershipContentRaw[] }>(
     `/${businessId}/partnership-ads-advertisable-content`,

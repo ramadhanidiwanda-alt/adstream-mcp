@@ -143,6 +143,27 @@ function optionalWelcomeMessage(
   return required(value, label);
 }
 
+function assertPlacementCtwaWelcomeMessageShape(value: MetaPageWelcomeMessage): void {
+  if (typeof value !== 'string') return;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(value.trim());
+  } catch {
+    throw new Error(PLACEMENT_CTWA_WELCOME_MESSAGE_ERROR);
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error(PLACEMENT_CTWA_WELCOME_MESSAGE_ERROR);
+  }
+}
+
+const PLACEMENT_CTWA_WELCOME_MESSAGE_ERROR =
+  'placement_customized_ctwa.pageWelcomeMessage tidak boleh berupa kalimat biasa. ' +
+  'Format ini memakai media_sourcing_spec, dan Meta menolak page_welcome_message ' +
+  'berbentuk string polos pada jalur itu dengan code 2 "An unexpected error has occurred". ' +
+  'Kirim objek VISUAL_EDITOR (atau JSON string-nya), mis. { type: "VISUAL_EDITOR", ' +
+  'version: 2, landing_screen_type: "welcome_message", media_type: "text", text_format: ' +
+  '{ customer_action_type: "autofill_message", message: { text: "<sapaan>" } } }.';
+
 /**
  * Meta accepts a plain greeting when a video CTWA creative is created, but may
  * reject the subsequent ad attachment with a generic code 2. Ads Manager's
@@ -1324,8 +1345,11 @@ function buildPlacementCustomizedCtwa(
     'pageWelcomeMessage'
   );
 
+  if (pageWelcomeMessage) {
+    assertPlacementCtwaWelcomeMessageShape(pageWelcomeMessage);
+    linkData.page_welcome_message = pageWelcomeMessage;
+  }
   if (description) linkData.description = description;
-  if (pageWelcomeMessage) linkData.page_welcome_message = pageWelcomeMessage;
 
   return {
     object_story_spec: {

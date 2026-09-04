@@ -124,6 +124,12 @@ export function getMessagingDestinationMismatch(
   const ctaTypes = callToActions
     .map((callToAction) => readString(callToAction.type))
     .filter((type): type is string => type !== undefined);
+  if (ctaTypes.length === 0 && callToActions.length > 0) {
+    return (
+      `Ad set memakai destination_type ${destinationType} tetapi creative punya call_to_action tanpa field type. ` +
+      `CTA tanpa type tidak bisa divalidasi — perbaiki creative supaya CTA-nya punya type yang cocok: ${allowedCtaTypes.join(', ')}.`
+    );
+  }
   if (ctaTypes.length === 0) return undefined;
 
   const mismatched = ctaTypes.filter((type) => !allowedCtaTypes.includes(type));

@@ -6,6 +6,7 @@ import type {
   StructuredMutationError,
 } from '../types.js';
 import { normalizeAccountPath } from '../utils/normalizeAccountId.js';
+import { MetaApiError } from '../utils/metaError.js';
 import {
   formatMetaWriteError,
   formatStructuredMetaWriteError,
@@ -304,12 +305,15 @@ async function readCreativeForCompatibility(
       { fields: 'asset_feed_spec,object_story_spec,product_set_id' },
       maxRetries
     );
-  } catch {
-    return client.metaGetObject<Record<string, unknown>>(
-      `/${creativeId}`,
-      { fields: 'asset_feed_spec' },
-      maxRetries
-    );
+  } catch (error) {
+    if (error instanceof MetaApiError && error.code === 100) {
+      return client.metaGetObject<Record<string, unknown>>(
+        `/${creativeId}`,
+        { fields: 'asset_feed_spec' },
+        maxRetries
+      );
+    }
+    throw error;
   }
 }
 
