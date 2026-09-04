@@ -110,7 +110,6 @@ describe('listPartnershipContent', () => {
     await listPartnershipContent(client, {
       businessId: 'biz-1',
       igUserId: 'brand-ig-1',
-      adCodes: ['AD-1', 'AD-2'],
       platform: 'INSTAGRAM',
       mediaType: 'VIDEO',
       postType: 'REEL',
@@ -119,20 +118,44 @@ describe('listPartnershipContent', () => {
     });
 
     const params = metaGet.mock.calls[0][1] as Record<string, unknown>;
-    // Nama singular platform/media_type/post_type diterima Meta dengan HTTP 200
-    // tapi tidak memfilter apa pun, jadi tidak boleh dikirim sama sekali.
     expect(params.platform).toBeUndefined();
     expect(params.media_type).toBeUndefined();
     expect(params.post_type).toBeUndefined();
     expect(params).toMatchObject({
-      ad_codes: 'AD-1,AD-2',
       platform_types: 'instagram',
       media_types: 'video',
-      // Meta menolak 'reel' dan 'story'; nilainya jamak.
       post_types: 'reels',
       limit: 50,
       after: 'cursor-abc',
     });
+  });
+
+  it('mengirim adCodes sebagai direct lookup tanpa filter', async () => {
+    const { client, metaGet } = clientReturning({ data: [] });
+
+    await listPartnershipContent(client, {
+      businessId: 'biz-1',
+      igUserId: 'brand-ig-1',
+      adCodes: ['AD-1', 'AD-2'],
+    });
+
+    const params = metaGet.mock.calls[0][1] as Record<string, unknown>;
+    expect(params).toMatchObject({ ad_codes: 'AD-1,AD-2' });
+    expect(params.limit).toBeUndefined();
+    expect(params.after).toBeUndefined();
+  });
+
+  it('menolak adCodes yang digabung dengan filter atau pagination', async () => {
+    const { client } = clientReturning({ data: [] });
+
+    await expect(
+      listPartnershipContent(client, {
+        businessId: 'biz-1',
+        igUserId: 'brand-ig-1',
+        adCodes: ['AD-1'],
+        platform: 'instagram',
+      })
+    ).rejects.toThrow('adCodes tidak bisa digabung dengan filter atau pagination');
   });
 
   it('menerima nilai filter apa adanya lalu menormalkannya', async () => {

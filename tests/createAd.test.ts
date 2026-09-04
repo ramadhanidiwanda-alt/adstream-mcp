@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { MetaClient } from '../src/metaClient.js';
 import { createAd } from '../src/tools/createAd.js';
+import { MetaApiError } from '../src/utils/metaError.js';
 
 type MetaPostMock = ReturnType<typeof vi.fn>;
 
@@ -613,7 +614,11 @@ describe('createAd', () => {
     mockMetaGetObject.mockImplementation(async (path: string, params: Record<string, unknown>) => {
       if (path === '/as456') return { destination_type: 'WEBSITE', is_dynamic_creative: false };
       if (String(params.fields).includes('product_set_id')) {
-        throw new Error('(#100) Tried accessing nonexisting field (product_set_id)');
+        throw new MetaApiError({
+          message: '(#100) Tried accessing nonexisting field (product_set_id)',
+          type: 'OAuthException',
+          code: 100,
+        });
       }
       return {
         asset_feed_spec: {

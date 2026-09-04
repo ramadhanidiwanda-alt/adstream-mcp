@@ -1435,7 +1435,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
     try {
       const client = this.createClient(context.credential);
       const result = await this.tools.pauseCampaign(client, campaignId);
-      return { ok: true, provider: 'meta', data: this.toAdsMutationResult(result) };
+      return { ok: result.success, provider: 'meta', data: this.toAdsMutationResult(result) };
     } catch (error) {
       return this.writeErrorResponse(error);
     }
@@ -1463,7 +1463,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
     try {
       const client = this.createClient(context.credential);
       const result = await this.tools.resumeCampaign(client, campaignId);
-      return { ok: true, provider: 'meta', data: this.toAdsMutationResult(result) };
+      return { ok: result.success, provider: 'meta', data: this.toAdsMutationResult(result) };
     } catch (error) {
       return this.writeErrorResponse(error);
     }
@@ -2479,7 +2479,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
     try {
       const client = this.createClient(context.credential);
       const result = await this.tools.pauseAd(client, adId);
-      return { ok: true, provider: 'meta', data: this.toAdsMutationResult(result) };
+      return { ok: result.success, provider: 'meta', data: this.toAdsMutationResult(result) };
     } catch (error) {
       return this.writeErrorResponse(error);
     }
@@ -2507,7 +2507,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
     try {
       const client = this.createClient(context.credential);
       const result = await this.tools.resumeAd(client, adId);
-      return { ok: true, provider: 'meta', data: this.toAdsMutationResult(result) };
+      return { ok: result.success, provider: 'meta', data: this.toAdsMutationResult(result) };
     } catch (error) {
       return this.writeErrorResponse(error);
     }
@@ -2540,7 +2540,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
     try {
       const client = this.createClient(context.credential);
       const result = await this.tools.pauseAdSet(client, adSetId);
-      return { ok: true, provider: 'meta', data: this.toAdsMutationResult(result) };
+      return { ok: result.success, provider: 'meta', data: this.toAdsMutationResult(result) };
     } catch (error) {
       return this.writeErrorResponse(error);
     }
@@ -2573,7 +2573,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
     try {
       const client = this.createClient(context.credential);
       const result = await this.tools.resumeAdSet(client, adSetId);
-      return { ok: true, provider: 'meta', data: this.toAdsMutationResult(result) };
+      return { ok: result.success, provider: 'meta', data: this.toAdsMutationResult(result) };
     } catch (error) {
       return this.writeErrorResponse(error);
     }

@@ -819,22 +819,37 @@ const partnershipContentInputSchema = {
     .describe(
       'Cari konten langsung dari URL permalink Instagram/Facebook yang dikirim kreator atau klien — pakai ini ketika yang diketahui cuma link postingannya. Maksimal 50 URL lengkap (https://www.instagram.com/reel/...). Direct lookup: tidak bisa digabung adCodes, platform, mediaType, postType, adPartnerPageIds, adPartnerIgUserIds, atau cursor.'
     ),
-  platform: z
-    .enum(['instagram', 'facebook'])
+  creatorUsername: z
+    .string()
     .optional()
     .describe(
-      'Filter platform. Huruf besar/kecil bebas. Catatan: instagram butuh scope instagram_branded_content_ads_brand; tanpa itu Meta menolak filternya.'
+      'JANGAN PAKAI — Meta tidak memfilter field ini (HTTP 200 tapi seluruh korpus tetap dikembalikan). Pakai adPartnerPageIds atau adPartnerIgUserIds.'
     ),
-  mediaType: z
-    .enum(['image', 'video', 'carousel', 'link'])
-    .optional()
-    .describe('Filter jenis media. Huruf besar/kecil bebas.'),
-  postType: z
-    .enum(['feed', 'reels', 'stories'])
-    .optional()
-    .describe(
-      "Filter jenis postingan. Huruf besar/kecil bebas; ejaan dokumentasi Meta 'REEL' dan 'STORY' otomatis dipetakan ke 'reels' dan 'stories'."
-    ),
+  platform: z.preprocess(
+    (v) => (typeof v === 'string' ? v.trim().toLowerCase() : v),
+    z
+      .enum(['instagram', 'facebook'])
+      .optional()
+      .describe(
+        'Filter platform. Huruf besar/kecil bebas. Catatan: instagram butuh scope instagram_branded_content_ads_brand; tanpa itu Meta menolak filternya.'
+      )
+  ),
+  mediaType: z.preprocess(
+    (v) => (typeof v === 'string' ? v.trim().toLowerCase() : v),
+    z
+      .enum(['image', 'video', 'carousel', 'link'])
+      .optional()
+      .describe('Filter jenis media. Huruf besar/kecil bebas.')
+  ),
+  postType: z.preprocess(
+    (v) => (typeof v === 'string' ? v.trim().toLowerCase() : v),
+    z
+      .enum(['feed', 'reels', 'stories'])
+      .optional()
+      .describe(
+        "Filter jenis postingan. Huruf besar/kecil bebas; ejaan dokumentasi Meta 'REEL' dan 'STORY' otomatis dipetakan ke 'reels' dan 'stories'."
+      )
+  ),
   limit: z.number().optional().describe('Jumlah baris per halaman, 1-50. Default 25.'),
   cursor: z.string().optional().describe('Pagination cursor dari panggilan sebelumnya.'),
 };

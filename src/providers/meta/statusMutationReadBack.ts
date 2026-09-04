@@ -18,6 +18,7 @@
  */
 import type { MetaClient } from '../../metaClient.js';
 import type { MutateEntityType, MutationOperation, MutationResult } from '../../types.js';
+import { MetaApiError } from '../../utils/metaError.js';
 
 export type RequestedStatus = 'ACTIVE' | 'PAUSED';
 
@@ -200,12 +201,15 @@ async function readStatusFields(
       { fields: 'status,effective_status,issues_info' },
       maxRetries
     );
-  } catch {
-    return client.metaGetObject<Record<string, unknown>>(
-      `/${id}`,
-      { fields: 'status,effective_status' },
-      maxRetries
-    );
+  } catch (error) {
+    if (error instanceof MetaApiError && error.code === 100) {
+      return client.metaGetObject<Record<string, unknown>>(
+        `/${id}`,
+        { fields: 'status,effective_status' },
+        maxRetries
+      );
+    }
+    throw error;
   }
 }
 
@@ -266,6 +270,12 @@ export async function mutateStatusWithReadBack(
       status: currentStatus,
       effectiveStatus,
       applied: currentStatus === requested,
+      ...(currentStatus === undefined
+        ? {
+            unverified:
+              'Read-back berhasil tetapi field status tidak ada di respons Meta. Write mungkin sudah berhasil — cek di Ads Manager.',
+          }
+        : {}),
       ...(note ? { note } : {}),
       ...(issues ? { issues } : {}),
     };

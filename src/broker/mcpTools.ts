@@ -3866,22 +3866,24 @@ function createPartnershipContentInputSchema() {
         description:
           'Cari konten langsung dari URL permalink Instagram/Facebook yang dikirim kreator atau klien — pakai ini ketika yang diketahui cuma link postingannya. Maksimal 50 URL lengkap (https://www.instagram.com/reel/...). Direct lookup: tidak bisa digabung adCodes, platform, mediaType, postType, adPartnerPageIds, adPartnerIgUserIds, atau cursor.',
       },
+      creatorUsername: {
+        type: 'string',
+        description:
+          'JANGAN PAKAI — Meta tidak memfilter field ini (HTTP 200 tapi seluruh korpus tetap dikembalikan). Pakai adPartnerPageIds atau adPartnerIgUserIds.',
+      },
       platform: {
         type: 'string',
-        enum: ['instagram', 'facebook'],
         description:
-          'Filter platform. Huruf besar/kecil bebas. Catatan: instagram butuh scope instagram_branded_content_ads_brand; tanpa itu Meta menolak filternya.',
+          'Filter platform: instagram atau facebook. Huruf besar/kecil bebas. Catatan: instagram butuh scope instagram_branded_content_ads_brand; tanpa itu Meta menolak filternya.',
       },
       mediaType: {
         type: 'string',
-        enum: ['image', 'video', 'carousel', 'link'],
-        description: 'Filter jenis media. Huruf besar/kecil bebas.',
+        description: 'Filter jenis media: image, video, carousel, atau link. Huruf besar/kecil bebas.',
       },
       postType: {
         type: 'string',
-        enum: ['feed', 'reels', 'stories'],
         description:
-          "Filter jenis postingan. Huruf besar/kecil bebas; ejaan dokumentasi Meta 'REEL' dan 'STORY' otomatis dipetakan ke 'reels' dan 'stories'.",
+          "Filter jenis postingan: feed, reels, atau stories. Huruf besar/kecil bebas; ejaan dokumentasi Meta 'REEL' dan 'STORY' otomatis dipetakan ke 'reels' dan 'stories'.",
       },
       limit: { type: 'number', description: 'Jumlah baris per halaman, 1-50. Default 25.' },
       cursor: { type: 'string', description: 'Pagination cursor dari panggilan sebelumnya.' },
