@@ -1262,6 +1262,109 @@ describe('createAdCreative', () => {
     expect(result.error).toMatch(/optimization_type REGULAR.*Dynamic Creative/i);
   });
 
+  it('allows Advantage+ text variations assetFeedSpec without customization rules', async () => {
+    const assetFeedSpec = {
+      optimization_type: 'DEGREES_OF_FREEDOM',
+      ad_formats: ['SINGLE_VIDEO'],
+      videos: [{ video_id: '2037767883769226' }],
+      bodies: [
+        { text: 'Sienna Bracelet ready buat daily look.' },
+        { text: 'Gelang manis yang tetap clean dipakai tiap hari.' },
+        { text: 'Detail kecil, efeknya langsung polished.' },
+        { text: 'Upgrade pergelangan tangan tanpa kelihatan berlebihan.' },
+      ],
+      titles: [
+        { text: 'Sienna Bracelet' },
+        { text: 'Daily Bracelet' },
+        { text: 'Tymbi&Co Sienna' },
+        { text: 'Clean Jewelry Look' },
+      ],
+      link_urls: [{ website_url: 'https://s.shopee.co.id/7AdPMaFHvf' }],
+      call_to_action_types: ['SHOP_NOW'],
+    };
+
+    const result = await createAdCreative(mockClient, {
+      adAccountId: 'act_1417353822551653',
+      name: 'Tymbi Sienna video text variations',
+      pageId: '1033563469851002',
+      objectStorySpec: {
+        page_id: '1033563469851002',
+        link_data: { link: 'https://s.shopee.co.id/7AdPMaFHvf' },
+      },
+      assetFeedSpec,
+    });
+
+    expect(result).toMatchObject({
+      status: 'dry_run',
+      preview: {
+        object_story_spec: {
+          page_id: '1033563469851002',
+          link_data: { link: 'https://s.shopee.co.id/7AdPMaFHvf' },
+        },
+        asset_feed_spec: assetFeedSpec,
+      },
+    });
+  });
+
+  it('rejects REGULAR assetFeedSpec text variations with actionable guidance', async () => {
+    const result = await createAdCreative(mockClient, {
+      adAccountId: 'act_123',
+      name: 'Regular text variations',
+      pageId: '1001',
+      objectStorySpec: {
+        page_id: '1001',
+        link_data: { link: 'https://example.com/product' },
+      },
+      assetFeedSpec: {
+        optimization_type: 'REGULAR',
+        ad_formats: ['SINGLE_VIDEO'],
+        videos: [{ video_id: 'video_1' }],
+        bodies: [{ text: 'Primary text A' }, { text: 'Primary text B' }],
+        titles: [{ text: 'Headline A' }, { text: 'Headline B' }],
+        link_urls: [{ website_url: 'https://example.com/product' }],
+        call_to_action_types: ['SHOP_NOW'],
+      },
+    });
+
+    expect(result).toMatchObject({
+      status: 'failed',
+      structuredError: {
+        code: 'DYNAMIC_CREATIVE_DISABLED',
+        actionableFix: expect.stringMatching(/DEGREES_OF_FREEDOM/i),
+      },
+    });
+    expect(result.error).toMatch(/DEGREES_OF_FREEDOM/i);
+  });
+
+  it('rejects missing optimization_type text variations with actionable guidance', async () => {
+    const result = await createAdCreative(mockClient, {
+      adAccountId: 'act_123',
+      name: 'Implicit regular text variations',
+      pageId: '1001',
+      objectStorySpec: {
+        page_id: '1001',
+        link_data: { link: 'https://example.com/product' },
+      },
+      assetFeedSpec: {
+        ad_formats: ['SINGLE_VIDEO'],
+        videos: [{ video_id: 'video_1' }],
+        bodies: [{ text: 'Primary text A' }, { text: 'Primary text B' }],
+        titles: [{ text: 'Headline A' }, { text: 'Headline B' }],
+        link_urls: [{ website_url: 'https://example.com/product' }],
+        call_to_action_types: ['SHOP_NOW'],
+      },
+    });
+
+    expect(result).toMatchObject({
+      status: 'failed',
+      structuredError: {
+        code: 'DYNAMIC_CREATIVE_DISABLED',
+        actionableFix: expect.stringMatching(/DEGREES_OF_FREEDOM/i),
+      },
+    });
+    expect(result.error).toMatch(/tanpa optimization_type/i);
+  });
+
   it('allows placement-customized video assetFeedSpec without Dynamic Creative', async () => {
     const assetFeedSpec = {
       ad_formats: ['SINGLE_VIDEO'],

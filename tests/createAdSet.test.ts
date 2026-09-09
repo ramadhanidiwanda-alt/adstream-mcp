@@ -557,6 +557,34 @@ describe('createAdSet — bid strategy + pre-flight validation', () => {
         expect(result.id).toBeTruthy();
       }
     });
+
+    it('defaults ad-set-budget launches to LOWEST_COST_WITHOUT_CAP when campaign has no bid strategy', async () => {
+      const client = createMockClient({
+        bid_strategy: undefined,
+        daily_budget: undefined,
+        lifetime_budget: undefined,
+      });
+
+      const result = await createAdSet(
+        client,
+        {
+          ...defaultOptions,
+          dailyBudget: 20000,
+        },
+        { dryRun: false, confirmed: true }
+      );
+
+      expect(result.status).toBe('executed');
+      expect(result.preview.bid_strategy).toBe('LOWEST_COST_WITHOUT_CAP');
+      expect(client.metaPost).toHaveBeenCalledWith(
+        '/act_123456789/adsets',
+        expect.objectContaining({
+          daily_budget: 20000,
+          bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+        }),
+        3
+      );
+    });
   });
 
   describe('dry-run mode', () => {

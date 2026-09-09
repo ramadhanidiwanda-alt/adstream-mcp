@@ -610,6 +610,17 @@ export async function createAdSet(
         preview.bid_strategy = campaignBidStrategy;
       }
     }
+
+    if (
+      !campaignBidStrategy &&
+      !campaignHasBudget &&
+      options.bidStrategy === undefined &&
+      options.bidAmount === undefined &&
+      options.bidConstraints === undefined &&
+      (options.dailyBudget !== undefined || options.lifetimeBudget !== undefined)
+    ) {
+      preview.bid_strategy = 'LOWEST_COST_WITHOUT_CAP';
+    }
   } catch (error) {
     return {
       ...baseResult,

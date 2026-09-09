@@ -405,7 +405,7 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
   {
     name: 'ads_create_adcreative',
     description:
-      'Create a Meta ad creative with image/video, headline, body/caption, CTA, carousel cards, or asset customization. Yang dinonaktifkan hanya asset_feed_spec TANPA asset_customization_rules (jalur Dynamic Creative, Meta yang memilih aset); asset_feed_spec DENGAN asset_customization_rules tetap boleh dan minimal 2 rules — jumlah headline/caption bukan penentunya. Jika marketer meminta variasi headline/caption/copy/image/video, default-nya buat beberapa manual creative/ad terpisah, carousel cards, atau asset customization per placement/language/segment dengan asset_customization_rules; jangan set ad set jadi Dynamic Creative. Gunakan optOutEnhancements untuk disable Advantage+ Creative enhancement. params BUKAN passthrough mentah ke Graph API — hanya field yang terdaftar di schema ini yang dikirim, field lain ditolak dengan error (bukan diabaikan diam-diam). Dry-run by default. Set dryRun=false and confirmed=true to execute.',
+      'Create a Meta ad creative with image/video, headline, body/caption, CTA, carousel cards, Advantage+ text variations, or asset customization. Untuk beberapa primary text/headline pada satu ad biasa, kirim assetFeedSpec.optimization_type="DEGREES_OF_FREEDOM" bersama bodies/titles dan tetap isi objectStorySpec.link_data.link untuk link ads. Untuk aset berbeda per placement/language/segment, pakai asset_customization_rules (minimal 2). Untuk varian yang harus terukur terpisah, buat beberapa manual creative/ad. Yang dinonaktifkan hanya Dynamic Creative: asset_feed_spec optimization_type REGULAR atau tanpa optimization_type. Gunakan optOutEnhancements untuk disable Advantage+ Creative enhancement. params BUKAN passthrough mentah ke Graph API — hanya field yang terdaftar di schema ini yang dikirim, field lain ditolak dengan error (bukan diabaikan diam-diam). Dry-run by default. Set dryRun=false and confirmed=true to execute.',
     inputSchema: createCreateAdCreativeInputSchema(),
     strictParams: true,
   },
@@ -2408,11 +2408,24 @@ function createCreateAdCreativeInputSchema() {
       objectStorySpec: {
         type: 'object',
         description:
-          'Input advanced/backward-compatible Meta object_story_spec. asset_feed_spec bersarang wajib memakai asset_customization_rules (minimal 2 rules) untuk asset customization per placement/language/segment; tanpa rules itu jalur Dynamic Creative dan disabled.',
+          'Input advanced/backward-compatible Meta object_story_spec. Untuk assetFeedSpec video/link, tetap isi objectStorySpec.link_data.link selain asset_feed_spec.link_urls agar Meta tidak menolak link sebagai kosong. asset_feed_spec bersarang boleh untuk Advantage+ text variations dengan optimization_type="DEGREES_OF_FREEDOM", atau untuk asset customization per placement/language/segment dengan asset_customization_rules (minimal 2 rules). Dynamic Creative tetap diblokir: optimization_type REGULAR atau kosong.',
         properties: {
           asset_feed_spec: {
             type: 'object',
             properties: {
+              optimization_type: {
+                type: 'string',
+                enum: [
+                  'DEGREES_OF_FREEDOM',
+                  'REGULAR',
+                  'ASSET_CUSTOMIZATION',
+                  'PLACEMENT',
+                  'LANGUAGE',
+                  'FORMAT_AUTOMATION',
+                ],
+                description:
+                  'Gunakan DEGREES_OF_FREEDOM untuk beberapa primary text/headline pada ad biasa. REGULAR atau kosong adalah Dynamic Creative dan ditolak lokal.',
+              },
               asset_customization_rules: {
                 type: 'array',
                 minItems: 1,
@@ -2448,7 +2461,6 @@ function createCreateAdCreativeInputSchema() {
                 },
               },
             },
-            required: ['asset_customization_rules'],
             additionalProperties: true,
           },
         },
@@ -2457,8 +2469,21 @@ function createCreateAdCreativeInputSchema() {
       assetFeedSpec: {
         type: 'object',
         description:
-          'Hanya untuk placement customization dengan asset_customization_rules (termasuk image/video berbeda per placement). Dynamic/Flexible asset-feed variants disabled. Jangan pakai untuk opsi headline/caption/copy/video manual tanpa placement rules; buat beberapa manual creative/ad terpisah atau carousel.',
+          'Advanced Meta asset_feed_spec. Untuk beberapa primary text/headline pada satu ad biasa, set optimization_type="DEGREES_OF_FREEDOM" dan isi bodies/titles; untuk video/link ads, sertakan juga objectStorySpec.link_data.link karena link_urls saja dapat ditolak Meta sebagai link kosong. Untuk placement/language/asset customization, isi asset_customization_rules minimal 2. Untuk varian terukur terpisah, buat beberapa manual creative/ad. Dynamic Creative tetap ditolak: optimization_type REGULAR atau optimization_type kosong.',
         properties: {
+          optimization_type: {
+            type: 'string',
+            enum: [
+              'DEGREES_OF_FREEDOM',
+              'REGULAR',
+              'ASSET_CUSTOMIZATION',
+              'PLACEMENT',
+              'LANGUAGE',
+              'FORMAT_AUTOMATION',
+            ],
+            description:
+              'DEGREES_OF_FREEDOM = Advantage+ text variations pada ad biasa. REGULAR atau kosong = Dynamic Creative dan ditolak lokal.',
+          },
           asset_customization_rules: {
             type: 'array',
             minItems: 1,
@@ -2517,7 +2542,6 @@ function createCreateAdCreativeInputSchema() {
             },
           },
         },
-        required: ['asset_customization_rules'],
         additionalProperties: true,
       },
       destinationType: {

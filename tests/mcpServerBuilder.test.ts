@@ -380,11 +380,14 @@ describe('MCP server builder', () => {
     expect(creativeTool?.inputSchema.properties).toHaveProperty('urlTags');
     expect(creativeTool?.inputSchema.required).not.toContain('message');
     expect(creativeTool?.description).toContain('asset_customization_rules');
-    expect(creativeTool?.description).toMatch(/variasi.*headline.*caption.*manual/i);
-    expect(creativeTool?.description).toMatch(
-      /dinonaktifkan hanya asset_feed_spec TANPA asset_customization_rules/i
+    expect(creativeTool?.description).toMatch(/DEGREES_OF_FREEDOM/i);
+    expect(creativeTool?.description).toMatch(/Dynamic Creative.*REGULAR/i);
+    expect(toolSchemaProperty(creativeTool, 'assetFeedSpec').description).toMatch(
+      /DEGREES_OF_FREEDOM/i
     );
-    expect(toolSchemaProperty(creativeTool, 'assetFeedSpec').description).toMatch(/disabled/i);
+    expect(toolSchemaProperty(creativeTool, 'assetFeedSpec').description).not.toMatch(
+      /only for placement customization|Hanya untuk placement customization/i
+    );
     expect(toolSchemaProperty(creativeTool, 'assetFeedSpec').description).toMatch(
       /manual creative\/ad/i
     );
@@ -774,6 +777,14 @@ describe('MCP server builder', () => {
         {
           video_label: { name: 'placement_feed_video' },
           customization_spec: { publisher_platforms: ['facebook'], facebook_positions: ['feed'] },
+        },
+        {
+          video_label: { name: 'placement_vertical_video' },
+          customization_spec: {
+            publisher_platforms: ['facebook', 'instagram'],
+            facebook_positions: ['story', 'facebook_reels'],
+            instagram_positions: ['story', 'reels'],
+          },
         },
       ],
     };

@@ -84,7 +84,7 @@ export type {
   CreateCustomAudienceStatus,
 } from './tools/createCustomAudience.js';
 
-export { createAdCreative } from './tools/createAdCreative.js';
+export { createAdCreative, assetFeedSpecCreateError } from './tools/createAdCreative.js';
 export {
   createWelcomeMessageTemplate,
   listWelcomeMessageTemplates,

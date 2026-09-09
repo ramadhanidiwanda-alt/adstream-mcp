@@ -346,15 +346,19 @@ describe('ads MCP broker tools', () => {
     const creativeSpec = properties.creativeSpec as { description?: string };
     const assetFeedSpec = properties.assetFeedSpec as { description?: string };
 
-    expect(tool?.description).toMatch(/variasi.*headline.*caption.*manual/i);
+    expect(tool?.description).toMatch(/DEGREES_OF_FREEDOM/i);
     expect(tool?.description).toMatch(/image\/video/i);
-    expect(tool?.description).toMatch(
-      /dinonaktifkan hanya asset_feed_spec TANPA asset_customization_rules/i
-    );
+    expect(tool?.description).toMatch(/Dynamic Creative.*REGULAR/i);
     expect(creativeSpec.description).toMatch(/opsi.*headline.*caption.*manual/i);
     expect(creativeSpec.description).toMatch(/image\/video/i);
-    expect(assetFeedSpec.description).toMatch(/disabled/i);
-    expect(assetFeedSpec.description).toMatch(/placement customization/i);
+    expect(assetFeedSpec.description).toMatch(/DEGREES_OF_FREEDOM/i);
+    expect(assetFeedSpec.description).toMatch(/objectStorySpec\.link_data\.link/i);
+    expect(assetFeedSpec.description).not.toMatch(
+      /only for placement customization|Hanya untuk placement customization/i
+    );
+    expect((assetFeedSpec as { required?: string[] }).required ?? []).not.toContain(
+      'asset_customization_rules'
+    );
   });
 
   // Welcome message sudah lama didukung untuk existing_post (pageWelcomeMessage ada di
