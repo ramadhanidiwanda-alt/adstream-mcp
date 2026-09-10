@@ -279,11 +279,11 @@ export interface MetaExistingPostCreativeSpec {
    */
   appDestination?: MetaAppDestination;
   /**
-   * Welcome message shown after the messaging CTA is tapped. Emitted at the ROOT of
-   * the creative, not inside object_story_spec — that is where Meta stores it for
-   * existing-post creatives, confirmed by reading a creative built in Ads Manager,
-   * which has no object_story_spec at all. Requires a messaging callToAction;
-   * without one Meta would never surface it.
+   * Welcome message shown after a supported messaging CTA is tapped. On existing_post
+   * this is only allowed for Messenger/Instagram Direct. Existing-post
+   * Click-to-WhatsApp is rejected locally because Meta's documented writable
+   * page_welcome_message shapes live under object_story_spec, while existing_post
+   * must use object_story_id/source_instagram_media_id without object_story_spec.
    */
   pageWelcomeMessage?: MetaPageWelcomeMessage;
   applinkTreatment?: MetaApplinkTreatment;

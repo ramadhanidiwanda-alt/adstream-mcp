@@ -1027,8 +1027,8 @@ describe('buildMetaCreativeFormatPayload', () => {
     }
   });
 
-  it('builds a Click-to-WhatsApp existing_post creative like Ads Manager', () => {
-    expect(
+  it('rejects a Click-to-WhatsApp existing_post welcome message before Meta returns a generic error', () => {
+    expect(() =>
       buildMetaCreativeFormatPayload({
         mode: 'standard',
         pageId: 'page-1',
@@ -1041,17 +1041,7 @@ describe('buildMetaCreativeFormatPayload', () => {
           pageWelcomeMessage: 'Halo!',
         },
       })
-    ).toEqual({
-      source_instagram_media_id: '18571075747064659',
-      call_to_action: {
-        type: 'WHATSAPP_MESSAGE',
-        value: {
-          app_destination: 'WHATSAPP',
-          link: 'https://api.whatsapp.com/send',
-        },
-      },
-      page_welcome_message: 'Halo!',
-    });
+    ).toThrow(/existing_post.*Click-to-WhatsApp.*pageWelcomeMessage/i);
   });
 
   it('rejects a messaging destinationUrl that would be silently dropped without appDestination', () => {
