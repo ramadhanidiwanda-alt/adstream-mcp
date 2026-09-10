@@ -889,7 +889,7 @@ describe('createAdCreative', () => {
     expect(result.preview.object_story_spec).toBeUndefined();
   });
 
-  it('previews an existing Instagram WhatsApp Reel without CTA link', async () => {
+  it('rejects an existing Instagram WhatsApp Reel welcome message before Meta returns code 2', async () => {
     const pageWelcomeMessage = {
       type: 'VISUAL_EDITOR',
       text_format: {
@@ -915,20 +915,8 @@ describe('createAdCreative', () => {
     });
 
     expect(mockMetaPost).not.toHaveBeenCalled();
-    expect(result.status).toBe('dry_run');
-    expect(result.preview).toEqual({
-      name: 'HRC01 | REELS | CTWA',
-      source_instagram_media_id: '18571075747064659',
-      instagram_user_id: '17841449623015969',
-      call_to_action: {
-        type: 'WHATSAPP_MESSAGE',
-        value: {
-          app_destination: 'WHATSAPP',
-          link: 'https://api.whatsapp.com/send',
-        },
-      },
-      page_welcome_message: pageWelcomeMessage,
-    });
+    expect(result.status).toBe('failed');
+    expect(result.error).toMatch(/existing_post.*Click-to-WhatsApp.*pageWelcomeMessage/i);
   });
 
   it('normalizes existing Instagram WhatsApp Reel CTA links to the Ads Manager send URL', async () => {
