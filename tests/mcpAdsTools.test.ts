@@ -282,6 +282,27 @@ describe('ads MCP broker tools', () => {
     });
   });
 
+  it('advertises only canonical-safe location breakdowns on ads_get_performance', () => {
+    const tool = ADS_MCP_TOOL_DEFINITIONS.find(({ name }) => name === 'ads_get_performance');
+    const properties = tool?.inputSchema.properties as Record<string, unknown>;
+    const breakdowns = properties.breakdowns as { items?: { enum?: string[] } };
+
+    expect(breakdowns.items?.enum).toEqual(['country', 'region']);
+    expect(breakdowns.items?.enum).not.toContain('platform');
+    expect(breakdowns.items?.enum).not.toContain('placement');
+  });
+
+  it('does not recommend canonical placement breakdowns from the legacy placement tool', () => {
+    const tool = ADS_MCP_TOOL_DEFINITIONS.find(
+      ({ name }) => name === 'ads_get_placement_performance'
+    );
+
+    expect(tool?.description).toContain('publisher_platform');
+    expect(tool?.description).toContain('platform_position');
+    expect(tool?.description).toContain('commerce/affiliate CSV platform fields');
+    expect(tool?.description).not.toMatch(/ads_get_performance with placement breakdowns/i);
+  });
+
   it('does not require since/until for ads_get_creatives compliance audits', () => {
     const tool = ADS_MCP_TOOL_DEFINITIONS.find(({ name }) => name === 'ads_get_creatives');
 

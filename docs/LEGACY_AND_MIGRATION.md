@@ -26,7 +26,7 @@ This document inventories the current tool surface and maps it toward the smalle
 | `ads_get_adset_or_adgroup_performance` | Migrate | Legacy alias for `ads_get_performance` with `level: "adset"` or `level: "adgroup"` |
 | `ads_get_ad_performance` | Migrate | Legacy alias for `ads_get_performance` with `level: "ad"` |
 | `ads_get_creative_performance` | Migrate | Legacy alias for `ads_get_performance` with `level: "creative"` or future `ads_get_creatives` |
-| `ads_get_placement_performance` | Migrate | `ads_get_performance` with placement breakdowns |
+| `ads_get_placement_performance` | Legacy / provider-specific | Meta placement reporting uses the official `publisher_platform` + `platform_position` Insights breakdowns directly, but those breakdowns are not part of the canonical `ads_get_performance` contract and may require account-level Insight feature support. For affiliate commission attribution, prefer commerce/affiliate source fields such as a Shopee CSV `Platform` column when available. |
 | `ads_content_matrix` | Legacy / skill-owned | Skill workflow over `ads_get_performance` and `ads_get_creatives` |
 | `ads_generate_report` | Legacy / skill-owned | Skill workflow over canonical performance tools |
 | `ads_pause_campaign` | Keep separate | Optional write tool |
