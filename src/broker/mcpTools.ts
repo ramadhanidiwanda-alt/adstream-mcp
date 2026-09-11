@@ -281,7 +281,7 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
   {
     name: 'ads_get_performance',
     description:
-      'Canonical read tool for normalized ads performance. Use level, metrics, dimensions, breakdowns, filters, sorting, limit, and cursor instead of report-specific tools.',
+      'Canonical read tool for normalized ads performance. Use level, metrics, dimensions, provider-safe breakdowns, filters, sorting, limit, and cursor instead of report-specific tools. For Meta, canonical breakdowns currently mean location breakdowns only: country or region.',
     inputSchema: createPerformanceInputSchema(['since', 'until']),
   },
   {
@@ -347,7 +347,7 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
   {
     name: 'ads_get_placement_performance',
     description:
-      'Legacy alias: fetch platform and placement performance. Prefer ads_get_performance with placement breakdowns for new clients.',
+      'Legacy Meta/TikTok placement-performance alias. Meta sends the official Insights breakdowns publisher_platform and platform_position directly, but some ad accounts or API feature settings can reject placement breakdowns; do not use canonical names such as platform or placement with ads_get_performance. For affiliate commission placement attribution, prefer commerce/affiliate CSV platform fields when available.',
     inputSchema: createPlacementPerformanceInputSchema(),
   },
   {
@@ -3902,7 +3902,8 @@ function createPartnershipContentInputSchema() {
       },
       mediaType: {
         type: 'string',
-        description: 'Filter jenis media: image, video, carousel, atau link. Huruf besar/kecil bebas.',
+        description:
+          'Filter jenis media: image, video, carousel, atau link. Huruf besar/kecil bebas.',
       },
       postType: {
         type: 'string',
@@ -4278,8 +4279,9 @@ function createPerformanceInputSchema(required: string[]) {
       },
       breakdowns: {
         type: 'array',
-        items: { type: 'string' },
-        description: 'Provider-supported breakdowns such as date, country, platform, or placement.',
+        items: { type: 'string', enum: [...LOCATION_BREAKDOWNS] },
+        description:
+          'Canonical Meta-safe location breakdowns only: country or region. Placement/platform are not accepted here; use the legacy placement tool only when provider/account support is confirmed, or use commerce/affiliate platform fields when those are the source of truth.',
       },
       filters: canonicalFiltersSchema(),
       sortBy: {
