@@ -91,6 +91,8 @@ function toContentMatrixRow(record: AdsMetricRecord): AdsContentMatrixRow {
   return {
     provider: record.provider,
     account_id: record.identity.account_id,
+    platform: record.dimensions?.platform,
+    placement: record.dimensions?.placement,
     campaign_id: record.identity.campaign_id,
     campaign_name: record.identity.campaign_name,
     adset_or_adgroup_id: record.identity.adset_or_adgroup_id,
@@ -134,15 +136,31 @@ function buildGroup(
     .slice(0, options.bottomLimit);
 
   const groupId =
-    options.groupBy === 'adset'
-      ? (first.adset_or_adgroup_id ?? 'unknown_adset')
-      : (first.campaign_id ?? 'unknown_campaign');
-  const groupName = options.groupBy === 'adset' ? first.adset_or_adgroup_name : first.campaign_name;
+    options.groupBy === 'placement'
+      ? `${first.platform ?? 'unknown_platform'}:${first.placement ?? 'unknown_placement'}`
+      : options.groupBy === 'platform'
+        ? (first.platform ?? 'unknown_platform')
+        : options.groupBy === 'adset'
+          ? (first.adset_or_adgroup_id ?? 'unknown_adset')
+          : (first.campaign_id ?? 'unknown_campaign');
+  const groupName =
+    options.groupBy === 'placement'
+      ? first.placement
+      : options.groupBy === 'platform'
+        ? first.platform
+        : options.groupBy === 'adset'
+          ? first.adset_or_adgroup_name
+          : first.campaign_name;
 
   return {
     group_by: options.groupBy,
     group_id: groupId,
     group_name: groupName,
+    platform:
+      options.groupBy === 'platform' || options.groupBy === 'placement'
+        ? first.platform
+        : undefined,
+    placement: options.groupBy === 'placement' ? first.placement : undefined,
     campaign_id: first.campaign_id,
     campaign_name: first.campaign_name,
     adset_or_adgroup_id: options.groupBy === 'adset' ? first.adset_or_adgroup_id : undefined,
@@ -162,9 +180,13 @@ function groupRows(
 
   for (const row of rows) {
     const key =
-      groupBy === 'adset'
-        ? (row.adset_or_adgroup_id ?? 'unknown_adset')
-        : (row.campaign_id ?? 'unknown_campaign');
+      groupBy === 'placement'
+        ? `${row.platform ?? 'unknown_platform'}\u0000${row.placement ?? 'unknown_placement'}`
+        : groupBy === 'platform'
+          ? (row.platform ?? 'unknown_platform')
+          : groupBy === 'adset'
+            ? (row.adset_or_adgroup_id ?? 'unknown_adset')
+            : (row.campaign_id ?? 'unknown_campaign');
     const existingRows = groups.get(key) ?? [];
     existingRows.push(row);
     groups.set(key, existingRows);

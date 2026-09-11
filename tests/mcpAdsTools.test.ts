@@ -303,6 +303,14 @@ describe('ads MCP broker tools', () => {
     expect(tool?.description).not.toMatch(/ads_get_performance with placement breakdowns/i);
   });
 
+  it('allows content matrix grouping by Meta platform and placement', () => {
+    const tool = ADS_MCP_TOOL_DEFINITIONS.find(({ name }) => name === 'ads_content_matrix');
+    const properties = tool?.inputSchema.properties as Record<string, unknown>;
+    const groupBy = properties.groupBy as { enum?: string[] };
+
+    expect(groupBy.enum).toEqual(['campaign', 'adset', 'platform', 'placement']);
+  });
+
   it('does not require since/until for ads_get_creatives compliance audits', () => {
     const tool = ADS_MCP_TOOL_DEFINITIONS.find(({ name }) => name === 'ads_get_creatives');
 
@@ -1470,7 +1478,7 @@ describe('ads MCP broker tools', () => {
       accountId: 'act_123',
       since: '2026-05-01',
       until: '2026-05-07',
-      groupBy: 'campaign',
+      groupBy: 'placement',
       sortBy: 'purchase_roas',
       topLimit: 3,
       bottomLimit: 3,
@@ -1480,7 +1488,7 @@ describe('ads MCP broker tools', () => {
     expect(receivedRequest).toMatchObject({
       provider: 'meta',
       accountId: 'act_123',
-      params: { groupBy: 'campaign', sortBy: 'purchase_roas', topLimit: 3, bottomLimit: 3 },
+      params: { groupBy: 'placement', sortBy: 'purchase_roas', topLimit: 3, bottomLimit: 3 },
     });
   });
 

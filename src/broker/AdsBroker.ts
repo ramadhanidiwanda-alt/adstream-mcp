@@ -64,6 +64,7 @@ import { redactErrorMessage, redactTokenLikeValues } from './credentials.js';
 import type { ProviderRegistry } from './providerRegistry.js';
 import { buildAdsSummaryReport, buildCrossProviderReport } from './reportEngine.js';
 import { buildAdsContentMatrix } from './contentMatrix.js';
+import type { PlacementPerformanceReport } from '../types.js';
 
 export interface AdsBrokerOptions {
   providerRegistry: ProviderRegistry;
@@ -393,7 +394,11 @@ export class AdsBroker {
     const provider = this.resolveProviderId(request);
     if (!provider.ok) return provider.response;
 
-    const performance = await this.getAdPerformance(request);
+    const groupBy = parseGroupBy(request.params.groupBy);
+    const performance =
+      provider.provider === 'meta' && (groupBy === 'platform' || groupBy === 'placement')
+        ? await this.getPlacementPerformance(request)
+        : await this.getAdPerformance(request);
     if (!performance.ok) {
       return {
         ok: false,
@@ -405,11 +410,11 @@ export class AdsBroker {
     return {
       ok: true,
       provider: provider.provider,
-      data: buildAdsContentMatrix(performance.data ?? [], {
+      data: buildAdsContentMatrix(normalizeContentMatrixRecords(performance.data, request), {
         provider: provider.provider,
         since: request.since ?? '',
         until: request.until ?? '',
-        groupBy: parseGroupBy(request.params.groupBy),
+        groupBy,
         sortBy: typeof request.params.sortBy === 'string' ? request.params.sortBy : undefined,
         sortDirection: parseSortDirection(request.params.sortDirection),
         topLimit: typeof request.params.topLimit === 'number' ? request.params.topLimit : undefined,
@@ -927,7 +932,62 @@ export class AdsBroker {
 }
 
 function parseGroupBy(value: unknown): AdsContentMatrixGroupBy | undefined {
-  return value === 'campaign' || value === 'adset' ? value : undefined;
+  return value === 'campaign' || value === 'adset' || value === 'platform' || value === 'placement'
+    ? value
+    : undefined;
+}
+
+function normalizeContentMatrixRecords(
+  data: AdsMetricRecord[] | PlacementPerformanceReport | unknown,
+  request: AdsBrokerRequest
+): AdsMetricRecord[] {
+  if (Array.isArray(data)) return data as AdsMetricRecord[];
+  if (
+    !data ||
+    typeof data !== 'object' ||
+    !Array.isArray((data as PlacementPerformanceReport).placements)
+  ) {
+    return [];
+  }
+
+  const report = data as PlacementPerformanceReport;
+  return report.placements.map(
+    (placement): AdsMetricRecord => ({
+      provider: placement.provider,
+      level: 'ad',
+      identity: {
+        account_id: request.accountId ?? '',
+        campaign_id: undefined,
+        adset_or_adgroup_id: undefined,
+        ad_id: `${placement.platform}:${placement.placement}`,
+        ad_name: placement.placement,
+      },
+      time: {
+        date_start: report.date_range.since,
+        date_stop: report.date_range.until,
+      },
+      delivery: {
+        spend: placement.spend,
+        impressions: placement.impressions,
+        cpm: placement.cpm,
+      },
+      clicks: {
+        clicks: placement.clicks,
+        ctr: placement.ctr,
+        cpc: placement.cpc,
+      },
+      conversions: {
+        conversions: placement.conversions,
+        cost_per_conversion: placement.costPerConversion,
+        conversion_value: placement.revenue,
+        roas: placement.roas,
+      },
+      dimensions: {
+        platform: placement.platform,
+        placement: placement.placement,
+      },
+    })
+  );
 }
 
 function parseSortDirection(value: unknown): AdsContentMatrixSortDirection | undefined {

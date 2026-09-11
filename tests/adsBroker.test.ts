@@ -238,6 +238,91 @@ describe('AdsBroker', () => {
     expect(response.data?.[0].delivery.spend).toBe(10);
   });
 
+  it('builds Meta content matrix from placement performance when grouping by placement', async () => {
+    let adPerformanceCalls = 0;
+    let placementPerformanceCalls = 0;
+    const adapter = createAdapter({
+      getAdPerformance: async () => {
+        adPerformanceCalls += 1;
+        return { ok: true, provider: 'meta', data: [createMetricRecord()] };
+      },
+      getPlacementPerformance: async () => {
+        placementPerformanceCalls += 1;
+        return {
+          ok: true,
+          provider: 'meta',
+          data: {
+            provider: 'meta',
+            date_range: { since: '2026-05-01', until: '2026-05-07' },
+            totals: {
+              spend: 150,
+              impressions: 1500,
+              clicks: 75,
+              conversions: 0,
+              ctr: 5,
+              cpc: 2,
+              cpm: 100,
+            },
+            placements: [
+              {
+                provider: 'meta',
+                platform: 'instagram',
+                placement: 'instagram_reels',
+                spend: 100,
+                impressions: 1000,
+                clicks: 50,
+                ctr: 5,
+                cpc: 2,
+                cpm: 100,
+                conversions: 0,
+                spendShare: 0.6667,
+                confidence: 'low',
+                recommendation: 'insufficient_data',
+                reason: 'Data belum cukup untuk keputusan aman',
+              },
+              {
+                provider: 'meta',
+                platform: 'facebook',
+                placement: 'feed',
+                spend: 50,
+                impressions: 500,
+                clicks: 25,
+                ctr: 5,
+                cpc: 2,
+                cpm: 100,
+                conversions: 0,
+                spendShare: 0.3333,
+                confidence: 'low',
+                recommendation: 'insufficient_data',
+                reason: 'Data belum cukup untuk keputusan aman',
+              },
+            ],
+            summary: { insufficient_data: [] },
+            warnings: [],
+          },
+        };
+      },
+    });
+    const { broker } = createBroker(adapter);
+
+    const response = await broker.getContentMatrix({
+      ...baseRequest,
+      params: { groupBy: 'placement', includeAllRows: true },
+    });
+
+    expect(response.ok).toBe(true);
+    expect(adPerformanceCalls).toBe(0);
+    expect(placementPerformanceCalls).toBe(1);
+    expect(response.data?.groups.map((group) => group.group_id)).toEqual([
+      'instagram:instagram_reels',
+      'facebook:feed',
+    ]);
+    expect(response.data?.groups[0].rows?.[0]).toMatchObject({
+      platform: 'instagram',
+      placement: 'instagram_reels',
+    });
+  });
+
   it('redacts token-like adapter errors', async () => {
     const adapter = createAdapter({
       getCampaignPerformance: async () => {
