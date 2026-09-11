@@ -132,8 +132,8 @@ function optional(value: string | undefined, label: string): string | undefined 
 
 /**
  * page_welcome_message is either the VISUAL_EDITOR JSON object Ads Manager writes or
- * a plain greeting string (the older Click-to-WhatsApp shape). Objects pass through
- * untouched — metaClient JSON-stringifies them at post time.
+ * a plain greeting string (the older Click-to-WhatsApp shape). Format-specific builders
+ * may normalize objects before metaClient JSON-stringifies them at post time.
  */
 function optionalWelcomeMessage(
   value: MetaPageWelcomeMessage | undefined,
@@ -175,18 +175,20 @@ function directVideoCtwaWelcomeMessage(
   value: MetaPageWelcomeMessage | undefined
 ): MetaPageWelcomeMessage | undefined {
   const welcomeMessage = optionalWelcomeMessage(value, 'pageWelcomeMessage');
-  if (
-    typeof welcomeMessage !== 'string' ||
-    input.mode !== 'standard' ||
-    input.creativeSpec.callToAction?.trim() !== 'WHATSAPP_MESSAGE'
-  ) {
+  if (input.mode !== 'standard' || input.creativeSpec.callToAction?.trim() !== 'WHATSAPP_MESSAGE') {
     return welcomeMessage;
   }
+
+  if (typeof welcomeMessage === 'object' && welcomeMessage !== null) {
+    return normalizeDirectVideoCtwaWelcomeMessageObject(welcomeMessage);
+  }
+
+  if (typeof welcomeMessage !== 'string') return welcomeMessage;
 
   try {
     const parsed = JSON.parse(welcomeMessage) as unknown;
     if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
-      return parsed as Record<string, unknown>;
+      return normalizeDirectVideoCtwaWelcomeMessageObject(parsed as Record<string, unknown>);
     }
   } catch {
     // A plain greeting is expected on the legacy API surface.
@@ -205,6 +207,49 @@ function directVideoCtwaWelcomeMessage(
       },
     },
   };
+}
+
+function normalizeDirectVideoCtwaWelcomeMessageObject(
+  welcomeMessage: Record<string, unknown>
+): Record<string, unknown> {
+  const textFormat = asRecord(welcomeMessage.text_format);
+  const message = asRecord(textFormat?.message);
+  const rawIceBreakers = Array.isArray(message?.ice_breakers) ? message.ice_breakers : [];
+  const iceBreakers = rawIceBreakers.flatMap((item) => {
+    const iceBreaker = asRecord(item);
+    const response = optionalString(iceBreaker?.response);
+    const title = response ?? optionalString(iceBreaker?.title);
+    return title ? [{ title }] : [];
+  });
+
+  if (!message || iceBreakers.length === 0) return welcomeMessage;
+
+  return {
+    ...welcomeMessage,
+    type: welcomeMessage.type ?? 'VISUAL_EDITOR',
+    version: welcomeMessage.version ?? 2,
+    landing_screen_type: welcomeMessage.landing_screen_type ?? 'welcome_message',
+    media_type: welcomeMessage.media_type ?? 'text',
+    text_format: {
+      ...textFormat,
+      customer_action_type: 'ice_breakers',
+      message: {
+        ...message,
+        ice_breakers: iceBreakers,
+        quick_replies: Array.isArray(message.quick_replies) ? message.quick_replies : [],
+      },
+    },
+  };
+}
+
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : undefined;
+}
+
+function optionalString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined;
 }
 
 /**

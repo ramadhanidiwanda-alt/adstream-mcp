@@ -489,6 +489,62 @@ describe('buildMetaCreativeFormatPayload', () => {
     });
   });
 
+  it('normalizes a partial direct-video CTWA ice-breaker object to Meta VISUAL_EDITOR shape', () => {
+    const result = buildMetaCreativeFormatPayload({
+      mode: 'standard',
+      pageId: 'page-1',
+      creativeFormat: 'video',
+      creativeSpec: {
+        videoId: 'video-1',
+        thumbnailImageHash: 'thumb-1',
+        primaryText: 'Mid month sale',
+        destinationUrl: 'https://api.whatsapp.com/send',
+        callToAction: 'WHATSAPP_MESSAGE',
+        pageWelcomeMessage: {
+          type: 'VISUAL_EDITOR',
+          version: 2,
+          text_format: {
+            message: {
+              text: 'Hai! Ada yang bisa kami bantu?',
+              ice_breakers: [
+                {
+                  title: 'Info layanan',
+                  response: 'Halo, saya mau info layanan cleaning rumah.',
+                },
+                {
+                  title: 'Rekomendasi layanan',
+                  response: 'Halo, bisa bantu rekomendasi layanan untuk rumah saya?',
+                },
+              ],
+            },
+          },
+        },
+      },
+    });
+
+    expect(result.object_story_spec).toMatchObject({
+      video_data: {
+        page_welcome_message: {
+          type: 'VISUAL_EDITOR',
+          version: 2,
+          landing_screen_type: 'welcome_message',
+          media_type: 'text',
+          text_format: {
+            customer_action_type: 'ice_breakers',
+            message: {
+              text: 'Hai! Ada yang bisa kami bantu?',
+              ice_breakers: [
+                { title: 'Halo, saya mau info layanan cleaning rumah.' },
+                { title: 'Halo, bisa bantu rekomendasi layanan untuk rumah saya?' },
+              ],
+              quick_replies: [],
+            },
+          },
+        },
+      },
+    });
+  });
+
   it('adds official asset_feed_spec message_extensions to placement-image creatives', () => {
     const result = buildMetaCreativeFormatPayload({
       mode: 'standard',
