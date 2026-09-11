@@ -384,7 +384,7 @@ export interface AdsMultiProviderReport {
   errors?: AdsProviderReportError[];
 }
 
-export type AdsContentMatrixGroupBy = 'campaign' | 'adset';
+export type AdsContentMatrixGroupBy = 'campaign' | 'adset' | 'platform' | 'placement';
 export type AdsContentMatrixSortDirection = 'asc' | 'desc';
 export type AdsContentMatrixComparisonMode = 'previous_period' | 'none';
 
@@ -419,6 +419,8 @@ export interface AdsContentMatrixDataQuality {
 export interface AdsContentMatrixRow {
   provider: AdsProviderId;
   account_id: string;
+  platform?: string;
+  placement?: string;
   campaign_id?: string;
   campaign_name?: string;
   adset_or_adgroup_id?: string;
@@ -437,6 +439,8 @@ export interface AdsContentMatrixGroup {
   group_by: AdsContentMatrixGroupBy;
   group_id: string;
   group_name?: string;
+  platform?: string;
+  placement?: string;
   campaign_id?: string;
   campaign_name?: string;
   adset_or_adgroup_id?: string;

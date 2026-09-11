@@ -69,6 +69,41 @@ describe('buildAdsContentMatrix', () => {
     expect(matrix.groups[0].rows).toHaveLength(1);
   });
 
+  it('groups rows by Meta platform or placement dimensions', () => {
+    const matrix = buildAdsContentMatrix(
+      [
+        createRecord({
+          dimensions: { platform: 'instagram', placement: 'instagram_reels' },
+          delivery: { spend: 100000, impressions: 10000, reach: 8000, cpm: 10000 },
+        }),
+        createRecord({
+          dimensions: { platform: 'facebook', placement: 'feed' },
+          delivery: { spend: 50000, impressions: 5000, reach: 4000, cpm: 10000 },
+        }),
+        createRecord({
+          dimensions: { platform: 'instagram', placement: 'instagram_stories' },
+          delivery: { spend: 25000, impressions: 2500, reach: 2000, cpm: 10000 },
+        }),
+      ],
+      {
+        provider: 'meta',
+        since: '2026-07-01',
+        until: '2026-07-07',
+        groupBy: 'platform',
+        includeAllRows: true,
+      }
+    );
+
+    expect(matrix.groups.map((group) => group.group_id)).toEqual(['instagram', 'facebook']);
+    expect(matrix.groups[0].summary_metrics.find((metric) => metric.key === 'spend')?.value).toBe(
+      125000
+    );
+    expect(matrix.groups[0].rows?.[0]).toMatchObject({
+      platform: 'instagram',
+      placement: 'instagram_reels',
+    });
+  });
+
   it('does not create recommendations or diagnosis fields', () => {
     const matrix = buildAdsContentMatrix([createRecord()], {
       provider: 'meta',

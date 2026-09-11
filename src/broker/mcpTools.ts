@@ -4168,8 +4168,9 @@ function createContentMatrixInputSchema() {
       adId: idScopeSchema('Restrict results to specific ad id(s). Meta only.'),
       groupBy: {
         type: 'string',
-        enum: ['campaign', 'adset'],
-        description: 'Group the matrix rows by campaign or ad set.',
+        enum: ['campaign', 'adset', 'platform', 'placement'],
+        description:
+          'Group the matrix rows by campaign, ad set, Meta publisher platform, or Meta platform position. Platform/placement use Meta placement-performance rows.',
       },
       sortBy: {
         type: 'string',

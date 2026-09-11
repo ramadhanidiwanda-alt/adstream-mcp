@@ -301,9 +301,11 @@ const contentMatrixInputSchema = {
   ),
   adId: idScopeInputSchema('Restrict results to specific ad id(s). Meta only.'),
   groupBy: z
-    .enum(['campaign', 'adset'])
+    .enum(['campaign', 'adset', 'platform', 'placement'])
     .optional()
-    .describe('Group the matrix rows by campaign or ad set.'),
+    .describe(
+      'Group the matrix rows by campaign, ad set, Meta publisher platform, or Meta platform position.'
+    ),
   sortBy: z.string().optional().describe('Metric used to rank rows into the top and bottom lists.'),
   sortDirection: z.enum(['asc', 'desc']).optional().describe('Sort direction.'),
   topLimit: z.number().optional().describe('How many top performers to keep.'),

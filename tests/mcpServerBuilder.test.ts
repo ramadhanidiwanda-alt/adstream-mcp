@@ -152,6 +152,14 @@ describe('MCP server builder', () => {
     await expectPublishedSchemasMatchDefinitions(false);
   });
 
+  it('publishes platform and placement groupBy values for ads_content_matrix', async () => {
+    const response = await listRegisteredTools();
+    const tool = response.tools.find((item) => item.name === 'ads_content_matrix');
+    const groupBy = tool?.inputSchema.properties?.groupBy as { enum?: string[] } | undefined;
+
+    expect(groupBy?.enum).toEqual(['campaign', 'adset', 'platform', 'placement']);
+  });
+
   it('registers write tools with equivalent McpServer schemas', async () => {
     process.env.ADSTREAM_ENABLE_WRITES = 'true';
 
