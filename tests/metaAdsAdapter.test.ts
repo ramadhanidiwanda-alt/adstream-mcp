@@ -3406,11 +3406,21 @@ describe('MetaAdsAdapter', () => {
     expect(message).toContain('pageWelcomeMessage');
   });
 
-  it('rejects whatsappWelcomeMessageSequenceId because it writes asset_feed_spec', async () => {
+  it('forwards whatsappWelcomeMessageSequenceId for an existing-post creative', async () => {
+    const createAdCreative = vi.fn(async () => ({
+      operation: 'create_adcreative' as const,
+      status: 'dry_run' as const,
+      executed: false,
+      preview: {
+        asset_feed_spec: {
+          additional_data: { partner_app_welcome_message_flow_id: 'flow-1' },
+        },
+      },
+    }));
     const adapter = new MetaAdsAdapter({
       clientFactory: (config) => ({ config }) as never,
       tools: {
-        createAdCreative: vi.fn(),
+        createAdCreative,
       },
     });
 
@@ -3419,12 +3429,13 @@ describe('MetaAdsAdapter', () => {
       accountId: 'act_123',
       params: {
         name: 'Canonical creative with welcome flow',
-        pageId: 'page-1',
-        creativeFormat: 'single_image',
+        instagramUserId: 'ig-1',
+        creativeFormat: 'existing_post',
         creativeSpec: {
-          imageHash: 'hash-1',
-          primaryText: 'Chat admin sekarang',
-          destinationUrl: 'https://wa.me/6281234567890',
+          sourceInstagramMediaId: 'media-1',
+          destinationUrl: 'https://api.whatsapp.com/send',
+          callToAction: 'WHATSAPP_MESSAGE',
+          appDestination: 'WHATSAPP',
         },
         whatsappWelcomeMessageSequenceId: 'flow-1',
       },
@@ -3432,10 +3443,14 @@ describe('MetaAdsAdapter', () => {
     });
 
     expect(response).toMatchObject({
-      ok: false,
-      errors: [{ provider: 'meta', code: 'VALIDATION_ERROR' }],
+      ok: true,
+      data: { status: 'dry_run' },
     });
-    expect(response.errors?.[0]?.message).toMatch(/whatsappWelcomeMessageSequenceId/i);
+    expect(createAdCreative).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ whatsappWelcomeMessageSequenceId: 'flow-1' }),
+      expect.anything()
+    );
   });
 
   it('accepts every param declared on the ads_create_adcreative input schema', async () => {

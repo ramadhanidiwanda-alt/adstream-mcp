@@ -114,6 +114,10 @@ export interface CreateAdCreativeOptions {
   // WhatsApp destination is configured on the ad set instead. See buildCreativePayload.
   destinationType?: CreativeDestinationType;
   pageWelcomeMessage?: string;
+  /**
+   * Meta WhatsApp welcome-message sequence ID. Sent through the metadata-only
+   * asset_feed_spec.additional_data.partner_app_welcome_message_flow_id path.
+   */
   whatsappWelcomeMessageSequenceId?: string;
   /**
    * Nama-nama fitur degrees_of_freedom_spec yang di-OPT_OUT (disable).
@@ -790,6 +794,20 @@ function buildCreativePayload(options: CreateAdCreativeOptions): Record<string, 
   assertNoUnusedTopLevelVideoId(options);
   assertSupportedCreativeFeatureOptOuts(options.optOutEnhancements);
 
+  const sequenceId = options.whatsappWelcomeMessageSequenceId?.trim();
+  if (options.whatsappWelcomeMessageSequenceId !== undefined && !sequenceId) {
+    throw new Error('whatsappWelcomeMessageSequenceId wajib berupa sequence ID yang tidak kosong.');
+  }
+  const creativeHasInlineWelcomeMessage =
+    options.creative !== undefined &&
+    'pageWelcomeMessage' in options.creative.creativeSpec &&
+    options.creative.creativeSpec.pageWelcomeMessage !== undefined;
+  if (sequenceId && (options.pageWelcomeMessage !== undefined || creativeHasInlineWelcomeMessage)) {
+    throw new Error(
+      'whatsappWelcomeMessageSequenceId tidak boleh digabung dengan pageWelcomeMessage; pilih Meta welcome message sequence atau welcome message inline.'
+    );
+  }
+
   const payload: Record<string, unknown> = {
     name: options.name.trim(),
   };
@@ -880,9 +898,66 @@ function buildCreativePayload(options: CreateAdCreativeOptions): Record<string, 
     payload.object_story_spec = objectStorySpec;
   }
 
+  if (sequenceId) {
+    const assetFeedSpec = isRecord(payload.asset_feed_spec) ? payload.asset_feed_spec : {};
+    const additionalData = isRecord(assetFeedSpec.additional_data)
+      ? assetFeedSpec.additional_data
+      : {};
+    if (!hasWhatsAppCallToAction(payload)) {
+      throw new Error(
+        'whatsappWelcomeMessageSequenceId hanya dapat digunakan pada creative Click-to-WhatsApp dengan callToAction WHATSAPP_MESSAGE.'
+      );
+    }
+    if (additionalData.page_welcome_message !== undefined) {
+      throw new Error(
+        'Meta welcome message sequence tidak boleh digabung dengan asset_feed_spec.additional_data.page_welcome_message.'
+      );
+    }
+    const existingSequenceId = additionalData.partner_app_welcome_message_flow_id;
+    if (
+      existingSequenceId !== undefined &&
+      (typeof existingSequenceId !== 'string' || existingSequenceId.trim() !== sequenceId)
+    ) {
+      throw new Error(
+        'whatsappWelcomeMessageSequenceId bertentangan dengan asset_feed_spec.additional_data.partner_app_welcome_message_flow_id yang sudah ada.'
+      );
+    }
+    payload.asset_feed_spec = {
+      ...assetFeedSpec,
+      additional_data: {
+        ...additionalData,
+        partner_app_welcome_message_flow_id: sequenceId,
+      },
+    };
+  }
+
   if (options.urlTags) payload.url_tags = options.urlTags;
 
   return payload;
+}
+
+function hasWhatsAppCallToAction(payload: Record<string, unknown>): boolean {
+  if (hasCallToActionType(payload.call_to_action, 'WHATSAPP_MESSAGE')) return true;
+
+  const objectStorySpec = isRecord(payload.object_story_spec)
+    ? payload.object_story_spec
+    : undefined;
+  for (const key of ['link_data', 'video_data', 'photo_data', 'template_data']) {
+    const storyData =
+      objectStorySpec && isRecord(objectStorySpec[key]) ? objectStorySpec[key] : undefined;
+    if (hasCallToActionType(storyData?.call_to_action, 'WHATSAPP_MESSAGE')) return true;
+  }
+
+  const assetFeedSpec = isRecord(payload.asset_feed_spec) ? payload.asset_feed_spec : undefined;
+  return Array.isArray(assetFeedSpec?.call_to_action_types)
+    ? assetFeedSpec.call_to_action_types.some(
+        (value) => value === 'WHATSAPP_MESSAGE' || hasCallToActionType(value, 'WHATSAPP_MESSAGE')
+      )
+    : false;
+}
+
+function hasCallToActionType(value: unknown, expected: string): boolean {
+  return isRecord(value) && value.type === expected;
 }
 
 /**
@@ -919,11 +994,6 @@ function assertNoDynamicCreativeCreatePath(options: CreateAdCreativeOptions): vo
   if (isRecord(nestedAssetFeedSpec)) {
     const error = assetFeedSpecCreateError(nestedAssetFeedSpec);
     if (error) throw error;
-  }
-  if (options.whatsappWelcomeMessageSequenceId !== undefined) {
-    throw new Error(
-      `${DYNAMIC_CREATIVE_DISABLED_MESSAGE} whatsappWelcomeMessageSequenceId menulis asset_feed_spec.additional_data; pakai creativeSpec.pageWelcomeMessage atau pageWelcomeMessage tanpa welcome flow.`
-    );
   }
 }
 

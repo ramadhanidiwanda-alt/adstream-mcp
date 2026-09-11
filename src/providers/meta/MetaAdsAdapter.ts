@@ -2100,14 +2100,6 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       return validationResponse(assetFeedBlockError);
     }
 
-    if (request.params.whatsappWelcomeMessageSequenceId !== undefined) {
-      return validationResponse(
-        new Error(
-          `${DYNAMIC_CREATIVE_DISABLED_MESSAGE} whatsappWelcomeMessageSequenceId juga disabled karena menulis asset_feed_spec.additional_data; pakai pageWelcomeMessage manual.`
-        )
-      );
-    }
-
     if (creative) {
       const ignoredLegacyFields = LEGACY_CREATIVE_FIELDS.filter(
         (field) => request.params[field] !== undefined
