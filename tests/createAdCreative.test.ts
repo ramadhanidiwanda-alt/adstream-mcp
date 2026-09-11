@@ -698,19 +698,162 @@ describe('createAdCreative', () => {
     expect(result.preview).not.toHaveProperty('asset_feed_spec');
   });
 
-  it('rejects WhatsApp welcome flow asset-feed writes', async () => {
+  it('adds a WhatsApp welcome sequence to an existing-post creative as metadata-only asset feed', async () => {
     const result = await createAdCreative(mockClient, {
-      ...baseOpts,
-      destinationType: 'WHATSAPP',
-      pageWelcomeMessage: '{"type":"VISUAL_EDITOR"}',
+      adAccountId: 'act_1',
+      name: 'Existing post with welcome flow',
+      instagramUserId: 'ig-1',
+      creative: {
+        creativeFormat: 'existing_post',
+        creativeSpec: {
+          sourceInstagramMediaId: 'media-1',
+          destinationUrl: 'https://api.whatsapp.com/send',
+          callToAction: 'WHATSAPP_MESSAGE',
+          appDestination: 'WHATSAPP',
+        },
+      },
+      whatsappWelcomeMessageSequenceId: 'flow-1',
+    });
+
+    expect(result).toMatchObject({
+      status: 'dry_run',
+      preview: {
+        source_instagram_media_id: 'media-1',
+        instagram_user_id: 'ig-1',
+        asset_feed_spec: {
+          additional_data: {
+            partner_app_welcome_message_flow_id: 'flow-1',
+          },
+        },
+      },
+    });
+  });
+
+  it('rejects an empty WhatsApp welcome sequence ID', async () => {
+    const result = await createAdCreative(mockClient, {
+      adAccountId: 'act_1',
+      name: 'Existing post with empty welcome flow',
+      creative: {
+        creativeFormat: 'existing_post',
+        creativeSpec: { objectStoryId: 'page-1_123' },
+      },
+      whatsappWelcomeMessageSequenceId: '   ',
+    });
+
+    expect(result).toMatchObject({
+      status: 'failed',
+      structuredError: { code: 'VALIDATION_ERROR' },
+    });
+    expect(result.error).toMatch(/whatsappWelcomeMessageSequenceId.*tidak kosong/i);
+  });
+
+  it('rejects combining a WhatsApp welcome sequence with an inline welcome message', async () => {
+    const result = await createAdCreative(mockClient, {
+      adAccountId: 'act_1',
+      name: 'Existing post with conflicting welcome experiences',
+      creative: {
+        creativeFormat: 'existing_post',
+        creativeSpec: {
+          objectStoryId: 'page-1_123',
+          callToAction: 'WHATSAPP_MESSAGE',
+          pageWelcomeMessage: 'Halo!',
+        },
+      },
       whatsappWelcomeMessageSequenceId: 'flow-1',
     });
 
     expect(result).toMatchObject({
       status: 'failed',
-      structuredError: { code: 'DYNAMIC_CREATIVE_DISABLED' },
+      structuredError: { code: 'VALIDATION_ERROR' },
     });
-    expect(result.error).toMatch(/welcomeMessageSequenceId/i);
+    expect(result.error).toMatch(/whatsappWelcomeMessageSequenceId.*pageWelcomeMessage/i);
+  });
+
+  it('rejects a WhatsApp welcome sequence on a non-WhatsApp creative', async () => {
+    const result = await createAdCreative(mockClient, {
+      adAccountId: 'act_1',
+      name: 'Web creative with invalid welcome flow',
+      pageId: 'page-1',
+      creative: {
+        creativeFormat: 'single_image',
+        creativeSpec: {
+          imageHash: 'image-1',
+          primaryText: 'Visit our site',
+          destinationUrl: 'https://example.com',
+          callToAction: 'LEARN_MORE',
+        },
+      },
+      whatsappWelcomeMessageSequenceId: 'flow-1',
+    });
+
+    expect(result).toMatchObject({
+      status: 'failed',
+      structuredError: { code: 'VALIDATION_ERROR' },
+    });
+    expect(result.error).toMatch(/whatsappWelcomeMessageSequenceId.*Click-to-WhatsApp/i);
+  });
+
+  it('rejects a WhatsApp welcome sequence when raw asset-feed data has an inline welcome message', async () => {
+    const result = await createAdCreative(mockClient, {
+      adAccountId: 'act_1',
+      name: 'Raw CTWA with conflicting welcome experiences',
+      pageId: 'page-1',
+      objectStorySpec: {
+        page_id: 'page-1',
+        link_data: {
+          link: 'https://api.whatsapp.com/send',
+          message: 'Chat admin',
+          call_to_action: { type: 'WHATSAPP_MESSAGE' },
+        },
+      },
+      assetFeedSpec: {
+        optimization_type: 'DEGREES_OF_FREEDOM',
+        additional_data: { page_welcome_message: 'Halo!' },
+      },
+      whatsappWelcomeMessageSequenceId: 'flow-1',
+    });
+
+    expect(result).toMatchObject({
+      status: 'failed',
+      structuredError: { code: 'VALIDATION_ERROR' },
+    });
+    expect(result.error).toMatch(/welcome message sequence.*page_welcome_message/i);
+  });
+
+  it('preserves allowed asset-feed fields when adding a WhatsApp welcome sequence', async () => {
+    const result = await createAdCreative(mockClient, {
+      adAccountId: 'act_1',
+      name: 'Raw CTWA with welcome flow metadata',
+      pageId: 'page-1',
+      objectStorySpec: {
+        page_id: 'page-1',
+        link_data: {
+          link: 'https://api.whatsapp.com/send',
+          message: 'Chat admin',
+          call_to_action: { type: 'WHATSAPP_MESSAGE' },
+        },
+      },
+      assetFeedSpec: {
+        optimization_type: 'DEGREES_OF_FREEDOM',
+        bodies: [{ text: 'Chat admin' }],
+        additional_data: { is_click_to_message: true },
+      },
+      whatsappWelcomeMessageSequenceId: 'flow-1',
+    });
+
+    expect(result).toMatchObject({
+      status: 'dry_run',
+      preview: {
+        asset_feed_spec: {
+          optimization_type: 'DEGREES_OF_FREEDOM',
+          bodies: [{ text: 'Chat admin' }],
+          additional_data: {
+            is_click_to_message: true,
+            partner_app_welcome_message_flow_id: 'flow-1',
+          },
+        },
+      },
+    });
   });
 
   it('defaults a canonical Sales messaging creative to WHATSAPP_MESSAGE', async () => {

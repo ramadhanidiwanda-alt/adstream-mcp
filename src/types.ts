@@ -279,11 +279,9 @@ export interface MetaExistingPostCreativeSpec {
    */
   appDestination?: MetaAppDestination;
   /**
-   * Welcome message shown after a supported messaging CTA is tapped. On existing_post
-   * this is only allowed for Messenger/Instagram Direct. Existing-post
-   * Click-to-WhatsApp is rejected locally because Meta's documented writable
-   * page_welcome_message shapes live under object_story_spec, while existing_post
-   * must use object_story_id/source_instagram_media_id without object_story_spec.
+   * Inline welcome message shown after a supported messaging CTA is tapped. For a
+   * reusable partner-app WhatsApp flow, use whatsappWelcomeMessageSequenceId on the
+   * create-ad-creative request instead of combining both welcome mechanisms.
    */
   pageWelcomeMessage?: MetaPageWelcomeMessage;
   applinkTreatment?: MetaApplinkTreatment;

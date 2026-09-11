@@ -1610,9 +1610,10 @@ export const createAdCreativeInputSchema = {
     ),
   whatsappWelcomeMessageSequenceId: z
     .string()
+    .min(1)
     .optional()
     .describe(
-      'Disabled karena menulis asset_feed_spec.additional_data dan bisa mengubah creative menjadi asset-feed family. Pakai pageWelcomeMessage atau creativeSpec.pageWelcomeMessage manual.'
+      'ID Meta WhatsApp welcome-message sequence. Dikirim sebagai asset_feed_spec.additional_data.partner_app_welcome_message_flow_id, termasuk untuk existing_post. Jangan gabungkan dengan pageWelcomeMessage atau welcomeMessageTemplateName.'
     ),
   dedupeByName: z
     .boolean()
