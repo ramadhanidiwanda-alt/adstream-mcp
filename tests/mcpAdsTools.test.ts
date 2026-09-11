@@ -361,22 +361,22 @@ describe('ads MCP broker tools', () => {
     );
   });
 
-  it('documents that existing_post pageWelcomeMessage is not supported for Click-to-WhatsApp', () => {
+  it('documents root-level pageWelcomeMessage support for existing-post Click-to-WhatsApp', () => {
     const tool = ADS_MCP_TOOL_DEFINITIONS.find(({ name }) => name === 'ads_create_adcreative');
     const properties = tool?.inputSchema.properties as Record<string, unknown>;
     const creativeSpec = properties.creativeSpec as { description?: string };
 
     expect(creativeSpec.description).toMatch(
-      /existing_post memakai[\s\S]*?pageWelcomeMessage[\s\S]*?DITOLAK untuk Click-to-WhatsApp existing_post/
+      /existing_post memakai[\s\S]*?pageWelcomeMessage[\s\S]*?Click-to-WhatsApp[\s\S]*?LEVEL ATAS creative/
     );
   });
 
-  it('warns welcomeMessageTemplateName must not be used for existing_post Click-to-WhatsApp', () => {
+  it('documents welcomeMessageTemplateName support for existing-post Click-to-WhatsApp', () => {
     const tool = ADS_MCP_TOOL_DEFINITIONS.find(({ name }) => name === 'ads_create_adcreative');
     const properties = tool?.inputSchema.properties as Record<string, unknown>;
     const templateName = properties.welcomeMessageTemplateName as { description?: string };
 
-    expect(templateName.description).toMatch(/existing_post[\s\S]*Click-to-WhatsApp/i);
+    expect(templateName.description).toMatch(/SEMUA creativeFormat[\s\S]*existing_post/i);
   });
 
   it('exposes applinkTreatment enum on ads_create_adcreative for omnichannel creatives', () => {

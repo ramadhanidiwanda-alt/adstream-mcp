@@ -1027,21 +1027,33 @@ describe('buildMetaCreativeFormatPayload', () => {
     }
   });
 
-  it('rejects a Click-to-WhatsApp existing_post welcome message before Meta returns a generic error', () => {
-    expect(() =>
-      buildMetaCreativeFormatPayload({
-        mode: 'standard',
-        pageId: 'page-1',
-        creativeFormat: 'existing_post',
-        creativeSpec: {
-          sourceInstagramMediaId: '18571075747064659',
-          callToAction: 'WHATSAPP_MESSAGE',
-          appDestination: 'WHATSAPP',
-          destinationUrl: 'https://wa.me/6285156583372',
-          pageWelcomeMessage: 'Halo!',
+  it('keeps a CTWA page_welcome_message at the root of an existing Instagram post creative', () => {
+    const payload = buildMetaCreativeFormatPayload({
+      mode: 'standard',
+      pageId: 'page-1',
+      instagramUserId: 'ig-1',
+      creativeFormat: 'existing_post',
+      creativeSpec: {
+        sourceInstagramMediaId: '18571075747064659',
+        callToAction: 'WHATSAPP_MESSAGE',
+        appDestination: 'WHATSAPP',
+        destinationUrl: 'https://wa.me/6285156583372',
+        pageWelcomeMessage: '{"type":"VISUAL_EDITOR","version":2}',
+      },
+    });
+
+    expect(payload).toEqual({
+      source_instagram_media_id: '18571075747064659',
+      instagram_user_id: 'ig-1',
+      call_to_action: {
+        type: 'WHATSAPP_MESSAGE',
+        value: {
+          app_destination: 'WHATSAPP',
+          link: 'https://api.whatsapp.com/send',
         },
-      })
-    ).toThrow(/existing_post.*Click-to-WhatsApp.*pageWelcomeMessage/i);
+      },
+      page_welcome_message: '{"type":"VISUAL_EDITOR","version":2}',
+    });
   });
 
   it('rejects a messaging destinationUrl that would be silently dropped without appDestination', () => {

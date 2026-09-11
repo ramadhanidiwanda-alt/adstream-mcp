@@ -12,14 +12,6 @@ import { buildPartnershipFields } from './buildPartnershipFields.js';
 
 const WHATSAPP_SEND_URL = 'https://api.whatsapp.com/send';
 
-const EXISTING_POST_CTWA_WELCOME_MESSAGE_ERROR =
-  'existing_post Click-to-WhatsApp belum mendukung pageWelcomeMessage lewat Marketing API. ' +
-  'Dokumentasi resmi Meta menempatkan page_welcome_message pada object_story_spec video/link ' +
-  'untuk click-to-message, sementara existing_post memakai source_instagram_media_id/object_story_id ' +
-  'dan tidak boleh membawa object_story_spec. Meta mengembalikan code 2 generic saat field ini ' +
-  'dipaksakan pada CTWA existing_post. Hapus pageWelcomeMessage, pakai creativeFormat "video" ' +
-  'native CTWA, clone ad Ads Manager tanpa creative override, atau set welcome message dari Ads Manager UI.';
-
 export type BuildMetaCreativeFormatPayloadInput = MetaCreativeSpec & {
   mode: MetaAdsMode;
   pageId: string;
@@ -743,17 +735,14 @@ function buildExistingPost(
     );
   }
 
-  // Root-level page_welcome_message, matching what Ads Manager writes for an
-  // existing-post creative (that creative has no object_story_spec at all). Meta only
-  // surfaces it behind a messaging CTA, so anywhere else it would be inert.
+  // Root-level page_welcome_message, matching Ads Manager and the v25.0 create API
+  // for existing-post creatives (which have no object_story_spec). Meta only surfaces
+  // it behind a messaging CTA, so anywhere else it would be inert.
   if (creativeSpec.pageWelcomeMessage !== undefined) {
     if (!isMessaging) {
       throw new Error(
         'pageWelcomeMessage pada existing_post hanya berlaku untuk callToAction messaging (INSTAGRAM_MESSAGE, MESSAGE_PAGE, WHATSAPP_MESSAGE). Dengan CTA lain Meta tidak pernah menampilkannya.'
       );
-    }
-    if (callToAction === 'WHATSAPP_MESSAGE') {
-      throw new Error(EXISTING_POST_CTWA_WELCOME_MESSAGE_ERROR);
     }
     payload.page_welcome_message = creativeSpec.pageWelcomeMessage;
   }
