@@ -253,6 +253,60 @@ function optionalString(value: unknown): string | undefined {
 }
 
 /**
+ * Meta accepts a plain greeting string for page_welcome_message on some creative
+ * families (e.g. link_data/video CTWA), but rejects it for existing-post CTWA at
+ * ad-attachment time with a generic code 2. Ads Manager stores existing-post
+ * Click-to-WhatsApp welcome messages as a VISUAL_EDITOR object at the creative root,
+ * and that shape succeeds end-to-end. Normalize a plain string into that object
+ * only for WHATSAPP_MESSAGE; leave other messaging CTAs untouched because we have
+ * not verified their behavior live.
+ */
+function normalizeExistingPostWelcomeMessage(
+  value: MetaPageWelcomeMessage,
+  callToAction: string | undefined
+): MetaPageWelcomeMessage {
+  if (typeof value !== 'string') return value;
+  if (callToAction?.trim() !== 'WHATSAPP_MESSAGE') return value;
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    throw new Error('pageWelcomeMessage string tidak boleh kosong pada existing_post CTWA.');
+  }
+
+  // Caller may already provide a JSON-encoded VISUAL_EDITOR object as a string.
+  // Accept it as-is (parsed) rather than wrapping it again.
+  if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+    try {
+      const parsed = JSON.parse(trimmed) as unknown;
+      if (
+        typeof parsed === 'object' &&
+        parsed !== null &&
+        !Array.isArray(parsed) &&
+        (parsed as Record<string, unknown>).type === 'VISUAL_EDITOR'
+      ) {
+        return parsed as MetaPageWelcomeMessage;
+      }
+    } catch {
+      // Not a valid JSON object — fall through to plain-string wrapping.
+    }
+  }
+
+  return {
+    type: 'VISUAL_EDITOR',
+    version: 2,
+    landing_screen_type: 'ctwa_call_prompt',
+    media_type: 'text',
+    text_format: {
+      customer_action_type: 'autofill_message',
+      message: {
+        text: trimmed,
+        call_prompt_data: { call_prompt_message: trimmed },
+      },
+    },
+  } as MetaPageWelcomeMessage;
+}
+
+/**
  * Click-to-message CTAs usually carry app_destination (or nothing at all). Existing
  * Instagram Direct posts are a narrower Graph API exception: Meta requires both
  * app_destination and link. Existing Click-to-WhatsApp posts also carry both, but
@@ -789,7 +843,10 @@ function buildExistingPost(
         'pageWelcomeMessage pada existing_post hanya berlaku untuk callToAction messaging (INSTAGRAM_MESSAGE, MESSAGE_PAGE, WHATSAPP_MESSAGE). Dengan CTA lain Meta tidak pernah menampilkannya.'
       );
     }
-    payload.page_welcome_message = creativeSpec.pageWelcomeMessage;
+    payload.page_welcome_message = normalizeExistingPostWelcomeMessage(
+      creativeSpec.pageWelcomeMessage,
+      callToAction
+    );
   }
 
   if (!input.collaborativeAppSpec) return payload;
