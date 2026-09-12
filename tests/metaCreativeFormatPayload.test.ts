@@ -1108,8 +1108,58 @@ describe('buildMetaCreativeFormatPayload', () => {
           link: 'https://api.whatsapp.com/send',
         },
       },
-      page_welcome_message: '{"type":"VISUAL_EDITOR","version":2}',
+      page_welcome_message: { type: 'VISUAL_EDITOR', version: 2 },
     });
+  });
+
+  it('wraps a plain-string CTWA welcome message into a VISUAL_EDITOR object for existing_post', () => {
+    const payload = buildMetaCreativeFormatPayload({
+      mode: 'standard',
+      pageId: 'page-1',
+      instagramUserId: 'ig-1',
+      creativeFormat: 'existing_post',
+      creativeSpec: {
+        sourceInstagramMediaId: '18571075747064659',
+        callToAction: 'WHATSAPP_MESSAGE',
+        appDestination: 'WHATSAPP',
+        destinationUrl: 'https://wa.me/6285156583372',
+        pageWelcomeMessage: 'Halo, ada yang bisa kami bantu?',
+      },
+    });
+
+    expect(payload.page_welcome_message).toEqual({
+      type: 'VISUAL_EDITOR',
+      version: 2,
+      landing_screen_type: 'ctwa_call_prompt',
+      media_type: 'text',
+      text_format: {
+        customer_action_type: 'autofill_message',
+        message: {
+          text: 'Halo, ada yang bisa kami bantu?',
+          call_prompt_data: {
+            call_prompt_message: 'Halo, ada yang bisa kami bantu?',
+          },
+        },
+      },
+    });
+  });
+
+  it('does not wrap a plain-string welcome message for non-WhatsApp messaging existing_post CTAs', () => {
+    const payload = buildMetaCreativeFormatPayload({
+      mode: 'standard',
+      pageId: 'page-1',
+      instagramUserId: 'ig-1',
+      creativeFormat: 'existing_post',
+      creativeSpec: {
+        sourceInstagramMediaId: '18571075747064659',
+        callToAction: 'INSTAGRAM_MESSAGE',
+        appDestination: 'INSTAGRAM_DIRECT',
+        destinationUrl: 'https://www.instagram.com/',
+        pageWelcomeMessage: 'Halo, ada yang bisa kami bantu?',
+      },
+    });
+
+    expect(payload.page_welcome_message).toBe('Halo, ada yang bisa kami bantu?');
   });
 
   it('rejects a messaging destinationUrl that would be silently dropped without appDestination', () => {
