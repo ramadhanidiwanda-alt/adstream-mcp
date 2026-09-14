@@ -8,6 +8,7 @@ import { META_ODAX_OBJECTIVES } from '../src/providers/meta/objectiveLaunchMatri
 import type { AdsBroker } from '../src/broker/AdsBroker.js';
 import { metaConfig } from './support/fixtures.js';
 import { toolResultText, toolSchemaProperty } from './support/mcp.js';
+import packageJson from '../package.json';
 
 const legacyToolNames = [
   'meta_get_ad_accounts',
@@ -116,6 +117,19 @@ async function listRegisteredTools() {
 describe('MCP server builder', () => {
   afterEach(() => {
     restoreEnv();
+  });
+
+  it('advertises the current package version so clients refresh cached tool discovery', async () => {
+    const { client, server } = await createConnectedClient();
+
+    try {
+      expect(client.getServerVersion()).toMatchObject({
+        name: 'adstream-mcp-server',
+        version: packageJson.version,
+      });
+    } finally {
+      await Promise.all([client.close(), server.close()]);
+    }
   });
 
   it('registers existing legacy Meta tools', async () => {
