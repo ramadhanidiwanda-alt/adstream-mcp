@@ -1,4 +1,5 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import packageJson from '../../package.json';
 import { buildServerInstructions } from './serverInstructions.js';
 import type { RequestHandlerExtra } from '@modelcontextprotocol/sdk/shared/protocol.js';
 import type { ServerRequest, ServerNotification } from '@modelcontextprotocol/sdk/types.js';
@@ -2174,7 +2175,7 @@ export function createMetaAdsMcpServer(options: CreateMetaAdsMcpServerOptions = 
   const server = new McpServer(
     {
       name: 'adstream-mcp-server',
-      version: '0.1.0',
+      version: packageJson.version,
     },
     {
       capabilities: {
