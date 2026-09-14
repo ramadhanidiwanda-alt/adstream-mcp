@@ -2291,7 +2291,10 @@ export function createMetaAdsMcpServer(options: CreateMetaAdsMcpServerOptions = 
       inputSchema = partnershipContentInputSchema;
     } else if (toolDefinition.name === 'ads_create_campaign') {
       inputSchema = createCampaignInputSchema;
-    } else if (toolDefinition.name === 'ads_create_adset') {
+    } else if (
+      toolDefinition.name === 'ads_create_adset' ||
+      toolDefinition.name === 'adstream_create_adset'
+    ) {
       inputSchema = createAdSetInputSchema;
     } else if (toolDefinition.name === 'ads_create_adcreative') {
       inputSchema = createAdCreativeInputSchema;

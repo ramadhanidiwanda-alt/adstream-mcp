@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -537,6 +537,7 @@ describe('ads MCP broker tools', () => {
       'ads_rename_campaign',
       'ads_create_campaign',
       'ads_create_adset',
+      'adstream_create_adset',
       'ads_create_adcreative',
       'ads_create_ad',
       'ads_clone_ui_ad',
@@ -1153,6 +1154,37 @@ describe('ads MCP broker tools', () => {
       } else {
         process.env.ADSTREAM_ENABLE_WRITES = previous;
       }
+    }
+  });
+
+  it('routes the collision-resistant ad set create alias to the canonical broker method', async () => {
+    const previous = process.env.ADSTREAM_ENABLE_WRITES;
+    process.env.ADSTREAM_ENABLE_WRITES = 'true';
+    const createAdSet = vi.fn(async () => ({
+      ok: true,
+      provider: 'meta' as const,
+      data: { operation: 'create_adset' as const, status: 'dry_run' as const, executed: false, preview: {} },
+    }));
+    const broker = { ...createBrokerStub(), createAdSet } as unknown as AdsBroker;
+
+    try {
+      const response = await handleAdsMcpToolCall(
+        broker,
+        'adstream_create_adset',
+        { provider: 'meta', accountId: 'act_123', campaignId: 'cmp_123', name: 'Alias test' }
+      );
+
+      expect(response.isError).not.toBe(true);
+      expect(createAdSet).toHaveBeenCalledWith(
+        expect.objectContaining({
+          provider: 'meta',
+          accountId: 'act_123',
+          params: expect.objectContaining({ campaignId: 'cmp_123', name: 'Alias test' }),
+        })
+      );
+    } finally {
+      if (previous === undefined) delete process.env.ADSTREAM_ENABLE_WRITES;
+      else process.env.ADSTREAM_ENABLE_WRITES = previous;
     }
   });
 
