@@ -87,6 +87,7 @@ export const ADS_MCP_TOOL_NAMES = [
   'ads_rename_campaign',
   'ads_create_campaign',
   'ads_create_adset',
+  'adstream_create_adset',
   'ads_create_adcreative',
   'ads_create_ad',
   'ads_clone_ui_ad',
@@ -174,6 +175,7 @@ const ADDITIVE_WRITE_TOOLS = new Set<AdsMcpToolName>([
   'ads_create_welcome_message_template',
   'ads_create_campaign',
   'ads_create_adset',
+  'adstream_create_adset',
   'ads_create_adcreative',
   'ads_create_ad',
   'ads_clone_ui_ad',
@@ -400,6 +402,12 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
     name: 'ads_create_adset',
     description:
       'Create a Meta ad set or TikTok ad group (provider param) under an existing campaign. Dry-run by default. Set dryRun=false and confirmed=true to execute. Ad set is created PAUSED by default.',
+    inputSchema: createCreateAdSetInputSchema(),
+  },
+  {
+    name: 'adstream_create_adset',
+    description:
+      'Adstream-specific compatibility alias for ads_create_adset. Create a Meta ad set or TikTok ad group under an existing campaign through Adstream. Dry-run by default. Set dryRun=false and confirmed=true to execute. Ad set is created PAUSED by default.',
     inputSchema: createCreateAdSetInputSchema(),
   },
   {
@@ -1062,6 +1070,7 @@ function callBrokerMethod(
     case 'ads_create_campaign':
       return broker.createCampaign(request);
     case 'ads_create_adset':
+    case 'adstream_create_adset':
       return broker.createAdSet(request);
     case 'ads_create_adcreative':
       return broker.createAdCreative(request);

@@ -296,6 +296,15 @@ describe('MCP server builder', () => {
     );
   });
 
+  it('publishes the collision-resistant ad set create alias when writes are enabled', async () => {
+    process.env.ADSTREAM_ENABLE_WRITES = 'true';
+
+    const response = await listRegisteredTools();
+    const names = response.tools.map((tool) => tool.name);
+
+    expect(names).toContain('adstream_create_adset');
+  });
+
   it('dispatches ads_list_adimages and ads_list_advideos to the broker (previously fell through to UNSUPPORTED_OPERATION)', async () => {
     const adsBroker = {
       ...createBrokerStub(),
