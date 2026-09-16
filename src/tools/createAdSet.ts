@@ -955,7 +955,10 @@ function buildTargetingPayload(targeting: AdSetTargeting): Record<string, unknow
 
   // Meta API v24+ requires targeting_automation.advantage_audience
   // Default to 0 (disabled) when user provides custom targeting
-  if (!('targeting_automation' in result)) {
+  const rawTargetingAutomationProvided =
+    targeting.metaTargetingOverride !== undefined &&
+    'targeting_automation' in targeting.metaTargetingOverride;
+  if (!('targeting_automation' in result) && !rawTargetingAutomationProvided) {
     result.targeting_automation = { advantage_audience: 0 };
   }
 
