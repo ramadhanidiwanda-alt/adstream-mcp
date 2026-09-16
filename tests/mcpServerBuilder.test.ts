@@ -139,6 +139,22 @@ describe('MCP server builder', () => {
     expect(names).toEqual(expect.arrayContaining(legacyToolNames));
   });
 
+  it('rejects Ad Library searches without searchTerms or pageIds at the MCP boundary', async () => {
+    const { client, server } = await createConnectedClient();
+
+    try {
+      const response = await client.callTool({
+        name: 'ads_search_ad_library',
+        arguments: { provider: 'meta', countries: ['GB'] },
+      });
+
+      expect(response.isError).toBe(true);
+      expect(toolResultText(response)).toMatch(/searchTerms or pageIds/i);
+    } finally {
+      await Promise.all([client.close(), server.close()]);
+    }
+  });
+
   // tools/list is served from the Zod raw shapes in createServer.ts, not from the
   // JSON Schema in ADS_MCP_TOOL_DEFINITIONS, so a property declared in only one of
   // them is invisible to clients (Zod missing) or excluded from the strictParams

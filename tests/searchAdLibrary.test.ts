@@ -10,14 +10,14 @@ describe('searchAdLibrary', () => {
           id: 'library-1',
           page_id: 'page-1',
           page_name: 'Example Page',
-          ad_snapshot_url: 'https://www.facebook.com/ads/archive/render_ad/?id=library-1',
+          ad_snapshot_url:
+            'https://www.facebook.com/ads/archive/render_ad/?id=library-1&amp;access_token=live-secret',
           ad_creative_bodies: ['Primary text'],
           ad_creative_link_titles: ['Headline'],
           ad_creative_link_descriptions: ['Description'],
           ad_creative_link_captions: ['example.com'],
           ad_delivery_start_time: '2026-08-01',
           ad_delivery_stop_time: '2026-08-20',
-          ad_active_status: 'INACTIVE',
           publisher_platforms: ['facebook', 'instagram'],
           spend: { lower_bound: '100', upper_bound: '499' },
           impressions: { lower_bound: '1000', upper_bound: '4999' },
@@ -59,6 +59,8 @@ describe('searchAdLibrary', () => {
       limit: 50,
       after: 'current-cursor',
     });
+    const requestedFields = metaGet.mock.calls[0]?.[1]?.fields as string;
+    expect(requestedFields).not.toContain('ad_active_status');
     expect(result.ads).toEqual([
       {
         libraryId: 'library-1',
@@ -74,7 +76,6 @@ describe('searchAdLibrary', () => {
         delivery: {
           startedAt: '2026-08-01',
           stoppedAt: '2026-08-20',
-          active: false,
           platforms: ['FACEBOOK', 'INSTAGRAM'],
         },
         transparency: {
@@ -86,7 +87,8 @@ describe('searchAdLibrary', () => {
       },
     ]);
     expect(result.paging.nextCursor).toBe('next-cursor');
-    expect(result.coverage.performanceMetricsAvailable).toBe(false);
+    expect(result.coverage.conversionMetricsAvailable).toBe(false);
+    expect(result.ads[0]?.snapshotUrl).not.toContain('access_token');
   });
 
   it('supports Page ID lookup and defaults optional arrays safely', async () => {
@@ -110,7 +112,7 @@ describe('searchAdLibrary', () => {
     expect(result.ads[0]).toMatchObject({
       libraryId: 'library-2',
       creative: { bodies: [], titles: [], descriptions: [], linkCaptions: [] },
-      delivery: { active: true, platforms: [] },
+      delivery: { platforms: [] },
     });
     expect(result.paging.nextCursor).toBeNull();
   });
@@ -128,11 +130,24 @@ describe('searchAdLibrary', () => {
       /dateMin/i,
     ],
     [{ countries: ['GB'], searchTerms: 'shoes', limit: 101 }, /between 1 and 100/i],
+    [{ countries: ['ZZ'], searchTerms: 'shoes' }, /supported Meta Ad Library country/i],
   ])('rejects invalid search options before calling Meta', async (options, message) => {
     const metaGet = vi.fn();
     const client = { metaGet } as unknown as MetaClient;
 
     await expect(searchAdLibrary(client, options)).rejects.toThrow(message);
     expect(metaGet).not.toHaveBeenCalled();
+  });
+
+  it("accepts Meta's documented ALL country sentinel", async () => {
+    const metaGet = vi.fn().mockResolvedValue({ data: [] });
+    const client = { metaGet } as unknown as MetaClient;
+
+    await searchAdLibrary(client, { countries: ['ALL'], searchTerms: 'shoes' });
+
+    expect(metaGet).toHaveBeenCalledWith(
+      '/ads_archive',
+      expect.objectContaining({ ad_reached_countries: ['ALL'] })
+    );
   });
 });

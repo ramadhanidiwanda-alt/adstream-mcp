@@ -2049,7 +2049,7 @@ describe('MetaAdsAdapter', () => {
       coverage: {
         adType: 'ALL',
         countries: ['GB'],
-        performanceMetricsAvailable: false,
+        conversionMetricsAvailable: false,
         limitations: [],
       },
     });

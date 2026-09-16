@@ -5,6 +5,7 @@ import type {
   AdLibrarySearchResult,
   SearchAdLibraryOptions,
 } from '../types.js';
+import { META_AD_LIBRARY_COUNTRIES } from '../types.js';
 
 export const META_AD_LIBRARY_FIELDS = [
   'id',
@@ -17,7 +18,6 @@ export const META_AD_LIBRARY_FIELDS = [
   'ad_creative_link_captions',
   'ad_delivery_start_time',
   'ad_delivery_stop_time',
-  'ad_active_status',
   'publisher_platforms',
   'spend',
   'impressions',
@@ -41,7 +41,6 @@ interface MetaAdLibraryAdRaw {
   ad_creative_link_captions?: string[];
   ad_delivery_start_time?: string;
   ad_delivery_stop_time?: string;
-  ad_active_status?: string;
   publisher_platforms?: string[];
   spend?: MetaAdLibraryRangeRaw;
   impressions?: MetaAdLibraryRangeRaw;
@@ -83,7 +82,7 @@ export async function searchAdLibrary(
     coverage: {
       adType,
       countries: [...options.countries],
-      performanceMetricsAvailable: false,
+      conversionMetricsAvailable: false,
       limitations: [
         'Commercial-ad availability is limited by Meta Ad Library API country and retention rules.',
         'The API does not expose conversion, click-through, revenue, or ROAS metrics for these ads.',
@@ -95,6 +94,10 @@ export async function searchAdLibrary(
 function assertValidSearchOptions(options: SearchAdLibraryOptions): void {
   if (options.countries.length === 0) {
     throw new Error('At least one reached country is required');
+  }
+  const supportedCountries = new Set<string>(META_AD_LIBRARY_COUNTRIES);
+  if (options.countries.some((country) => !supportedCountries.has(country))) {
+    throw new Error('countries contains an unsupported Meta Ad Library country');
   }
   if (!options.searchTerms?.trim() && !options.pageIds?.length) {
     throw new Error('At least one of searchTerms or pageIds is required');
@@ -126,7 +129,7 @@ function normalizeAd(item: MetaAdLibraryAdRaw): AdLibraryAd {
     libraryId: item.id ?? '',
     pageId: item.page_id,
     pageName: item.page_name,
-    snapshotUrl: item.ad_snapshot_url,
+    snapshotUrl: sanitizeSnapshotUrl(item.ad_snapshot_url),
     creative: {
       bodies: item.ad_creative_bodies ?? [],
       titles: item.ad_creative_link_titles ?? [],
@@ -136,11 +139,21 @@ function normalizeAd(item: MetaAdLibraryAdRaw): AdLibraryAd {
     delivery: {
       startedAt: item.ad_delivery_start_time,
       stoppedAt: item.ad_delivery_stop_time,
-      active: item.ad_active_status !== 'INACTIVE',
       platforms: (item.publisher_platforms ?? []).map((platform) => platform.toUpperCase()),
     },
     transparency: hasTransparency ? transparency : undefined,
   };
+}
+
+function sanitizeSnapshotUrl(value?: string): string | undefined {
+  if (!value) return undefined;
+  try {
+    const url = new URL(value.replaceAll('&amp;', '&'));
+    url.searchParams.delete('access_token');
+    return url.toString();
+  } catch {
+    return value.replace(/([?&]|&amp;)access_token=[^&]*/gi, '');
+  }
 }
 
 function normalizeRange(range?: MetaAdLibraryRangeRaw): AdLibraryRange | undefined {

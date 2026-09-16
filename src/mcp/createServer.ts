@@ -39,7 +39,11 @@ import {
   assetFeedSpecCreateError,
 } from '../index.js';
 import type { LocationBreakdown } from '../index.js';
-import { LOCATION_BREAKDOWNS, META_CREATABLE_CREATIVE_FORMATS } from '../types.js';
+import {
+  LOCATION_BREAKDOWNS,
+  META_AD_LIBRARY_COUNTRIES,
+  META_CREATABLE_CREATIVE_FORMATS,
+} from '../types.js';
 import {
   META_CONVERSION_LOCATIONS,
   META_MESSAGING_DESTINATIONS,
@@ -415,7 +419,7 @@ const listAdVideosInputSchema = {
 const adLibrarySearchInputSchema = {
   provider: z.literal('meta').describe('Meta is the only provider supported by this tool.'),
   countries: z
-    .array(z.string().length(2))
+    .array(z.enum(META_AD_LIBRARY_COUNTRIES))
     .min(1)
     .describe('ISO 3166-1 alpha-2 country codes the ads reached.'),
   searchTerms: z.string().min(1).max(100).optional(),
@@ -2498,6 +2502,23 @@ export function createMetaAdsMcpServer(options: CreateMetaAdsMcpServerOptions = 
         const oauthAuthContext = extra.authInfo?.extra?.oauthAuthContext;
         // Pass oauth context through params for oauth_token mode
         const toolArgs = args ?? {};
+        if (
+          toolDefinition.name === 'ads_search_ad_library' &&
+          !(
+            (typeof toolArgs.searchTerms === 'string' && toolArgs.searchTerms.trim()) ||
+            (Array.isArray(toolArgs.pageIds) && toolArgs.pageIds.length > 0)
+          )
+        ) {
+          return {
+            content: [
+              {
+                type: 'text' as const,
+                text: 'At least one of searchTerms or pageIds is required',
+              },
+            ],
+            isError: true,
+          };
+        }
         if (oauthAuthContext && !connectionKey) {
           (toolArgs as Record<string, unknown>)._oauthAuthContext = oauthAuthContext;
         }

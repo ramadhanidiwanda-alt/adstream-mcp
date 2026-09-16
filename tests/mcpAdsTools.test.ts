@@ -316,7 +316,7 @@ describe('ads MCP broker tools', () => {
             coverage: {
               adType: 'ALL' as const,
               countries: ['GB'],
-              performanceMetricsAvailable: false as const,
+              conversionMetricsAvailable: false as const,
               limitations: [],
             },
           },

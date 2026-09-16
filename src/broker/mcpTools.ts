@@ -40,6 +40,7 @@ import {
 import {
   LOCATION_BREAKDOWNS,
   META_CREATABLE_CREATIVE_FORMATS,
+  META_AD_LIBRARY_COUNTRIES,
   type MetaPageWelcomeMessage,
 } from '../types.js';
 import {
@@ -1611,7 +1612,8 @@ function getAdsCapabilities(request: AdsBrokerRequest): AdsBrokerResponse<Record
         supportedProviders: ['meta'],
         searchTool: 'ads_search_ad_library',
         pagination: true,
-        performanceMetrics: false,
+        conversionMetrics: false,
+        transparencyRanges: ['spend', 'impressions'],
         coverage: {
           politicalAndIssueAds: 'Global availability subject to Meta retention rules.',
           commercialAds: 'UK/EU availability subject to Meta country and retention rules.',
@@ -1657,7 +1659,7 @@ function createAdLibrarySearchInputSchema() {
         type: 'array',
         minItems: 1,
         uniqueItems: true,
-        items: { type: 'string', minLength: 2, maxLength: 2 },
+        items: { type: 'string', enum: [...META_AD_LIBRARY_COUNTRIES] },
         description: 'ISO 3166-1 alpha-2 country codes the ads reached.',
       },
       searchTerms: {
