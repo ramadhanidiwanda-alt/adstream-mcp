@@ -980,6 +980,28 @@ describe('createAd', () => {
     }
   );
 
+  it.each(['WHATSAPP', 'MESSENGER', 'INSTAGRAM_DIRECT', 'WEBSITE'])(
+    'blocks existing-post CTWA on a %s ad set even without skipMessagingDestinationCheck',
+    async (destinationType) => {
+      mockMetaGetObject.mockImplementation(async (path: string) =>
+        path === '/as456'
+          ? { destination_type: destinationType, is_dynamic_creative: false }
+          : {
+              object_story_id: 'page-1_post-1',
+              call_to_action: { type: 'WHATSAPP_MESSAGE' },
+            }
+      );
+
+      const result = await createAd(mockClient, baseOpts);
+
+      expect(result).toMatchObject({
+        status: 'preflight_blocked',
+        errorSource: 'local_preflight',
+        preflightCheck: 'ctwa_existing_post_renderability',
+      });
+      expect(mockMetaPost).not.toHaveBeenCalled();
+    }
+  );
   it('fails closed before a confirmed POST when the creative cannot be verified', async () => {
     mockMetaGetObject.mockRejectedValue(new Error('Graph read unavailable'));
 
@@ -1092,10 +1114,14 @@ describe('createAd', () => {
     expect(r.warnings?.join(' ')).toMatch(/Messaging destination\/CTA cross-check skipped/);
   });
 
-  it('returns failed on error', async () => {
+  it('returns failed on error without leaking access tokens', async () => {
     const token = 'task8_create_ad_secret_123456789';
     mockMetaPost.mockRejectedValueOnce(
-      new Error(`Ad failed: access_token=${token}; Authorization: Bearer ${token}`)
+      new MetaApiError({
+        message: `Ad failed: access_token=${token}; Authorization: Bearer ***`,
+        type: 'OAuthException',
+        code: 1,
+      })
     );
     const r = await createAd(mockClient, baseOpts, { dryRun: false, confirmed: true });
     expect(r.status).toBe('failed');
@@ -1103,7 +1129,8 @@ describe('createAd', () => {
     expect(r.error).toContain('[REDACTED]');
     expect(r.structuredError?.message).toContain('[REDACTED]');
     expect(json).not.toContain(token);
+    expect(r.error).not.toContain(token);
+    expect(r.structuredError?.message).not.toContain(token);
     expect(json).not.toContain(`access_token=${token}`);
-    expect(json).not.toContain(`Authorization: Bearer ${token}`);
   });
 });

@@ -206,25 +206,39 @@ export async function getMessagingDestinationCompatibilityError(
   creativeId: string,
   maxRetries: number
 ): Promise<string | undefined> {
+  let creative: Record<string, unknown> | undefined;
   try {
-    const [adSet, creative] = await Promise.all([
-      client.metaGetObject<Record<string, unknown>>(
-        `/${adSetId}`,
-        { fields: 'destination_type' },
-        maxRetries
-      ),
-      client.metaGetObject<Record<string, unknown>>(
-        `/${creativeId}`,
-        {
-          fields:
-            'call_to_action,object_story_id,source_instagram_media_id,object_story_spec,asset_feed_spec',
-        },
-        maxRetries
-      ),
-    ]);
-
-    return getMessagingDestinationMismatch(adSet, creative);
+    creative = await client.metaGetObject<Record<string, unknown>>(
+      `/${creativeId}`,
+      {
+        fields:
+          'call_to_action,object_story_id,source_instagram_media_id,object_story_spec,asset_feed_spec',
+      },
+      maxRetries
+    );
   } catch {
+    // Mandatory renderability check: if we cannot read the creative, we cannot
+    // prove an existing-post CTWA is safe. Fail closed.
+    return EXISTING_POST_CTWA_VERIFICATION_ERROR;
+  }
+
+  const renderabilityError = getExistingPostCtwaRenderabilityMismatch(creative);
+  if (renderabilityError) return renderabilityError;
+
+  let adSet: Record<string, unknown> | undefined;
+  try {
+    adSet = await client.metaGetObject<Record<string, unknown>>(
+      `/${adSetId}`,
+      { fields: 'destination_type' },
+      maxRetries
+    );
+  } catch {
+    // Advisory destination check: without the ad set we cannot validate the
+    // CTA/destination pairing, but the mandatory renderability check already
+    // passed, so we allow the caller to proceed and let Meta be the source of
+    // truth for destination mismatches.
     return undefined;
   }
+
+  return getMessagingDestinationMismatch(adSet, creative);
 }
