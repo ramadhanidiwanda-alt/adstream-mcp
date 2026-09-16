@@ -42,6 +42,11 @@ export const EXISTING_POST_CTWA_RENDERABILITY_ERROR =
   'dapat tayang dengan aman. Buat ulang creative sebagai single_image atau video inline dengan ' +
   'media, body, Page/Instagram identity, page_welcome_message, dan CTA yang sama.';
 
+export const EXISTING_POST_CTWA_VERIFICATION_ERROR =
+  'MCP tidak dapat memverifikasi creative sebelum membuat ad. Karena creative existing-post ' +
+  'dengan WHATSAPP_MESSAGE dapat tersimpan tanpa tombol CTA yang renderable, create ad diblokir ' +
+  'secara fail-closed. Pastikan credential dapat membaca creative lalu ulangi.';
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -86,6 +91,20 @@ function collectCallToActions(creative: Record<string, unknown>): Record<string,
   return found;
 }
 
+export function getExistingPostCtwaRenderabilityMismatch(
+  creative: Record<string, unknown>
+): string | undefined {
+  const isExistingPost = Boolean(
+    readString(creative.object_story_id) || readString(creative.source_instagram_media_id)
+  );
+  if (!isExistingPost) return undefined;
+
+  const hasWhatsappCallToAction = collectCallToActions(creative).some(
+    (callToAction) => readString(callToAction.type) === 'WHATSAPP_MESSAGE'
+  );
+  return hasWhatsappCallToAction ? EXISTING_POST_CTWA_RENDERABILITY_ERROR : undefined;
+}
+
 /**
  * Pure form of the check, so the rule can be exercised without a Meta client.
  * Returns undefined when the pairing is fine or when no rule applies.
@@ -104,6 +123,9 @@ export function getMessagingDestinationMismatch(
   adSet: Record<string, unknown>,
   creative: Record<string, unknown>
 ): string | undefined {
+  const renderabilityError = getExistingPostCtwaRenderabilityMismatch(creative);
+  if (renderabilityError) return renderabilityError;
+
   const destinationType = readString(adSet.destination_type);
   if (!destinationType) return undefined;
 
@@ -138,17 +160,6 @@ export function getMessagingDestinationMismatch(
   }
   if (ctaTypes.length === 0) return undefined;
 
-  const isExistingPost = Boolean(
-    readString(creative.object_story_id) || readString(creative.source_instagram_media_id)
-  );
-  if (
-    isExistingPost &&
-    allowedCtaTypes.includes('WHATSAPP_MESSAGE') &&
-    ctaTypes.includes('WHATSAPP_MESSAGE')
-  ) {
-    return EXISTING_POST_CTWA_RENDERABILITY_ERROR;
-  }
-
   const mismatched = ctaTypes.filter((type) => !allowedCtaTypes.includes(type));
   if (mismatched.length > 0) {
     return `Ad set memakai destination_type ${destinationType} tetapi creative memakai callToAction ${[...new Set(mismatched)].join(', ')}. CTA yang cocok: ${allowedCtaTypes.join(', ')}. Kombinasi ini diterima Meta saat create tetapi iklannya tayang dengan tombol yang membuka tujuan yang salah.`;
@@ -165,6 +176,23 @@ export function getMessagingDestinationMismatch(
   }
 
   return undefined;
+}
+
+export async function getExistingPostCtwaRenderabilityError(
+  client: MetaClient,
+  creativeId: string,
+  maxRetries: number
+): Promise<string | undefined> {
+  try {
+    const creative = await client.metaGetObject<Record<string, unknown>>(
+      `/${creativeId}`,
+      { fields: 'call_to_action,object_story_id,source_instagram_media_id' },
+      maxRetries
+    );
+    return getExistingPostCtwaRenderabilityMismatch(creative);
+  } catch {
+    return EXISTING_POST_CTWA_VERIFICATION_ERROR;
+  }
 }
 
 /**

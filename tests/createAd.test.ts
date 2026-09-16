@@ -955,24 +955,44 @@ describe('createAd', () => {
     }
   );
 
-  it('does not let skipMessagingDestinationCheck bypass the existing-post CTWA safety guard', async () => {
-    mockMetaGetObject.mockImplementation(async (path: string) =>
-      path === '/as456'
-        ? { destination_type: 'WHATSAPP', is_dynamic_creative: false }
-        : {
-            object_story_id: 'page-1_post-1',
-            call_to_action: { type: 'WHATSAPP_MESSAGE' },
-          }
-    );
+  it.each(['WHATSAPP', 'MESSENGER', 'INSTAGRAM_DIRECT', 'WEBSITE'])(
+    'does not let destination %s or skipMessagingDestinationCheck bypass the existing-post CTWA guard',
+    async (destinationType) => {
+      mockMetaGetObject.mockImplementation(async (path: string) =>
+        path === '/as456'
+          ? { destination_type: destinationType, is_dynamic_creative: false }
+          : {
+              object_story_id: 'page-1_post-1',
+              call_to_action: { type: 'WHATSAPP_MESSAGE' },
+            }
+      );
 
-    const result = await createAd(mockClient, {
-      ...baseOpts,
-      skipMessagingDestinationCheck: true,
+      const result = await createAd(mockClient, {
+        ...baseOpts,
+        skipMessagingDestinationCheck: true,
+      });
+
+      expect(result).toMatchObject({
+        status: 'preflight_blocked',
+        preflightCheck: 'ctwa_existing_post_renderability',
+      });
+      expect(mockMetaPost).not.toHaveBeenCalled();
+    }
+  );
+
+  it('fails closed before a confirmed POST when the creative cannot be verified', async () => {
+    mockMetaGetObject.mockRejectedValue(new Error('Graph read unavailable'));
+
+    const result = await createAd(mockClient, baseOpts, {
+      dryRun: false,
+      confirmed: true,
     });
 
     expect(result).toMatchObject({
       status: 'preflight_blocked',
-      preflightCheck: 'ctwa_existing_post_renderability',
+      errorSource: 'local_preflight',
+      preflightCheck: 'ctwa_existing_post_verification',
+      error: expect.stringMatching(/tidak dapat memverifikasi.*creative/i),
     });
     expect(mockMetaPost).not.toHaveBeenCalled();
   });

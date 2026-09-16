@@ -13,7 +13,8 @@ import {
 } from '../utils/formatMetaWriteError.js';
 import { getOmnichannelCompatibilityError } from '../providers/meta/omnichannelAdCompatibility.js';
 import {
-  EXISTING_POST_CTWA_RENDERABILITY_ERROR,
+  EXISTING_POST_CTWA_VERIFICATION_ERROR,
+  getExistingPostCtwaRenderabilityError,
   getMessagingDestinationCompatibilityError,
 } from '../providers/meta/messagingDestinationCompatibility.js';
 import {
@@ -167,6 +168,22 @@ export async function createAd(
       preflightCheck: check,
     });
 
+  if (options.creativeId) {
+    const renderabilityError = await getExistingPostCtwaRenderabilityError(
+      client,
+      options.creativeId,
+      maxRetries
+    );
+    if (renderabilityError) {
+      return preflightBlocked(
+        renderabilityError === EXISTING_POST_CTWA_VERIFICATION_ERROR
+          ? 'ctwa_existing_post_verification'
+          : 'ctwa_existing_post_renderability',
+        renderabilityError
+      );
+    }
+  }
+
   // Pre-flight: an omnichannel ad set requires an omnichannel-ready creative.
   // Surface this during dry-run so the mismatch is caught before any ad is made.
   if (options.creativeId && !options.skipOmnichannelCheck) {
@@ -181,20 +198,14 @@ export async function createAd(
 
   // Pre-flight: a click-to-message ad set needs a creative whose CTA opens the same
   // inbox. Meta accepts the mismatch and the ad runs with a button pointing elsewhere.
-  if (options.creativeId) {
+  if (options.creativeId && !options.skipMessagingDestinationCheck) {
     const messagingDestinationError = await getMessagingDestinationCompatibilityError(
       client,
       options.adSetId,
       options.creativeId,
       maxRetries
     );
-    if (messagingDestinationError === EXISTING_POST_CTWA_RENDERABILITY_ERROR) {
-      return preflightBlocked(
-        'ctwa_existing_post_renderability',
-        EXISTING_POST_CTWA_RENDERABILITY_ERROR
-      );
-    }
-    if (messagingDestinationError && !options.skipMessagingDestinationCheck) {
+    if (messagingDestinationError) {
       return preflightBlocked('messaging_destination', messagingDestinationError);
     }
   }
