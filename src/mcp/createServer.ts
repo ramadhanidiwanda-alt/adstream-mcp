@@ -1088,6 +1088,29 @@ const cpasCatalogBundleInputSchema = {
   confirmed: z.boolean().optional().describe('Required with dryRun=false.'),
 };
 
+const compactAdSetInputSchema = z.strictObject({
+  provider: z.enum(['meta']).optional().describe('Ads provider. Defaults to meta.'),
+  accountId: z.string().describe('Meta ad account ID.'),
+  campaignId: z.string().describe('Parent campaign ID.'),
+  name: z.string().describe('Ad set name.'),
+  status: z.enum(['ACTIVE', 'PAUSED']).optional().describe('Defaults to PAUSED.'),
+  dailyBudget: z.number().optional().describe('Daily budget in account minor units.'),
+  billingEvent: z.string().optional().describe('Meta billing event.'),
+  optimizationGoal: z.string().optional().describe('Meta optimization goal.'),
+  conversionLocation: z.enum(META_CONVERSION_LOCATIONS).optional(),
+  messagingDestination: z.enum(META_MESSAGING_DESTINATIONS).optional(),
+  destinationType: z.string().optional().describe('Destination such as WHATSAPP or WEBSITE.'),
+  pageId: z.string().optional().describe('Meta Page ID.'),
+  whatsappPhoneNumber: z.string().optional().describe('WhatsApp number in international format.'),
+  pixelId: z.string().optional().describe('Meta Pixel ID.'),
+  customEventType: z.string().optional().describe('Meta conversion event, such as PURCHASE.'),
+  targeting: z.record(z.unknown()).optional().describe('Raw Meta targeting object.'),
+  attributionSpec: z.array(z.record(z.unknown())).optional(),
+  dryRun: z.boolean().optional().describe('Defaults to true.'),
+  confirmed: z.boolean().optional().describe('Required when dryRun is false.'),
+  maxRetries: z.number().optional().describe('Maximum transient API retries. Defaults to 3.'),
+});
+
 const createAdSetInputSchema = {
   ...adsBaseInputSchema,
   accountId: z.string().describe('Provider account id. Required for ad set creation.'),
@@ -2220,7 +2243,7 @@ export function createMetaAdsMcpServer(options: CreateMetaAdsMcpServerOptions = 
     const hasFilePath = requiredFields.includes('filePath');
     const hasCreativeId = requiredFields.includes('creativeId');
 
-    let inputSchema: Record<string, z.ZodType<unknown>>;
+    let inputSchema: Record<string, z.ZodType<unknown>> | z.ZodType;
     if (toolDefinition.name === 'ads_get_performance') {
       inputSchema = adsPerformanceInputSchema;
     } else if (toolDefinition.name === 'ads_get_creatives') {
@@ -2291,11 +2314,10 @@ export function createMetaAdsMcpServer(options: CreateMetaAdsMcpServerOptions = 
       inputSchema = partnershipContentInputSchema;
     } else if (toolDefinition.name === 'ads_create_campaign') {
       inputSchema = createCampaignInputSchema;
-    } else if (
-      toolDefinition.name === 'ads_create_adset' ||
-      toolDefinition.name === 'adstream_create_adset'
-    ) {
+    } else if (toolDefinition.name === 'ads_create_adset') {
       inputSchema = createAdSetInputSchema;
+    } else if (toolDefinition.name === 'adstream_create_adset') {
+      inputSchema = compactAdSetInputSchema;
     } else if (toolDefinition.name === 'ads_create_adcreative') {
       inputSchema = createAdCreativeInputSchema;
     } else if (toolDefinition.name === 'ads_create_ad') {

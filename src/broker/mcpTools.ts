@@ -407,8 +407,9 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
   {
     name: 'adstream_create_adset',
     description:
-      'Adstream-specific compatibility alias for ads_create_adset. Create a Meta ad set or TikTok ad group under an existing campaign through Adstream. Dry-run by default. Set dryRun=false and confirmed=true to execute. Ad set is created PAUSED by default.',
-    inputSchema: createCreateAdSetInputSchema(),
+      'Compact Adstream compatibility alias for creating a Meta ad set. Use targeting for raw Meta targeting fields. Dry-run by default; set dryRun=false and confirmed=true to execute.',
+    inputSchema: createCompactAdSetInputSchema(),
+    strictParams: true,
   },
   {
     name: 'ads_create_adcreative',
@@ -2207,6 +2208,43 @@ function createCreateAdSetInputSchema() {
       confirmed: { type: 'boolean', description: 'Must be true to execute after preview.' },
     },
     required: ['accountId', 'campaignId', 'name'],
+  };
+}
+
+function createCompactAdSetInputSchema() {
+  return {
+    type: 'object',
+    properties: {
+      provider: { type: 'string', enum: ['meta'], description: 'Ads provider. Defaults to meta.' },
+      accountId: { type: 'string', description: 'Meta ad account ID.' },
+      campaignId: { type: 'string', description: 'Parent campaign ID.' },
+      name: { type: 'string', description: 'Ad set name.' },
+      status: { type: 'string', enum: ['ACTIVE', 'PAUSED'], description: 'Defaults to PAUSED.' },
+      dailyBudget: { type: 'number', description: 'Daily budget in account minor units.' },
+      billingEvent: { type: 'string', description: 'Meta billing event.' },
+      optimizationGoal: { type: 'string', description: 'Meta optimization goal.' },
+      conversionLocation: { type: 'string', enum: [...META_CONVERSION_LOCATIONS] },
+      messagingDestination: { type: 'string', enum: [...META_MESSAGING_DESTINATIONS] },
+      destinationType: { type: 'string', description: 'Destination such as WHATSAPP or WEBSITE.' },
+      pageId: { type: 'string', description: 'Meta Page ID.' },
+      whatsappPhoneNumber: {
+        type: 'string',
+        description: 'WhatsApp number in international format.',
+      },
+      pixelId: { type: 'string', description: 'Meta Pixel ID.' },
+      customEventType: { type: 'string', description: 'Meta conversion event, such as PURCHASE.' },
+      targeting: {
+        type: 'object',
+        description: 'Raw Meta targeting object, using Graph API field names.',
+        additionalProperties: true,
+      },
+      attributionSpec: { type: 'array', items: { type: 'object', additionalProperties: true } },
+      dryRun: { type: 'boolean', description: 'Defaults to true.' },
+      confirmed: { type: 'boolean', description: 'Required when dryRun is false.' },
+      maxRetries: { type: 'number', description: 'Maximum transient API retries. Defaults to 3.' },
+    },
+    required: ['accountId', 'campaignId', 'name'],
+    additionalProperties: false,
   };
 }
 
