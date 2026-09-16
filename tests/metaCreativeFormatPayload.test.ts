@@ -1083,66 +1083,46 @@ describe('buildMetaCreativeFormatPayload', () => {
     }
   });
 
-  it('keeps a CTWA page_welcome_message at the root of an existing Instagram post creative', () => {
-    const payload = buildMetaCreativeFormatPayload({
-      mode: 'standard',
-      pageId: 'page-1',
-      instagramUserId: 'ig-1',
-      creativeFormat: 'existing_post',
-      creativeSpec: {
-        sourceInstagramMediaId: '18571075747064659',
-        callToAction: 'WHATSAPP_MESSAGE',
-        appDestination: 'WHATSAPP',
-        destinationUrl: 'https://wa.me/6285156583372',
-        pageWelcomeMessage: '{"type":"VISUAL_EDITOR","version":2}',
-      },
-    });
-
-    expect(payload).toEqual({
-      source_instagram_media_id: '18571075747064659',
-      instagram_user_id: 'ig-1',
-      call_to_action: {
-        type: 'WHATSAPP_MESSAGE',
-        value: {
-          app_destination: 'WHATSAPP',
-          link: 'https://api.whatsapp.com/send',
-        },
-      },
-      page_welcome_message: { type: 'VISUAL_EDITOR', version: 2 },
-    });
-  });
-
-  it('wraps a plain-string CTWA welcome message into a VISUAL_EDITOR object for existing_post', () => {
-    const payload = buildMetaCreativeFormatPayload({
-      mode: 'standard',
-      pageId: 'page-1',
-      instagramUserId: 'ig-1',
-      creativeFormat: 'existing_post',
-      creativeSpec: {
-        sourceInstagramMediaId: '18571075747064659',
-        callToAction: 'WHATSAPP_MESSAGE',
-        appDestination: 'WHATSAPP',
-        destinationUrl: 'https://wa.me/6285156583372',
-        pageWelcomeMessage: 'Halo, ada yang bisa kami bantu?',
-      },
-    });
-
-    expect(payload.page_welcome_message).toEqual({
-      type: 'VISUAL_EDITOR',
-      version: 2,
-      landing_screen_type: 'ctwa_call_prompt',
-      media_type: 'text',
-      text_format: {
-        customer_action_type: 'autofill_message',
-        message: {
-          text: 'Halo, ada yang bisa kami bantu?',
-          call_prompt_data: {
-            call_prompt_message: 'Halo, ada yang bisa kami bantu?',
+  it.each([
+    {
+      label: 'Facebook object_story_id',
+      identity: { objectStoryId: 'page-1_post-1' },
+      topLevelIdentity: {},
+    },
+    {
+      label: 'Instagram source media',
+      identity: { sourceInstagramMediaId: '18571075747064659' },
+      topLevelIdentity: { instagramUserId: 'ig-1' },
+    },
+  ])(
+    'rejects CTWA existing_post from $label because Meta may store the CTA without rendering a button',
+    ({ identity, topLevelIdentity }) => {
+      expect(() =>
+        buildMetaCreativeFormatPayload({
+          mode: 'standard',
+          pageId: 'page-1',
+          ...topLevelIdentity,
+          creativeFormat: 'existing_post',
+          creativeSpec: {
+            ...identity,
+            callToAction: 'WHATSAPP_MESSAGE',
+            appDestination: 'WHATSAPP',
+            destinationUrl: 'https://api.whatsapp.com/send',
+            pageWelcomeMessage: {
+              type: 'VISUAL_EDITOR',
+              version: 2,
+              text_format: {
+                message: {
+                  text: 'Halo!',
+                  ice_breakers: [{ title: 'Cek harga', response: 'Produk mana?' }],
+                },
+              },
+            },
           },
-        },
-      },
-    });
-  });
+        })
+      ).toThrow(/CTWA.*existing_post.*single_image.*video/is);
+    }
+  );
 
   it('does not wrap a plain-string welcome message for non-WhatsApp messaging existing_post CTAs', () => {
     const payload = buildMetaCreativeFormatPayload({

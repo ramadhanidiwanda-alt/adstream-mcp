@@ -12,7 +12,11 @@ import {
   formatStructuredMetaWriteError,
 } from '../utils/formatMetaWriteError.js';
 import { getOmnichannelCompatibilityError } from '../providers/meta/omnichannelAdCompatibility.js';
-import { getMessagingDestinationCompatibilityError } from '../providers/meta/messagingDestinationCompatibility.js';
+import {
+  EXISTING_POST_CTWA_VERIFICATION_ERROR,
+  getExistingPostCtwaRenderabilityError,
+  getMessagingDestinationCompatibilityError,
+} from '../providers/meta/messagingDestinationCompatibility.js';
 import {
   classifyCreativeFamily,
   creativeFamilyLabel,
@@ -163,6 +167,22 @@ export async function createAd(
       errorSource: 'local_preflight',
       preflightCheck: check,
     });
+
+  if (options.creativeId) {
+    const renderabilityError = await getExistingPostCtwaRenderabilityError(
+      client,
+      options.creativeId,
+      maxRetries
+    );
+    if (renderabilityError) {
+      return preflightBlocked(
+        renderabilityError === EXISTING_POST_CTWA_VERIFICATION_ERROR
+          ? 'ctwa_existing_post_verification'
+          : 'ctwa_existing_post_renderability',
+        renderabilityError
+      );
+    }
+  }
 
   // Pre-flight: an omnichannel ad set requires an omnichannel-ready creative.
   // Surface this during dry-run so the mismatch is caught before any ad is made.

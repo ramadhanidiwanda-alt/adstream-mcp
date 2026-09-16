@@ -780,6 +780,15 @@ function buildExistingPost(
   const appDestination = optional(creativeSpec.appDestination, 'appDestination');
   const isMessaging = isMessagingCallToAction(callToAction);
 
+  if (callToAction === 'WHATSAPP_MESSAGE') {
+    throw new Error(
+      'CTWA dengan creativeFormat existing_post tidak aman: Meta dapat menyimpan call_to_action ' +
+        'WHATSAPP_MESSAGE pada creative tanpa merender tombol CTA pada ad. Gunakan creativeFormat ' +
+        'single_image atau video dengan media, body, Page/Instagram identity, CTA, dan ' +
+        'pageWelcomeMessage yang sama agar CTA berada di object_story_spec dan renderable.'
+    );
+  }
+
   if (appDestination && !callToAction) {
     throw new Error(
       'appDestination pada existing_post butuh callToAction messaging (mis. INSTAGRAM_MESSAGE). Tanpa callToAction tidak ada call_to_action yang bisa membawanya.'

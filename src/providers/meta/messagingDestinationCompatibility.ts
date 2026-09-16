@@ -36,6 +36,17 @@ const MESSAGING_DESTINATION_APP_DESTINATIONS: Readonly<Record<string, readonly s
   MESSAGING_MESSENGER_WHATSAPP: ['MESSENGER', 'WHATSAPP'],
 };
 
+export const EXISTING_POST_CTWA_RENDERABILITY_ERROR =
+  'Creative existing-post ini memakai WHATSAPP_MESSAGE di level root. Meta dapat menerima dan ' +
+  'mengembalikan CTA tersebut saat read-back tanpa merender tombol pada ad, sehingga iklan tidak ' +
+  'dapat tayang dengan aman. Buat ulang creative sebagai single_image atau video inline dengan ' +
+  'media, body, Page/Instagram identity, page_welcome_message, dan CTA yang sama.';
+
+export const EXISTING_POST_CTWA_VERIFICATION_ERROR =
+  'MCP tidak dapat memverifikasi creative sebelum membuat ad. Karena creative existing-post ' +
+  'dengan WHATSAPP_MESSAGE dapat tersimpan tanpa tombol CTA yang renderable, create ad diblokir ' +
+  'secara fail-closed. Pastikan credential dapat membaca creative lalu ulangi.';
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -80,6 +91,20 @@ function collectCallToActions(creative: Record<string, unknown>): Record<string,
   return found;
 }
 
+export function getExistingPostCtwaRenderabilityMismatch(
+  creative: Record<string, unknown>
+): string | undefined {
+  const isExistingPost = Boolean(
+    readString(creative.object_story_id) || readString(creative.source_instagram_media_id)
+  );
+  if (!isExistingPost) return undefined;
+
+  const hasWhatsappCallToAction = collectCallToActions(creative).some(
+    (callToAction) => readString(callToAction.type) === 'WHATSAPP_MESSAGE'
+  );
+  return hasWhatsappCallToAction ? EXISTING_POST_CTWA_RENDERABILITY_ERROR : undefined;
+}
+
 /**
  * Pure form of the check, so the rule can be exercised without a Meta client.
  * Returns undefined when the pairing is fine or when no rule applies.
@@ -98,6 +123,9 @@ export function getMessagingDestinationMismatch(
   adSet: Record<string, unknown>,
   creative: Record<string, unknown>
 ): string | undefined {
+  const renderabilityError = getExistingPostCtwaRenderabilityMismatch(creative);
+  if (renderabilityError) return renderabilityError;
+
   const destinationType = readString(adSet.destination_type);
   if (!destinationType) return undefined;
 
@@ -111,7 +139,7 @@ export function getMessagingDestinationMismatch(
   // diagnose it far more precisely than "no CTA" would. Leave them to it.
   if (callToActions.length === 0 && !isRecord(creative.asset_feed_spec)) {
     const whatsappHint = allowedCtaTypes.includes('WHATSAPP_MESSAGE')
-      ? ' Untuk WHATSAPP_MESSAGE pada creative existing_post, isi juga destinationUrl "https://api.whatsapp.com/send".'
+      ? ' Untuk WHATSAPP_MESSAGE, gunakan creative inline single_image atau video; existing_post ditolak karena Meta dapat menyimpan CTA tanpa merender tombolnya.'
       : '';
     return (
       `Ad set memakai destination_type ${destinationType} tetapi creative ini tidak punya call_to_action sama sekali. ` +
@@ -150,6 +178,23 @@ export function getMessagingDestinationMismatch(
   return undefined;
 }
 
+export async function getExistingPostCtwaRenderabilityError(
+  client: MetaClient,
+  creativeId: string,
+  maxRetries: number
+): Promise<string | undefined> {
+  try {
+    const creative = await client.metaGetObject<Record<string, unknown>>(
+      `/${creativeId}`,
+      { fields: 'call_to_action,object_story_id,source_instagram_media_id' },
+      maxRetries
+    );
+    return getExistingPostCtwaRenderabilityMismatch(creative);
+  } catch {
+    return EXISTING_POST_CTWA_VERIFICATION_ERROR;
+  }
+}
+
 /**
  * Read the ad set's destination_type and the creative's call_to_action, then report a
  * mismatch. Read failures are non-fatal: this is a pre-flight, and Meta's own error
@@ -161,22 +206,39 @@ export async function getMessagingDestinationCompatibilityError(
   creativeId: string,
   maxRetries: number
 ): Promise<string | undefined> {
+  let creative: Record<string, unknown> | undefined;
   try {
-    const [adSet, creative] = await Promise.all([
-      client.metaGetObject<Record<string, unknown>>(
-        `/${adSetId}`,
-        { fields: 'destination_type' },
-        maxRetries
-      ),
-      client.metaGetObject<Record<string, unknown>>(
-        `/${creativeId}`,
-        { fields: 'call_to_action,object_story_spec,asset_feed_spec' },
-        maxRetries
-      ),
-    ]);
-
-    return getMessagingDestinationMismatch(adSet, creative);
+    creative = await client.metaGetObject<Record<string, unknown>>(
+      `/${creativeId}`,
+      {
+        fields:
+          'call_to_action,object_story_id,source_instagram_media_id,object_story_spec,asset_feed_spec',
+      },
+      maxRetries
+    );
   } catch {
+    // Mandatory renderability check: if we cannot read the creative, we cannot
+    // prove an existing-post CTWA is safe. Fail closed.
+    return EXISTING_POST_CTWA_VERIFICATION_ERROR;
+  }
+
+  const renderabilityError = getExistingPostCtwaRenderabilityMismatch(creative);
+  if (renderabilityError) return renderabilityError;
+
+  let adSet: Record<string, unknown> | undefined;
+  try {
+    adSet = await client.metaGetObject<Record<string, unknown>>(
+      `/${adSetId}`,
+      { fields: 'destination_type' },
+      maxRetries
+    );
+  } catch {
+    // Advisory destination check: without the ad set we cannot validate the
+    // CTA/destination pairing, but the mandatory renderability check already
+    // passed, so we allow the caller to proceed and let Meta be the source of
+    // truth for destination mismatches.
     return undefined;
   }
+
+  return getMessagingDestinationMismatch(adSet, creative);
 }

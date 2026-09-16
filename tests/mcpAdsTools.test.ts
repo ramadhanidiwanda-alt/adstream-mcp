@@ -458,22 +458,23 @@ describe('ads MCP broker tools', () => {
     );
   });
 
-  it('documents root-level pageWelcomeMessage support for existing-post Click-to-WhatsApp', () => {
+  it('documents that existing-post Click-to-WhatsApp is rejected in favor of inline creative', () => {
     const tool = ADS_MCP_TOOL_DEFINITIONS.find(({ name }) => name === 'ads_create_adcreative');
     const properties = tool?.inputSchema.properties as Record<string, unknown>;
     const creativeSpec = properties.creativeSpec as { description?: string };
 
     expect(creativeSpec.description).toMatch(
-      /existing_post memakai[\s\S]*?pageWelcomeMessage[\s\S]*?Click-to-WhatsApp[\s\S]*?LEVEL ATAS creative/
+      /CTWA\/WHATSAPP_MESSAGE dengan existing_post DITOLAK[\s\S]*?single_image atau video inline/
     );
   });
 
-  it('documents welcomeMessageTemplateName support for existing-post Click-to-WhatsApp', () => {
+  it('does not advertise welcomeMessageTemplateName for existing-post Click-to-WhatsApp', () => {
     const tool = ADS_MCP_TOOL_DEFINITIONS.find(({ name }) => name === 'ads_create_adcreative');
     const properties = tool?.inputSchema.properties as Record<string, unknown>;
     const templateName = properties.welcomeMessageTemplateName as { description?: string };
 
-    expect(templateName.description).toMatch(/SEMUA creativeFormat[\s\S]*existing_post/i);
+    expect(templateName.description).toMatch(/existing_post.*Messenger\/Instagram Direct/i);
+    expect(templateName.description).not.toMatch(/existing_post Click-to-WhatsApp/i);
   });
 
   it('exposes applinkTreatment enum on ads_create_adcreative for omnichannel creatives', () => {
