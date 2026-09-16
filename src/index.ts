@@ -151,6 +151,16 @@ export { listAdVideos } from './tools/listAdVideos.js';
 export type { ListAdVideosOptions } from './tools/listAdVideos.js';
 export { getAdPreview } from './tools/getAdPreview.js';
 export type { GetAdPreviewOptions, AdPreviewFormat } from './tools/getAdPreview.js';
+export { searchAdLibrary, META_AD_LIBRARY_FIELDS } from './tools/searchAdLibrary.js';
+export type {
+  SearchAdLibraryOptions,
+  AdLibraryAd,
+  AdLibrarySearchResult,
+  MetaAdLibraryAdType,
+  MetaAdLibraryActiveStatus,
+  MetaAdLibraryMediaType,
+  MetaAdLibraryPublisherPlatform,
+} from './types.js';
 export { checkLaunchReadiness } from './tools/checkLaunchReadiness.js';
 export type * from './tools/checkLaunchReadiness.js';
 export { getLaunchPreset, inferLaunchWorkflow } from './tools/launchPresets.js';

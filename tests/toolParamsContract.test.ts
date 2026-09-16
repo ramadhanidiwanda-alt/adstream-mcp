@@ -129,6 +129,7 @@ describe('strict params enrollment', () => {
       'ads_create_adcreative',
       'ads_read_adset_full',
       'ads_read_creative_full',
+      'ads_search_ad_library',
       'adstream_create_adset',
     ]);
   });

@@ -412,6 +412,48 @@ const listAdVideosInputSchema = {
   cursor: z.string().optional().describe('Opaque pagination cursor from a previous response.'),
 };
 
+const adLibrarySearchInputSchema = {
+  provider: z.literal('meta').describe('Meta is the only provider supported by this tool.'),
+  countries: z
+    .array(z.string().length(2))
+    .min(1)
+    .describe('ISO 3166-1 alpha-2 country codes the ads reached.'),
+  searchTerms: z.string().min(1).max(100).optional(),
+  pageIds: z.array(z.string().min(1)).min(1).max(10).optional(),
+  adType: z
+    .enum([
+      'ALL',
+      'POLITICAL_AND_ISSUE_ADS',
+      'EMPLOYMENT_ADS',
+      'FINANCIAL_PRODUCTS_AND_SERVICES_ADS',
+      'HOUSING_ADS',
+    ])
+    .optional(),
+  activeStatus: z.enum(['ACTIVE', 'INACTIVE', 'ALL']).optional(),
+  dateMin: z.string().optional(),
+  dateMax: z.string().optional(),
+  mediaType: z.enum(['ALL', 'IMAGE', 'MEME', 'VIDEO', 'NONE']).optional(),
+  publisherPlatforms: z
+    .array(
+      z.enum([
+        'FACEBOOK',
+        'INSTAGRAM',
+        'AUDIENCE_NETWORK',
+        'MESSENGER',
+        'WHATSAPP',
+        'OCULUS',
+        'THREADS',
+        'STREAMING_SERVICES',
+      ])
+    )
+    .optional(),
+  languages: z.array(z.string().min(2).max(3)).optional(),
+  searchType: z.enum(['KEYWORD_UNORDERED', 'KEYWORD_EXACT_PHRASE']).optional(),
+  limit: z.number().min(1).max(100).optional(),
+  cursor: z.string().min(1).optional(),
+  connectionKey: z.string().optional(),
+};
+
 const tiktokOperationStatus = (description = 'TikTok operation_status, ENABLE or DISABLE.') =>
   z.string().optional().describe(description);
 
@@ -2296,6 +2338,8 @@ export function createMetaAdsMcpServer(options: CreateMetaAdsMcpServerOptions = 
       inputSchema = listAdVideosInputSchema;
     } else if (toolDefinition.name === 'ads_get_change_history') {
       inputSchema = changeHistoryInputSchema;
+    } else if (toolDefinition.name === 'ads_search_ad_library') {
+      inputSchema = adLibrarySearchInputSchema;
     } else if (toolDefinition.name === 'ads_create_welcome_message_template') {
       inputSchema = createWelcomeMessageTemplateInputSchema;
     } else if (toolDefinition.name === 'ads_list_welcome_message_templates') {

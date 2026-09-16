@@ -1393,6 +1393,9 @@ export interface AdsProviderAdapter {
   uploadImage(request: AdsBrokerRequest): Promise<AdsBrokerResponse<ImageUploadResult>>;
   uploadVideo(request: AdsBrokerRequest): Promise<AdsBrokerResponse<VideoUploadResult>>;
   getAccountInfo(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AccountInfoResult>>;
+  searchAdLibrary?(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<import('../types.js').AdLibrarySearchResult>>;
   listAdImages(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdImageResult[]>>;
   listAdVideos(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdVideoResult[]>>;
   getAdPreview(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdPreviewResult[]>>;

@@ -2042,6 +2042,40 @@ describe('MetaAdsAdapter', () => {
     expect(response.errors?.[0].code).toBe('MISSING_META_CREDENTIALS');
   });
 
+  it('searches the Ad Library without requiring an ad account ID', async () => {
+    const searchAdLibrary = vi.fn().mockResolvedValue({
+      ads: [],
+      paging: { nextCursor: null },
+      coverage: {
+        adType: 'ALL',
+        countries: ['GB'],
+        performanceMetricsAvailable: false,
+        limitations: [],
+      },
+    });
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: { searchAdLibrary },
+    });
+
+    const response = await adapter.searchAdLibrary({
+      provider: 'meta',
+      params: { countries: ['GB'], searchTerms: 'shoes', limit: 20, cursor: 'page-2' },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    });
+
+    expect(response.ok).toBe(true);
+    expect(searchAdLibrary).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        countries: ['GB'],
+        searchTerms: 'shoes',
+        limit: 20,
+        cursor: 'page-2',
+      })
+    );
+  });
+
   it('forwards placement filter params to Meta placement tool', async () => {
     let receivedOptions;
     const adapter = new MetaAdsAdapter({

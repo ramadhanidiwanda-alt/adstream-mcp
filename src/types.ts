@@ -4,6 +4,90 @@ export interface MetaConfig {
   apiVersion: string;
 }
 
+export const META_AD_LIBRARY_AD_TYPES = [
+  'ALL',
+  'POLITICAL_AND_ISSUE_ADS',
+  'EMPLOYMENT_ADS',
+  'FINANCIAL_PRODUCTS_AND_SERVICES_ADS',
+  'HOUSING_ADS',
+] as const;
+export type MetaAdLibraryAdType = (typeof META_AD_LIBRARY_AD_TYPES)[number];
+
+export const META_AD_LIBRARY_ACTIVE_STATUSES = ['ACTIVE', 'INACTIVE', 'ALL'] as const;
+export type MetaAdLibraryActiveStatus = (typeof META_AD_LIBRARY_ACTIVE_STATUSES)[number];
+
+export const META_AD_LIBRARY_MEDIA_TYPES = ['ALL', 'IMAGE', 'MEME', 'VIDEO', 'NONE'] as const;
+export type MetaAdLibraryMediaType = (typeof META_AD_LIBRARY_MEDIA_TYPES)[number];
+
+export const META_AD_LIBRARY_PUBLISHER_PLATFORMS = [
+  'FACEBOOK',
+  'INSTAGRAM',
+  'AUDIENCE_NETWORK',
+  'MESSENGER',
+  'WHATSAPP',
+  'OCULUS',
+  'THREADS',
+  'STREAMING_SERVICES',
+] as const;
+export type MetaAdLibraryPublisherPlatform = (typeof META_AD_LIBRARY_PUBLISHER_PLATFORMS)[number];
+
+export interface SearchAdLibraryOptions {
+  countries: string[];
+  searchTerms?: string;
+  pageIds?: string[];
+  adType?: MetaAdLibraryAdType;
+  activeStatus?: MetaAdLibraryActiveStatus;
+  dateMin?: string;
+  dateMax?: string;
+  mediaType?: MetaAdLibraryMediaType;
+  publisherPlatforms?: MetaAdLibraryPublisherPlatform[];
+  languages?: string[];
+  searchType?: 'KEYWORD_UNORDERED' | 'KEYWORD_EXACT_PHRASE';
+  limit?: number;
+  cursor?: string;
+}
+
+export interface AdLibraryRange {
+  lower?: number;
+  upper?: number;
+}
+
+export interface AdLibraryAd {
+  libraryId: string;
+  pageId?: string;
+  pageName?: string;
+  snapshotUrl?: string;
+  creative: {
+    bodies: string[];
+    titles: string[];
+    descriptions: string[];
+    linkCaptions: string[];
+  };
+  delivery: {
+    startedAt?: string;
+    stoppedAt?: string;
+    active: boolean;
+    platforms: string[];
+  };
+  transparency?: {
+    spendRange?: AdLibraryRange;
+    impressionsRange?: AdLibraryRange;
+    currency?: string;
+    byline?: string;
+  };
+}
+
+export interface AdLibrarySearchResult {
+  ads: AdLibraryAd[];
+  paging: { nextCursor: string | null };
+  coverage: {
+    adType: MetaAdLibraryAdType;
+    countries: string[];
+    performanceMetricsAvailable: false;
+    limitations: string[];
+  };
+}
+
 export type MetaAdsMode = 'standard' | 'collaborative_ads';
 
 export const META_CREATIVE_FORMATS = [
