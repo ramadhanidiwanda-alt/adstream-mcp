@@ -2191,11 +2191,13 @@ describe('MetaAdsAdapter', () => {
   });
   it('passes full ad set write parameters from broker request into createAdSet tool', async () => {
     let receivedOptions: Record<string, unknown> | undefined;
+    let receivedExecOptions: Record<string, unknown> | undefined;
     const adapter = new MetaAdsAdapter({
       clientFactory: (config) => ({ config }) as never,
       tools: {
-        createAdSet: async (_client, options) => {
+        createAdSet: async (_client, options, execOptions) => {
           receivedOptions = options as unknown as Record<string, unknown>;
+          receivedExecOptions = execOptions as Record<string, unknown>;
           return {
             operation: 'create_adset',
             status: 'dry_run',
@@ -2229,6 +2231,7 @@ describe('MetaAdsAdapter', () => {
         dsaBeneficiary: 'Advertiser',
         dsaPayor: 'Advertiser',
         multiAdvertiserAds: 0,
+        maxRetries: 2,
       },
       credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
     });
@@ -2255,6 +2258,7 @@ describe('MetaAdsAdapter', () => {
       },
     });
     expect(JSON.stringify(response)).not.toContain('secret-token');
+    expect(receivedExecOptions).toEqual({ dryRun: true, confirmed: false, maxRetries: 2 });
   });
 
   it('wires behaviors/workEmployers/workPositions into a single flexibleSpec group, and params.targeting into metaTargetingOverride', async () => {

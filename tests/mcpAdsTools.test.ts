@@ -598,6 +598,43 @@ describe('ads MCP broker tools', () => {
     expect(legacyToolNames).toContain('meta_get_ads_insights');
   });
 
+  it('keeps the Adstream ad set alias schema compact while preserving the launch fields', () => {
+    const canonical = ADS_MCP_TOOL_DEFINITIONS.find((tool) => tool.name === 'ads_create_adset');
+    const alias = ADS_MCP_TOOL_DEFINITIONS.find((tool) => tool.name === 'adstream_create_adset');
+    const canonicalProperties = canonical?.inputSchema.properties as Record<string, unknown>;
+    const aliasProperties = alias?.inputSchema.properties as Record<string, unknown>;
+
+    expect(Object.keys(aliasProperties)).toEqual([
+      'provider',
+      'accountId',
+      'campaignId',
+      'name',
+      'status',
+      'dailyBudget',
+      'billingEvent',
+      'optimizationGoal',
+      'conversionLocation',
+      'messagingDestination',
+      'destinationType',
+      'pageId',
+      'whatsappPhoneNumber',
+      'pixelId',
+      'customEventType',
+      'targeting',
+      'attributionSpec',
+      'dryRun',
+      'confirmed',
+      'maxRetries',
+    ]);
+    expect(Object.keys(aliasProperties).length).toBeLessThan(
+      Object.keys(canonicalProperties).length
+    );
+    expect(aliasProperties).not.toHaveProperty('collaborativeCatalog');
+    expect(aliasProperties).not.toHaveProperty('placementType');
+    expect(alias?.inputSchema.required).toEqual(['accountId', 'campaignId', 'name']);
+    expect(alias?.inputSchema.additionalProperties).toBe(false);
+  });
+
   it('dispatches launch readiness checks and CPAS discovery tools to the broker', async () => {
     const calls: string[] = [];
     let readinessRequest: AdsBrokerRequest | undefined;
@@ -1163,16 +1200,22 @@ describe('ads MCP broker tools', () => {
     const createAdSet = vi.fn(async () => ({
       ok: true,
       provider: 'meta' as const,
-      data: { operation: 'create_adset' as const, status: 'dry_run' as const, executed: false, preview: {} },
+      data: {
+        operation: 'create_adset' as const,
+        status: 'dry_run' as const,
+        executed: false,
+        preview: {},
+      },
     }));
     const broker = { ...createBrokerStub(), createAdSet } as unknown as AdsBroker;
 
     try {
-      const response = await handleAdsMcpToolCall(
-        broker,
-        'adstream_create_adset',
-        { provider: 'meta', accountId: 'act_123', campaignId: 'cmp_123', name: 'Alias test' }
-      );
+      const response = await handleAdsMcpToolCall(broker, 'adstream_create_adset', {
+        provider: 'meta',
+        accountId: 'act_123',
+        campaignId: 'cmp_123',
+        name: 'Alias test',
+      });
 
       expect(response.isError).not.toBe(true);
       expect(createAdSet).toHaveBeenCalledWith(

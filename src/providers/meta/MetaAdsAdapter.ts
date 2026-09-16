@@ -1996,6 +1996,8 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
         {
           dryRun: request.params.dryRun !== false,
           confirmed: request.params.confirmed === true,
+          maxRetries:
+            typeof request.params.maxRetries === 'number' ? request.params.maxRetries : undefined,
         }
       );
       return { ok: result.status !== 'failed', provider: 'meta', data: result };

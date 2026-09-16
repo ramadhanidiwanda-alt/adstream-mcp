@@ -124,11 +124,12 @@ describe('strict params enrollment', () => {
     }
   });
 
-  it('enrolls exactly the three tools this change covers', () => {
+  it('enrolls exactly the strict-contract tools', () => {
     expect(STRICT_TOOL_DEFINITIONS.map((tool) => tool.name).sort()).toEqual([
       'ads_create_adcreative',
       'ads_read_adset_full',
       'ads_read_creative_full',
+      'adstream_create_adset',
     ]);
   });
 

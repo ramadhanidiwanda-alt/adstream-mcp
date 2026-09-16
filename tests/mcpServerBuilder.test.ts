@@ -305,6 +305,74 @@ describe('MCP server builder', () => {
     expect(names).toContain('adstream_create_adset');
   });
 
+  it('publishes a compact runtime schema for the Adstream ad set alias', async () => {
+    process.env.ADSTREAM_ENABLE_WRITES = 'true';
+
+    const response = await listRegisteredTools();
+    const canonical = response.tools.find((tool) => tool.name === 'ads_create_adset');
+    const alias = response.tools.find((tool) => tool.name === 'adstream_create_adset');
+    const canonicalProperties = canonical?.inputSchema.properties as Record<string, unknown>;
+    const aliasProperties = alias?.inputSchema.properties as Record<string, unknown>;
+
+    expect(Object.keys(aliasProperties)).toEqual([
+      'provider',
+      'accountId',
+      'campaignId',
+      'name',
+      'status',
+      'dailyBudget',
+      'billingEvent',
+      'optimizationGoal',
+      'conversionLocation',
+      'messagingDestination',
+      'destinationType',
+      'pageId',
+      'whatsappPhoneNumber',
+      'pixelId',
+      'customEventType',
+      'targeting',
+      'attributionSpec',
+      'dryRun',
+      'confirmed',
+      'maxRetries',
+    ]);
+    expect(Object.keys(aliasProperties).length).toBeLessThan(
+      Object.keys(canonicalProperties).length
+    );
+    expect(aliasProperties).not.toHaveProperty('collaborativeCatalog');
+    expect(aliasProperties).not.toHaveProperty('placementType');
+    expect(alias?.inputSchema.required).toEqual(['accountId', 'campaignId', 'name']);
+    expect(alias?.inputSchema.additionalProperties).toBe(false);
+  });
+
+  it('rejects unknown Adstream ad set fields at the MCP boundary', async () => {
+    process.env.ADSTREAM_ENABLE_WRITES = 'true';
+    const createAdSet = vi.fn(async () => ({ ok: true, provider: 'meta', data: {} }));
+    const adsBroker = { ...createBrokerStub(), createAdSet } as unknown as AdsBroker;
+    const { client, server } = await createConnectedClient({
+      config: metaConfig({ adAccountId: 'act_123' }),
+      adsBroker,
+    });
+
+    try {
+      const response = await client.callTool({
+        name: 'adstream_create_adset',
+        arguments: {
+          provider: 'meta',
+          accountId: 'act_123',
+          campaignId: 'cmp_123',
+          name: 'Compact alias',
+          typoField: 'must not be stripped',
+        },
+      });
+
+      expect(response.isError).toBe(true);
+      expect(createAdSet).not.toHaveBeenCalled();
+    } finally {
+      await Promise.all([client.close(), server.close()]);
+    }
+  });
+
   it('dispatches ads_list_adimages and ads_list_advideos to the broker (previously fell through to UNSUPPORTED_OPERATION)', async () => {
     const adsBroker = {
       ...createBrokerStub(),
