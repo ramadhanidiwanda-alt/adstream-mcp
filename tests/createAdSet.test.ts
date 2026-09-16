@@ -1212,6 +1212,26 @@ describe('createAdSet — bid strategy + pre-flight validation', () => {
       expect(targeting.custom_audiences).toEqual([{ id: 'aud_1' }]);
       expect(targeting.flexible_spec).toEqual([{ life_events: [{ id: 'life_1' }] }]);
     });
+
+    it('preserves advantage_audience from a raw targeting override when no typed value is provided', async () => {
+      const client = createMockClient();
+      const result = await createAdSet(
+        client,
+        {
+          ...defaultOptions,
+          targeting: {
+            metaTargetingOverride: {
+              geo_locations: { countries: ['ID'] },
+              targeting_automation: { advantage_audience: 1 },
+            },
+          },
+        },
+        { dryRun: true }
+      );
+
+      const targeting = result.preview.targeting as Record<string, unknown>;
+      expect(targeting.targeting_automation).toEqual({ advantage_audience: 1 });
+    });
   });
 });
 
