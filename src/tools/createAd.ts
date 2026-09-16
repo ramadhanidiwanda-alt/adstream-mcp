@@ -12,7 +12,10 @@ import {
   formatStructuredMetaWriteError,
 } from '../utils/formatMetaWriteError.js';
 import { getOmnichannelCompatibilityError } from '../providers/meta/omnichannelAdCompatibility.js';
-import { getMessagingDestinationCompatibilityError } from '../providers/meta/messagingDestinationCompatibility.js';
+import {
+  EXISTING_POST_CTWA_RENDERABILITY_ERROR,
+  getMessagingDestinationCompatibilityError,
+} from '../providers/meta/messagingDestinationCompatibility.js';
 import {
   classifyCreativeFamily,
   creativeFamilyLabel,
@@ -178,14 +181,20 @@ export async function createAd(
 
   // Pre-flight: a click-to-message ad set needs a creative whose CTA opens the same
   // inbox. Meta accepts the mismatch and the ad runs with a button pointing elsewhere.
-  if (options.creativeId && !options.skipMessagingDestinationCheck) {
+  if (options.creativeId) {
     const messagingDestinationError = await getMessagingDestinationCompatibilityError(
       client,
       options.adSetId,
       options.creativeId,
       maxRetries
     );
-    if (messagingDestinationError) {
+    if (messagingDestinationError === EXISTING_POST_CTWA_RENDERABILITY_ERROR) {
+      return preflightBlocked(
+        'ctwa_existing_post_renderability',
+        EXISTING_POST_CTWA_RENDERABILITY_ERROR
+      );
+    }
+    if (messagingDestinationError && !options.skipMessagingDestinationCheck) {
       return preflightBlocked('messaging_destination', messagingDestinationError);
     }
   }

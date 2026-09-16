@@ -36,6 +36,12 @@ const MESSAGING_DESTINATION_APP_DESTINATIONS: Readonly<Record<string, readonly s
   MESSAGING_MESSENGER_WHATSAPP: ['MESSENGER', 'WHATSAPP'],
 };
 
+export const EXISTING_POST_CTWA_RENDERABILITY_ERROR =
+  'Creative existing-post ini memakai WHATSAPP_MESSAGE di level root. Meta dapat menerima dan ' +
+  'mengembalikan CTA tersebut saat read-back tanpa merender tombol pada ad, sehingga iklan tidak ' +
+  'dapat tayang dengan aman. Buat ulang creative sebagai single_image atau video inline dengan ' +
+  'media, body, Page/Instagram identity, page_welcome_message, dan CTA yang sama.';
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -111,7 +117,7 @@ export function getMessagingDestinationMismatch(
   // diagnose it far more precisely than "no CTA" would. Leave them to it.
   if (callToActions.length === 0 && !isRecord(creative.asset_feed_spec)) {
     const whatsappHint = allowedCtaTypes.includes('WHATSAPP_MESSAGE')
-      ? ' Untuk WHATSAPP_MESSAGE pada creative existing_post, isi juga destinationUrl "https://api.whatsapp.com/send".'
+      ? ' Untuk WHATSAPP_MESSAGE, gunakan creative inline single_image atau video; existing_post ditolak karena Meta dapat menyimpan CTA tanpa merender tombolnya.'
       : '';
     return (
       `Ad set memakai destination_type ${destinationType} tetapi creative ini tidak punya call_to_action sama sekali. ` +
@@ -131,6 +137,17 @@ export function getMessagingDestinationMismatch(
     );
   }
   if (ctaTypes.length === 0) return undefined;
+
+  const isExistingPost = Boolean(
+    readString(creative.object_story_id) || readString(creative.source_instagram_media_id)
+  );
+  if (
+    isExistingPost &&
+    allowedCtaTypes.includes('WHATSAPP_MESSAGE') &&
+    ctaTypes.includes('WHATSAPP_MESSAGE')
+  ) {
+    return EXISTING_POST_CTWA_RENDERABILITY_ERROR;
+  }
 
   const mismatched = ctaTypes.filter((type) => !allowedCtaTypes.includes(type));
   if (mismatched.length > 0) {
@@ -170,7 +187,10 @@ export async function getMessagingDestinationCompatibilityError(
       ),
       client.metaGetObject<Record<string, unknown>>(
         `/${creativeId}`,
-        { fields: 'call_to_action,object_story_spec,asset_feed_spec' },
+        {
+          fields:
+            'call_to_action,object_story_id,source_instagram_media_id,object_story_spec,asset_feed_spec',
+        },
         maxRetries
       ),
     ]);

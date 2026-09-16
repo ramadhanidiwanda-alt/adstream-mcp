@@ -698,7 +698,7 @@ describe('createAdCreative', () => {
     expect(result.preview).not.toHaveProperty('asset_feed_spec');
   });
 
-  it('adds a WhatsApp welcome sequence to an existing-post creative as metadata-only asset feed', async () => {
+  it('rejects a WhatsApp welcome sequence on existing_post before creating a CTA-less ad', async () => {
     const result = await createAdCreative(mockClient, {
       adAccountId: 'act_1',
       name: 'Existing post with welcome flow',
@@ -716,17 +716,12 @@ describe('createAdCreative', () => {
     });
 
     expect(result).toMatchObject({
-      status: 'dry_run',
-      preview: {
-        source_instagram_media_id: 'media-1',
-        instagram_user_id: 'ig-1',
-        asset_feed_spec: {
-          additional_data: {
-            partner_app_welcome_message_flow_id: 'flow-1',
-          },
-        },
-      },
+      status: 'failed',
+      executed: false,
+      structuredError: { code: 'VALIDATION_ERROR' },
+      error: expect.stringMatching(/CTWA.*existing_post.*single_image.*video/is),
     });
+    expect(mockMetaPost).not.toHaveBeenCalled();
   });
 
   it('rejects an empty WhatsApp welcome sequence ID', async () => {
@@ -1032,7 +1027,7 @@ describe('createAdCreative', () => {
     expect(result.preview.object_story_spec).toBeUndefined();
   });
 
-  it('includes an existing Instagram WhatsApp Reel welcome message in the dry-run payload', async () => {
+  it('rejects an existing Instagram WhatsApp Reel before producing a non-renderable CTA', async () => {
     const pageWelcomeMessage = {
       type: 'VISUAL_EDITOR',
       text_format: {
@@ -1058,23 +1053,15 @@ describe('createAdCreative', () => {
     });
 
     expect(mockMetaPost).not.toHaveBeenCalled();
-    expect(result.status).toBe('dry_run');
-    expect(result.preview).toMatchObject({
-      source_instagram_media_id: '18571075747064659',
-      instagram_user_id: '17841449623015969',
-      call_to_action: {
-        type: 'WHATSAPP_MESSAGE',
-        value: {
-          app_destination: 'WHATSAPP',
-          link: 'https://api.whatsapp.com/send',
-        },
-      },
-      page_welcome_message: pageWelcomeMessage,
+    expect(result).toMatchObject({
+      status: 'failed',
+      executed: false,
+      structuredError: { code: 'VALIDATION_ERROR' },
+      error: expect.stringMatching(/CTWA.*existing_post.*single_image.*video/is),
     });
-    expect(result.preview.object_story_spec).toBeUndefined();
   });
 
-  it('normalizes existing Instagram WhatsApp Reel CTA links to the Ads Manager send URL', async () => {
+  it('rejects inferred CTWA on existing Instagram media', async () => {
     const result = await createAdCreative(mockClient, {
       adAccountId: 'act_426223085194693',
       name: 'HRC01 | REELS | CTWA',
@@ -1091,19 +1078,15 @@ describe('createAdCreative', () => {
       },
     });
 
-    expect(result.status).toBe('dry_run');
-    expect(result.preview).toMatchObject({
-      call_to_action: {
-        type: 'WHATSAPP_MESSAGE',
-        value: {
-          app_destination: 'WHATSAPP',
-          link: 'https://api.whatsapp.com/send',
-        },
-      },
+    expect(result).toMatchObject({
+      status: 'failed',
+      executed: false,
+      error: expect.stringMatching(/CTWA.*existing_post/is),
     });
+    expect(mockMetaPost).not.toHaveBeenCalled();
   });
 
-  it('keeps existing Instagram WhatsApp Reel CTA value when appDestination is supplied', async () => {
+  it('rejects explicit CTWA on existing Instagram media', async () => {
     const result = await createAdCreative(mockClient, {
       adAccountId: 'act_426223085194693',
       name: 'HRC01 | REELS | CTWA',
@@ -1119,16 +1102,12 @@ describe('createAdCreative', () => {
       },
     });
 
-    expect(result.status).toBe('dry_run');
-    expect(result.preview).toMatchObject({
-      call_to_action: {
-        type: 'WHATSAPP_MESSAGE',
-        value: {
-          app_destination: 'WHATSAPP',
-          link: 'https://api.whatsapp.com/send',
-        },
-      },
+    expect(result).toMatchObject({
+      status: 'failed',
+      executed: false,
+      error: expect.stringMatching(/CTWA.*existing_post/is),
     });
+    expect(mockMetaPost).not.toHaveBeenCalled();
   });
 
   it.each([

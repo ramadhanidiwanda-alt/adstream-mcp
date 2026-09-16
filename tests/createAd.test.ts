@@ -924,6 +924,59 @@ describe('createAd', () => {
     expect(mockMetaPost).not.toHaveBeenCalled();
   });
 
+  it.each([{ object_story_id: 'page-1_post-1' }, { source_instagram_media_id: 'ig-media-1' }])(
+    'blocks an existing-post CTWA creative even when Meta read-back contains WHATSAPP_MESSAGE',
+    async (contentReference) => {
+      mockMetaGetObject.mockImplementation(async (path: string) =>
+        path === '/as456'
+          ? { destination_type: 'WHATSAPP', is_dynamic_creative: false }
+          : {
+              ...contentReference,
+              call_to_action: {
+                type: 'WHATSAPP_MESSAGE',
+                value: {
+                  app_destination: 'WHATSAPP',
+                  link: 'https://api.whatsapp.com/send',
+                },
+              },
+              page_welcome_message: { type: 'VISUAL_EDITOR' },
+            }
+      );
+
+      const result = await createAd(mockClient, baseOpts);
+
+      expect(result).toMatchObject({
+        status: 'preflight_blocked',
+        errorSource: 'local_preflight',
+        preflightCheck: 'ctwa_existing_post_renderability',
+        error: expect.stringMatching(/existing-post.*WHATSAPP_MESSAGE.*tanpa merender/is),
+      });
+      expect(mockMetaPost).not.toHaveBeenCalled();
+    }
+  );
+
+  it('does not let skipMessagingDestinationCheck bypass the existing-post CTWA safety guard', async () => {
+    mockMetaGetObject.mockImplementation(async (path: string) =>
+      path === '/as456'
+        ? { destination_type: 'WHATSAPP', is_dynamic_creative: false }
+        : {
+            object_story_id: 'page-1_post-1',
+            call_to_action: { type: 'WHATSAPP_MESSAGE' },
+          }
+    );
+
+    const result = await createAd(mockClient, {
+      ...baseOpts,
+      skipMessagingDestinationCheck: true,
+    });
+
+    expect(result).toMatchObject({
+      status: 'preflight_blocked',
+      preflightCheck: 'ctwa_existing_post_renderability',
+    });
+    expect(mockMetaPost).not.toHaveBeenCalled();
+  });
+
   it('leaves a creative with no call_to_action alone on a non-messaging ad set', async () => {
     mockMetaGetObject.mockImplementation(async (path: string) =>
       path === '/as456'
