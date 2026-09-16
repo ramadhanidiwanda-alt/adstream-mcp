@@ -4,6 +4,96 @@ export interface MetaConfig {
   apiVersion: string;
 }
 
+export const META_AD_LIBRARY_AD_TYPES = [
+  'ALL',
+  'POLITICAL_AND_ISSUE_ADS',
+  'EMPLOYMENT_ADS',
+  'FINANCIAL_PRODUCTS_AND_SERVICES_ADS',
+  'HOUSING_ADS',
+] as const;
+export type MetaAdLibraryAdType = (typeof META_AD_LIBRARY_AD_TYPES)[number];
+
+export const META_AD_LIBRARY_ACTIVE_STATUSES = ['ACTIVE', 'INACTIVE', 'ALL'] as const;
+export type MetaAdLibraryActiveStatus = (typeof META_AD_LIBRARY_ACTIVE_STATUSES)[number];
+
+export const META_AD_LIBRARY_MEDIA_TYPES = ['ALL', 'IMAGE', 'MEME', 'VIDEO', 'NONE'] as const;
+export type MetaAdLibraryMediaType = (typeof META_AD_LIBRARY_MEDIA_TYPES)[number];
+
+export const META_AD_LIBRARY_PUBLISHER_PLATFORMS = [
+  'FACEBOOK',
+  'INSTAGRAM',
+  'AUDIENCE_NETWORK',
+  'MESSENGER',
+  'WHATSAPP',
+  'OCULUS',
+  'THREADS',
+  'STREAMING_SERVICES',
+] as const;
+export type MetaAdLibraryPublisherPlatform = (typeof META_AD_LIBRARY_PUBLISHER_PLATFORMS)[number];
+
+// Values documented by Meta for the ads_archive ad_reached_countries parameter.
+export const META_AD_LIBRARY_COUNTRIES =
+  'ALL BR IN GB US CA AR AU AT BE CL CN CO HR DK DO EG FI FR DE GR HK ID IE IL IT JP JO KW LB MY MX NL NZ NG NO PK PA PE PH PL RU SA RS SG ZA KR ES SE CH TW TH TR AE VE PT LU BG CZ SI IS SK LT TT BD LK KE HU MA CY JM EC RO BO GT CR QA SV HN NI PY UY PR BA PS TN BH VN GH MU UA MT BS MV OM MK LV EE IQ DZ AL NP MO ME SN GE BN UG GP BB AZ TZ LY MQ CM BW ET KZ NA MG NC MD FJ BY JE GU YE ZM IM HT KH AW PF AF BM GY AM MW AG RW GG GM FO LC KY BJ AD GD VI BZ VC MN MZ ML AO GF UZ DJ BF MC TG GL GA GI CD KG PG BT KN SZ LS LA LI MP SR SC VG TC DM MR AX SM SL NE CG AI YT CV GN TM BI TJ VU SB ER WS AS FK GQ TO KM PW FM CF SO MH VA TD KI ST TV NR RE LR ZW CI MM AN AQ BQ BV IO CX CC CK CW TF GW HM XK MS NU NF PN BL SH MF PM SX GS SS SJ TL TK UM WF EH SY'.split(
+    ' '
+  ) as [string, ...string[]];
+export type MetaAdLibraryCountry = (typeof META_AD_LIBRARY_COUNTRIES)[number];
+
+export interface SearchAdLibraryOptions {
+  countries: MetaAdLibraryCountry[];
+  searchTerms?: string;
+  pageIds?: string[];
+  adType?: MetaAdLibraryAdType;
+  activeStatus?: MetaAdLibraryActiveStatus;
+  dateMin?: string;
+  dateMax?: string;
+  mediaType?: MetaAdLibraryMediaType;
+  publisherPlatforms?: MetaAdLibraryPublisherPlatform[];
+  languages?: string[];
+  searchType?: 'KEYWORD_UNORDERED' | 'KEYWORD_EXACT_PHRASE';
+  limit?: number;
+  cursor?: string;
+}
+
+export interface AdLibraryRange {
+  lower?: number;
+  upper?: number;
+}
+
+export interface AdLibraryAd {
+  libraryId: string;
+  pageId?: string;
+  pageName?: string;
+  snapshotUrl?: string;
+  creative: {
+    bodies: string[];
+    titles: string[];
+    descriptions: string[];
+    linkCaptions: string[];
+  };
+  delivery: {
+    startedAt?: string;
+    stoppedAt?: string;
+    platforms: string[];
+  };
+  transparency?: {
+    spendRange?: AdLibraryRange;
+    impressionsRange?: AdLibraryRange;
+    currency?: string;
+    byline?: string;
+  };
+}
+
+export interface AdLibrarySearchResult {
+  ads: AdLibraryAd[];
+  paging: { nextCursor: string | null };
+  coverage: {
+    adType: MetaAdLibraryAdType;
+    countries: string[];
+    conversionMetricsAvailable: false;
+    limitations: string[];
+  };
+}
+
 export type MetaAdsMode = 'standard' | 'collaborative_ads';
 
 export const META_CREATIVE_FORMATS = [

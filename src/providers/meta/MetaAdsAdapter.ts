@@ -10,6 +10,7 @@ import {
   ADSET_FULL_FIELDS,
 } from '../../tools/readAdSetFull.js';
 import { getAdDestinations } from '../../tools/getAdDestinations.js';
+import { searchAdLibrary as searchAdLibraryTool } from '../../tools/searchAdLibrary.js';
 import type { AdCreativeMappingResult } from '../../broker/types.js';
 import {
   TOOL_PARAM_HINTS,
@@ -420,6 +421,10 @@ export interface MetaAdsAdapterTools {
     }
   ): Promise<UploadVideoResult>;
   listAdImages(client: MetaClient, options: { adAccountId: string }): Promise<AdImageResult[]>;
+  searchAdLibrary(
+    client: MetaClient,
+    options: import('../../types.js').SearchAdLibraryOptions
+  ): Promise<import('../../types.js').AdLibrarySearchResult>;
   listAdVideos(
     client: MetaClient,
     options: { adAccountId: string; limit?: number; cursor?: string }
@@ -568,6 +573,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
       uploadImage: uploadImageTool,
       uploadVideo: uploadVideoTool,
       listAdImages,
+      searchAdLibrary: searchAdLibraryTool,
       listAdVideos,
       resolveCreativeAssets: resolveCreativeAssetsTool,
       getAdPreview,
@@ -3486,6 +3492,72 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
     try {
       const client = this.createClient(context.credential);
       const result = await this.tools.listAdImages(client, { adAccountId });
+      return { ok: true, provider: 'meta', data: result };
+    } catch (error) {
+      return this.errorResponse(error);
+    }
+  }
+
+  async searchAdLibrary(
+    request: AdsBrokerRequest
+  ): Promise<AdsBrokerResponse<import('../../types.js').AdLibrarySearchResult>> {
+    const context = this.getCredentialContext(request);
+    if (!context.ok) return context.response;
+
+    const countries = Array.isArray(request.params.countries)
+      ? request.params.countries.map(String)
+      : [];
+    const searchTerms = optionalPlainString(request.params.searchTerms);
+    const pageIds = Array.isArray(request.params.pageIds)
+      ? request.params.pageIds.map(String)
+      : undefined;
+
+    if (countries.length === 0 || (!searchTerms && !pageIds?.length)) {
+      return {
+        ok: false,
+        provider: 'meta',
+        errors: [
+          {
+            provider: 'meta',
+            code: 'MISSING_REQUIRED_PARAMS',
+            message:
+              'Meta Ad Library search requires countries and at least one of searchTerms or pageIds',
+          },
+        ],
+      };
+    }
+
+    try {
+      const result = await this.tools.searchAdLibrary(this.createClient(context.credential), {
+        countries,
+        searchTerms,
+        pageIds,
+        adType: optionalPlainString(request.params.adType) as
+          | import('../../types.js').MetaAdLibraryAdType
+          | undefined,
+        activeStatus: optionalPlainString(request.params.activeStatus) as
+          | import('../../types.js').MetaAdLibraryActiveStatus
+          | undefined,
+        dateMin: optionalPlainString(request.params.dateMin),
+        dateMax: optionalPlainString(request.params.dateMax),
+        mediaType: optionalPlainString(request.params.mediaType) as
+          | import('../../types.js').MetaAdLibraryMediaType
+          | undefined,
+        publisherPlatforms: Array.isArray(request.params.publisherPlatforms)
+          ? (request.params.publisherPlatforms.map(
+              String
+            ) as import('../../types.js').MetaAdLibraryPublisherPlatform[])
+          : undefined,
+        languages: Array.isArray(request.params.languages)
+          ? request.params.languages.map(String)
+          : undefined,
+        searchType: optionalPlainString(request.params.searchType) as
+          | 'KEYWORD_UNORDERED'
+          | 'KEYWORD_EXACT_PHRASE'
+          | undefined,
+        limit: typeof request.params.limit === 'number' ? request.params.limit : undefined,
+        cursor: optionalPlainString(request.params.cursor),
+      });
       return { ok: true, provider: 'meta', data: result };
     } catch (error) {
       return this.errorResponse(error);

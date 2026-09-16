@@ -64,7 +64,7 @@ import { redactErrorMessage, redactTokenLikeValues } from './credentials.js';
 import type { ProviderRegistry } from './providerRegistry.js';
 import { buildAdsSummaryReport, buildCrossProviderReport } from './reportEngine.js';
 import { buildAdsContentMatrix } from './contentMatrix.js';
-import type { PlacementPerformanceReport } from '../types.js';
+import type { AdLibrarySearchResult, PlacementPerformanceReport } from '../types.js';
 
 export interface AdsBrokerOptions {
   providerRegistry: ProviderRegistry;
@@ -208,6 +208,10 @@ export class AdsBroker {
     return this.executeRead(request, 'getAccountInfo');
   }
 
+  searchAdLibrary(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdLibrarySearchResult>> {
+    return this.callOptionalReadMethod(request, 'searchAdLibrary');
+  }
+
   listAdImages(request: AdsBrokerRequest): Promise<AdsBrokerResponse<AdImageResult[]>> {
     return this.executeRead(request, 'listAdImages');
   }
@@ -310,6 +314,7 @@ export class AdsBroker {
       | 'listWhatsAppAccounts'
       | 'listWhatsAppPhoneNumbers'
       | 'listWhatsAppMessageTemplates'
+      | 'searchAdLibrary'
     >
   ): Promise<AdsBrokerResponse<TData>> {
     const provider = this.resolveProviderId(request);

@@ -40,6 +40,7 @@ import {
 import {
   LOCATION_BREAKDOWNS,
   META_CREATABLE_CREATIVE_FORMATS,
+  META_AD_LIBRARY_COUNTRIES,
   type MetaPageWelcomeMessage,
 } from '../types.js';
 import {
@@ -68,6 +69,7 @@ export const ADS_MCP_TOOL_NAMES = [
   'ads_list_welcome_message_templates',
   'ads_get_change_history',
   'ads_get_capabilities',
+  'ads_search_ad_library',
   'ads_get_account_performance',
   'ads_get_campaign_performance',
   'ads_get_adset_or_adgroup_performance',
@@ -315,6 +317,13 @@ export const ADS_MCP_TOOL_DEFINITIONS = [
     description:
       'Discover canonical ads tool capabilities, supported providers, levels, metrics, breakdowns, and optional write tools.',
     inputSchema: createAdsInputSchema([]),
+  },
+  {
+    name: 'ads_search_ad_library',
+    description:
+      'Search ads available through the official Meta Ad Library API by terms or Page IDs, country, delivery dates, status, media type, language, and platform. Availability follows Meta country, ad-category, and retention rules. The API does not expose conversion, CTR, revenue, or ROAS metrics.',
+    inputSchema: createAdLibrarySearchInputSchema(),
+    strictParams: true,
   },
   {
     name: 'ads_get_account_performance',
@@ -1044,6 +1053,8 @@ function callBrokerMethod(
       return broker.getChangeHistory(request);
     case 'ads_get_capabilities':
       return Promise.resolve(mergeCapabilitiesResponse(request, broker.getCapabilities(request)));
+    case 'ads_search_ad_library':
+      return broker.searchAdLibrary(request);
     case 'ads_get_account_performance':
       return broker.getAccountPerformance(request);
     case 'ads_get_campaign_performance':
@@ -1532,6 +1543,7 @@ function getAdsCapabilities(request: AdsBrokerRequest): AdsBrokerResponse<Record
         'ads_get_creatives',
         'ads_get_change_history',
         'ads_get_capabilities',
+        'ads_search_ad_library',
         'commerce_get_performance',
       ],
       supportedProviders: [...ADS_PROVIDER_IDS],
@@ -1596,6 +1608,17 @@ function getAdsCapabilities(request: AdsBrokerRequest): AdsBrokerResponse<Record
           'ads_update_campaign',
         ],
       },
+      adLibrary: {
+        supportedProviders: ['meta'],
+        searchTool: 'ads_search_ad_library',
+        pagination: true,
+        conversionMetrics: false,
+        transparencyRanges: ['spend', 'impressions'],
+        coverage: {
+          politicalAndIssueAds: 'Global availability subject to Meta retention rules.',
+          commercialAds: 'UK/EU availability subject to Meta country and retention rules.',
+        },
+      },
       partnershipAds: {
         supportedProviders: ['meta'],
         discoveryTool: 'ads_list_partnership_content',
@@ -1619,6 +1642,86 @@ function getAdsCapabilities(request: AdsBrokerRequest): AdsBrokerResponse<Record
         'Provider-specific availability can still vary by credential, account, metric, level, attribution setting, and API permission.',
       ],
     },
+  };
+}
+
+function createAdLibrarySearchInputSchema() {
+  return {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      provider: {
+        type: 'string',
+        enum: ['meta'],
+        description: 'Meta is the only provider supported by this tool.',
+      },
+      countries: {
+        type: 'array',
+        minItems: 1,
+        uniqueItems: true,
+        items: { type: 'string', enum: [...META_AD_LIBRARY_COUNTRIES] },
+        description: 'ISO 3166-1 alpha-2 country codes the ads reached.',
+      },
+      searchTerms: {
+        type: 'string',
+        minLength: 1,
+        maxLength: 100,
+        description: 'Terms contained in the ad. Use together with searchType.',
+      },
+      pageIds: {
+        type: 'array',
+        minItems: 1,
+        maxItems: 10,
+        uniqueItems: true,
+        items: { type: 'string', minLength: 1 },
+        description: 'Facebook Page IDs whose archived ads should be returned.',
+      },
+      adType: {
+        type: 'string',
+        enum: [
+          'ALL',
+          'POLITICAL_AND_ISSUE_ADS',
+          'EMPLOYMENT_ADS',
+          'FINANCIAL_PRODUCTS_AND_SERVICES_ADS',
+          'HOUSING_ADS',
+        ],
+      },
+      activeStatus: { type: 'string', enum: ['ACTIVE', 'INACTIVE', 'ALL'] },
+      dateMin: { type: 'string', description: 'Inclusive delivery start boundary, YYYY-MM-DD.' },
+      dateMax: { type: 'string', description: 'Inclusive delivery end boundary, YYYY-MM-DD.' },
+      mediaType: { type: 'string', enum: ['ALL', 'IMAGE', 'MEME', 'VIDEO', 'NONE'] },
+      publisherPlatforms: {
+        type: 'array',
+        uniqueItems: true,
+        items: {
+          type: 'string',
+          enum: [
+            'FACEBOOK',
+            'INSTAGRAM',
+            'AUDIENCE_NETWORK',
+            'MESSENGER',
+            'WHATSAPP',
+            'OCULUS',
+            'THREADS',
+            'STREAMING_SERVICES',
+          ],
+        },
+      },
+      languages: {
+        type: 'array',
+        uniqueItems: true,
+        items: { type: 'string', minLength: 2, maxLength: 3 },
+      },
+      searchType: {
+        type: 'string',
+        enum: ['KEYWORD_UNORDERED', 'KEYWORD_EXACT_PHRASE'],
+      },
+      limit: { type: 'number', minimum: 1, maximum: 100 },
+      cursor: { type: 'string', minLength: 1 },
+      connectionKey: { type: 'string' },
+    },
+    required: ['provider', 'countries'],
+    anyOf: [{ required: ['searchTerms'] }, { required: ['pageIds'] }],
   };
 }
 

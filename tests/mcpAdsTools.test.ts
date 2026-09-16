@@ -282,6 +282,74 @@ describe('ads MCP broker tools', () => {
     });
   });
 
+  it('defines ads_search_ad_library as a strict Meta read tool', () => {
+    const tool = ADS_MCP_TOOL_DEFINITIONS.find(({ name }) => name === 'ads_search_ad_library');
+
+    expect(tool).toBeDefined();
+    expect(isAdsMcpWriteTool('ads_search_ad_library')).toBe(false);
+    expect(tool?.inputSchema).toMatchObject({
+      required: ['provider', 'countries'],
+      additionalProperties: false,
+      properties: {
+        provider: { type: 'string', enum: ['meta'] },
+        countries: { type: 'array' },
+        searchTerms: { type: 'string', maxLength: 100 },
+        pageIds: { type: 'array', maxItems: 10 },
+        limit: { type: 'number', minimum: 1, maximum: 100 },
+        cursor: { type: 'string' },
+      },
+    });
+  });
+
+  it('routes ads_search_ad_library without requiring an account ID', async () => {
+    let receivedRequest: AdsBrokerRequest | undefined;
+    const broker = {
+      ...createBrokerStub(),
+      searchAdLibrary: async (request: AdsBrokerRequest) => {
+        receivedRequest = request;
+        return {
+          ok: true,
+          provider: 'meta' as const,
+          data: {
+            ads: [],
+            paging: { nextCursor: null },
+            coverage: {
+              adType: 'ALL' as const,
+              countries: ['GB'],
+              conversionMetricsAvailable: false as const,
+              limitations: [],
+            },
+          },
+        };
+      },
+    } as unknown as AdsBroker;
+
+    const response = await handleAdsMcpToolCall(broker, 'ads_search_ad_library', {
+      provider: 'meta',
+      countries: ['GB'],
+      searchTerms: 'shoes',
+      limit: 20,
+      cursor: 'next-page',
+    });
+
+    expect(parseToolResponse(response)).toMatchObject({ ok: true, provider: 'meta' });
+    expect(receivedRequest).toEqual({
+      provider: 'meta',
+      providers: undefined,
+      accountId: undefined,
+      since: undefined,
+      until: undefined,
+      connectionKey: undefined,
+      oauthAuthContext: undefined,
+      params: {
+        countries: ['GB'],
+        searchTerms: 'shoes',
+        limit: 20,
+        cursor: 'next-page',
+      },
+    });
+  });
+
   it('advertises only canonical-safe location breakdowns on ads_get_performance', () => {
     const tool = ADS_MCP_TOOL_DEFINITIONS.find(({ name }) => name === 'ads_get_performance');
     const properties = tool?.inputSchema.properties as Record<string, unknown>;
@@ -522,6 +590,7 @@ describe('ads MCP broker tools', () => {
       'ads_list_welcome_message_templates',
       'ads_get_change_history',
       'ads_get_capabilities',
+      'ads_search_ad_library',
       'ads_get_account_performance',
       'ads_get_campaign_performance',
       'ads_get_adset_or_adgroup_performance',
