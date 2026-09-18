@@ -23,6 +23,9 @@ import {
 } from './listPartnershipContent.js';
 import { listLeadForms } from './listLeadForms.js';
 import {
+  uploadInstagramVideoToFacebook,
+} from './uploadInstagramVideoToFacebook.js';
+import {
   resolveMetaObjectiveLaunchSpec,
   type MetaConversionLocation,
   type MetaMessagingDestination,
@@ -191,9 +194,13 @@ export async function createAdCreative(
       options,
       client.apiVersion ?? 'v25.0'
     );
-    const enrichedOptions = await withAutoVideoThumbnail(client, resolvedOptions);
-    const partnershipReadyOptions = await withResolvedPartnershipIdentity(client, enrichedOptions);
-    preview = buildCreativePayload(partnershipReadyOptions);
+    const partnershipReadyOptions = await withResolvedPartnershipIdentity(client, resolvedOptions);
+    const uploadedVideoOptions = await withUploadedInstagramVideoToFacebook(
+      client,
+      partnershipReadyOptions
+    );
+    const enrichedOptions = await withAutoVideoThumbnail(client, uploadedVideoOptions);
+    preview = buildCreativePayload(enrichedOptions);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     const structuredError = validationError(message);
@@ -824,8 +831,68 @@ async function withResolvedPartnershipIdentity(
   return { ...options, partnership: resolved };
 }
 
-function buildCreativePayload(options: CreateAdCreativeOptions): Record<string, unknown> {
 
+/**
+ * Untuk partnership ads dari video Instagram (reels/feed video), Meta sering kali
+ * mengharuskan video sudah tersedia di Facebook ad video library sebelum creative
+ * bisa dibuat. Jika creativeFormat adalah existing_post dan platform Instagram,
+ * coba upload dulu via /advideos menggunakan source_instagram_media_id + adCode.
+ */
+async function withUploadedInstagramVideoToFacebook(
+  client: MetaClient,
+  options: CreateAdCreativeOptions
+): Promise<CreateAdCreativeOptions> {
+  const partnership = options.partnership;
+  if (!partnership) return options;
+
+  const adCode = partnership.adCode?.trim();
+  const creative = options.creative;
+  if (!creative || creative.creativeFormat !== 'existing_post') return options;
+
+  // Hanya jalan jika kita sudah punya sourceInstagramMediaId.
+  const sourceInstagramMediaId = creative.creativeSpec.sourceInstagramMediaId?.trim();
+  if (!sourceInstagramMediaId) return options;
+
+  const adFormat = partnership.adFormat;
+  const isVideo =
+    adFormat === 'REELS' || adFormat === 'IG_REELS' || adFormat === 'VIDEO' || adFormat === 'FEED_VIDEO';
+  if (!isVideo) return options;
+
+  // Coba upload video Instagram ke Facebook library dulu. Meta sering menolak
+  // creative video Instagram dengan error "Instagram Video Must Be Uploaded To
+  // Facebook" kalau video belum tersedia di sisi Facebook.
+  const uploadResult = await uploadInstagramVideoToFacebook(client, {
+    adAccountId: options.adAccountId,
+    sourceInstagramMediaId,
+    partnershipAdCode: adCode,
+    isPartnershipAd: true,
+  });
+
+  if (uploadResult.status === 'failed' || !uploadResult.video_id) {
+    return options;
+  }
+
+  // Ubah jalur existing_post menjadi video dengan video_id dari upload.
+  const migrated: CreateAdCreativeOptions = {
+    ...options,
+    creative: {
+      creativeFormat: 'video',
+      creativeSpec: {
+        videoId: uploadResult.video_id,
+        primaryText: '',
+        headline: '',
+        destinationUrl: creative.creativeSpec.destinationUrl ?? '',
+        callToAction: creative.creativeSpec.callToAction,
+        pageWelcomeMessage: creative.creativeSpec.pageWelcomeMessage,
+        applinkTreatment: creative.creativeSpec.applinkTreatment,
+      },
+    },
+  };
+
+  return migrated;
+}
+
+function buildCreativePayload(options: CreateAdCreativeOptions): Record<string, unknown> {
   if (!options.creative && !options.objectStorySpec && !options.linkData) {
     throw new Error(
       'Konten creative wajib diisi melalui creative, objectStorySpec, atau linkData.'
