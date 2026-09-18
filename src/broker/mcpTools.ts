@@ -2507,9 +2507,9 @@ function createCreateAdCreativeInputSchema() {
               'Partnership ad code yang diberikan kreator. Jalur boost alternatif — tidak boleh dipakai bersamaan dengan creativeSpec.sourceInstagramMediaId. Pada jalur ini creativeFormat existing_post justru diisi tanpa objectStoryId maupun sourceInstagramMediaId: ad code sendiri yang menjadi referensi konten.',
           },
           adFormat: {
-            type: 'string',
+            type: 'number',
             description:
-              'branded_content.ad_format. Wajib diisi bila adCode diisi. Meta tidak mendokumentasikan daftar nilainya, jadi nilai diteruskan apa adanya dan Meta yang memvalidasi.',
+              'branded_content.ad_format. Wajib diisi bila adCode diisi. Gunakan enum numerik Meta: 0 (tampilkan keduanya), 1 (hanya asset pertama), 2 (hanya asset kedua), atau 3 (optimasi otomatis). String seperti REELS/existing_post ditolak; tool akan memvalidasi sebelum mengirim ke Graph.',
           },
         },
       },

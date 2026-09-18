@@ -1605,9 +1605,11 @@ export const createAdCreativeInputSchema = {
           'Partnership ad code dari kreator. Tidak boleh dipakai bersamaan dengan creativeSpec.sourceInstagramMediaId. Pada jalur ini existing_post diisi tanpa objectStoryId maupun sourceInstagramMediaId.'
         ),
       adFormat: z
-        .string()
+        .union([z.literal(0), z.literal(1), z.literal(2), z.literal(3)])
         .optional()
-        .describe('branded_content.ad_format. Wajib bila adCode diisi.'),
+        .describe(
+          'branded_content.ad_format. Wajib bila adCode diisi. Gunakan 0, 1, 2, atau 3 (enum numerik Meta).'
+        ),
     })
     .optional()
     .describe(

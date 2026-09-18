@@ -1,4 +1,6 @@
 import { getAdCreativeMapping } from '../../tools/getAdCreativeMapping.js';
+import { normalizeMetaPartnershipAdFormat } from './buildPartnershipFields.js';
+
 import { resolveCreativeAssets as resolveCreativeAssetsTool } from '../../tools/resolveCreativeAssets.js';
 import {
   AD_CREATIVE_FULL_FIELDS,
@@ -4954,7 +4956,7 @@ function parsePartnershipSpec(value: unknown): MetaPartnershipSpec | undefined {
     adFormat:
       spec.adFormat === undefined
         ? undefined
-        : requireString(spec.adFormat, 'partnership.adFormat'),
+        : normalizeMetaPartnershipAdFormat(requireString(spec.adFormat, 'partnership.adFormat')),
   };
 }
 

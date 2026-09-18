@@ -1,4 +1,8 @@
-import type { MetaCreativeFormat, MetaPartnershipSpec } from '../../types.js';
+import type {
+  MetaCreativeFormat,
+  MetaPartnershipAdFormat,
+  MetaPartnershipSpec,
+} from '../../types.js';
 
 /**
  * Format creative yang menerima field partnership. Format katalog, koleksi, dan
@@ -39,6 +43,19 @@ function trimmed(value: string | undefined): string | undefined {
   return normalized ? normalized : undefined;
 }
 
+export function normalizeMetaPartnershipAdFormat(
+  value: MetaPartnershipAdFormat | string | number | undefined
+): 0 | 1 | 2 | 3 | undefined {
+  if (value === undefined) return undefined;
+  const normalized = typeof value === 'string' ? Number(value.trim()) : value;
+  if (normalized !== 0 && normalized !== 1 && normalized !== 2 && normalized !== 3) {
+    throw new Error(
+      'partnership.adFormat harus salah satu enum Graph 0, 1, 2, atau 3; nilai bebas seperti existing_post atau REELS tidak valid.'
+    );
+  }
+  return normalized;
+}
+
 export function buildPartnershipFields(input: BuildPartnershipFieldsInput): PartnershipFields {
   const { partnership, creativeFormat } = input;
 
@@ -72,8 +89,8 @@ export function buildPartnershipFields(input: BuildPartnershipFieldsInput): Part
   }
 
   const adCode = trimmed(partnership.adCode);
-  const adFormat = trimmed(partnership.adFormat);
-  if (adCode && !adFormat) {
+  const adFormat = normalizeMetaPartnershipAdFormat(partnership.adFormat);
+  if (adCode && adFormat === undefined) {
     throw new Error(
       'adFormat wajib diisi bila adCode diisi — branded_content.ad_format adalah field wajib pada jalur ad code.'
     );
@@ -158,7 +175,7 @@ export function buildPartnershipFields(input: BuildPartnershipFieldsInput): Part
       instagram_boost_post_access_token: adCode,
       ad_format: adFormat,
     };
-  } else if (adFormat) {
+  } else if (adFormat !== undefined) {
     payload.branded_content = { ad_format: adFormat };
   }
 

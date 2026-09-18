@@ -295,6 +295,7 @@ export type { BuildMetaCreativeFormatPayloadInput } from './providers/meta/build
 export {
   buildPartnershipFields,
   getPartnershipNotes,
+  normalizeMetaPartnershipAdFormat,
 } from './providers/meta/buildPartnershipFields.js';
 export type {
   BuildPartnershipFieldsInput,
