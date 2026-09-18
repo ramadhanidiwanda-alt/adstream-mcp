@@ -60,6 +60,21 @@ export function getMetaCreativeErrorGuidance(
   }
 
   if (error.code === 'VALIDATION_ERROR') {
+    if (/partnerPageId|partnerInstagramId|sponsor_page_id|sponsor_id/i.test(error.message)) {
+      return (
+        'Identitas partner tidak lengkap. Pada jalur partnership, Meta membutuhkan sponsor partner ' +
+        '(partnerPageId dan/atau partnerInstagramId) selain konten/ad code. ' +
+        'Ambil identitas partner dari hasil ads_list_partnership_content (author.fbPageId / author.igUserId) ' +
+        'atau dari ads_list_instagram_accounts, lalu ulangi dry-run.'
+      );
+    }
+    if (/adCode|ad_code|instagram_boost_post_access_token|adFormat/i.test(error.message)) {
+      return (
+        'Ad code atau adFormat bermasalah. Pastikan adCode berasal dari Instagram (Meta partnership ad code), ' +
+        'bukan dari token internal ber-prefix "adcode-". Jalur adCode hanya berlaku untuk creativeFormat existing_post ' +
+        'dan wajib disertai adFormat.'
+      );
+    }
     if (/product set|katalog/i.test(error.message)) {
       return 'Periksa product set creative dan ad set, lalu pastikan katalog yang dipakai sudah dibagikan ke akun iklan.';
     }

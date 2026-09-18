@@ -1,6 +1,10 @@
 import { MetaApiError } from './metaError.js';
 import type { StructuredMutationError } from '../types.js';
 import { redactErrorMessage } from '../broker/credentials.js';
+import {
+  FACEBOOK_PARTNERSHIP_ADS_REQUIRED_SCOPES,
+  PARTNERSHIP_ADS_REQUIRED_SCOPES,
+} from './metaError.js';
 
 const SIGNED_URL_PATTERN =
   /https?:\/\/[^\s"'<>]*[?&](?:x-amz-signature|signature|sig|access_token|token)=[^\s"'<>]*/gi;
@@ -67,6 +71,23 @@ function mapMetaErrorCode(error: MetaApiError): string {
 
 function getActionableFix(error: MetaApiError, message: string): string {
   const text = `${error.userTitle ?? ''} ${error.userMessage ?? ''} ${message}`.toLowerCase();
+  const isPermissionError =
+    error.code === 200 ||
+    error.code === 10 ||
+    error.code === 403 ||
+    /permission|forbidden|scope|not authorized|not allowed/i.test(text);
+
+  if (isPermissionError) {
+    return (
+      'Token kurang izin. Untuk Instagram Partnership Ads, scope wajib: ' +
+      PARTNERSHIP_ADS_REQUIRED_SCOPES.join(', ') +
+      '. Untuk Facebook partnership ads saja: ' +
+      FACEBOOK_PARTNERSHIP_ADS_REQUIRED_SCOPES.join(', ') +
+      '. Scope instagram_branded_content_ads_brand harus diberikan bersama instagram_basic pada akun IG profesional yang sama. ' +
+      'Jika scope sudah lengkap, pastikan partner sudah tag brand di paid partnership label atau sudah share ad code yang valid.'
+    );
+  }
+
   if (hasApplicationCapabilityError(error)) {
     return 'This Meta app or token is not enabled for this API capability. Verify the app’s Marketing API access and request the required Meta capability; changing the MCP payload alone cannot bypass this restriction.';
   }

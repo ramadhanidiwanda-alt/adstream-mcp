@@ -1,9 +1,15 @@
 import { describe, expect, it, vi } from 'vitest';
 import { listPartnershipContent } from '../src/tools/listPartnershipContent.js';
+import { MetaApiError } from '../src/utils/metaError.js';
 import type { MetaClient } from '../src/metaClient.js';
 
 function clientReturning(data: unknown): { client: MetaClient; metaGet: ReturnType<typeof vi.fn> } {
   const metaGet = vi.fn().mockResolvedValue(data);
+  return { client: { metaGet } as unknown as MetaClient, metaGet };
+}
+
+function clientThrowing(error: Error): { client: MetaClient; metaGet: ReturnType<typeof vi.fn> } {
+  const metaGet = vi.fn().mockRejectedValue(error);
   return { client: { metaGet } as unknown as MetaClient, metaGet };
 }
 
@@ -136,11 +142,11 @@ describe('listPartnershipContent', () => {
     await listPartnershipContent(client, {
       businessId: 'biz-1',
       igUserId: 'brand-ig-1',
-      adCodes: ['AD-1', 'AD-2'],
+      adCodes: ['valid-ad-code-123', 'valid-ad-code-456'],
     });
 
     const params = metaGet.mock.calls[0][1] as Record<string, unknown>;
-    expect(params).toMatchObject({ ad_codes: 'AD-1,AD-2' });
+    expect(params).toMatchObject({ ad_codes: 'valid-ad-code-123,valid-ad-code-456' });
     expect(params.limit).toBeUndefined();
     expect(params.after).toBeUndefined();
   });
@@ -152,7 +158,7 @@ describe('listPartnershipContent', () => {
       listPartnershipContent(client, {
         businessId: 'biz-1',
         igUserId: 'brand-ig-1',
-        adCodes: ['AD-1'],
+        adCodes: ['a-valid-ad-code'],
         platform: 'instagram',
       })
     ).rejects.toThrow('adCodes tidak bisa digabung dengan filter atau pagination');
@@ -294,7 +300,7 @@ describe('listPartnershipContent', () => {
     const permalinks = ['https://www.instagram.com/reel/DbyM-xqzsC-/'];
 
     await expect(
-      listPartnershipContent(client, { ...base, permalinks, adCodes: ['AD-1'] })
+      listPartnershipContent(client, { ...base, permalinks, adCodes: ['valid-ad-code-123'] })
     ).rejects.toThrow(/hanya satu/i);
 
     for (const filter of [
@@ -309,6 +315,33 @@ describe('listPartnershipContent', () => {
     }
 
     expect(metaGet).not.toHaveBeenCalled();
+  });
+
+  it('menolak adCodes yang tidak terlihat seperti Meta partnership ad code', async () => {
+    const { client, metaGet } = clientReturning({ data: [] });
+
+    await expect(
+      listPartnershipContent(client, {
+        businessId: 'biz-1',
+        igUserId: 'brand-ig-1',
+        adCodes: ['adcode-Q9jTBBh3Hdbfr-nTWYqGb8SeQI6DnefVGXomnYH02WNP8dB2skW6tHmJbK3wRbuDag'],
+      })
+    ).rejects.toThrow(/tidak terlihat seperti Meta partnership ad code/);
+    expect(metaGet).not.toHaveBeenCalled();
+  });
+
+  it('meneruskan error Meta 403 dengan hint scope yang jelas', async () => {
+    const { client } = clientThrowing(
+      new MetaApiError({
+        message: 'Forbidden',
+        type: 'OAuthException',
+        code: 403,
+      })
+    );
+
+    await expect(
+      listPartnershipContent(client, { businessId: 'biz-1', igUserId: 'brand-ig-1' })
+    ).rejects.toThrow(/instagram_branded_content_ads_brand/);
   });
 
   it('menolak permalinks yang bukan URL instagram.com atau facebook.com', async () => {

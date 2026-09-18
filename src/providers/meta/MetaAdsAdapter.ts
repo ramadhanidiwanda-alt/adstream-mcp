@@ -1404,6 +1404,17 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
   }
 
   private errorResponse(error: unknown): AdsBrokerResponse<never> {
+    const message = redactErrorMessage(error instanceof Error ? error.message : String(error));
+    const details =
+      error instanceof MetaApiError
+        ? {
+            metaCode: error.code,
+            metaType: error.type,
+            metaSubcode: error.subcode,
+            fbtraceId: error.fbtraceId,
+          }
+        : undefined;
+
     return {
       ok: false,
       provider: 'meta',
@@ -1411,7 +1422,8 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
         {
           provider: 'meta',
           code: 'META_ADAPTER_ERROR',
-          message: redactErrorMessage(error instanceof Error ? error.message : String(error)),
+          message,
+          details,
         },
       ],
     };

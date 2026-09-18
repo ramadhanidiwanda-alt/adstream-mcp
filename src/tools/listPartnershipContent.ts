@@ -1,10 +1,30 @@
 import type { MetaClient } from '../metaClient.js';
+import { MetaApiError, getMetaPermissionScopeHint } from '../utils/metaError.js';
 import type {
   PartnershipContentAuthor,
   PartnershipContentInsights,
   PartnershipContentPartnerInfo,
   PartnershipContentResult,
 } from '../broker/types.js';
+
+/**
+ * Informasi partner/creator yang bisa diekstrak dari hasil discovery. Digunakan
+ * sebagai fallback saat pemanggil punya adCode tapi belum tahu identitas partner.
+ */
+export interface PartnershipContentIdentity {
+  /** Meta Business Content ID (contoh: ig-media-1). */
+  contentId: string;
+  /** Platform tempat konten ditemukan (INSTAGRAM/FACEBOOK). */
+  platform?: string;
+  /** IG user ID dari kreator (untuk Instagram partnership). */
+  igUserId?: string;
+  /** FB Page ID dari kreator (untuk Facebook partnership). */
+  fbPageId?: string;
+  /** Display name kreator kalau tersedia. */
+  displayName?: string;
+  /** Permalink konten. */
+  permalink?: string;
+}
 
 export interface ListPartnershipContentOptions {
   /** Meta Business ID pemilik Page/akun IG brand. */
@@ -239,6 +259,18 @@ export async function listPartnershipContent(
     throw new Error('permalinks maksimal 50 entri per panggilan.');
   }
 
+  const directLookupKind = permalinks ? 'permalinks' : adCodes ? 'adCodes' : undefined;
+
+  if (adCodes) {
+    const suspicious = adCodes.filter((code) => !isPartnershipContentAdCodeLike(code));
+    if (suspicious.length) {
+      throw new Error(
+        `adCode berikut tidak terlihat seperti Meta partnership ad code yang valid: ${suspicious.join(', ')}. ` +
+          'Pastikan value ini berasal dari Instagram (bukan prefix "adcode-" atau token internal platform lain).'
+      );
+    }
+  }
+
   // Meta membagi parameter jadi dua mode yang tidak boleh dicampur: direct
   // lookup (content_ids / permalinks / ad_codes, maksimal satu jenis) dan search
   // query (filter + sort + pagination). Dicampur, Meta menolak permintaannya —
@@ -248,8 +280,6 @@ export async function listPartnershipContent(
       'adCodes dan permalinks adalah direct lookup; hanya satu yang boleh diisi per panggilan.'
     );
   }
-
-  const directLookupKind = permalinks ? 'permalinks' : adCodes ? 'adCodes' : undefined;
 
   if (permalinks) {
     const invalid = permalinks.filter((url) => !PERMALINK_PATTERN.test(url.trim()));
@@ -285,28 +315,113 @@ export async function listPartnershipContent(
 
   const directLookup = Boolean(directLookupKind);
 
-  const response = await client.metaGet<{ data: PartnershipContentRaw[] }>(
-    `/${businessId}/partnership-ads-advertisable-content`,
-    {
-      fields: PARTNERSHIP_CONTENT_FIELDS,
-      fb_page_id: fbPageId,
-      ig_user_id: igUserId,
-      ad_codes: adCodes?.join(','),
-      permalinks: permalinks?.map((url) => url.trim()).join(','),
-      platform_types: platformTypes,
-      media_types: mediaTypes,
-      post_types: postTypes,
-      ad_partner_page_ids: options.adPartnerPageIds?.length
-        ? options.adPartnerPageIds.join(',')
-        : undefined,
-      ad_partner_ig_user_ids: options.adPartnerIgUserIds?.length
-        ? options.adPartnerIgUserIds.join(',')
-        : undefined,
-      limit: directLookup ? undefined : (options.limit ?? 25),
-      after: directLookup ? undefined : options.cursor,
-    },
-    { maxRetries: options.maxRetries ?? 3 }
-  );
+  try {
+    const response = await client.metaGet<{ data: PartnershipContentRaw[] }>(
+      `/${businessId}/partnership-ads-advertisable-content`,
+      {
+        fields: PARTNERSHIP_CONTENT_FIELDS,
+        fb_page_id: fbPageId,
+        ig_user_id: igUserId,
+        ad_codes: adCodes?.join(','),
+        permalinks: permalinks?.map((url) => url.trim()).join(','),
+        platform_types: platformTypes,
+        media_types: mediaTypes,
+        post_types: postTypes,
+        ad_partner_page_ids: options.adPartnerPageIds?.length
+          ? options.adPartnerPageIds.join(',')
+          : undefined,
+        ad_partner_ig_user_ids: options.adPartnerIgUserIds?.length
+          ? options.adPartnerIgUserIds.join(',')
+          : undefined,
+        limit: directLookup ? undefined : (options.limit ?? 25),
+        after: directLookup ? undefined : options.cursor,
+      },
+      { maxRetries: options.maxRetries ?? 3 }
+    );
 
-  return (response.data ?? []).map(toResult);
+    return (response.data ?? []).map(toResult);
+  } catch (error) {
+    if (error instanceof MetaApiError) {
+      const hint = getMetaPermissionScopeHint(error, { endpointKind: 'partnership_discovery' });
+      if (hint) {
+        throw new MetaApiError({
+          ...error,
+          message: `${hint} Detail asli Meta: ${error.message}`,
+        });
+      }
+    }
+    throw error;
+  }
 }
+
+/**
+ * Coba cari identitas partner dari adCode lewat partnership content discovery.
+ *
+ * Batasan:
+ * - Token harus punya scope Instagram partnership yang lengkap.
+ * - adCode harus valid dan kontennya sudah tag brand sebagai partner.
+ * - Hanya mengembalikan identitas dari konten yang ditemukan.
+ *
+ * Kalau tidak ditemukan, balikannya `undefined` (bukan error) supaya caller bisa
+ * memutuskan apakah mau fallback manual atau langsung error.
+ */
+export async function resolvePartnershipIdentityFromAdCode(
+  client: MetaClient,
+  businessId: string,
+  adCode: string,
+  { fbPageId, igUserId }: { fbPageId?: string; igUserId?: string }
+): Promise<PartnershipContentIdentity | undefined> {
+  if (!isPartnershipContentAdCodeLike(adCode)) {
+    return undefined;
+  }
+
+  const trimmedBusinessId = businessId.trim();
+  const trimmedFb = fbPageId?.trim();
+  const trimmedIg = igUserId?.trim();
+  if (!trimmedBusinessId || (!trimmedFb && !trimmedIg)) {
+    return undefined;
+  }
+
+  try {
+    const items = await listPartnershipContent(client, {
+      businessId: trimmedBusinessId,
+      fbPageId: trimmedFb,
+      igUserId: trimmedIg,
+      adCodes: [adCode],
+      maxRetries: 1,
+    });
+    const match = items.find((item) =>
+      item.partnershipInfo?.some((info) => info.adCode?.trim() === adCode.trim())
+    );
+    if (!match) return undefined;
+    return {
+      contentId: match.contentId,
+      platform: match.platform,
+      igUserId: match.author?.igUserId,
+      fbPageId: match.author?.fbPageId,
+      displayName: match.author?.displayName,
+      permalink: match.permalink,
+    };
+  } catch {
+    // Discovery bisa gagal karena izin, adCode invalid, dll. Untuk auto-resolve
+    // fallback kita diam-diam menyerah; caller akan menampilkan error validasi
+    // partner identity yang lebih jelas.
+    return undefined;
+  }
+}
+
+export function isPartnershipContentAdCodeLike(value: string): boolean {
+  // Meta partnership ad codes observed in docs are opaque, relatively short
+  // tokens without a fixed prefix. The sheet value prefixed with "adcode-" is
+  // almost certainly an internal/platform-specific identifier, not a Meta ad
+  // code, because Meta does not use that prefix. This helper flags obviously
+  // non-Meta shapes so callers can warn early instead of getting an empty
+  // discovery result.
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+  if (trimmed.toLowerCase().startsWith('adcode-')) return false;
+  if (trimmed.includes(' ')) return false;
+  if (trimmed.length < 8) return false;
+  return true;
+}
+
