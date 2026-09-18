@@ -2266,9 +2266,9 @@ describe('buildMetaCreativeFormatPayload', () => {
     expect(payload).toMatchObject({
       object_id: 'brand-page-1',
       source_instagram_media_id: 'ig-media-1',
-      instagram_user_id: 'creator-ig-1',
       instagram_branded_content: { sponsor_id: 'creator-ig-1' },
     });
+    expect(payload).not.toHaveProperty('instagram_user_id');
   });
 
   it('membangun jalur ad code tanpa objectStoryId maupun sourceInstagramMediaId', () => {
@@ -2279,7 +2279,7 @@ describe('buildMetaCreativeFormatPayload', () => {
         partnerPageId: 'creator-page-1',
         partnerInstagramId: 'creator-ig-1',
         adCode: 'AD-CODE-XYZ',
-        adFormat: '1',
+        adFormat: 1,
       },
       creativeFormat: 'existing_post',
       creativeSpec: {},
@@ -2289,7 +2289,7 @@ describe('buildMetaCreativeFormatPayload', () => {
       object_id: 'brand-page-1',
       branded_content: {
         instagram_boost_post_access_token: 'AD-CODE-XYZ',
-        ad_format: '1',
+        ad_format: 1,
       },
       facebook_branded_content: { sponsor_page_id: 'creator-page-1' },
       instagram_branded_content: { sponsor_id: 'creator-ig-1' },
@@ -2390,7 +2390,7 @@ describe('buildMetaCreativeFormatPayload — instagramUserId pada jalur ad code'
         partnership: {
           partnerInstagramId: 'creator-ig-1',
           adCode: 'AD-CODE-XYZ',
-          adFormat: 'REELS',
+          adFormat: 2,
         },
         creativeFormat: 'existing_post',
         creativeSpec: {},
@@ -2407,7 +2407,7 @@ describe('buildMetaCreativeFormatPayload — instagramUserId pada jalur ad code'
         partnership: {
           partnerInstagramId: 'creator-ig-1',
           adCode: 'AD-CODE-XYZ',
-          adFormat: 'REELS',
+          adFormat: 2,
         },
         creativeFormat: 'existing_post',
         creativeSpec: {},
@@ -2439,12 +2439,24 @@ describe('buildMetaCreativeFormatPayload — instagramUserId pada jalur ad code'
     ).toThrow(/threadsProfileId tidak dipakai pada jalur creativeSpec\.objectStoryId/);
   });
 
-  it('tetap mengirim instagram_user_id pada boost via sourceInstagramMediaId', () => {
+  it('tidak mengirim instagram_user_id pada boost partnership via sourceInstagramMediaId', () => {
     const payload = buildMetaCreativeFormatPayload({
       mode: 'standard',
       pageId: 'brand-page-1',
       instagramUserId: 'creator-ig-1',
       partnership: { partnerInstagramId: 'creator-ig-1' },
+      creativeFormat: 'existing_post',
+      creativeSpec: { sourceInstagramMediaId: 'ig-media-1' },
+    });
+
+    expect(payload).not.toHaveProperty('instagram_user_id');
+  });
+
+  it('tetap mengirim instagram_user_id pada boost non-partnership via sourceInstagramMediaId', () => {
+    const payload = buildMetaCreativeFormatPayload({
+      mode: 'standard',
+      pageId: 'brand-page-1',
+      instagramUserId: 'creator-ig-1',
       creativeFormat: 'existing_post',
       creativeSpec: { sourceInstagramMediaId: 'ig-media-1' },
     });

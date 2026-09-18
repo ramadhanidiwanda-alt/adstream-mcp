@@ -2703,7 +2703,7 @@ describe('createAdCreative', () => {
           partnership: {
             partnerPageId: 'creator-page-1',
             partnerInstagramId: 'creator-ig-1',
-            adFormat: '1',
+            adFormat: 1,
           },
         });
 
@@ -2712,10 +2712,9 @@ describe('createAdCreative', () => {
           name: 'Boost media',
           object_id: 'brand-page-1',
           source_instagram_media_id: 'ig-media-1',
-          instagram_user_id: 'creator-ig-1',
           facebook_branded_content: { sponsor_page_id: 'creator-page-1' },
           instagram_branded_content: { sponsor_id: 'creator-ig-1' },
-          branded_content: { ad_format: '1' },
+          branded_content: { ad_format: 1 },
         });
       });
 
@@ -2732,7 +2731,7 @@ describe('createAdCreative', () => {
             partnerPageId: 'creator-page-1',
             partnerInstagramId: 'creator-ig-1',
             adCode: 'AD-CODE-XYZ',
-            adFormat: '1',
+            adFormat: 1,
           },
         });
 
@@ -2742,7 +2741,7 @@ describe('createAdCreative', () => {
           object_id: 'brand-page-1',
           branded_content: {
             instagram_boost_post_access_token: 'AD-CODE-XYZ',
-            ad_format: '1',
+            ad_format: 1,
           },
           facebook_branded_content: { sponsor_page_id: 'creator-page-1' },
           instagram_branded_content: { sponsor_id: 'creator-ig-1' },
@@ -2817,11 +2816,11 @@ describe('createAdCreative', () => {
           pageId: 'brand-page-1',
           partnership: {
             partnerPageId: 'creator-page-1',
-            adFormat: '2',
+            adFormat: 2,
           },
         });
 
-        expect(result.preview).toMatchObject({ branded_content: { ad_format: '2' } });
+        expect(result.preview).toMatchObject({ branded_content: { ad_format: 2 } });
       });
     });
 
@@ -3020,7 +3019,7 @@ describe('createAdCreative — videoId di jalur legacy', () => {
         },
         partnership: {
           adCode: 'valid-ad-code-abc',
-          adFormat: 'REELS',
+          adFormat: 2,
         },
       },
       { dryRun: false, confirmed: true }
@@ -3038,10 +3037,70 @@ describe('createAdCreative — videoId di jalur legacy', () => {
         instagram_branded_content: { sponsor_id: '17841400000000000' },
         branded_content: {
           instagram_boost_post_access_token: 'valid-ad-code-abc',
-          ad_format: 'REELS',
+          ad_format: 2,
         },
       }),
       3
     );
+  });
+
+  describe('regression — PNP Najjah advertiser-primary Reel', () => {
+    it('tidak mengirim instagram_user_id pada existing_post partnership dengan sourceInstagramMediaId', async () => {
+      const result = await createAdCreative(mockClient, {
+        adAccountId: 'act_2326988574277142',
+        name: 'PNP Najjah Reel',
+        pageId: '100338525395228',
+        instagramUserId: '17841421517309865',
+        creative: {
+          creativeFormat: 'existing_post' as const,
+          creativeSpec: {
+            sourceInstagramMediaId: '17920554501427431',
+            destinationUrl: 'https://example.com/products',
+            callToAction: 'SHOP_NOW',
+          },
+        },
+        partnership: {
+          partnerInstagramId: '17841401943923231',
+          primaryIdentity: 'advertiser' as const,
+          adFormat: 2,
+        },
+      });
+
+      expect(result.status).toBe('dry_run');
+      expect(result.preview).toEqual({
+        name: 'PNP Najjah Reel',
+        object_id: '100338525395228',
+        source_instagram_media_id: '17920554501427431',
+        instagram_branded_content: { sponsor_id: '17841401943923231' },
+        branded_content: { ad_format: 2 },
+        call_to_action: {
+          type: 'SHOP_NOW',
+          value: { link: 'https://example.com/products' },
+        },
+      });
+      expect(result.preview).not.toHaveProperty('instagram_user_id');
+      expect(mockMetaPost).not.toHaveBeenCalled();
+    });
+
+    it('menolak adFormat string bebas seperti REELS saat dry-run', async () => {
+      const result = await createAdCreative(mockClient, {
+        adAccountId: 'act_2326988574277142',
+        name: 'PNP Najjah Reel Bad Format',
+        pageId: '100338525395228',
+        creative: {
+          creativeFormat: 'existing_post' as const,
+          creativeSpec: { sourceInstagramMediaId: '17920554501427431' },
+        },
+        partnership: {
+          partnerInstagramId: '17841401943923231',
+          adFormat: 'REELS' as never,
+        },
+      });
+
+      expect(result.status).toBe('failed');
+      expect(result.error).toMatch(/partnership\.adFormat/);
+      expect(result.error).toMatch(/0, 1, 2, atau 3/);
+      expect(mockMetaPost).not.toHaveBeenCalled();
+    });
   });
 });

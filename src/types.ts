@@ -419,6 +419,9 @@ export interface MetaCollaborativeAppSpec {
  *
  * https://developers.facebook.com/documentation/ads-commerce/marketing-api/ad-creative/partnership-ads
  */
+/** Enum numerik branded_content.ad_format untuk Partnership Ads. */
+export type MetaPartnershipAdFormat = 0 | 1 | 2 | 3 | '0' | '1' | '2' | '3';
+
 export interface MetaPartnershipSpec {
   /** Facebook Page ID partner/kreator. */
   partnerPageId?: string;
@@ -440,7 +443,7 @@ export interface MetaPartnershipSpec {
   /** Partnership ad code dari kreator → branded_content.instagram_boost_post_access_token */
   adCode?: string;
   /** → branded_content.ad_format. Wajib bila adCode diisi. */
-  adFormat?: string;
+  adFormat?: MetaPartnershipAdFormat;
 }
 
 /** App identity for the standard Meta App Promotion install path. */

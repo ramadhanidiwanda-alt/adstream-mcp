@@ -105,7 +105,7 @@ describe('buildPartnershipFields', () => {
       partnership: {
         partnerInstagramId: 'creator-ig-1',
         adCode: 'AD-CODE-XYZ',
-        adFormat: 'REELS',
+        adFormat: 2,
       },
       creativeFormat: 'existing_post',
       pageId: 'brand-page-1',
@@ -115,7 +115,7 @@ describe('buildPartnershipFields', () => {
       object_id: 'brand-page-1',
       branded_content: {
         instagram_boost_post_access_token: 'AD-CODE-XYZ',
-        ad_format: 'REELS',
+        ad_format: 2,
       },
     });
   });
@@ -133,7 +133,7 @@ describe('buildPartnershipFields', () => {
 
     expect(result.payload).toMatchObject({
       object_id: 'brand-page-1',
-      branded_content: { ad_format: '1' },
+      branded_content: { ad_format: 1 },
     });
     expect(result.payload.branded_content).not.toHaveProperty('instagram_boost_post_access_token');
   });
@@ -188,7 +188,7 @@ describe('buildPartnershipFields', () => {
         partnership: {
           partnerInstagramId: 'creator-ig-1',
           adCode: 'AD-CODE-XYZ',
-          adFormat: 'REELS',
+          adFormat: 2,
         },
         creativeFormat: 'existing_post',
         pageId: 'brand-page-1',
@@ -264,7 +264,7 @@ describe('buildPartnershipFields — batas jalur ad code', () => {
           partnership: {
             partnerInstagramId: 'creator-ig-1',
             adCode: 'AD-CODE-XYZ',
-            adFormat: 'REELS',
+            adFormat: 2,
           },
           creativeFormat,
           pageId: 'brand-page-1',
@@ -275,7 +275,7 @@ describe('buildPartnershipFields — batas jalur ad code', () => {
 
   it('tetap menerima adCode pada existing_post', () => {
     const result = buildPartnershipFields({
-      partnership: { partnerInstagramId: 'creator-ig-1', adCode: 'AD-CODE-XYZ', adFormat: 'REELS' },
+      partnership: { partnerInstagramId: 'creator-ig-1', adCode: 'AD-CODE-XYZ', adFormat: 2 },
       creativeFormat: 'existing_post',
       pageId: 'brand-page-1',
     });
