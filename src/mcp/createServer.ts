@@ -1376,6 +1376,18 @@ const createAdSetInputSchema = {
     .describe(
       'Shorthand for targeting_automation.advantage_audience: 1 to enable Advantage+ Audience expansion, 0 to disable. Meta requires this to be explicit when age/gender/custom-audience/detailed-targeting use non-default settings. Ignored if targetingAutomation is also provided.'
     ),
+  targetingOptimization: z
+    .enum(['expansion_all', 'none'])
+    .optional()
+    .describe(
+      'Advantage+ detailed targeting (audience expansion). Set expansion_all untuk memperluas ke pemirsa serupa, atau none untuk menonaktifkan.'
+    ),
+  targetingRelaxationTypes: z
+    .record(z.union([z.literal(0), z.literal(1)]))
+    .optional()
+    .describe(
+      'Advantage+ lookalike dan Advantage+ custom audience. Set { lookalike: 1 } atau { custom_audience: 1 } untuk mengizinkan ekspansi audience serupa.'
+    ),
   targetingAutomation: z
     .record(z.unknown())
     .optional()
@@ -2091,6 +2103,18 @@ const updateAdSetInputSchema = {
     .optional()
     .describe(
       'Shorthand for targeting_automation.advantage_audience: 1 to enable Advantage+ Audience expansion, 0 to disable. Ignored if targetingAutomation is also provided.'
+    ),
+  targetingOptimization: z
+    .enum(['expansion_all', 'none'])
+    .optional()
+    .describe(
+      'Advantage+ detailed targeting (audience expansion). Set expansion_all untuk memperluas ke pemirsa serupa, atau none untuk menonaktifkan.'
+    ),
+  targetingRelaxationTypes: z
+    .record(z.union([z.literal(0), z.literal(1)]))
+    .optional()
+    .describe(
+      'Advantage+ lookalike dan Advantage+ custom audience. Set { lookalike: 1 } atau { custom_audience: 1 } untuk mengizinkan ekspansi audience serupa.'
     ),
   targetingAutomation: z
     .record(z.unknown())
