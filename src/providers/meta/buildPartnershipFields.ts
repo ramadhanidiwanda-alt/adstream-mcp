@@ -64,7 +64,10 @@ export function buildPartnershipFields(input: BuildPartnershipFieldsInput): Part
   const partnerInstagramId = trimmed(partnership.partnerInstagramId);
   if (!partnerPageId && !partnerInstagramId) {
     throw new Error(
-      'partnership wajib berisi minimal satu dari partnerPageId atau partnerInstagramId.'
+      'partnership wajib berisi minimal satu dari partnerPageId atau partnerInstagramId. ' +
+        'Ini adalah syarat Meta API untuk identitas sponsor partner, bukan bug tool. ' +
+        'Ad code hanya menjadi referensi konten; identitas partner tetap harus diberikan manual ' +
+        '(dari ads_list_partnership_content atau ads_list_instagram_accounts).'
     );
   }
 

@@ -1662,6 +1662,7 @@ describe('createAdCreative', () => {
   it('executes and returns id on success', async () => {
     mockMetaPost.mockResolvedValueOnce({ id: 'c123' });
     const r = await createAdCreative(mockClient, baseOpts, { dryRun: false, confirmed: true });
+    console.log('DEBUG', JSON.stringify(r.error));
     expect(r.status).toBe('executed');
     expect(r.id).toBe('c123');
     expect(mockMetaPost).toHaveBeenCalledTimes(1);
@@ -2982,5 +2983,62 @@ describe('createAdCreative — videoId di jalur legacy', () => {
     });
 
     expect(result.status).toBe('dry_run');
+  });
+
+  it('auto-resolves partner identity from adCode when businessId and igUserId are provided', async () => {
+    const metaGet = vi
+      .fn()
+      .mockResolvedValueOnce({
+        data: [
+          {
+            content_id: 'ig-media-1',
+            platform: 'INSTAGRAM',
+            author: {
+              display_name: 'Najjah',
+              ig_user_id: '17841400000000000',
+              fb_page_id: undefined,
+            },
+            partnership_info: [{ ad_code: 'valid-ad-code-abc' }],
+          },
+        ],
+      })
+      .mockRejectedValue(new Error('should not be called'));
+    const metaPost = vi.fn().mockResolvedValue({ id: 'creative-1' });
+    const client = { metaGet, metaPost } as unknown as MetaClient;
+
+    const r = await createAdCreative(
+      client,
+      {
+        adAccountId: 'act_123',
+        name: 'Partnership Najjah Auto',
+        businessId: 'biz-1',
+        pageId: 'page-brand-1',
+
+        creative: {
+          creativeFormat: 'existing_post',
+          creativeSpec: {},
+        },
+        partnership: {
+          adCode: 'valid-ad-code-abc',
+          adFormat: 'REELS',
+        },
+      },
+      { dryRun: false, confirmed: true }
+    );
+
+    expect(r.status).toBe('executed');
+    expect(metaGet).toHaveBeenCalledWith(
+      '/biz-1/partnership-ads-advertisable-content',
+      expect.objectContaining({ ad_codes: 'valid-ad-code-abc' }),
+      expect.anything()
+    );
+    expect(metaPost).toHaveBeenCalledWith(
+      '/act_123/adcreatives',
+      expect.objectContaining({
+        instagram_branded_content: { sponsor_id: '17841400000000000' },
+        branded_content: { instagram_boost_post_access_token: 'valid-ad-code-abc', ad_format: 'REELS' },
+      }),
+      3
+    );
   });
 });

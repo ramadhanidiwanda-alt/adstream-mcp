@@ -17,6 +17,10 @@ import {
   buildMetaCreativeFormatPayload,
 } from '../providers/meta/buildCreativeFormatPayload.js';
 import { getPartnershipNotes } from '../providers/meta/buildPartnershipFields.js';
+import {
+  resolvePartnershipIdentityFromAdCode,
+  type PartnershipContentIdentity,
+} from './listPartnershipContent.js';
 import { listLeadForms } from './listLeadForms.js';
 import {
   resolveMetaObjectiveLaunchSpec,
@@ -65,6 +69,8 @@ export interface CreateAdCreativeOptions {
   adAccountId: string;
   name: string;
   pageId?: string;
+  /** Meta Business ID brand. Diperlukan untuk auto-resolve partnership identity dari adCode. */
+  businessId?: string;
   mode?: MetaAdsMode;
   /** Canonical Meta ODAX objective used to resolve creative destination behavior. */
   objective?: MetaOdaxObjective;
@@ -186,7 +192,8 @@ export async function createAdCreative(
       client.apiVersion ?? 'v25.0'
     );
     const enrichedOptions = await withAutoVideoThumbnail(client, resolvedOptions);
-    preview = buildCreativePayload(enrichedOptions);
+    const partnershipReadyOptions = await withResolvedPartnershipIdentity(client, enrichedOptions);
+    preview = buildCreativePayload(partnershipReadyOptions);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     const structuredError = validationError(message);
@@ -773,7 +780,52 @@ async function findExistingCreativeByName(
   return response.data?.find((creative) => creative.name === name.trim()) ?? null;
 }
 
+/**
+ * Jika pemanggil memberikan partnership.adCode tanpa partnerPageId/
+ * partnerInstagramId, coba cari identitas partner lewat discovery. Kalau ketemu,
+ * otomatis isi partner identity; kalau tidak, biarkan validasi buildPartnershipFields
+ * yang memberi pesan error yang jelas.
+ */
+async function withResolvedPartnershipIdentity(
+  client: MetaClient,
+  options: CreateAdCreativeOptions
+): Promise<CreateAdCreativeOptions> {
+  const partnership = options.partnership;
+  if (!partnership) return options;
+
+  const adCode = partnership.adCode?.trim();
+  const hasPartnerIdentity = Boolean(
+    partnership.partnerPageId?.trim() || partnership.partnerInstagramId?.trim()
+  );
+  if (!adCode || hasPartnerIdentity) return options;
+
+  // Butuh businessId dan salah satu fbPageId/igUserId brand untuk discovery.
+  // adAccountId tidak cukup; pemanggil partnership harus menyertakan businessId.
+  const businessId = options.businessId?.trim();
+  const fbPageId = options.pageId?.trim();
+  const igUserId = options.instagramUserId?.trim();
+  if (!businessId || (!fbPageId && !igUserId)) {
+    return options;
+  }
+
+  const identity = await resolvePartnershipIdentityFromAdCode(client, businessId, adCode, {
+    fbPageId,
+    igUserId,
+  });
+
+  if (!identity) return options;
+
+  const resolved: MetaPartnershipSpec = {
+    ...partnership,
+    partnerInstagramId: identity.igUserId ?? partnership.partnerInstagramId,
+    partnerPageId: identity.fbPageId ?? partnership.partnerPageId,
+  };
+
+  return { ...options, partnership: resolved };
+}
+
 function buildCreativePayload(options: CreateAdCreativeOptions): Record<string, unknown> {
+
   if (!options.creative && !options.objectStorySpec && !options.linkData) {
     throw new Error(
       'Konten creative wajib diisi melalui creative, objectStorySpec, atau linkData.'
