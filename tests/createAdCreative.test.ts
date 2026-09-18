@@ -3036,7 +3036,10 @@ describe('createAdCreative — videoId di jalur legacy', () => {
       '/act_123/adcreatives',
       expect.objectContaining({
         instagram_branded_content: { sponsor_id: '17841400000000000' },
-        branded_content: { instagram_boost_post_access_token: 'valid-ad-code-abc', ad_format: 'REELS' },
+        branded_content: {
+          instagram_boost_post_access_token: 'valid-ad-code-abc',
+          ad_format: 'REELS',
+        },
       }),
       3
     );

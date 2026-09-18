@@ -424,4 +424,3 @@ export function isPartnershipContentAdCodeLike(value: string): boolean {
   if (trimmed.length < 8) return false;
   return true;
 }
-
