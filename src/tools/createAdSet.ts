@@ -101,6 +101,7 @@ export interface AdSetTargeting {
   flexibleSpec?: Array<Record<string, unknown>>;
   exclusions?: Record<string, unknown>;
   targetingOptimization?: string;
+  targetingRelaxationTypes?: Record<string, number>;
   targetingAutomation?: Record<string, unknown>;
   /** Raw targeting override merged in as the base of the outgoing payload; explicit typed fields above win on key conflicts. */
   metaTargetingOverride?: Record<string, unknown>;
@@ -948,6 +949,10 @@ function buildTargetingPayload(targeting: AdSetTargeting): Record<string, unknow
   if (targeting.exclusions !== undefined) result.exclusions = targeting.exclusions;
   if (targeting.targetingOptimization !== undefined)
     result.targeting_optimization = targeting.targetingOptimization;
+
+  if (targeting.targetingRelaxationTypes !== undefined) {
+    result.targeting_relaxation_types = targeting.targetingRelaxationTypes;
+  }
 
   if (targeting.targetingAutomation !== undefined) {
     result.targeting_automation = targeting.targetingAutomation;

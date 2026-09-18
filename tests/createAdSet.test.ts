@@ -1091,6 +1091,43 @@ describe('createAdSet — bid strategy + pre-flight validation', () => {
       const targeting = result.preview.targeting as Record<string, unknown>;
       expect(targeting?.targeting_automation).toEqual({ advantage_audience: 0 });
     });
+
+    it('should map targetingOptimization to targeting_optimization', async () => {
+      const client = createMockClient();
+      const result = await createAdSet(
+        client,
+        {
+          ...defaultOptions,
+          targeting: {
+            geoLocations: { countries: ['ID'] },
+            targetingOptimization: 'expansion_all',
+          },
+        },
+        { dryRun: true }
+      );
+      const targeting = result.preview.targeting as Record<string, unknown>;
+      expect(targeting?.targeting_optimization).toBe('expansion_all');
+      expect(targeting?.targeting_automation).toEqual({ advantage_audience: 0 });
+    });
+
+    it('should map targetingRelaxationTypes to targeting_relaxation_types', async () => {
+      const client = createMockClient();
+      const result = await createAdSet(
+        client,
+        {
+          ...defaultOptions,
+          targeting: {
+            geoLocations: { countries: ['ID'] },
+            customAudiences: [{ id: 'ca-1' }],
+            targetingRelaxationTypes: { lookalike: 1, custom_audience: 1 },
+          },
+        },
+        { dryRun: true }
+      );
+      const targeting = result.preview.targeting as Record<string, unknown>;
+      expect(targeting?.targeting_relaxation_types).toEqual({ lookalike: 1, custom_audience: 1 });
+      expect(targeting?.targeting_automation).toEqual({ advantage_audience: 0 });
+    });
   });
 
   describe('granular placement targeting', () => {

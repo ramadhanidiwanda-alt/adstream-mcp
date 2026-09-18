@@ -2223,6 +2223,21 @@ function createCreateAdSetInputSchema() {
         description:
           'Shorthand for targeting_automation.advantage_audience: 1 to enable Advantage+ Audience expansion, 0 to disable. Meta requires this to be explicit when age/gender/custom-audience/detailed-targeting use non-default settings. Ignored if targetingAutomation is also provided.',
       },
+      targetingOptimization: {
+        type: 'string',
+        enum: ['expansion_all', 'none'],
+        description:
+          'Advantage+ detailed targeting (audience expansion). Set expansion_all untuk memperluas ke pemirsa serupa, atau none untuk menonaktifkan.',
+      },
+      targetingRelaxationTypes: {
+        type: 'object',
+        properties: {
+          lookalike: { type: 'number', enum: [0, 1] },
+          custom_audience: { type: 'number', enum: [0, 1] },
+        },
+        description:
+          'Advantage+ lookalike dan Advantage+ custom audience. Set { lookalike: 1 } atau { custom_audience: 1 } untuk mengizinkan ekspansi audience serupa.',
+      },
       targetingAutomation: {
         type: 'object',
         description:
@@ -3156,6 +3171,21 @@ function createUpdateAdSetInputSchema() {
         enum: [0, 1],
         description:
           'Shorthand for targeting_automation.advantage_audience: 1 to enable Advantage+ Audience expansion, 0 to disable. Ignored if targetingAutomation is also provided.',
+      },
+      targetingOptimization: {
+        type: 'string',
+        enum: ['expansion_all', 'none'],
+        description:
+          'Advantage+ detailed targeting (audience expansion). Set expansion_all untuk memperluas ke pemirsa serupa, atau none untuk menonaktifkan.',
+      },
+      targetingRelaxationTypes: {
+        type: 'object',
+        properties: {
+          lookalike: { type: 'number', enum: [0, 1] },
+          custom_audience: { type: 'number', enum: [0, 1] },
+        },
+        description:
+          'Advantage+ lookalike dan Advantage+ custom audience. Set { lookalike: 1 } atau { custom_audience: 1 } untuk mengizinkan ekspansi audience serupa.',
       },
       targetingAutomation: {
         type: 'object',
