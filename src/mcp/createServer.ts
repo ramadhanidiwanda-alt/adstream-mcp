@@ -1130,7 +1130,10 @@ const cpasCatalogBundleInputSchema = {
       'Wajib bila creativeFormat=catalog_video_carousel. Gunakan URL thumbnail Meta untuk static video card; format ini tidak memakai Instant Experience.'
     ),
   destinationUrl: z.string().describe('Landing page URL.'),
-  templateUrl: z.string().optional().describe('Catalog template URL.'),
+  templateUrl: z
+    .string()
+    .optional()
+    .describe('Legacy input retained for compatibility; not sent to Meta catalog template_data.'),
   fallbackImageHash: z.string().optional().describe('Fallback image hash for catalog creatives.'),
   callToAction: z.enum(['SHOP_NOW', 'LEARN_MORE']).optional().describe('Creative call to action.'),
   ageMin: z.number().optional().describe('Minimum age to target.'),

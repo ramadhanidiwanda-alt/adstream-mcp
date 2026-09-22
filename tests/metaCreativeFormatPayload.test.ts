@@ -1227,7 +1227,7 @@ describe('buildMetaCreativeFormatPayload', () => {
     ).toThrow(/pilih salah satu objectStoryId.*sourceInstagramMediaId/i);
   });
 
-  it('builds a catalog template with top-level product_set_id', () => {
+  it('builds a catalog template without unsupported template_url', () => {
     const result = buildMetaCreativeFormatPayload({
       mode: 'standard',
       pageId: 'page-1',
@@ -1251,11 +1251,13 @@ describe('buildMetaCreativeFormatPayload', () => {
           message: 'Produk pilihan',
           name: '{{product.name}}',
           link: 'https://example.com/products',
-          template_url: 'https://example.com/template',
           image_hash: 'fallback-hash',
         },
       },
     });
+    const templateData = (result.object_story_spec as Record<string, unknown>)
+      .template_data as Record<string, unknown>;
+    expect(templateData).not.toHaveProperty('template_url');
     expect(result.object_story_spec).not.toHaveProperty('link_data');
     expect(result).not.toHaveProperty('asset_feed_spec');
     expect(result).not.toHaveProperty('omnichannel_link_spec');
