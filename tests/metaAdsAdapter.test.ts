@@ -2493,6 +2493,10 @@ describe('MetaAdsAdapter', () => {
         objective: 'OUTCOME_SALES',
         mode: 'collaborative_ads',
         isAdSetBudgetSharingEnabled: true,
+        promotedObject: {
+          productCatalogId: 'catalog-1',
+          smartPseEnabled: false,
+        },
       },
       credentials,
     });
@@ -2514,8 +2518,11 @@ describe('MetaAdsAdapter', () => {
         customEventType: 'PURCHASE',
         collaborativeCatalog: {
           productSetId: 'set-1',
+          productCatalogId: 'catalog-1',
           pixelId: 'pixel-1',
           customEventType: 'PURCHASE',
+          variation: 'PRODUCT_SET_AND_OMNICHANNEL',
+          smartPseEnabled: false,
           destinationUrl: 'https://example.com/catalog',
           applicationId: 'shopee-app',
           objectStoreUrls: [
@@ -2530,6 +2537,10 @@ describe('MetaAdsAdapter', () => {
     expect(campaignOptions).toMatchObject({
       mode: 'collaborative_ads',
       isAdSetBudgetSharingEnabled: true,
+      promotedObject: {
+        product_catalog_id: 'catalog-1',
+        smart_pse_enabled: false,
+      },
     });
     expect(campaignResponse.data?.mode).toBe('collaborative_ads');
     expect(adSetOptions).toMatchObject({
@@ -2545,8 +2556,11 @@ describe('MetaAdsAdapter', () => {
       customEventType: 'PURCHASE',
       collaborativeCatalog: {
         productSetId: 'set-1',
+        productCatalogId: 'catalog-1',
         pixelId: 'pixel-1',
         customEventType: 'PURCHASE',
+        variation: 'PRODUCT_SET_AND_OMNICHANNEL',
+        smartPseEnabled: false,
         destinationUrl: 'https://example.com/catalog',
         applicationId: 'shopee-app',
         objectStoreUrls: [

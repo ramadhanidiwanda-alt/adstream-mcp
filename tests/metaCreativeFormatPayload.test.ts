@@ -1474,6 +1474,26 @@ describe('buildMetaCreativeFormatPayload', () => {
     expect(templateData).not.toHaveProperty('categorization_criteria');
   });
 
+  it('applies media_type_automation opt-out to catalog creatives', () => {
+    const result = buildMetaCreativeFormatPayload({
+      mode: 'standard',
+      pageId: 'page-1',
+      creativeFormat: 'catalog',
+      creativeSpec: {
+        productSetId: 'product-set-1',
+        primaryText: 'Catalog copy',
+        destinationUrl: 'https://example.com/catalog',
+      },
+      optOutEnhancements: ['media_type_automation'],
+    });
+
+    expect(result.degrees_of_freedom_spec).toEqual({
+      creative_features_spec: {
+        media_type_automation: { enroll_status: 'OPT_OUT' },
+      },
+    });
+  });
+
   it('adds omnichannel_link_spec for collaborative catalog creative', () => {
     const result = buildMetaCreativeFormatPayload({
       mode: 'collaborative_ads',

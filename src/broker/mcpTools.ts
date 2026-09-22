@@ -1961,6 +1961,17 @@ function createCreateCampaignInputSchema() {
         description:
           'Izinkan ad set tanpa campaign budget berbagi hingga 20% anggaran. Default false.',
       },
+      promotedObject: {
+        type: 'object',
+        description:
+          'Catalog context for a Meta Sales campaign. productCatalogId is translated to promoted_object.product_catalog_id.',
+        properties: {
+          productCatalogId: { type: 'string' },
+          smartPseEnabled: { type: 'boolean' },
+        },
+        required: ['productCatalogId'],
+        additionalProperties: false,
+      },
       dailyBudget: {
         type: 'number',
         description: 'Daily budget in local currency minor units (e.g. 50000 for Rp50,000).',
@@ -2018,6 +2029,10 @@ function createCreateAdSetInputSchema() {
             type: 'string',
             description: 'ID product set dari katalog retailer yang dibagikan.',
           },
+          productCatalogId: {
+            type: 'string',
+            description: 'ID katalog induk dari product set retailer, jika diperlukan Meta.',
+          },
           pixelId: {
             type: 'string',
             description: 'ID Meta Pixel untuk mengukur event konversi, jika digunakan.',
@@ -2025,6 +2040,15 @@ function createCreateAdSetInputSchema() {
           customEventType: {
             type: 'string',
             description: 'Event konversi Meta, misalnya PURCHASE, jika digunakan.',
+          },
+          variation: {
+            type: 'string',
+            enum: ['PRODUCT_SET_AND_OMNICHANNEL'],
+            description: 'Variasi promoted_object yang dipakai CPAS catalog-only.',
+          },
+          smartPseEnabled: {
+            type: 'boolean',
+            description: 'Nilai smart_pse_enabled pada promoted_object.',
           },
           destinationUrl: {
             type: 'string',
@@ -3557,6 +3581,50 @@ function createCpasCatalogBundleInputSchema() {
       publisherPlatforms: { type: 'array', items: { type: 'string' } },
       instagramUserId: { type: 'string' },
       threadsProfileId: { type: 'string' },
+      campaignSettings: {
+        type: 'object',
+        properties: {
+          specialAdCategories: { type: 'array', items: { type: 'string' } },
+          buyType: { type: 'string', enum: ['AUCTION', 'RESERVED'] },
+          isAdSetBudgetSharingEnabled: { type: 'boolean' },
+        },
+        additionalProperties: false,
+      },
+      adSetSettings: {
+        type: 'object',
+        properties: {
+          bidStrategy: { type: 'string' },
+          bidAmount: { type: 'number' },
+          bidConstraints: { type: 'object' },
+          startTime: { type: 'string' },
+          endTime: { type: 'string' },
+          attributionSpec: { type: 'array', items: { type: 'object' } },
+          customAudiences: { type: 'array', items: { type: 'object' } },
+          excludedCustomAudiences: { type: 'array', items: { type: 'object' } },
+          advantageAudience: { type: 'number', enum: [0, 1] },
+          facebookPositions: { type: 'array', items: { type: 'string' } },
+          instagramPositions: { type: 'array', items: { type: 'string' } },
+          threadsPositions: { type: 'array', items: { type: 'string' } },
+          messengerPositions: { type: 'array', items: { type: 'string' } },
+          devicePlatforms: { type: 'array', items: { type: 'string' } },
+          dsaBeneficiary: { type: 'string' },
+          dsaPayor: { type: 'string' },
+          multiAdvertiserAds: { type: 'number', enum: [0, 1] },
+        },
+        additionalProperties: false,
+      },
+      creativeSettings: {
+        type: 'object',
+        properties: {
+          showMultipleImages: { type: 'boolean' },
+          preferredImageTags: { type: 'array', items: { type: 'string' } },
+          formatOption: { type: 'string' },
+          categorizationCriteria: { type: 'string' },
+          urlTags: { type: 'string' },
+          optOutEnhancements: { type: 'array', items: { type: 'string' } },
+        },
+        additionalProperties: false,
+      },
       dryRun: { type: 'boolean', description: 'Defaults to true.' },
       confirmed: { type: 'boolean', description: 'Required with dryRun=false.' },
     },
