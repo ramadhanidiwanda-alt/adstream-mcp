@@ -1023,6 +1023,14 @@ const createCampaignInputSchema = {
     .boolean()
     .optional()
     .describe('Izinkan ad set tanpa campaign budget berbagi hingga 20% anggaran. Default false.'),
+  promotedObject: z
+    .object({
+      productCatalogId: z.string(),
+      smartPseEnabled: z.boolean().optional(),
+    })
+    .strict()
+    .optional()
+    .describe('Catalog context for a Meta Sales campaign.'),
   dailyBudget: z.number().optional().describe('Daily budget in local currency minor units.'),
   lifetimeBudget: z.number().optional().describe('Lifetime budget in local currency minor units.'),
   bidStrategy: z.string().optional().describe('Bid strategy.'),
@@ -1130,6 +1138,47 @@ const cpasCatalogBundleInputSchema = {
   publisherPlatforms: z.array(z.string()).optional().describe('Publisher platforms.'),
   instagramUserId: z.string().optional().describe('Instagram account used as the ad identity.'),
   threadsProfileId: z.string().optional().describe('Threads profile ID for Threads posting.'),
+  campaignSettings: z
+    .object({
+      specialAdCategories: z.array(z.string()).optional(),
+      buyType: z.enum(['AUCTION', 'RESERVED']).optional(),
+      isAdSetBudgetSharingEnabled: z.boolean().optional(),
+    })
+    .strict()
+    .optional(),
+  adSetSettings: z
+    .object({
+      bidStrategy: z.string().optional(),
+      bidAmount: z.number().optional(),
+      bidConstraints: z.record(z.string(), z.unknown()).optional(),
+      startTime: z.string().optional(),
+      endTime: z.string().optional(),
+      attributionSpec: z.array(z.record(z.string(), z.unknown())).optional(),
+      customAudiences: z.array(z.object({ id: z.string() }).strict()).optional(),
+      excludedCustomAudiences: z.array(z.object({ id: z.string() }).strict()).optional(),
+      advantageAudience: z.union([z.literal(0), z.literal(1)]).optional(),
+      facebookPositions: z.array(z.string()).optional(),
+      instagramPositions: z.array(z.string()).optional(),
+      threadsPositions: z.array(z.string()).optional(),
+      messengerPositions: z.array(z.string()).optional(),
+      devicePlatforms: z.array(z.string()).optional(),
+      dsaBeneficiary: z.string().optional(),
+      dsaPayor: z.string().optional(),
+      multiAdvertiserAds: z.union([z.literal(0), z.literal(1)]).optional(),
+    })
+    .strict()
+    .optional(),
+  creativeSettings: z
+    .object({
+      showMultipleImages: z.boolean().optional(),
+      preferredImageTags: z.array(z.string()).optional(),
+      formatOption: z.string().optional(),
+      categorizationCriteria: z.string().optional(),
+      urlTags: z.string().optional(),
+      optOutEnhancements: z.array(z.string()).optional(),
+    })
+    .strict()
+    .optional(),
   dryRun: z.boolean().optional().describe('Defaults to true.'),
   confirmed: z.boolean().optional().describe('Required with dryRun=false.'),
 };
@@ -1171,6 +1220,10 @@ const createAdSetInputSchema = {
   collaborativeCatalog: z
     .object({
       productSetId: z.string().describe('ID product set dari katalog retailer yang dibagikan.'),
+      productCatalogId: z
+        .string()
+        .optional()
+        .describe('ID katalog induk dari product set retailer, jika diperlukan Meta.'),
       pixelId: z
         .string()
         .optional()
@@ -1179,6 +1232,14 @@ const createAdSetInputSchema = {
         .string()
         .optional()
         .describe('Event konversi Meta, misalnya PURCHASE, jika digunakan.'),
+      variation: z
+        .enum(['PRODUCT_SET_AND_OMNICHANNEL'])
+        .optional()
+        .describe('Variasi promoted_object yang dipakai CPAS catalog-only.'),
+      smartPseEnabled: z
+        .boolean()
+        .optional()
+        .describe('Nilai smart_pse_enabled pada promoted_object.'),
       destinationUrl: z
         .string()
         .optional()

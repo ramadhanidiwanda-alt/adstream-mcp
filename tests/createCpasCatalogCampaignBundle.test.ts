@@ -69,6 +69,117 @@ describe('createCpasCatalogCampaignBundle', () => {
     expect(result.preview.ad).toMatchObject({ status: 'PAUSED' });
   });
 
+  it('applies typed campaign, ad set, and catalog creative settings to the dry-run preview', async () => {
+    const client = createMockClient();
+    const result = await createCpasCatalogCampaignBundle(client, {
+      ...payload,
+      campaignSettings: {
+        specialAdCategories: ['EMPLOYMENT'],
+        buyType: 'AUCTION',
+        isAdSetBudgetSharingEnabled: false,
+      },
+      adSetSettings: {
+        bidStrategy: 'COST_CAP',
+        bidAmount: 1250,
+        bidConstraints: { roas_average_floor: 20000 },
+        startTime: '2026-10-01T00:00:00+07:00',
+        endTime: '2026-10-15T23:59:59+07:00',
+        attributionSpec: [{ event_type: 'CLICK_THROUGH', window_days: 7 }],
+        customAudiences: [{ id: 'audience-1' }],
+        excludedCustomAudiences: [{ id: 'audience-2' }],
+        advantageAudience: 1,
+        facebookPositions: ['feed'],
+        instagramPositions: ['stream', 'story'],
+        dsaBeneficiary: 'Brand PT',
+        dsaPayor: 'Agency PT',
+        multiAdvertiserAds: 0,
+      },
+      creativeSettings: {
+        showMultipleImages: true,
+        preferredImageTags: ['front', 'lifestyle'],
+        categorizationCriteria: 'product_type',
+        urlTags: 'utm_source=meta&utm_campaign=cpas',
+        optOutEnhancements: ['media_type_automation'],
+      },
+    });
+
+    expect(result.preview.campaign).toMatchObject({
+      special_ad_categories: ['EMPLOYMENT'],
+      buying_type: 'AUCTION',
+      is_adset_budget_sharing_enabled: false,
+    });
+    expect(result.preview.adSet).toMatchObject({
+      bid_amount: 1250,
+      bid_strategy: 'COST_CAP',
+      bid_constraints: { roas_average_floor: 20000 },
+      start_time: '2026-10-01T00:00:00+07:00',
+      end_time: '2026-10-15T23:59:59+07:00',
+      attribution_spec: [{ event_type: 'CLICK_THROUGH', window_days: 7 }],
+      dsa_beneficiary: 'Brand PT',
+      dsa_payor: 'Agency PT',
+      multi_advertiser_ads: 0,
+      targeting: {
+        custom_audiences: [{ id: 'audience-1' }],
+        excluded_custom_audiences: [{ id: 'audience-2' }],
+        facebook_positions: ['feed'],
+        instagram_positions: ['stream', 'story'],
+        targeting_automation: { advantage_audience: 1 },
+      },
+    });
+    expect(result.preview.creative).toMatchObject({
+      categorization_criteria: 'product_type',
+      url_tags: 'utm_source=meta&utm_campaign=cpas',
+      degrees_of_freedom_spec: {
+        creative_features_spec: {
+          media_type_automation: { enroll_status: 'OPT_OUT' },
+        },
+      },
+      object_story_spec: {
+        template_data: {
+          show_multiple_images: true,
+          multi_share_end_card: false,
+          preferred_image_tags: ['front', 'lifestyle'],
+        },
+      },
+    });
+  });
+
+  it('rejects mutually exclusive catalog image and format automation settings', async () => {
+    const result = await createCpasCatalogCampaignBundle(createMockClient(), {
+      ...payload,
+      creativeSettings: {
+        showMultipleImages: true,
+        formatOption: 'carousel_slideshows',
+      },
+    });
+
+    expect(result).toMatchObject({
+      status: 'failed',
+      executed: false,
+      stage: 'preflight',
+      code: 'INVALID_CPAS_CATALOG_CREATIVE_SETTINGS',
+    });
+    expect(result.error).toMatch(/showMultipleImages.*formatOption/i);
+  });
+
+  it('lets showMultipleImages override the single-image presentation defaults in preview', async () => {
+    const result = await createCpasCatalogCampaignBundle(createMockClient(), {
+      ...payload,
+      creativeFormat: 'catalog_single_image',
+      creativeSettings: { showMultipleImages: true },
+    });
+
+    expect(result.preview.creative).toMatchObject({
+      object_story_spec: {
+        template_data: {
+          show_multiple_images: true,
+          multi_share_end_card: false,
+          force_single_link: false,
+        },
+      },
+    });
+  });
+
   it('shows the selected Instagram identity in the dry-run preview', async () => {
     const client = createMockClient();
 
@@ -269,10 +380,31 @@ describe('createCpasCatalogCampaignBundle', () => {
         bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
       });
 
-    const result = await createCpasCatalogCampaignBundle(client, payload, {
-      dryRun: false,
-      confirmed: true,
-    });
+    const result = await createCpasCatalogCampaignBundle(
+      client,
+      {
+        ...payload,
+        campaignSettings: { specialAdCategories: ['EMPLOYMENT'] },
+        adSetSettings: {
+          bidStrategy: 'COST_CAP',
+          bidAmount: 1250,
+          customAudiences: [{ id: 'audience-1' }],
+          advantageAudience: 1,
+          dsaBeneficiary: 'Brand PT',
+        },
+        creativeSettings: {
+          showMultipleImages: true,
+          preferredImageTags: ['front'],
+          categorizationCriteria: 'product_type',
+          urlTags: 'utm_source=meta',
+        },
+      },
+      {
+        dryRun: false,
+        confirmed: true,
+      }
+    );
+    expect(result.error).toBeUndefined();
     expect(result).toMatchObject({
       status: 'executed',
       executed: true,
@@ -293,6 +425,7 @@ describe('createCpasCatalogCampaignBundle', () => {
     ]);
     expect(post.mock.calls[0][1]).toMatchObject({
       bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+      special_ad_categories: ['EMPLOYMENT'],
       promoted_object: {
         product_catalog_id: 'catalog_1',
         smart_pse_enabled: false,
@@ -301,6 +434,13 @@ describe('createCpasCatalogCampaignBundle', () => {
     expect(post.mock.calls[1][1]).toMatchObject({
       status: 'PAUSED',
       destination_type: 'UNDEFINED',
+      bid_amount: 1250,
+      bid_strategy: 'COST_CAP',
+      dsa_beneficiary: 'Brand PT',
+      targeting: {
+        custom_audiences: [{ id: 'audience-1' }],
+        targeting_automation: { advantage_audience: 1 },
+      },
       promoted_object: {
         product_set_id: 'ps_1',
         custom_event_type: 'PURCHASE',
@@ -308,7 +448,17 @@ describe('createCpasCatalogCampaignBundle', () => {
         smart_pse_enabled: false,
       },
     });
-    expect(post.mock.calls[2][1]).toMatchObject({ product_set_id: 'ps_1' });
+    expect(post.mock.calls[2][1]).toMatchObject({
+      product_set_id: 'ps_1',
+      categorization_criteria: 'product_type',
+      url_tags: 'utm_source=meta',
+      object_story_spec: {
+        template_data: {
+          show_multiple_images: true,
+          preferred_image_tags: ['front'],
+        },
+      },
+    });
     expect(post.mock.calls[1][1].promoted_object).not.toHaveProperty('product_catalog_id');
     expect(post.mock.calls[2][1]).not.toHaveProperty('omnichannel_link_spec');
     expect(post.mock.calls[2][1]).not.toHaveProperty('applink_treatment');

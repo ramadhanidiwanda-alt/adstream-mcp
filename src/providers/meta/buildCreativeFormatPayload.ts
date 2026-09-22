@@ -1070,32 +1070,36 @@ function buildCatalog(
     templateData.format_option = creativeSpec.formatOption;
   }
 
-  return withCollaborativeCatalogContext(
-    input,
-    {
-      product_set_id: productSetId,
-      // Live-verified at v25.0: Meta rejects categorization_criteria inside
-      // object_story_spec.template_data ("tidak didukung"); it belongs at the
-      // top level of the creative payload, sibling to product_set_id.
-      ...(creativeSpec.categorizationCriteria
-        ? { categorization_criteria: creativeSpec.categorizationCriteria }
-        : {}),
-      ...(creativeSpec.presentation === 'carousel' || creativeSpec.presentation === 'video_carousel'
-        ? {
-            asset_feed_spec: {
-              bodies: [{ text: required(creativeSpec.primaryText, 'primaryText') }],
-              ad_formats: ['CAROUSEL', 'COLLECTION'],
-              optimization_type: 'FORMAT_AUTOMATION',
-            },
-          }
-        : {}),
-      object_story_spec: {
-        page_id: required(input.pageId, 'pageId'),
-        ...socialIdentity(input),
-        template_data: templateData,
+  return withDegreesOfFreedomSpec(
+    withCollaborativeCatalogContext(
+      input,
+      {
+        product_set_id: productSetId,
+        // Live-verified at v25.0: Meta rejects categorization_criteria inside
+        // object_story_spec.template_data ("tidak didukung"); it belongs at the
+        // top level of the creative payload, sibling to product_set_id.
+        ...(creativeSpec.categorizationCriteria
+          ? { categorization_criteria: creativeSpec.categorizationCriteria }
+          : {}),
+        ...(creativeSpec.presentation === 'carousel' ||
+        creativeSpec.presentation === 'video_carousel'
+          ? {
+              asset_feed_spec: {
+                bodies: [{ text: required(creativeSpec.primaryText, 'primaryText') }],
+                ad_formats: ['CAROUSEL', 'COLLECTION'],
+                optimization_type: 'FORMAT_AUTOMATION',
+              },
+            }
+          : {}),
+        object_story_spec: {
+          page_id: required(input.pageId, 'pageId'),
+          ...socialIdentity(input),
+          template_data: templateData,
+        },
       },
-    },
-    destinationUrl
+      destinationUrl
+    ),
+    input.optOutEnhancements
   );
 }
 

@@ -1628,6 +1628,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
             typeof request.params.isAdSetBudgetSharingEnabled === 'boolean'
               ? request.params.isAdSetBudgetSharingEnabled
               : undefined,
+          promotedObject: parseCampaignCatalogPromotedObject(request.params.promotedObject),
           dailyBudget:
             typeof request.params.dailyBudget === 'number' ? request.params.dailyBudget : undefined,
           lifetimeBudget:
@@ -4245,6 +4246,9 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
           typeof params.instagramUserId === 'string' ? params.instagramUserId : undefined,
         threadsProfileId:
           typeof params.threadsProfileId === 'string' ? params.threadsProfileId : undefined,
+        campaignSettings: parseCpasCampaignSettings(params.campaignSettings),
+        adSetSettings: parseCpasAdSetSettings(params.adSetSettings),
+        creativeSettings: parseCpasCreativeSettings(params.creativeSettings),
       },
     };
   }
@@ -4863,10 +4867,19 @@ function parseCollaborativeCatalog(value: unknown): MetaCollaborativeCatalogCont
   const catalog = requireRecord(value, 'collaborativeCatalog');
   return {
     productSetId: requireString(catalog.productSetId, 'collaborativeCatalog.productSetId'),
+    productCatalogId: optionalString(
+      catalog.productCatalogId,
+      'collaborativeCatalog.productCatalogId'
+    ),
     pixelId: optionalString(catalog.pixelId, 'collaborativeCatalog.pixelId'),
     customEventType: optionalString(
       catalog.customEventType,
       'collaborativeCatalog.customEventType'
+    ),
+    variation: parseCollaborativeCatalogVariation(catalog.variation),
+    smartPseEnabled: optionalBoolean(
+      catalog.smartPseEnabled,
+      'collaborativeCatalog.smartPseEnabled'
     ),
     destinationUrl: optionalString(catalog.destinationUrl, 'collaborativeCatalog.destinationUrl'),
     applicationId: optionalString(catalog.applicationId, 'collaborativeCatalog.applicationId'),
@@ -4875,6 +4888,170 @@ function parseCollaborativeCatalog(value: unknown): MetaCollaborativeCatalogCont
       'collaborativeCatalog.objectStoreUrls'
     ),
   };
+}
+
+function parseCpasCampaignSettings(
+  value: unknown
+): MetaCpasCatalogCampaignBundlePayload['campaignSettings'] {
+  if (value === undefined) return undefined;
+  const settings = requireRecord(value, 'campaignSettings');
+  const buyType = optionalString(settings.buyType, 'campaignSettings.buyType');
+  if (buyType !== undefined && buyType !== 'AUCTION' && buyType !== 'RESERVED') {
+    throw new Error('campaignSettings.buyType harus berupa AUCTION atau RESERVED.');
+  }
+  return {
+    specialAdCategories: optionalStringArray(
+      settings.specialAdCategories,
+      'campaignSettings.specialAdCategories'
+    ),
+    buyType,
+    isAdSetBudgetSharingEnabled: optionalBoolean(
+      settings.isAdSetBudgetSharingEnabled,
+      'campaignSettings.isAdSetBudgetSharingEnabled'
+    ),
+  };
+}
+
+function parseCpasAdSetSettings(
+  value: unknown
+): MetaCpasCatalogCampaignBundlePayload['adSetSettings'] {
+  if (value === undefined) return undefined;
+  const settings = requireRecord(value, 'adSetSettings');
+  return {
+    bidStrategy: optionalString(settings.bidStrategy, 'adSetSettings.bidStrategy'),
+    bidAmount: optionalNumber(settings.bidAmount, 'adSetSettings.bidAmount'),
+    bidConstraints: optionalRecord(settings.bidConstraints, 'adSetSettings.bidConstraints'),
+    startTime: optionalString(settings.startTime, 'adSetSettings.startTime'),
+    endTime: optionalString(settings.endTime, 'adSetSettings.endTime'),
+    attributionSpec: optionalRecordArray(settings.attributionSpec, 'adSetSettings.attributionSpec'),
+    customAudiences: optionalIdArray(settings.customAudiences, 'adSetSettings.customAudiences'),
+    excludedCustomAudiences: optionalIdArray(
+      settings.excludedCustomAudiences,
+      'adSetSettings.excludedCustomAudiences'
+    ),
+    advantageAudience: optionalBinaryNumber(
+      settings.advantageAudience,
+      'adSetSettings.advantageAudience'
+    ),
+    facebookPositions: optionalStringArray(
+      settings.facebookPositions,
+      'adSetSettings.facebookPositions'
+    ),
+    instagramPositions: optionalStringArray(
+      settings.instagramPositions,
+      'adSetSettings.instagramPositions'
+    ),
+    threadsPositions: optionalStringArray(
+      settings.threadsPositions,
+      'adSetSettings.threadsPositions'
+    ),
+    messengerPositions: optionalStringArray(
+      settings.messengerPositions,
+      'adSetSettings.messengerPositions'
+    ),
+    devicePlatforms: optionalStringArray(settings.devicePlatforms, 'adSetSettings.devicePlatforms'),
+    dsaBeneficiary: optionalString(settings.dsaBeneficiary, 'adSetSettings.dsaBeneficiary'),
+    dsaPayor: optionalString(settings.dsaPayor, 'adSetSettings.dsaPayor'),
+    multiAdvertiserAds: optionalBinaryNumber(
+      settings.multiAdvertiserAds,
+      'adSetSettings.multiAdvertiserAds'
+    ),
+  };
+}
+
+function parseCpasCreativeSettings(
+  value: unknown
+): MetaCpasCatalogCampaignBundlePayload['creativeSettings'] {
+  if (value === undefined) return undefined;
+  const settings = requireRecord(value, 'creativeSettings');
+  return {
+    showMultipleImages: optionalBoolean(
+      settings.showMultipleImages,
+      'creativeSettings.showMultipleImages'
+    ),
+    preferredImageTags: optionalStringArray(
+      settings.preferredImageTags,
+      'creativeSettings.preferredImageTags'
+    ),
+    formatOption: optionalString(settings.formatOption, 'creativeSettings.formatOption'),
+    categorizationCriteria: optionalString(
+      settings.categorizationCriteria,
+      'creativeSettings.categorizationCriteria'
+    ),
+    urlTags: optionalString(settings.urlTags, 'creativeSettings.urlTags'),
+    optOutEnhancements: optionalStringArray(
+      settings.optOutEnhancements,
+      'creativeSettings.optOutEnhancements'
+    ),
+  };
+}
+
+function optionalNumber(value: unknown, field: string): number | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    throw new Error(`${field} harus berupa number yang valid.`);
+  }
+  return value;
+}
+
+function optionalBinaryNumber(value: unknown, field: string): 0 | 1 | undefined {
+  if (value === undefined) return undefined;
+  if (value !== 0 && value !== 1) throw new Error(`${field} harus berupa 0 atau 1.`);
+  return value;
+}
+
+function optionalRecord(value: unknown, field: string): Record<string, unknown> | undefined {
+  return value === undefined ? undefined : requireRecord(value, field);
+}
+
+function optionalRecordArray(
+  value: unknown,
+  field: string
+): Array<Record<string, unknown>> | undefined {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value)) throw new Error(`${field} harus berupa array.`);
+  return value.map((item, index) => requireRecord(item, `${field}[${index}]`));
+}
+
+function optionalIdArray(value: unknown, field: string): Array<{ id: string }> | undefined {
+  return optionalRecordArray(value, field)?.map((item, index) => ({
+    id: requireString(item.id, `${field}[${index}].id`),
+  }));
+}
+
+function parseCampaignCatalogPromotedObject(value: unknown): Record<string, unknown> | undefined {
+  if (value === undefined) return undefined;
+  const promotedObject = requireRecord(value, 'promotedObject');
+  return {
+    product_catalog_id: requireString(
+      promotedObject.productCatalogId,
+      'promotedObject.productCatalogId'
+    ),
+    ...(promotedObject.smartPseEnabled === undefined
+      ? {}
+      : {
+          smart_pse_enabled: optionalBoolean(
+            promotedObject.smartPseEnabled,
+            'promotedObject.smartPseEnabled'
+          ),
+        }),
+  };
+}
+
+function parseCollaborativeCatalogVariation(
+  value: unknown
+): MetaCollaborativeCatalogContext['variation'] {
+  if (value === undefined) return undefined;
+  if (value !== 'PRODUCT_SET_AND_OMNICHANNEL') {
+    throw new Error('collaborativeCatalog.variation harus berupa PRODUCT_SET_AND_OMNICHANNEL.');
+  }
+  return value;
+}
+
+function optionalBoolean(value: unknown, field: string): boolean | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value !== 'boolean') throw new Error(`${field} harus berupa boolean.`);
+  return value;
 }
 
 function parseCollaborativeAppSpec(value: unknown): MetaCollaborativeAppSpec | undefined {

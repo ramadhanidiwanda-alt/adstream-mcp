@@ -40,6 +40,9 @@ export type {
 export { createCpasCatalogCampaignBundle } from './tools/createCpasCatalogCampaignBundle.js';
 export type {
   CpasCatalogBundleStatus,
+  CpasCatalogCampaignSettings,
+  CpasCatalogAdSetSettings,
+  CpasCatalogCreativeSettings,
   CpasCatalogCampaignBundleOptions,
   CpasCatalogCampaignBundlePayload,
   CpasCatalogCampaignBundlePreview,

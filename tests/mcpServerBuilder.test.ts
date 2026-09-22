@@ -590,6 +590,15 @@ describe('MCP server builder', () => {
     expect(campaignProperties.isAdSetBudgetSharingEnabled.description).toMatch(
       /berbagi.*20%|20%.*anggaran/i
     );
+    expect(campaignProperties.promotedObject).toMatchObject({
+      type: 'object',
+      required: ['productCatalogId'],
+      additionalProperties: false,
+      properties: {
+        productCatalogId: { type: 'string' },
+        smartPseEnabled: { type: 'boolean' },
+      },
+    });
     expect(adsetProperties).toHaveProperty('collaborativeCatalog');
     expect(adsetProperties).toHaveProperty('conversionLocation');
     expect(adsetProperties).toHaveProperty('creativeFormat');
@@ -628,8 +637,11 @@ describe('MCP server builder', () => {
       required: ['productSetId'],
       properties: {
         productSetId: { type: 'string' },
+        productCatalogId: { type: 'string' },
         pixelId: { type: 'string' },
         customEventType: { type: 'string' },
+        variation: { type: 'string', enum: ['PRODUCT_SET_AND_OMNICHANNEL'] },
+        smartPseEnabled: { type: 'boolean' },
         destinationUrl: { type: 'string' },
         applicationId: { type: 'string' },
         objectStoreUrls: { type: 'array', items: { type: 'string' } },

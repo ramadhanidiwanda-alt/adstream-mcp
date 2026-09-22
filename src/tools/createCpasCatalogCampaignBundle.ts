@@ -36,6 +36,41 @@ export interface CpasCatalogHybridVideoSpec {
   thumbnailUrl: string;
 }
 
+export interface CpasCatalogCampaignSettings {
+  specialAdCategories?: string[];
+  buyType?: 'AUCTION' | 'RESERVED';
+  isAdSetBudgetSharingEnabled?: boolean;
+}
+
+export interface CpasCatalogAdSetSettings {
+  bidStrategy?: string;
+  bidAmount?: number;
+  bidConstraints?: Record<string, unknown>;
+  startTime?: string;
+  endTime?: string;
+  attributionSpec?: Array<Record<string, unknown>>;
+  customAudiences?: Array<{ id: string }>;
+  excludedCustomAudiences?: Array<{ id: string }>;
+  advantageAudience?: 0 | 1;
+  facebookPositions?: string[];
+  instagramPositions?: string[];
+  threadsPositions?: string[];
+  messengerPositions?: string[];
+  devicePlatforms?: string[];
+  dsaBeneficiary?: string;
+  dsaPayor?: string;
+  multiAdvertiserAds?: 0 | 1;
+}
+
+export interface CpasCatalogCreativeSettings {
+  showMultipleImages?: boolean;
+  preferredImageTags?: string[];
+  formatOption?: string;
+  categorizationCriteria?: string;
+  urlTags?: string;
+  optOutEnhancements?: string[];
+}
+
 export interface CpasCatalogCampaignBundlePayload {
   adAccountId: string;
   campaignName: string;
@@ -69,6 +104,9 @@ export interface CpasCatalogCampaignBundlePayload {
   publisherPlatforms?: string[];
   instagramUserId?: string;
   threadsProfileId?: string;
+  campaignSettings?: CpasCatalogCampaignSettings;
+  adSetSettings?: CpasCatalogAdSetSettings;
+  creativeSettings?: CpasCatalogCreativeSettings;
 }
 
 export interface CpasCatalogCampaignBundleOptions {
@@ -112,6 +150,9 @@ export function buildCpasCatalogBundlePreview(
   const creativeFormat = payload.creativeFormat ?? 'catalog';
   const collection = payload.collection;
   const video = payload.video;
+  const campaignSettings = payload.campaignSettings;
+  const adSetSettings = payload.adSetSettings;
+  const creativeSettings = payload.creativeSettings;
   const catalogPresentation =
     creativeFormat === 'catalog_single_image'
       ? 'single_image'
@@ -126,6 +167,13 @@ export function buildCpasCatalogBundlePreview(
       objective: 'OUTCOME_SALES',
       status: 'PAUSED',
       special_ad_categories: [],
+      ...(campaignSettings?.specialAdCategories
+        ? { special_ad_categories: campaignSettings.specialAdCategories }
+        : {}),
+      ...(campaignSettings?.buyType ? { buying_type: campaignSettings.buyType } : {}),
+      ...(campaignSettings?.isAdSetBudgetSharingEnabled !== undefined
+        ? { is_adset_budget_sharing_enabled: campaignSettings.isAdSetBudgetSharingEnabled }
+        : {}),
       daily_budget: payload.dailyBudget,
       bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
     },
@@ -134,7 +182,21 @@ export function buildCpasCatalogBundlePreview(
       status: 'PAUSED',
       billing_event: 'IMPRESSIONS',
       optimization_goal: 'OFFSITE_CONVERSIONS',
+      bid_strategy: adSetSettings?.bidStrategy ?? 'LOWEST_COST_WITHOUT_CAP',
       destination_type: 'UNDEFINED',
+      ...(adSetSettings?.bidAmount !== undefined ? { bid_amount: adSetSettings.bidAmount } : {}),
+      ...(adSetSettings?.bidConstraints ? { bid_constraints: adSetSettings.bidConstraints } : {}),
+      ...(adSetSettings?.startTime ? { start_time: adSetSettings.startTime } : {}),
+      ...(adSetSettings?.endTime ? { end_time: adSetSettings.endTime } : {}),
+      ...(adSetSettings?.attributionSpec
+        ? { attribution_spec: adSetSettings.attributionSpec }
+        : {}),
+      ...(adSetSettings?.dsaBeneficiary ? { dsa_beneficiary: adSetSettings.dsaBeneficiary } : {}),
+      ...(adSetSettings?.dsaPayor ? { dsa_payor: adSetSettings.dsaPayor } : {}),
+      ...(adSetSettings?.multiAdvertiserAds !== undefined
+        ? { multi_advertiser_ads: adSetSettings.multiAdvertiserAds }
+        : {}),
+      targeting: buildCpasTargetingPreview(payload),
       promoted_object: {
         product_set_id: productSetId,
         ...(appOmnichannel
@@ -236,6 +298,22 @@ export function buildCpasCatalogBundlePreview(
           : {
               name: payload.adName.trim() + ' Creative',
               product_set_id: productSetId,
+              ...(creativeSettings?.categorizationCriteria
+                ? { categorization_criteria: creativeSettings.categorizationCriteria }
+                : {}),
+              ...(creativeSettings?.urlTags ? { url_tags: creativeSettings.urlTags } : {}),
+              ...(creativeSettings?.optOutEnhancements?.length
+                ? {
+                    degrees_of_freedom_spec: {
+                      creative_features_spec: Object.fromEntries(
+                        creativeSettings.optOutEnhancements.map((feature) => [
+                          feature,
+                          { enroll_status: 'OPT_OUT' },
+                        ])
+                      ),
+                    },
+                  }
+                : {}),
               object_story_spec: {
                 page_id: payload.pageId.trim(),
                 ...(payload.instagramUserId?.trim()
@@ -255,6 +333,12 @@ export function buildCpasCatalogBundlePreview(
                     type: payload.callToAction ?? 'SHOP_NOW',
                     ...(appOmnichannel ? { value: { link: destinationUrl } } : {}),
                   },
+                  ...(creativeSettings?.preferredImageTags?.length
+                    ? { preferred_image_tags: creativeSettings.preferredImageTags }
+                    : {}),
+                  ...(creativeSettings?.formatOption
+                    ? { format_option: creativeSettings.formatOption }
+                    : {}),
                   ...(catalogPresentation === 'single_image'
                     ? {
                         multi_share_end_card: true,
@@ -284,6 +368,13 @@ export function buildCpasCatalogBundlePreview(
                             show_multiple_images: false,
                           }
                         : {}),
+                  ...(creativeSettings?.showMultipleImages
+                    ? {
+                        show_multiple_images: true,
+                        multi_share_end_card: false,
+                        force_single_link: false,
+                      }
+                    : {}),
                 },
               },
               ...(catalogPresentation === 'carousel' || catalogPresentation === 'video_carousel'
@@ -297,6 +388,28 @@ export function buildCpasCatalogBundlePreview(
                 : {}),
             },
     ad: { name: payload.adName.trim(), status: 'PAUSED' },
+  };
+}
+
+function buildCpasTargetingPreview(
+  payload: CpasCatalogCampaignBundlePayload
+): Record<string, unknown> {
+  const settings = payload.adSetSettings;
+  return {
+    geo_locations: { countries: payload.countries },
+    age_min: payload.ageMin ?? 18,
+    ...(payload.ageMax ? { age_max: payload.ageMax } : {}),
+    ...(payload.publisherPlatforms ? { publisher_platforms: payload.publisherPlatforms } : {}),
+    ...(settings?.customAudiences ? { custom_audiences: settings.customAudiences } : {}),
+    ...(settings?.excludedCustomAudiences
+      ? { excluded_custom_audiences: settings.excludedCustomAudiences }
+      : {}),
+    ...(settings?.facebookPositions ? { facebook_positions: settings.facebookPositions } : {}),
+    ...(settings?.instagramPositions ? { instagram_positions: settings.instagramPositions } : {}),
+    ...(settings?.threadsPositions ? { threads_positions: settings.threadsPositions } : {}),
+    ...(settings?.messengerPositions ? { messenger_positions: settings.messengerPositions } : {}),
+    ...(settings?.devicePlatforms ? { device_platforms: settings.devicePlatforms } : {}),
+    targeting_automation: { advantage_audience: settings?.advantageAudience ?? 0 },
   };
 }
 
@@ -407,6 +520,16 @@ export async function createCpasCatalogCampaignBundle(
       );
     }
   }
+  if (
+    payload.creativeSettings?.showMultipleImages === true &&
+    payload.creativeSettings.formatOption
+  ) {
+    return failure(
+      'preflight',
+      'INVALID_CPAS_CATALOG_CREATIVE_SETTINGS',
+      'showMultipleImages dan formatOption tidak dapat digunakan bersamaan pada catalog creative.'
+    );
+  }
   const appOmnichannel = payload.destinationMode === 'app_omnichannel';
   if (
     appOmnichannel &&
@@ -490,6 +613,9 @@ export async function createCpasCatalogCampaignBundle(
       objective: 'OUTCOME_SALES',
       mode: 'collaborative_ads',
       status: 'PAUSED',
+      specialAdCategories: payload.campaignSettings?.specialAdCategories,
+      buyType: payload.campaignSettings?.buyType,
+      isAdSetBudgetSharingEnabled: payload.campaignSettings?.isAdSetBudgetSharingEnabled,
       dailyBudget: payload.dailyBudget,
       bidStrategy: 'LOWEST_COST_WITHOUT_CAP',
       ...(productCatalogId?.trim()
@@ -519,7 +645,15 @@ export async function createCpasCatalogCampaignBundle(
       destinationType: 'UNDEFINED',
       billingEvent: 'IMPRESSIONS',
       optimizationGoal: 'OFFSITE_CONVERSIONS',
-      bidStrategy: 'LOWEST_COST_WITHOUT_CAP',
+      bidStrategy: payload.adSetSettings?.bidStrategy ?? 'LOWEST_COST_WITHOUT_CAP',
+      bidAmount: payload.adSetSettings?.bidAmount,
+      bidConstraints: payload.adSetSettings?.bidConstraints,
+      startTime: payload.adSetSettings?.startTime,
+      endTime: payload.adSetSettings?.endTime,
+      attributionSpec: payload.adSetSettings?.attributionSpec,
+      dsaBeneficiary: payload.adSetSettings?.dsaBeneficiary,
+      dsaPayor: payload.adSetSettings?.dsaPayor,
+      multiAdvertiserAds: payload.adSetSettings?.multiAdvertiserAds,
       productSetId: payload.productSetId,
       collaborativeCatalog: {
         productSetId: payload.productSetId,
@@ -541,6 +675,30 @@ export async function createCpasCatalogCampaignBundle(
         ageMin: payload.ageMin ?? 18,
         ...(payload.ageMax ? { ageMax: payload.ageMax } : {}),
         ...(payload.publisherPlatforms ? { publisherPlatforms: payload.publisherPlatforms } : {}),
+        ...(payload.adSetSettings?.customAudiences
+          ? { customAudiences: payload.adSetSettings.customAudiences }
+          : {}),
+        ...(payload.adSetSettings?.excludedCustomAudiences
+          ? { excludedCustomAudiences: payload.adSetSettings.excludedCustomAudiences }
+          : {}),
+        ...(payload.adSetSettings?.facebookPositions
+          ? { facebookPositions: payload.adSetSettings.facebookPositions }
+          : {}),
+        ...(payload.adSetSettings?.instagramPositions
+          ? { instagramPositions: payload.adSetSettings.instagramPositions }
+          : {}),
+        ...(payload.adSetSettings?.threadsPositions
+          ? { threadsPositions: payload.adSetSettings.threadsPositions }
+          : {}),
+        ...(payload.adSetSettings?.messengerPositions
+          ? { messengerPositions: payload.adSetSettings.messengerPositions }
+          : {}),
+        ...(payload.adSetSettings?.devicePlatforms
+          ? { devicePlatforms: payload.adSetSettings.devicePlatforms }
+          : {}),
+        targetingAutomation: {
+          advantage_audience: payload.adSetSettings?.advantageAudience ?? 0,
+        },
       },
     },
     { dryRun: false, confirmed: true, maxRetries: options.maxRetries }
@@ -559,6 +717,8 @@ export async function createCpasCatalogCampaignBundle(
       conversionLocation: 'CATALOG',
       collaborativeProductSetId: payload.productSetId,
       catalogOnly: !appOmnichannel,
+      urlTags: payload.creativeSettings?.urlTags,
+      optOutEnhancements: payload.creativeSettings?.optOutEnhancements,
       ...(appOmnichannel ? { collaborativeAppSpec: payload.collaborativeAppSpec } : {}),
       creative:
         creativeFormat === 'collection'
@@ -605,6 +765,10 @@ export async function createCpasCatalogCampaignBundle(
                   templateUrl: payload.templateUrl,
                   fallbackImageHash: payload.fallbackImageHash,
                   callToAction: payload.callToAction ?? 'SHOP_NOW',
+                  showMultipleImages: payload.creativeSettings?.showMultipleImages,
+                  preferredImageTags: payload.creativeSettings?.preferredImageTags,
+                  formatOption: payload.creativeSettings?.formatOption,
+                  categorizationCriteria: payload.creativeSettings?.categorizationCriteria,
                   ...(creativeFormat === 'catalog_single_image'
                     ? { presentation: 'single_image' as const }
                     : creativeFormat === 'catalog_carousel'
