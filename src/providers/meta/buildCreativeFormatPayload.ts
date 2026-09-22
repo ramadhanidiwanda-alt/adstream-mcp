@@ -993,7 +993,6 @@ function buildCatalog(
   };
   const headline = optional(creativeSpec.headline, 'headline');
   const description = optional(creativeSpec.description, 'description');
-  const templateUrl = optional(creativeSpec.templateUrl, 'templateUrl');
   const fallbackImageHash = optional(creativeSpec.fallbackImageHash, 'fallbackImageHash');
 
   if (headline) templateData.name = headline;
@@ -1004,7 +1003,6 @@ function buildCatalog(
       ? { type: creativeSpec.callToAction?.trim() || 'SHOP_NOW' }
       : cta(creativeSpec.callToAction, destinationUrl, input.collaborativeAppSpec);
   }
-  if (templateUrl) templateData.template_url = templateUrl;
   if (fallbackImageHash) templateData.image_hash = fallbackImageHash;
 
   if (creativeSpec.presentation === 'single_image') {

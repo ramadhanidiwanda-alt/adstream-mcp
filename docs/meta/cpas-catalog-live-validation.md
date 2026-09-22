@@ -56,3 +56,14 @@ Dengan demikian, live test membuktikan jalur catalog collaborative umum, tetapi 
 4. Jalankan build, typecheck, lint, serta seluruh test.
 5. Retest hanya creative dan ad pada ad set test yang sama; keduanya wajib tetap `PAUSED`. Jangan membuat campaign atau ad set tambahan untuk retest ini.
 
+## Resolution
+
+Perbaikan kode diterapkan pada branch `codex/document-cpas-live-validation` setelah membandingkan payload dengan contoh catalog creative pada koleksi resmi Meta Marketing API:
+
+- `template_url` tidak lagi dikirim pada `object_story_spec.template_data`; `destinationUrl` tetap menjadi `template_data.link`.
+- Public adapter menerima dan meneruskan `creativeSpec.presentation` secara typed: `single_image`, `carousel`, atau `video_carousel`.
+- `hybridVideo` ikut diteruskan untuk presentasi `video_carousel`.
+- `templateUrl` dipertahankan sementara sebagai input legacy untuk kompatibilitas, tetapi tidak dikirim ke Meta.
+- Regression tests ditambahkan untuk payload catalog dan parity public adapter/internal builder.
+
+Live retest belum dilakukan. Entity test di atas tetap `PAUSED`.

@@ -3573,7 +3573,10 @@ function createCpasCatalogBundleInputSchema() {
         required: ['videoId', 'thumbnailUrl'],
       },
       destinationUrl: { type: 'string' },
-      templateUrl: { type: 'string' },
+      templateUrl: {
+        type: 'string',
+        description: 'Legacy input retained for compatibility; not sent to Meta catalog template_data.',
+      },
       fallbackImageHash: { type: 'string' },
       callToAction: { type: 'string', enum: ['SHOP_NOW', 'LEARN_MORE'] },
       ageMin: { type: 'number' },

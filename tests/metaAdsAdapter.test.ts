@@ -4234,6 +4234,47 @@ describe('MetaAdsAdapter', () => {
     expect(serialized).not.toContain('adapter-boundary-secret');
   });
 
+  it('accepts and forwards typed catalog presentation through the public adapter', async () => {
+    let capturedOptions: CreateAdCreativeOptions | undefined;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        createAdCreative: async (_client, options) => {
+          capturedOptions = options;
+          return {
+            operation: 'create_adcreative',
+            status: 'dry_run',
+            executed: false,
+            preview: {},
+          };
+        },
+      },
+    });
+
+    const response = await adapter.createAdCreative({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {
+        name: 'Catalog single image',
+        pageId: 'page-1',
+        creativeFormat: 'catalog',
+        creativeSpec: {
+          productSetId: 'set-1',
+          primaryText: 'Catalog copy',
+          destinationUrl: 'https://example.com/catalog',
+          presentation: 'single_image',
+        },
+      },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    });
+
+    expect(response.ok).toBe(true);
+    expect(capturedOptions?.creative).toMatchObject({
+      creativeFormat: 'catalog',
+      creativeSpec: { presentation: 'single_image' },
+    });
+  });
+
   it.each([
     { creativeFormat: 'single_image' },
     {

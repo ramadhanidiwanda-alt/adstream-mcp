@@ -69,6 +69,21 @@ describe('createCpasCatalogCampaignBundle', () => {
     expect(result.preview.ad).toMatchObject({ status: 'PAUSED' });
   });
 
+  it('uses destinationUrl and omits unsupported template_url for catalog single-image', async () => {
+    const client = createMockClient();
+    const result = await createCpasCatalogCampaignBundle(client, {
+      ...payload,
+      creativeFormat: 'catalog_single_image',
+      destinationUrl: 'https://example.com/destination',
+      templateUrl: 'https://example.com/legacy-template',
+    });
+
+    const objectStorySpec = result.preview.creative.object_story_spec as Record<string, unknown>;
+    const templateData = objectStorySpec.template_data as Record<string, unknown>;
+    expect(templateData.link).toBe('https://example.com/destination');
+    expect(templateData).not.toHaveProperty('template_url');
+  });
+
   it('applies typed campaign, ad set, and catalog creative settings to the dry-run preview', async () => {
     const client = createMockClient();
     const result = await createCpasCatalogCampaignBundle(client, {

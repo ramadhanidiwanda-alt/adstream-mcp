@@ -5178,6 +5178,8 @@ const CREATIVE_SPEC_FIELDS: Record<MetaCreativeFormat, ReadonlySet<string>> = {
     'productSetId',
     'templateUrl',
     'fallbackImageHash',
+    'presentation',
+    'hybridVideo',
   ]),
   collection: new Set([
     ...COMMON_CREATIVE_COPY_FIELDS,
@@ -5383,6 +5385,30 @@ function parseMetaCreativeSpec(
             spec.fallbackImageHash,
             'creativeSpec.fallbackImageHash'
           ),
+          presentation:
+            spec.presentation === undefined
+              ? undefined
+              : spec.presentation === 'single_image' ||
+                  spec.presentation === 'carousel' ||
+                  spec.presentation === 'video_carousel'
+                ? spec.presentation
+                : (() => {
+                    throw new Error(
+                      'creativeSpec.presentation harus single_image, carousel, atau video_carousel.'
+                    );
+                  })(),
+          hybridVideo: spec.hybridVideo
+            ? {
+                videoId: requireString(
+                  requireRecord(spec.hybridVideo, 'creativeSpec.hybridVideo').videoId,
+                  'creativeSpec.hybridVideo.videoId'
+                ),
+                thumbnailUrl: requireString(
+                  requireRecord(spec.hybridVideo, 'creativeSpec.hybridVideo').thumbnailUrl,
+                  'creativeSpec.hybridVideo.thumbnailUrl'
+                ),
+              }
+            : undefined,
         },
       };
     case 'collection':

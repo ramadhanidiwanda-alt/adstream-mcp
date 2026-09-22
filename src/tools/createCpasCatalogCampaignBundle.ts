@@ -328,7 +328,7 @@ export function buildCpasCatalogBundlePreview(
                   ...(payload.description?.trim()
                     ? { description: payload.description.trim() }
                     : {}),
-                  link: payload.templateUrl?.trim() || destinationUrl,
+                  link: destinationUrl,
                   call_to_action: {
                     type: payload.callToAction ?? 'SHOP_NOW',
                     ...(appOmnichannel ? { value: { link: destinationUrl } } : {}),
@@ -351,7 +351,7 @@ export function buildCpasCatalogBundlePreview(
                         ? {
                             child_attachments: [
                               {
-                                link: payload.templateUrl?.trim() || destinationUrl,
+                                link: destinationUrl,
                                 picture: payload.hybridVideo?.thumbnailUrl.trim() ?? '',
                                 name: payload.headline.trim(),
                                 call_to_action: { type: payload.callToAction ?? 'SHOP_NOW' },
@@ -359,7 +359,7 @@ export function buildCpasCatalogBundlePreview(
                                 static_card: true,
                               },
                               {
-                                link: payload.templateUrl?.trim() || destinationUrl,
+                                link: destinationUrl,
                                 name: '{{product.name}}',
                                 call_to_action: { type: payload.callToAction ?? 'SHOP_NOW' },
                               },
@@ -762,7 +762,6 @@ export async function createCpasCatalogCampaignBundle(
                   headline: payload.headline,
                   description: payload.description,
                   destinationUrl: payload.destinationUrl,
-                  templateUrl: payload.templateUrl,
                   fallbackImageHash: payload.fallbackImageHash,
                   callToAction: payload.callToAction ?? 'SHOP_NOW',
                   showMultipleImages: payload.creativeSettings?.showMultipleImages,
