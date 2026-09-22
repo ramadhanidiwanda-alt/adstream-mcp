@@ -107,6 +107,12 @@ export interface CpasCatalogCampaignBundlePayload {
   campaignSettings?: CpasCatalogCampaignSettings;
   adSetSettings?: CpasCatalogAdSetSettings;
   creativeSettings?: CpasCatalogCreativeSettings;
+  resumeFrom?: {
+    campaignId: string;
+    adSetId?: string;
+    creativeId?: string;
+    adId?: string;
+  };
 }
 
 export interface CpasCatalogCampaignBundleOptions {
@@ -129,6 +135,7 @@ export interface CpasCatalogCampaignBundleResult {
   preview: CpasCatalogCampaignBundlePreview;
   productSet?: { id: string; catalogId?: string; productCount: number };
   ids?: { campaignId?: string; adSetId?: string; creativeId?: string; adId?: string };
+  resumeFrom?: { campaignId?: string; adSetId?: string; creativeId?: string; adId?: string };
   stage?: 'preflight' | 'campaign' | 'adSet' | 'creative' | 'ad';
   error?: string;
   code?: string;
@@ -441,6 +448,7 @@ export async function createCpasCatalogCampaignBundle(
     code,
     error,
     ...(ids ? { ids } : {}),
+    ...(ids && Object.keys(ids).length > 0 ? { resumeFrom: { ...ids } } : {}),
   });
 
   const required = [
@@ -463,6 +471,18 @@ export async function createCpasCatalogCampaignBundle(
   }
   if (!Number.isFinite(payload.dailyBudget) || payload.dailyBudget <= 0) {
     return failure('preflight', 'INVALID_CPAS_CATALOG_BUDGET', 'dailyBudget harus lebih dari 0.');
+  }
+  const resumeFrom = payload.resumeFrom;
+  if (
+    (resumeFrom?.adSetId && !resumeFrom.campaignId) ||
+    (resumeFrom?.creativeId && !resumeFrom.adSetId) ||
+    (resumeFrom?.adId && !resumeFrom.creativeId)
+  ) {
+    return failure(
+      'preflight',
+      'INVALID_CPAS_CATALOG_RESUME_CHAIN',
+      'resumeFrom harus berurutan: campaignId, adSetId, creativeId, lalu adId.'
+    );
   }
   if (payload.countries.length === 0 || payload.countries.some((country) => !country.trim())) {
     return failure(
@@ -599,211 +619,235 @@ export async function createCpasCatalogCampaignBundle(
     });
   }
 
-  const ids: NonNullable<CpasCatalogCampaignBundleResult['ids']> = {};
+  const ids: NonNullable<CpasCatalogCampaignBundleResult['ids']> = { ...resumeFrom };
   const failedAfterCreate = (
     stage: NonNullable<CpasCatalogCampaignBundleResult['stage']>,
     error: string
   ) => withEvidence(failure(stage, 'CPAS_CATALOG_CREATE_FAILED', error, ids));
 
-  const campaign = await createCampaign(
-    client,
-    {
-      adAccountId: payload.adAccountId,
-      name: payload.campaignName,
-      objective: 'OUTCOME_SALES',
-      mode: 'collaborative_ads',
-      status: 'PAUSED',
-      specialAdCategories: payload.campaignSettings?.specialAdCategories,
-      buyType: payload.campaignSettings?.buyType,
-      isAdSetBudgetSharingEnabled: payload.campaignSettings?.isAdSetBudgetSharingEnabled,
-      dailyBudget: payload.dailyBudget,
-      bidStrategy: 'LOWEST_COST_WITHOUT_CAP',
-      ...(productCatalogId?.trim()
-        ? {
-            promotedObject: {
-              product_catalog_id: productCatalogId.trim(),
-              smart_pse_enabled: false,
-            },
-          }
-        : {}),
-    },
-    { dryRun: false, confirmed: true, maxRetries: options.maxRetries }
-  );
-  if (!campaign.id)
-    return failedAfterCreate('campaign', campaign.error ?? 'Campaign CPAS gagal dibuat.');
-  ids.campaignId = campaign.id;
-
-  const adSet = await createAdSet(
-    client,
-    {
-      adAccountId: payload.adAccountId,
-      campaignId: campaign.id,
-      name: payload.adSetName,
-      mode: 'collaborative_ads',
-      status: 'PAUSED',
-      conversionLocation: 'CATALOG',
-      destinationType: 'UNDEFINED',
-      billingEvent: 'IMPRESSIONS',
-      optimizationGoal: 'OFFSITE_CONVERSIONS',
-      bidStrategy: payload.adSetSettings?.bidStrategy ?? 'LOWEST_COST_WITHOUT_CAP',
-      bidAmount: payload.adSetSettings?.bidAmount,
-      bidConstraints: payload.adSetSettings?.bidConstraints,
-      startTime: payload.adSetSettings?.startTime,
-      endTime: payload.adSetSettings?.endTime,
-      attributionSpec: payload.adSetSettings?.attributionSpec,
-      dsaBeneficiary: payload.adSetSettings?.dsaBeneficiary,
-      dsaPayor: payload.adSetSettings?.dsaPayor,
-      multiAdvertiserAds: payload.adSetSettings?.multiAdvertiserAds,
-      productSetId: payload.productSetId,
-      collaborativeCatalog: {
-        productSetId: payload.productSetId,
-        ...(appOmnichannel
-          ? {
-              pixelId: payload.pixelId,
-              customEventType: payload.customEventType ?? 'PURCHASE',
-              applicationId: payload.collaborativeAppSpec?.applicationId,
-              objectStoreUrls: payload.objectStoreUrls,
-            }
-          : {
-              customEventType: payload.customEventType ?? 'PURCHASE',
-              variation: 'PRODUCT_SET_AND_OMNICHANNEL',
-              smartPseEnabled: false,
-            }),
-      },
-      targeting: {
-        geoLocations: { countries: payload.countries },
-        ageMin: payload.ageMin ?? 18,
-        ...(payload.ageMax ? { ageMax: payload.ageMax } : {}),
-        ...(payload.publisherPlatforms ? { publisherPlatforms: payload.publisherPlatforms } : {}),
-        ...(payload.adSetSettings?.customAudiences
-          ? { customAudiences: payload.adSetSettings.customAudiences }
-          : {}),
-        ...(payload.adSetSettings?.excludedCustomAudiences
-          ? { excludedCustomAudiences: payload.adSetSettings.excludedCustomAudiences }
-          : {}),
-        ...(payload.adSetSettings?.facebookPositions
-          ? { facebookPositions: payload.adSetSettings.facebookPositions }
-          : {}),
-        ...(payload.adSetSettings?.instagramPositions
-          ? { instagramPositions: payload.adSetSettings.instagramPositions }
-          : {}),
-        ...(payload.adSetSettings?.threadsPositions
-          ? { threadsPositions: payload.adSetSettings.threadsPositions }
-          : {}),
-        ...(payload.adSetSettings?.messengerPositions
-          ? { messengerPositions: payload.adSetSettings.messengerPositions }
-          : {}),
-        ...(payload.adSetSettings?.devicePlatforms
-          ? { devicePlatforms: payload.adSetSettings.devicePlatforms }
-          : {}),
-        targetingAutomation: {
-          advantage_audience: payload.adSetSettings?.advantageAudience ?? 0,
-        },
-      },
-    },
-    { dryRun: false, confirmed: true, maxRetries: options.maxRetries }
-  );
-  if (!adSet.id) return failedAfterCreate('adSet', adSet.error ?? 'Ad set CPAS gagal dibuat.');
-  ids.adSetId = adSet.id;
-
-  const creative = await createAdCreative(
-    client,
-    {
-      adAccountId: payload.adAccountId,
-      name: payload.adName + ' Creative',
-      pageId: payload.pageId,
-      mode: 'collaborative_ads',
-      objective: 'OUTCOME_SALES',
-      conversionLocation: 'CATALOG',
-      collaborativeProductSetId: payload.productSetId,
-      catalogOnly: !appOmnichannel,
-      urlTags: payload.creativeSettings?.urlTags,
-      optOutEnhancements: payload.creativeSettings?.optOutEnhancements,
-      ...(appOmnichannel ? { collaborativeAppSpec: payload.collaborativeAppSpec } : {}),
-      creative:
-        creativeFormat === 'collection'
-          ? {
-              creativeFormat: 'collection',
-              creativeSpec: {
-                instantExperienceId: payload.collection?.instantExperienceId ?? '',
-                coverImageHash: payload.collection?.coverImageHash,
-                coverVideoId: payload.collection?.coverVideoId,
-                primaryText: payload.primaryText,
-                headline: payload.headline,
-                description: payload.description,
-                destinationUrl: `https://fb.com/canvas_doc/${payload.collection?.instantExperienceId ?? ''}`,
-                callToAction: payload.callToAction ?? 'SHOP_NOW',
-              },
-            }
-          : creativeFormat === 'catalog_video'
+  const campaign = resumeFrom?.campaignId
+    ? { id: resumeFrom.campaignId }
+    : await createCampaign(
+        client,
+        {
+          adAccountId: payload.adAccountId,
+          name: payload.campaignName,
+          objective: 'OUTCOME_SALES',
+          mode: 'collaborative_ads',
+          status: 'PAUSED',
+          specialAdCategories: payload.campaignSettings?.specialAdCategories,
+          buyType: payload.campaignSettings?.buyType,
+          isAdSetBudgetSharingEnabled: payload.campaignSettings?.isAdSetBudgetSharingEnabled,
+          dailyBudget: payload.dailyBudget,
+          bidStrategy: 'LOWEST_COST_WITHOUT_CAP',
+          ...(productCatalogId?.trim()
             ? {
-                creativeFormat: 'video',
-                creativeSpec: {
-                  videoId: payload.video?.videoId ?? '',
-                  primaryText: payload.primaryText,
-                  headline: payload.headline,
-                  destinationUrl: `https://fb.com/canvas_doc/${payload.video?.instantExperienceId ?? ''}`,
-                  thumbnailImageHash: payload.video?.thumbnailImageHash,
-                  thumbnailImageUrl: payload.video?.thumbnailImageUrl,
-                  callToAction: payload.callToAction ?? 'SHOP_NOW',
-                  retailerItemIds: payload.video?.retailerItemIds ?? ['0', '0', '0', '0'],
-                  postClickConfiguration: {
-                    itemHeadline: '{{product.name}}',
-                    itemDescription: '{{product.current_price strip_zeros}}',
-                  },
-                  templateUrlSpec: { applicationId: payload.video?.retailerAppId ?? '' },
+                promotedObject: {
+                  product_catalog_id: productCatalogId.trim(),
+                  smart_pse_enabled: false,
                 },
               }
-            : {
-                creativeFormat: 'catalog',
-                creativeSpec: {
-                  productSetId: payload.productSetId,
-                  primaryText: payload.primaryText,
-                  headline: payload.headline,
-                  description: payload.description,
-                  destinationUrl: payload.destinationUrl,
-                  fallbackImageHash: payload.fallbackImageHash,
-                  callToAction: payload.callToAction ?? 'SHOP_NOW',
-                  showMultipleImages: payload.creativeSettings?.showMultipleImages,
-                  preferredImageTags: payload.creativeSettings?.preferredImageTags,
-                  formatOption: payload.creativeSettings?.formatOption,
-                  categorizationCriteria: payload.creativeSettings?.categorizationCriteria,
-                  ...(creativeFormat === 'catalog_single_image'
-                    ? { presentation: 'single_image' as const }
-                    : creativeFormat === 'catalog_carousel'
-                      ? { presentation: 'carousel' as const }
-                      : creativeFormat === 'catalog_video_carousel'
-                        ? {
-                            presentation: 'video_carousel' as const,
-                            hybridVideo: {
-                              videoId: payload.hybridVideo?.videoId ?? '',
-                              thumbnailUrl: payload.hybridVideo?.thumbnailUrl ?? '',
-                            },
-                          }
-                        : {}),
-                },
-              },
-      instagramUserId: payload.instagramUserId,
-      threadsProfileId: payload.threadsProfileId,
-    },
-    { dryRun: false, confirmed: true, maxRetries: options.maxRetries }
-  );
+            : {}),
+        },
+        { dryRun: false, confirmed: true, maxRetries: options.maxRetries }
+      );
+  if (!campaign.id)
+    return failedAfterCreate(
+      'campaign',
+      ('error' in campaign ? campaign.error : undefined) ?? 'Campaign CPAS gagal dibuat.'
+    );
+  ids.campaignId = campaign.id;
+
+  const adSet = resumeFrom?.adSetId
+    ? { id: resumeFrom.adSetId }
+    : await createAdSet(
+        client,
+        {
+          adAccountId: payload.adAccountId,
+          campaignId: campaign.id,
+          name: payload.adSetName,
+          mode: 'collaborative_ads',
+          status: 'PAUSED',
+          conversionLocation: 'CATALOG',
+          destinationType: 'UNDEFINED',
+          billingEvent: 'IMPRESSIONS',
+          optimizationGoal: 'OFFSITE_CONVERSIONS',
+          bidStrategy: payload.adSetSettings?.bidStrategy ?? 'LOWEST_COST_WITHOUT_CAP',
+          bidAmount: payload.adSetSettings?.bidAmount,
+          bidConstraints: payload.adSetSettings?.bidConstraints,
+          startTime: payload.adSetSettings?.startTime,
+          endTime: payload.adSetSettings?.endTime,
+          attributionSpec: payload.adSetSettings?.attributionSpec,
+          dsaBeneficiary: payload.adSetSettings?.dsaBeneficiary,
+          dsaPayor: payload.adSetSettings?.dsaPayor,
+          multiAdvertiserAds: payload.adSetSettings?.multiAdvertiserAds,
+          productSetId: payload.productSetId,
+          collaborativeCatalog: {
+            productSetId: payload.productSetId,
+            ...(appOmnichannel
+              ? {
+                  pixelId: payload.pixelId,
+                  customEventType: payload.customEventType ?? 'PURCHASE',
+                  applicationId: payload.collaborativeAppSpec?.applicationId,
+                  objectStoreUrls: payload.objectStoreUrls,
+                }
+              : {
+                  customEventType: payload.customEventType ?? 'PURCHASE',
+                  variation: 'PRODUCT_SET_AND_OMNICHANNEL',
+                  smartPseEnabled: false,
+                }),
+          },
+          targeting: {
+            geoLocations: { countries: payload.countries },
+            ageMin: payload.ageMin ?? 18,
+            ...(payload.ageMax ? { ageMax: payload.ageMax } : {}),
+            ...(payload.publisherPlatforms
+              ? { publisherPlatforms: payload.publisherPlatforms }
+              : {}),
+            ...(payload.adSetSettings?.customAudiences
+              ? { customAudiences: payload.adSetSettings.customAudiences }
+              : {}),
+            ...(payload.adSetSettings?.excludedCustomAudiences
+              ? { excludedCustomAudiences: payload.adSetSettings.excludedCustomAudiences }
+              : {}),
+            ...(payload.adSetSettings?.facebookPositions
+              ? { facebookPositions: payload.adSetSettings.facebookPositions }
+              : {}),
+            ...(payload.adSetSettings?.instagramPositions
+              ? { instagramPositions: payload.adSetSettings.instagramPositions }
+              : {}),
+            ...(payload.adSetSettings?.threadsPositions
+              ? { threadsPositions: payload.adSetSettings.threadsPositions }
+              : {}),
+            ...(payload.adSetSettings?.messengerPositions
+              ? { messengerPositions: payload.adSetSettings.messengerPositions }
+              : {}),
+            ...(payload.adSetSettings?.devicePlatforms
+              ? { devicePlatforms: payload.adSetSettings.devicePlatforms }
+              : {}),
+            targetingAutomation: {
+              advantage_audience: payload.adSetSettings?.advantageAudience ?? 0,
+            },
+          },
+        },
+        { dryRun: false, confirmed: true, maxRetries: options.maxRetries }
+      );
+  if (!adSet.id)
+    return failedAfterCreate(
+      'adSet',
+      ('error' in adSet ? adSet.error : undefined) ?? 'Ad set CPAS gagal dibuat.'
+    );
+  ids.adSetId = adSet.id;
+
+  const creative = resumeFrom?.creativeId
+    ? { id: resumeFrom.creativeId }
+    : await createAdCreative(
+        client,
+        {
+          adAccountId: payload.adAccountId,
+          name: payload.adName + ' Creative',
+          pageId: payload.pageId,
+          mode: 'collaborative_ads',
+          objective: 'OUTCOME_SALES',
+          conversionLocation: 'CATALOG',
+          collaborativeProductSetId: payload.productSetId,
+          catalogOnly: !appOmnichannel,
+          urlTags: payload.creativeSettings?.urlTags,
+          optOutEnhancements: payload.creativeSettings?.optOutEnhancements,
+          ...(appOmnichannel ? { collaborativeAppSpec: payload.collaborativeAppSpec } : {}),
+          creative:
+            creativeFormat === 'collection'
+              ? {
+                  creativeFormat: 'collection',
+                  creativeSpec: {
+                    instantExperienceId: payload.collection?.instantExperienceId ?? '',
+                    coverImageHash: payload.collection?.coverImageHash,
+                    coverVideoId: payload.collection?.coverVideoId,
+                    primaryText: payload.primaryText,
+                    headline: payload.headline,
+                    description: payload.description,
+                    destinationUrl: `https://fb.com/canvas_doc/${payload.collection?.instantExperienceId ?? ''}`,
+                    callToAction: payload.callToAction ?? 'SHOP_NOW',
+                  },
+                }
+              : creativeFormat === 'catalog_video'
+                ? {
+                    creativeFormat: 'video',
+                    creativeSpec: {
+                      videoId: payload.video?.videoId ?? '',
+                      primaryText: payload.primaryText,
+                      headline: payload.headline,
+                      destinationUrl: `https://fb.com/canvas_doc/${payload.video?.instantExperienceId ?? ''}`,
+                      thumbnailImageHash: payload.video?.thumbnailImageHash,
+                      thumbnailImageUrl: payload.video?.thumbnailImageUrl,
+                      callToAction: payload.callToAction ?? 'SHOP_NOW',
+                      retailerItemIds: payload.video?.retailerItemIds ?? ['0', '0', '0', '0'],
+                      postClickConfiguration: {
+                        itemHeadline: '{{product.name}}',
+                        itemDescription: '{{product.current_price strip_zeros}}',
+                      },
+                      templateUrlSpec: { applicationId: payload.video?.retailerAppId ?? '' },
+                    },
+                  }
+                : {
+                    creativeFormat: 'catalog',
+                    creativeSpec: {
+                      productSetId: payload.productSetId,
+                      primaryText: payload.primaryText,
+                      headline: payload.headline,
+                      description: payload.description,
+                      destinationUrl: payload.destinationUrl,
+                      fallbackImageHash: payload.fallbackImageHash,
+                      callToAction: payload.callToAction ?? 'SHOP_NOW',
+                      showMultipleImages: payload.creativeSettings?.showMultipleImages,
+                      preferredImageTags: payload.creativeSettings?.preferredImageTags,
+                      formatOption: payload.creativeSettings?.formatOption,
+                      categorizationCriteria: payload.creativeSettings?.categorizationCriteria,
+                      ...(creativeFormat === 'catalog_single_image'
+                        ? { presentation: 'single_image' as const }
+                        : creativeFormat === 'catalog_carousel'
+                          ? { presentation: 'carousel' as const }
+                          : creativeFormat === 'catalog_video_carousel'
+                            ? {
+                                presentation: 'video_carousel' as const,
+                                hybridVideo: {
+                                  videoId: payload.hybridVideo?.videoId ?? '',
+                                  thumbnailUrl: payload.hybridVideo?.thumbnailUrl ?? '',
+                                },
+                              }
+                            : {}),
+                    },
+                  },
+          instagramUserId: payload.instagramUserId,
+          threadsProfileId: payload.threadsProfileId,
+        },
+        { dryRun: false, confirmed: true, maxRetries: options.maxRetries }
+      );
   if (!creative.id)
-    return failedAfterCreate('creative', creative.error ?? 'Creative katalog gagal dibuat.');
+    return failedAfterCreate(
+      'creative',
+      ('error' in creative ? creative.error : undefined) ?? 'Creative katalog gagal dibuat.'
+    );
   ids.creativeId = creative.id;
 
-  const ad = await createAd(
-    client,
-    {
-      adAccountId: payload.adAccountId,
-      name: payload.adName,
-      adSetId: adSet.id,
-      creativeId: creative.id,
-      status: 'PAUSED',
-    },
-    { dryRun: false, confirmed: true, maxRetries: options.maxRetries }
-  );
-  if (!ad.id) return failedAfterCreate('ad', ad.error ?? 'Ad katalog gagal dibuat.');
+  const ad = resumeFrom?.adId
+    ? { id: resumeFrom.adId }
+    : await createAd(
+        client,
+        {
+          adAccountId: payload.adAccountId,
+          name: payload.adName,
+          adSetId: adSet.id,
+          creativeId: creative.id,
+          status: 'PAUSED',
+        },
+        { dryRun: false, confirmed: true, maxRetries: options.maxRetries }
+      );
+  if (!ad.id)
+    return failedAfterCreate(
+      'ad',
+      ('error' in ad ? ad.error : undefined) ?? 'Ad katalog gagal dibuat.'
+    );
   ids.adId = ad.id;
 
   return withEvidence({ ...base(), status: 'executed', executed: true, ids });

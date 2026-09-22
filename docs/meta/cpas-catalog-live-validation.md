@@ -67,3 +67,9 @@ Perbaikan kode diterapkan pada branch `codex/document-cpas-live-validation` sete
 - Regression tests ditambahkan untuk payload catalog dan parity public adapter/internal builder.
 
 Live retest belum dilakukan. Entity test di atas tetap `PAUSED`.
+
+## Remaining-gap implementation
+
+Perbaikan lanjutan melengkapi public `ads_create_adcreative` untuk meneruskan opsi katalog yang sebelumnya hanya tersedia pada builder/bundle: `showMultipleImages`, `preferredImageTags`, `formatOption`, dan `categorizationCriteria`. Kombinasi `showMultipleImages` dengan `formatOption` tetap ditolak saat preflight karena Meta menolaknya sebagai redundant object-story configuration.
+
+Bundle CPAS sekarang menerima `resumeFrom` berjenjang (`campaignId`, `adSetId`, `creativeId`, `adId`). Ketika eksekusi gagal di tengah, response menyertakan `resumeFrom` berisi seluruh parent ID yang sudah berhasil dibuat. Retry dapat melanjutkan dari tahap yang hilang tanpa membuat ulang parent, tanpa auto-delete, dan tanpa auto-archive. Seluruh objek yang dibuat tetap `PAUSED`.

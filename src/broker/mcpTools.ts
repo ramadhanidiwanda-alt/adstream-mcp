@@ -3575,7 +3575,8 @@ function createCpasCatalogBundleInputSchema() {
       destinationUrl: { type: 'string' },
       templateUrl: {
         type: 'string',
-        description: 'Legacy input retained for compatibility; not sent to Meta catalog template_data.',
+        description:
+          'Legacy input retained for compatibility; not sent to Meta catalog template_data.',
       },
       fallbackImageHash: { type: 'string' },
       callToAction: { type: 'string', enum: ['SHOP_NOW', 'LEARN_MORE'] },
@@ -3626,6 +3627,18 @@ function createCpasCatalogBundleInputSchema() {
           urlTags: { type: 'string' },
           optOutEnhancements: { type: 'array', items: { type: 'string' } },
         },
+        additionalProperties: false,
+      },
+      resumeFrom: {
+        type: 'object',
+        description: 'Resume a partial bundle without recreating successful parent objects.',
+        properties: {
+          campaignId: { type: 'string' },
+          adSetId: { type: 'string' },
+          creativeId: { type: 'string' },
+          adId: { type: 'string' },
+        },
+        required: ['campaignId'],
         additionalProperties: false,
       },
       dryRun: { type: 'boolean', description: 'Defaults to true.' },

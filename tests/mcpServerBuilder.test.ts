@@ -487,7 +487,6 @@ describe('MCP server builder', () => {
     const response = await listRegisteredTools();
     const adSetTool = response.tools.find((tool) => tool.name === 'ads_create_adset');
     const creativeTool = response.tools.find((tool) => tool.name === 'ads_create_adcreative');
-
     expect(toolSchemaProperty(adSetTool, 'isDynamicCreative').description).toMatch(/disabled/i);
     expect(toolSchemaProperty(adSetTool, 'isDynamicCreative').description).toMatch(/jangan diisi/i);
     expect(creativeTool?.inputSchema.properties).toHaveProperty('objectStorySpec');
@@ -568,6 +567,9 @@ describe('MCP server builder', () => {
     const campaignTool = response.tools.find((tool) => tool.name === 'ads_create_campaign');
     const adsetTool = response.tools.find((tool) => tool.name === 'ads_create_adset');
     const creativeTool = response.tools.find((tool) => tool.name === 'ads_create_adcreative');
+    const cpasBundleTool = response.tools.find(
+      (tool) => tool.name === 'ads_create_cpas_catalog_bundle'
+    );
     const campaignProperties = campaignTool?.inputSchema.properties as Record<
       string,
       Record<string, unknown>
@@ -577,6 +579,10 @@ describe('MCP server builder', () => {
       Record<string, unknown>
     >;
     const creativeProperties = creativeTool?.inputSchema.properties as Record<
+      string,
+      Record<string, unknown>
+    >;
+    const cpasBundleProperties = cpasBundleTool?.inputSchema.properties as Record<
       string,
       Record<string, unknown>
     >;
@@ -607,6 +613,17 @@ describe('MCP server builder', () => {
     expect(creativeProperties).toHaveProperty('creativeFormat');
     expect(creativeProperties).toHaveProperty('creativeSpec');
     expect(creativeProperties).toHaveProperty('welcomeMessageTemplateName');
+    expect(cpasBundleProperties.resumeFrom).toMatchObject({
+      type: 'object',
+      required: ['campaignId'],
+      additionalProperties: false,
+      properties: {
+        campaignId: { type: 'string' },
+        adSetId: { type: 'string' },
+        creativeId: { type: 'string' },
+        adId: { type: 'string' },
+      },
+    });
     const canonicalCreateToolNames = [
       'ads_create_campaign',
       'ads_create_adset',

@@ -4263,6 +4263,9 @@ describe('MetaAdsAdapter', () => {
           primaryText: 'Catalog copy',
           destinationUrl: 'https://example.com/catalog',
           presentation: 'single_image',
+          showMultipleImages: true,
+          preferredImageTags: ['lifestyle'],
+          categorizationCriteria: 'category',
         },
       },
       credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
@@ -4271,7 +4274,53 @@ describe('MetaAdsAdapter', () => {
     expect(response.ok).toBe(true);
     expect(capturedOptions?.creative).toMatchObject({
       creativeFormat: 'catalog',
-      creativeSpec: { presentation: 'single_image' },
+      creativeSpec: {
+        presentation: 'single_image',
+        showMultipleImages: true,
+        preferredImageTags: ['lifestyle'],
+        categorizationCriteria: 'category',
+      },
+    });
+  });
+
+  it('accepts and forwards typed catalog formatOption through the public adapter', async () => {
+    let capturedOptions: CreateAdCreativeOptions | undefined;
+    const adapter = new MetaAdsAdapter({
+      clientFactory: (config) => ({ config }) as never,
+      tools: {
+        createAdCreative: async (_client, options) => {
+          capturedOptions = options;
+          return {
+            operation: 'create_adcreative',
+            status: 'dry_run',
+            executed: false,
+            preview: {},
+          };
+        },
+      },
+    });
+
+    const response = await adapter.createAdCreative({
+      provider: 'meta',
+      accountId: 'act_123',
+      params: {
+        name: 'Catalog format automation',
+        pageId: 'page-1',
+        creativeFormat: 'catalog',
+        creativeSpec: {
+          productSetId: 'set-1',
+          primaryText: 'Catalog copy',
+          destinationUrl: 'https://example.com/catalog',
+          formatOption: 'carousel_slideshows',
+        },
+      },
+      credentials: { provider: 'meta', accessToken: 'secret-token', source: 'test' },
+    });
+
+    expect(response.ok).toBe(true);
+    expect(capturedOptions?.creative).toMatchObject({
+      creativeFormat: 'catalog',
+      creativeSpec: { formatOption: 'carousel_slideshows' },
     });
   });
 
