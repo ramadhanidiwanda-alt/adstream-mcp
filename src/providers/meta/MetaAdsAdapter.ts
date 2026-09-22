@@ -4249,6 +4249,7 @@ export class MetaAdsAdapter implements AdsProviderAdapter {
         campaignSettings: parseCpasCampaignSettings(params.campaignSettings),
         adSetSettings: parseCpasAdSetSettings(params.adSetSettings),
         creativeSettings: parseCpasCreativeSettings(params.creativeSettings),
+        resumeFrom: parseCpasResumeFrom(params.resumeFrom),
       },
     };
   }
@@ -4986,6 +4987,17 @@ function parseCpasCreativeSettings(
   };
 }
 
+function parseCpasResumeFrom(value: unknown): MetaCpasCatalogCampaignBundlePayload['resumeFrom'] {
+  if (value === undefined) return undefined;
+  const resume = requireRecord(value, 'resumeFrom');
+  return {
+    campaignId: requireString(resume.campaignId, 'resumeFrom.campaignId'),
+    adSetId: optionalString(resume.adSetId, 'resumeFrom.adSetId'),
+    creativeId: optionalString(resume.creativeId, 'resumeFrom.creativeId'),
+    adId: optionalString(resume.adId, 'resumeFrom.adId'),
+  };
+}
+
 function optionalNumber(value: unknown, field: string): number | undefined {
   if (value === undefined) return undefined;
   if (typeof value !== 'number' || !Number.isFinite(value)) {
@@ -5180,6 +5192,10 @@ const CREATIVE_SPEC_FIELDS: Record<MetaCreativeFormat, ReadonlySet<string>> = {
     'fallbackImageHash',
     'presentation',
     'hybridVideo',
+    'showMultipleImages',
+    'preferredImageTags',
+    'formatOption',
+    'categorizationCriteria',
   ]),
   collection: new Set([
     ...COMMON_CREATIVE_COPY_FIELDS,
@@ -5409,6 +5425,19 @@ function parseMetaCreativeSpec(
                 ),
               }
             : undefined,
+          showMultipleImages: optionalBoolean(
+            spec.showMultipleImages,
+            'creativeSpec.showMultipleImages'
+          ),
+          preferredImageTags: optionalStringArray(
+            spec.preferredImageTags,
+            'creativeSpec.preferredImageTags'
+          ),
+          formatOption: optionalString(spec.formatOption, 'creativeSpec.formatOption'),
+          categorizationCriteria: optionalString(
+            spec.categorizationCriteria,
+            'creativeSpec.categorizationCriteria'
+          ),
         },
       };
     case 'collection':

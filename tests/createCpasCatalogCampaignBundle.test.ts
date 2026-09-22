@@ -478,4 +478,174 @@ describe('createCpasCatalogCampaignBundle', () => {
     expect(post.mock.calls[2][1]).not.toHaveProperty('omnichannel_link_spec');
     expect(post.mock.calls[2][1]).not.toHaveProperty('applink_treatment');
   });
+
+  it('resumes from existing campaign and ad set without creating duplicates', async () => {
+    const client = createMockClient();
+    const post = client.metaPost as ReturnType<typeof vi.fn>;
+    post.mockResolvedValueOnce({ id: 'creative_1' }).mockResolvedValueOnce({ id: 'ad_1' });
+
+    const result = await createCpasCatalogCampaignBundle(
+      client,
+      {
+        ...payload,
+        resumeFrom: { campaignId: 'campaign_existing', adSetId: 'adset_existing' },
+      },
+      { dryRun: false, confirmed: true }
+    );
+
+    expect(result).toMatchObject({
+      status: 'executed',
+      executed: true,
+      ids: {
+        campaignId: 'campaign_existing',
+        adSetId: 'adset_existing',
+        creativeId: 'creative_1',
+        adId: 'ad_1',
+      },
+    });
+    expect(post.mock.calls.map(([path]) => path)).toEqual([
+      expect.stringContaining('/adcreatives'),
+      expect.stringContaining('/ads'),
+    ]);
+  });
+
+  it('returns reusable resume IDs when a later stage fails', async () => {
+    const client = createMockClient();
+    const post = client.metaPost as ReturnType<typeof vi.fn>;
+    post
+      .mockResolvedValueOnce({ id: 'campaign_1' })
+      .mockResolvedValueOnce({ id: 'adset_1' })
+      .mockRejectedValueOnce(new Error('creative failed'));
+    const getObject = client.metaGetObject as ReturnType<typeof vi.fn>;
+    getObject
+      .mockResolvedValueOnce({ id: 'ps_1', product_catalog: 'catalog_1', product_count: 12 })
+      .mockResolvedValueOnce({ id: 'ps_1', product_catalog: 'catalog_1', product_count: 12 })
+      .mockResolvedValueOnce({ id: 'campaign_1', objective: 'OUTCOME_SALES' });
+
+    const result = await createCpasCatalogCampaignBundle(client, payload, {
+      dryRun: false,
+      confirmed: true,
+    });
+
+    expect(result).toMatchObject({
+      status: 'failed',
+      stage: 'creative',
+      resumeFrom: { campaignId: 'campaign_1', adSetId: 'adset_1' },
+    });
+  });
+
+  it('reports campaign failure without a resume chain', async () => {
+    const client = createMockClient();
+    (client.metaPost as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+      new Error('campaign failed')
+    );
+
+    const result = await createCpasCatalogCampaignBundle(client, payload, {
+      dryRun: false,
+      confirmed: true,
+    });
+
+    expect(result).toMatchObject({ status: 'failed', stage: 'campaign' });
+    expect(result).not.toHaveProperty('resumeFrom');
+  });
+
+  it('returns the campaign ID when ad-set creation fails', async () => {
+    const client = createMockClient();
+    const post = client.metaPost as ReturnType<typeof vi.fn>;
+    post
+      .mockResolvedValueOnce({ id: 'campaign_1' })
+      .mockRejectedValueOnce(new Error('ad set failed'));
+    const getObject = client.metaGetObject as ReturnType<typeof vi.fn>;
+    getObject
+      .mockResolvedValueOnce({ id: 'ps_1', product_catalog: 'catalog_1', product_count: 12 })
+      .mockResolvedValueOnce({ id: 'ps_1', product_catalog: 'catalog_1', product_count: 12 })
+      .mockResolvedValueOnce({ id: 'campaign_1', objective: 'OUTCOME_SALES' });
+
+    const result = await createCpasCatalogCampaignBundle(client, payload, {
+      dryRun: false,
+      confirmed: true,
+    });
+
+    expect(result).toMatchObject({
+      status: 'failed',
+      stage: 'adSet',
+      resumeFrom: { campaignId: 'campaign_1' },
+    });
+  });
+
+  it('resumes from an existing creative and creates only the missing ad', async () => {
+    const client = createMockClient();
+    const post = client.metaPost as ReturnType<typeof vi.fn>;
+    post.mockResolvedValueOnce({ id: 'ad_1' });
+
+    const result = await createCpasCatalogCampaignBundle(
+      client,
+      {
+        ...payload,
+        resumeFrom: {
+          campaignId: 'campaign_existing',
+          adSetId: 'adset_existing',
+          creativeId: 'creative_existing',
+        },
+      },
+      { dryRun: false, confirmed: true }
+    );
+
+    expect(result).toMatchObject({
+      status: 'executed',
+      ids: {
+        campaignId: 'campaign_existing',
+        adSetId: 'adset_existing',
+        creativeId: 'creative_existing',
+        adId: 'ad_1',
+      },
+    });
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(post.mock.calls[0][0]).toContain('/ads');
+  });
+
+  it('returns all reusable parent IDs when ad creation fails', async () => {
+    const client = createMockClient();
+    const post = client.metaPost as ReturnType<typeof vi.fn>;
+    post.mockRejectedValueOnce(new Error('ad failed'));
+
+    const result = await createCpasCatalogCampaignBundle(
+      client,
+      {
+        ...payload,
+        resumeFrom: {
+          campaignId: 'campaign_existing',
+          adSetId: 'adset_existing',
+          creativeId: 'creative_existing',
+        },
+      },
+      { dryRun: false, confirmed: true }
+    );
+
+    expect(result).toMatchObject({
+      status: 'failed',
+      stage: 'ad',
+      resumeFrom: {
+        campaignId: 'campaign_existing',
+        adSetId: 'adset_existing',
+        creativeId: 'creative_existing',
+      },
+    });
+  });
+
+  it('rejects an incomplete resume chain before creating anything', async () => {
+    const client = createMockClient();
+
+    const result = await createCpasCatalogCampaignBundle(client, {
+      ...payload,
+      resumeFrom: { campaignId: '', adSetId: 'adset_without_campaign' },
+    });
+
+    expect(result).toMatchObject({
+      status: 'failed',
+      stage: 'preflight',
+      code: 'INVALID_CPAS_CATALOG_RESUME_CHAIN',
+    });
+    expect(client.metaPost).not.toHaveBeenCalled();
+  });
 });
