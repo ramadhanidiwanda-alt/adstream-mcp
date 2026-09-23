@@ -1081,10 +1081,12 @@ describe('createCpasCatalogCampaignBundle', () => {
     const client = createMockClient();
     mockSafeResumeReads(client);
     const read = client.metaGetObject as ReturnType<typeof vi.fn>;
-    const original = read.getMockImplementation()!;
-    read.mockImplementation(async (...args: unknown[]) => {
-      const result = await original(...args);
-      if (args[0] !== '/adset_existing') return result;
+    const original = read.getMockImplementation() as (
+      path: string
+    ) => Promise<Record<string, unknown> & { targeting: Record<string, unknown> }>;
+    read.mockImplementation(async (path: string) => {
+      const result = await original(path);
+      if (path !== '/adset_existing') return result;
       return {
         ...result,
         bid_strategy: null,
@@ -1118,10 +1120,12 @@ describe('createCpasCatalogCampaignBundle', () => {
     const client = createMockClient();
     mockSafeResumeReads(client);
     const read = client.metaGetObject as ReturnType<typeof vi.fn>;
-    const original = read.getMockImplementation()!;
-    read.mockImplementation(async (...args: unknown[]) => {
-      const result = await original(...args);
-      if (args[0] !== '/adset_existing') return result;
+    const original = read.getMockImplementation() as (
+      path: string
+    ) => Promise<Record<string, unknown> & { targeting: Record<string, unknown> }>;
+    read.mockImplementation(async (path: string) => {
+      const result = await original(path);
+      if (path !== '/adset_existing') return result;
       return {
         ...result,
         bid_strategy: null,
