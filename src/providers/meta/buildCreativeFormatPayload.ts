@@ -1132,9 +1132,10 @@ function withCollaborativeCatalogContext(
 
   required(input.collaborativeProductSetId, 'Product set Collaborative Ads');
 
-  const usesProductTemplate =
-    input.creativeFormat === 'catalog' ||
-    (input.creativeFormat === 'collection' && !input.catalogOnly);
+  // Collection points to an Instant Experience with static link_data/video_data.
+  // Meta accepts the creative but rejects the ad (subcode 1990065) when a
+  // product_set_id is attached without object_story_spec.template_data.
+  const usesProductTemplate = input.creativeFormat === 'catalog';
 
   return {
     ...payload,
@@ -1264,7 +1265,9 @@ function buildCollection(
   return withCollaborativeCatalogContext(
     input,
     {
-      ...(productSetId ? { product_set_id: productSetId } : {}),
+      ...(input.mode !== 'collaborative_ads' && productSetId
+        ? { product_set_id: productSetId }
+        : {}),
       object_story_spec: storySpec,
     },
     destinationUrl

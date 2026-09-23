@@ -1662,7 +1662,7 @@ describe('buildMetaCreativeFormatPayload', () => {
       expectedStory: {
         link_data: { image_hash: 'cover-1' },
       },
-      expectsProductSet: true,
+      expectsProductSet: false,
       input: {
         mode: 'collaborative_ads' as const,
         pageId: 'page-1',
@@ -1753,7 +1753,7 @@ describe('buildMetaCreativeFormatPayload', () => {
     });
   });
 
-  it('normalizes and emits product_set_id for a standard Collection creative', () => {
+  it('keeps the existing standard Collection product-set payload', () => {
     const result = buildMetaCreativeFormatPayload({
       mode: 'standard',
       pageId: 'page-1',
@@ -1766,21 +1766,7 @@ describe('buildMetaCreativeFormatPayload', () => {
       },
     });
 
-    expect(result).toEqual({
-      product_set_id: 'standard-collection-set',
-      object_story_spec: {
-        page_id: 'page-1',
-        link_data: {
-          image_hash: 'cover-1',
-          message: 'Buka koleksi',
-          link: 'https://fb.com/canvas_doc/canvas-1',
-          call_to_action: {
-            type: 'LEARN_MORE',
-            value: { link: 'https://fb.com/canvas_doc/canvas-1' },
-          },
-        },
-      },
-    });
+    expect(result.product_set_id).toBe('standard-collection-set');
   });
 
   it('requires exactly one Collection cover asset', () => {
@@ -1804,6 +1790,10 @@ describe('buildMetaCreativeFormatPayload', () => {
       mode: 'collaborative_ads',
       pageId: 'page-1',
       collaborativeProductSetId: 'product-set-1',
+      collaborativeAppSpec: {
+        applicationId: 'app-1',
+        android: { appName: 'Shop', packageName: 'com.shop.app' },
+      },
       creativeFormat: 'collection',
       creativeSpec: {
         instantExperienceId: 'canvas-1',
@@ -1813,11 +1803,12 @@ describe('buildMetaCreativeFormatPayload', () => {
     });
 
     expect(result).toMatchObject({
-      product_set_id: 'product-set-1',
       omnichannel_link_spec: {
         web: { url: 'https://fb.com/canvas_doc/canvas-1' },
+        app: { application_id: 'app-1' },
       },
     });
+    expect(result).not.toHaveProperty('product_set_id');
   });
 
   it('uses one matching product set and the shared envelope for collaborative Collection', () => {
@@ -1835,7 +1826,6 @@ describe('buildMetaCreativeFormatPayload', () => {
     });
 
     expect(result).toEqual({
-      product_set_id: 'shared-collection-set',
       omnichannel_link_spec: {
         web: { url: 'https://fb.com/canvas_doc/canvas-1' },
       },
@@ -1852,6 +1842,7 @@ describe('buildMetaCreativeFormatPayload', () => {
       },
     });
     expect(result).not.toHaveProperty('asset_feed_spec');
+    expect(result).not.toHaveProperty('product_set_id');
   });
 
   it('rejects mismatched collaborative Collection product sets locally', () => {

@@ -492,6 +492,17 @@ export async function createCpasCatalogCampaignBundle(
     );
   }
   const creativeFormat = payload.creativeFormat ?? 'catalog';
+  if (
+    creativeFormat.startsWith('catalog') &&
+    creativeFormat !== 'catalog_video' &&
+    payload.fallbackImageHash?.trim()
+  ) {
+    return failure(
+      'preflight',
+      'UNSUPPORTED_CPAS_CATALOG_FALLBACK_IMAGE',
+      'Catalog dinamis mengambil gambar dari produk; fallbackImageHash manual ditolak Meta (subcode 2446380).'
+    );
+  }
   if (creativeFormat === 'collection') {
     const collection = payload.collection;
     if (!collection?.instantExperienceId.trim()) {
@@ -551,6 +562,21 @@ export async function createCpasCatalogCampaignBundle(
     );
   }
   const appOmnichannel = payload.destinationMode === 'app_omnichannel';
+  if (
+    appOmnichannel &&
+    !(
+      (payload.collaborativeAppSpec?.android?.appName.trim() &&
+        payload.collaborativeAppSpec.android.packageName.trim()) ||
+      (payload.collaborativeAppSpec?.ios?.appName.trim() &&
+        payload.collaborativeAppSpec.ios.appStoreId.trim())
+    )
+  ) {
+    return failure(
+      'preflight',
+      'MISSING_CPAS_OMNICHANNEL_PLATFORM',
+      'Mode app_omnichannel memerlukan platform_specs Android atau iOS pada collaborativeAppSpec.'
+    );
+  }
   if (
     appOmnichannel &&
     (!payload.collaborativeAppSpec?.applicationId.trim() ||
