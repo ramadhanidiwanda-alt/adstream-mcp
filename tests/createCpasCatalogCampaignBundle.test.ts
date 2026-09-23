@@ -1077,6 +1077,74 @@ describe('createCpasCatalogCampaignBundle', () => {
     expect(client.metaPost).not.toHaveBeenCalled();
   });
 
+  it('accepts Meta-omitted ad set bidding with verified campaign bidding and default location types', async () => {
+    const client = createMockClient();
+    mockSafeResumeReads(client);
+    const read = client.metaGetObject as ReturnType<typeof vi.fn>;
+    const original = read.getMockImplementation() as (
+      path: string
+    ) => Promise<Record<string, unknown> & { targeting: Record<string, unknown> }>;
+    read.mockImplementation(async (path: string) => {
+      const result = await original(path);
+      if (path !== '/adset_existing') return result;
+      const { bid_strategy: _omittedBidStrategy, ...withoutBidStrategy } = result;
+      return {
+        ...withoutBidStrategy,
+        targeting: {
+          ...result.targeting,
+          geo_locations: {
+            countries: ['ID'],
+            location_types: ['frequently_in', 'home', 'recent'],
+          },
+        },
+      };
+    });
+    const result = await createCpasCatalogCampaignBundle(
+      client,
+      {
+        ...payload,
+        resumeFrom: {
+          campaignId: 'campaign_existing',
+          adSetId: 'adset_existing',
+          creativeId: 'creative_existing',
+          adId: 'ad_existing',
+        },
+      },
+      { dryRun: false, confirmed: true }
+    );
+    expect(result.status).toBe('executed');
+    expect(client.metaPost).not.toHaveBeenCalled();
+  });
+
+  it('rejects an extra subscriber universe even with otherwise safe Meta readback defaults', async () => {
+    const client = createMockClient();
+    mockSafeResumeReads(client);
+    const read = client.metaGetObject as ReturnType<typeof vi.fn>;
+    const original = read.getMockImplementation() as (
+      path: string
+    ) => Promise<Record<string, unknown> & { targeting: Record<string, unknown> }>;
+    read.mockImplementation(async (path: string) => {
+      const result = await original(path);
+      if (path !== '/adset_existing') return result;
+      return {
+        ...result,
+        bid_strategy: null,
+        targeting: {
+          ...result.targeting,
+          geo_locations: { countries: ['ID'], location_types: ['frequently_in', 'home', 'recent'] },
+          subscriber_universe: { messaging_customer_base_for_whatsapp: { id: 'aud_1' } },
+        },
+      };
+    });
+    const result = await createCpasCatalogCampaignBundle(
+      client,
+      { ...payload, resumeFrom: { campaignId: 'campaign_existing', adSetId: 'adset_existing' } },
+      { dryRun: false, confirmed: true }
+    );
+    expect(result).toMatchObject({ status: 'failed', code: 'UNSAFE_CPAS_CATALOG_RESUME' });
+    expect(client.metaPost).not.toHaveBeenCalled();
+  });
+
   it.each([
     ['wrong account', '/campaign_existing', { account_id: '999' }],
     ['active campaign', '/campaign_existing', { status: 'ACTIVE' }],
@@ -1091,6 +1159,17 @@ describe('createCpasCatalogCampaignBundle', () => {
     ['wrong destination', '/adset_existing', { destination_type: 'WEBSITE' }],
     ['wrong optimization', '/adset_existing', { optimization_goal: 'LINK_CLICKS' }],
     ['wrong ad set bid strategy', '/adset_existing', { bid_strategy: 'COST_CAP' }],
+    ['unexpected ad set bid amount', '/adset_existing', { bid_strategy: null, bid_amount: 1500 }],
+    [
+      'different location types',
+      '/adset_existing',
+      {
+        targeting: {
+          geo_locations: { countries: ['ID'], location_types: ['home'] },
+          age_min: 18,
+        },
+      },
+    ],
     ['wrong country', '/adset_existing', { targeting: { geo_locations: { countries: ['US'] } } }],
     [
       'wrong age',
