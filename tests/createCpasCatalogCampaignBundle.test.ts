@@ -177,6 +177,39 @@ describe('createCpasCatalogCampaignBundle', () => {
     expect(result.error).toMatch(/showMultipleImages.*formatOption/i);
   });
 
+  it('rejects a manually selected fallback image for a dynamic catalog creative', async () => {
+    const client = createMockClient();
+    const result = await createCpasCatalogCampaignBundle(client, {
+      ...payload,
+      creativeFormat: 'catalog_single_image',
+      fallbackImageHash: 'manual-image-hash',
+    });
+
+    expect(result).toMatchObject({
+      status: 'failed',
+      stage: 'preflight',
+      code: 'UNSUPPORTED_CPAS_CATALOG_FALLBACK_IMAGE',
+    });
+    expect(client.metaPost).not.toHaveBeenCalled();
+  });
+
+  it('requires an app platform spec before creating omnichannel parent objects', async () => {
+    const client = createMockClient();
+    const result = await createCpasCatalogCampaignBundle(client, {
+      ...payload,
+      destinationMode: 'app_omnichannel',
+      collaborativeAppSpec: { applicationId: 'app-1' },
+      objectStoreUrls: ['https://play.google.com/store/apps/details?id=com.shop.app'],
+    });
+
+    expect(result).toMatchObject({
+      status: 'failed',
+      stage: 'preflight',
+      code: 'MISSING_CPAS_OMNICHANNEL_PLATFORM',
+    });
+    expect(client.metaPost).not.toHaveBeenCalled();
+  });
+
   it('lets showMultipleImages override the single-image presentation defaults in preview', async () => {
     const result = await createCpasCatalogCampaignBundle(createMockClient(), {
       ...payload,
@@ -258,6 +291,35 @@ describe('createCpasCatalogCampaignBundle', () => {
       },
     });
     expect(result.preview.creative).not.toHaveProperty('product_set_id');
+  });
+
+  it('omits product_set_id from the created CPAS Collection creative', async () => {
+    const client = createMockClient();
+    const post = client.metaPost as ReturnType<typeof vi.fn>;
+    post
+      .mockResolvedValueOnce({ id: 'campaign_1' })
+      .mockResolvedValueOnce({ id: 'adset_1' })
+      .mockResolvedValueOnce({ id: 'creative_1' })
+      .mockResolvedValueOnce({ id: 'ad_1' });
+    (client.metaGetObject as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce({ id: 'ps_1', product_catalog: 'catalog_1', product_count: 12 })
+      .mockResolvedValueOnce({ id: 'ps_1', product_catalog: 'catalog_1', product_count: 12 })
+      .mockResolvedValueOnce({ id: 'campaign_1', objective: 'OUTCOME_SALES' });
+
+    const result = await createCpasCatalogCampaignBundle(
+      client,
+      {
+        ...payload,
+        creativeFormat: 'collection',
+        collection: { instantExperienceId: 'canvas_1', coverImageHash: 'cover_1' },
+      },
+      { dryRun: false, confirmed: true }
+    );
+
+    expect(result.status, result.error).toBe('executed');
+    const creativePayload = post.mock.calls[2][1] as Record<string, unknown>;
+    expect(creativePayload).not.toHaveProperty('product_set_id');
+    expect(creativePayload).toHaveProperty('object_story_spec');
   });
 
   it('builds a catalog single-image template without a manually supplied image', async () => {

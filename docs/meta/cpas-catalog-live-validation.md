@@ -73,3 +73,22 @@ Live retest belum dilakukan. Entity test di atas tetap `PAUSED`.
 Perbaikan lanjutan melengkapi public `ads_create_adcreative` untuk meneruskan opsi katalog yang sebelumnya hanya tersedia pada builder/bundle: `showMultipleImages`, `preferredImageTags`, `formatOption`, dan `categorizationCriteria`. Kombinasi `showMultipleImages` dengan `formatOption` tetap ditolak saat preflight karena Meta menolaknya sebagai redundant object-story configuration.
 
 Bundle CPAS sekarang menerima `resumeFrom` berjenjang (`campaignId`, `adSetId`, `creativeId`, `adId`). Ketika eksekusi gagal di tengah, response menyertakan `resumeFrom` berisi seluruh parent ID yang sudah berhasil dibuat. Retry dapat melanjutkan dari tahap yang hilang tanpa membuat ulang parent, tanpa auto-delete, dan tanpa auto-archive. Seluruh objek yang dibuat tetap `PAUSED`.
+
+## Live validation lanjutan, 23 September 2026
+
+Campaign dummy `120252133196790071` dan ad set `120252133197320071` dibuat dalam status `PAUSED`. Kegagalan awal pada creative (`omnichannel_link_spec.app.platform_specs` wajib, lalu aset kategori tidak cukup, lalu fallback image manual tidak didukung) tidak menduplikasi parent: retry memakai `resumeFrom` dengan ID yang sama.
+
+Empat ad berikut berhasil dibuat dalam status konfigurasi `PAUSED`, dan preview `INSTAGRAM_STANDARD` masing-masing dapat dirender:
+
+| Format                 | Creative           | Ad                   | Readback utama                                                              |
+| ---------------------- | ------------------ | -------------------- | --------------------------------------------------------------------------- |
+| Catalog single-image   | `1045134915011851` | `120252133231950071` | `show_multiple_images=false`, tanpa `template_url`                          |
+| Catalog carousel       | `928986159856718`  | `120252133263230071` | `show_multiple_images=true`, `asset_feed_spec.ad_formats` memuat `CAROUSEL` |
+| Catalog video-carousel | `3375675706065319` | `120252133301680071` | static video card dan dynamic product card tersimpan                        |
+| Catalog `formatOption` | `1413026514357563` | `120252133360180071` | `format_option=carousel_slideshows` tersimpan                               |
+
+Collection memakai Instant Experience published `1338190030512984` dari Page pemilik `145397668657125`. Creative `2513389592490210` berhasil dibuat, tetapi ad ditolak Meta dengan subcode `1990065`: `product_set_id` tidak boleh dipakai tanpa template produk pada creative Collection yang memakai `link_data` statis. Perbaikan builder menghilangkan `product_set_id` dari creative Collection sambil mempertahankan product set di ad set dan omnichannel link. Live retest untuk perbaikan ini belum dilakukan.
+
+Audit terakhir menunjukkan campaign dan ad set berstatus `PAUSED` dengan `effective_status=PAUSED`. Keempat ad berstatus konfigurasi `PAUSED`; `effective_status=PENDING_REVIEW` saat audit dan tidak ada aktivasi yang dilakukan. Creative Meta bisa terbaca `ACTIVE` tanpa mengubah status delivery ad/ad set.
+
+Catatan keamanan: satu respons paging Meta yang dicetak saat inspeksi read-only memuat access token pada URL paging. Token lokal tersebut harus dirotasi sebelum live test berikutnya; jangan salin URL paging mentah ke log atau laporan.
