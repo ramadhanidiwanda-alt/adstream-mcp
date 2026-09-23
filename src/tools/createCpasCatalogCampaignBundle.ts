@@ -737,7 +737,7 @@ export async function createCpasCatalogCampaignBundle(
           | undefined;
         const actualCountries = geoLocations?.countries;
         const expectedCountries = payload.countries.map((country) => country.trim()).sort();
-        // Meta can leave ad-set bidding empty when the verified parent campaign owns the bid.
+        // Meta may omit ad-set bidding when the verified parent campaign owns the bid.
         const adSetBidMatches =
           (adSet.bid_strategy === 'LOWEST_COST_WITHOUT_CAP' || adSet.bid_strategy == null) &&
           adSet.bid_amount == null &&

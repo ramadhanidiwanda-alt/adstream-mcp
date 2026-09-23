@@ -1077,7 +1077,7 @@ describe('createCpasCatalogCampaignBundle', () => {
     expect(client.metaPost).not.toHaveBeenCalled();
   });
 
-  it('accepts Meta readback defaults for campaign-level bidding and location types', async () => {
+  it('accepts Meta-omitted ad set bidding with verified campaign bidding and default location types', async () => {
     const client = createMockClient();
     mockSafeResumeReads(client);
     const read = client.metaGetObject as ReturnType<typeof vi.fn>;
@@ -1087,9 +1087,9 @@ describe('createCpasCatalogCampaignBundle', () => {
     read.mockImplementation(async (path: string) => {
       const result = await original(path);
       if (path !== '/adset_existing') return result;
+      const { bid_strategy: _omittedBidStrategy, ...withoutBidStrategy } = result;
       return {
-        ...result,
-        bid_strategy: null,
+        ...withoutBidStrategy,
         targeting: {
           ...result.targeting,
           geo_locations: {
