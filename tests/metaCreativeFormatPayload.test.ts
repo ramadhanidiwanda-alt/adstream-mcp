@@ -1439,6 +1439,43 @@ describe('buildMetaCreativeFormatPayload', () => {
     expect(result.product_set_id).toBe('product-set-1');
   });
 
+  it('rejects fallbackImageHash for collaborative dynamic catalog but keeps standard catalog support', () => {
+    expect(() =>
+      buildMetaCreativeFormatPayload({
+        mode: 'collaborative_ads',
+        pageId: 'page-1',
+        collaborativeProductSetId: 'product-set-1',
+        creativeFormat: 'catalog',
+        creativeSpec: {
+          productSetId: 'product-set-1',
+          primaryText: 'Produk pilihan',
+          destinationUrl: 'https://example.com',
+          fallbackImageHash: 'hash-1',
+        },
+      })
+    ).toThrow(/fallbackImageHash/);
+  });
+
+  it.each([
+    ['formatOption', 'not_a_meta_format'],
+    ['categorizationCriteria', 'not_a_category'],
+  ])('rejects unsupported catalog %s', (field, value) => {
+    expect(() =>
+      buildMetaCreativeFormatPayload({
+        mode: 'collaborative_ads',
+        pageId: 'page-1',
+        collaborativeProductSetId: 'product-set-1',
+        creativeFormat: 'catalog',
+        creativeSpec: {
+          productSetId: 'product-set-1',
+          primaryText: 'Produk pilihan',
+          destinationUrl: 'https://example.com',
+          [field]: value,
+        },
+      })
+    ).toThrow(new RegExp(field));
+  });
+
   it('rejects showMultipleImages combined with formatOption (live-verified ObjectStorySpecRedundant)', () => {
     expect(() =>
       buildMetaCreativeFormatPayload({

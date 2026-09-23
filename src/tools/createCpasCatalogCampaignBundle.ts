@@ -5,6 +5,7 @@ import { createAdSet } from './createAdSet.js';
 import { createCampaign } from './createCampaign.js';
 import { formatMetaWriteError } from '../utils/formatMetaWriteError.js';
 import type { MetaCollaborativeAppSpec } from '../types.js';
+import { assertSupportedCatalogCreativeSettings } from '../providers/meta/buildCreativeFormatPayload.js';
 
 export type CpasCatalogBundleStatus = 'dry_run' | 'pending_confirmation' | 'executed' | 'failed';
 export type CpasCatalogDestinationMode = 'catalog_web' | 'app_omnichannel';
@@ -434,6 +435,11 @@ export async function createCpasCatalogCampaignBundle(
     warnings: [
       'Semua objek dibuat PAUSED; aktivasi delivery memerlukan operasi dan konfirmasi terpisah.',
       'Creative ini adalah katalog dinamis. Jangan mencampurnya dengan creative poster/video/carousel manual pada ad set yang sama.',
+      ...(payload.creativeSettings?.categorizationCriteria
+        ? [
+            'Kelayakan kategori produk ditentukan Meta saat creative dibuat; product_count saja tidak menjamin kategori memenuhi syarat.',
+          ]
+        : []),
     ],
   });
   const failure = (
@@ -474,6 +480,8 @@ export async function createCpasCatalogCampaignBundle(
   }
   const resumeFrom = payload.resumeFrom;
   if (
+    (resumeFrom && !resumeFrom.campaignId?.trim()) ||
+    (resumeFrom && Object.values(resumeFrom).some((id) => typeof id !== 'string' || !id.trim())) ||
     (resumeFrom?.adSetId && !resumeFrom.campaignId) ||
     (resumeFrom?.creativeId && !resumeFrom.adSetId) ||
     (resumeFrom?.adId && !resumeFrom.creativeId)
@@ -561,6 +569,15 @@ export async function createCpasCatalogCampaignBundle(
       'showMultipleImages dan formatOption tidak dapat digunakan bersamaan pada catalog creative.'
     );
   }
+  try {
+    assertSupportedCatalogCreativeSettings(payload.creativeSettings ?? {});
+  } catch (error) {
+    return failure(
+      'preflight',
+      'INVALID_CPAS_CATALOG_CREATIVE_SETTINGS',
+      error instanceof Error ? error.message : 'Pengaturan creative katalog tidak valid.'
+    );
+  }
   const appOmnichannel = payload.destinationMode === 'app_omnichannel';
   if (
     appOmnichannel &&
@@ -643,6 +660,112 @@ export async function createCpasCatalogCampaignBundle(
       status: 'pending_confirmation',
       error: 'Konfirmasi eksplisit diperlukan setelah dry-run.',
     });
+  }
+
+  if (resumeFrom?.campaignId) {
+    const expectedAccountId = payload.adAccountId.trim().replace(/^act_/, '');
+    const readResumeObject = async (id: string, fields: string): Promise<Record<string, unknown>> =>
+      client.metaGetObject<Record<string, unknown>>(`/${id}`, { fields }, options.maxRetries);
+    const objectId = (value: unknown): string | undefined => {
+      if (typeof value === 'string') return value.trim();
+      if (value && typeof value === 'object' && 'id' in value) {
+        const id = (value as { id?: unknown }).id;
+        return typeof id === 'string' ? id.trim() : undefined;
+      }
+      return undefined;
+    };
+    const unsafe = (reason: string): CpasCatalogCampaignBundleResult =>
+      withEvidence(failure('preflight', 'UNSAFE_CPAS_CATALOG_RESUME', reason));
+    try {
+      const campaign = await readResumeObject(
+        resumeFrom.campaignId,
+        'id,account_id,status,objective,promoted_object'
+      );
+      const campaignCatalogId =
+        campaign.promoted_object && typeof campaign.promoted_object === 'object'
+          ? objectId((campaign.promoted_object as Record<string, unknown>).product_catalog_id)
+          : undefined;
+      if (
+        campaign.id !== resumeFrom.campaignId ||
+        objectId(campaign.account_id) !== expectedAccountId ||
+        campaign.status !== 'PAUSED' ||
+        campaign.objective !== 'OUTCOME_SALES' ||
+        !productCatalogId ||
+        campaignCatalogId !== productCatalogId
+      )
+        return unsafe(
+          'Campaign resume tidak cocok dengan akun, status PAUSED, objective, atau katalog.'
+        );
+
+      if (resumeFrom.adSetId) {
+        const adSet = await readResumeObject(
+          resumeFrom.adSetId,
+          'id,account_id,campaign_id,status,promoted_object'
+        );
+        const adSetProductId =
+          adSet.promoted_object && typeof adSet.promoted_object === 'object'
+            ? objectId((adSet.promoted_object as Record<string, unknown>).product_set_id)
+            : undefined;
+        if (
+          adSet.id !== resumeFrom.adSetId ||
+          objectId(adSet.account_id) !== expectedAccountId ||
+          objectId(adSet.campaign_id) !== resumeFrom.campaignId ||
+          adSet.status !== 'PAUSED' ||
+          adSetProductId !== payload.productSetId.trim()
+        )
+          return unsafe(
+            'Ad set resume tidak cocok dengan akun, campaign, status PAUSED, atau product set.'
+          );
+      }
+
+      if (resumeFrom.creativeId) {
+        const creative = await readResumeObject(
+          resumeFrom.creativeId,
+          'id,account_id,product_set_id,object_story_spec'
+        );
+        const story = creative.object_story_spec as Record<string, unknown> | undefined;
+        const videoData = story?.video_data as Record<string, unknown> | undefined;
+        const linkData = story?.link_data as Record<string, unknown> | undefined;
+        const collectionCoverMatches =
+          creativeFormat !== 'collection' ||
+          (payload.collection?.coverImageHash
+            ? objectId(linkData?.image_hash) === payload.collection.coverImageHash.trim()
+            : objectId(videoData?.video_id) === payload.collection?.coverVideoId?.trim());
+        if (
+          creative.id !== resumeFrom.creativeId ||
+          objectId(creative.account_id) !== expectedAccountId ||
+          !collectionCoverMatches ||
+          (creativeFormat === 'catalog_video' &&
+            objectId(videoData?.video_id) !== payload.video?.videoId.trim()) ||
+          (creativeFormat !== 'collection' &&
+            creativeFormat !== 'catalog_video' &&
+            objectId(creative.product_set_id) !== payload.productSetId.trim())
+        )
+          return unsafe('Creative resume tidak cocok dengan akun atau product set.');
+      }
+
+      if (resumeFrom.adId) {
+        const ad = await readResumeObject(
+          resumeFrom.adId,
+          'id,account_id,campaign_id,adset_id,status,creative'
+        );
+        if (
+          ad.id !== resumeFrom.adId ||
+          objectId(ad.account_id) !== expectedAccountId ||
+          objectId(ad.campaign_id) !== resumeFrom.campaignId ||
+          objectId(ad.adset_id) !== resumeFrom.adSetId ||
+          objectId(ad.creative) !== resumeFrom.creativeId ||
+          ad.status !== 'PAUSED'
+        )
+          return unsafe(
+            'Ad resume tidak cocok dengan akun, hierarki, creative, atau status PAUSED.'
+          );
+      }
+    } catch {
+      return unsafe(
+        'Objek resume tidak dapat dibaca dan diverifikasi; tidak ada objek baru dibuat.'
+      );
+    }
   }
 
   const ids: NonNullable<CpasCatalogCampaignBundleResult['ids']> = { ...resumeFrom };
