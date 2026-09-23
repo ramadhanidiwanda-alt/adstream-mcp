@@ -66,7 +66,7 @@ Perbaikan kode diterapkan pada branch `codex/document-cpas-live-validation` sete
 - `templateUrl` dipertahankan sementara sebagai input legacy untuk kompatibilitas, tetapi tidak dikirim ke Meta.
 - Regression tests ditambahkan untuk payload catalog dan parity public adapter/internal builder.
 
-Live retest belum dilakukan. Entity test di atas tetap `PAUSED`.
+Live retest single-image dilakukan pada 22 September 2026. Entity test di atas tetap `PAUSED`.
 
 ## Remaining-gap implementation
 
@@ -87,8 +87,16 @@ Empat ad berikut berhasil dibuat dalam status konfigurasi `PAUSED`, dan preview 
 | Catalog video-carousel | `3375675706065319` | `120252133301680071` | static video card dan dynamic product card tersimpan                        |
 | Catalog `formatOption` | `1413026514357563` | `120252133360180071` | `format_option=carousel_slideshows` tersimpan                               |
 
-Collection memakai Instant Experience published `1338190030512984` dari Page pemilik `145397668657125`. Creative `2513389592490210` berhasil dibuat, tetapi ad ditolak Meta dengan subcode `1990065`: `product_set_id` tidak boleh dipakai tanpa template produk pada creative Collection yang memakai `link_data` statis. Perbaikan builder menghilangkan `product_set_id` dari creative Collection sambil mempertahankan product set di ad set dan omnichannel link. Live retest untuk perbaikan ini belum dilakukan.
+Collection memakai Instant Experience published `1338190030512984` dari Page pemilik `145397668657125`. Creative awal `2513389592490210` berhasil dibuat, tetapi ad ditolak Meta dengan subcode `1990065`: `product_set_id` tidak boleh dipakai tanpa template produk pada creative Collection yang memakai `link_data` statis. Perbaikan builder menghilangkan `product_set_id` dari creative Collection sambil mempertahankan product set di ad set dan omnichannel link.
 
 Audit terakhir menunjukkan campaign dan ad set berstatus `PAUSED` dengan `effective_status=PAUSED`. Keempat ad berstatus konfigurasi `PAUSED`; `effective_status=PENDING_REVIEW` saat audit dan tidak ada aktivasi yang dilakukan. Creative Meta bisa terbaca `ACTIVE` tanpa mengubah status delivery ad/ad set.
 
-Catatan keamanan: satu respons paging Meta yang dicetak saat inspeksi read-only memuat access token pada URL paging. Token lokal tersebut harus dirotasi sebelum live test berikutnya; jangan salin URL paging mentah ke log atau laporan.
+Catatan keamanan: satu respons paging Meta yang dicetak saat inspeksi read-only memuat access token pada URL paging. Jangan salin URL paging mentah ke log atau laporan; token yang sempat tampil perlu dirotasi setelah retest yang diminta user.
+
+## Live retest Collection, 23 September 2026
+
+Atas instruksi user, retest dilakukan dengan token lokal yang sama. Preflight memverifikasi campaign `120252133196790071` dan ad set `120252133197320071` masih `PAUSED`, product set `400359918054556` berisi 8 produk, serta Instant Experience `1338190030512984` published dan dimiliki Page `145397668657125`. Dry-run melalui public bundle menunjukkan creative Collection memiliki `link_data` statis tanpa `product_set_id`.
+
+Eksekusi memakai `resumeFrom` untuk dua parent yang sama; tidak ada campaign atau ad set baru. Meta menerima creative `2086017392305661` dan ad `120252139242860071`. Readback memverifikasi creative tanpa `product_set_id`, tautan Instant Experience dan app ID Shopee benar, `media_type_automation=OPT_OUT`, serta preview `INSTAGRAM_STANDARD` dapat dirender. Campaign dan ad set memiliki `status=PAUSED` dan `effective_status=PAUSED`. Ad memiliki `status=PAUSED`; `effective_status=IN_PROCESS` saat audit segera setelah pembuatan. Tidak ada objek yang diaktifkan.
+
+Token tidak dicetak lagi dalam retest. Karena pernah tampil di output terminal sebelumnya, token tersebut tetap perlu dirotasi sesudah pengujian.
