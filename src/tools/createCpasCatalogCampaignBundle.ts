@@ -724,7 +724,7 @@ export async function createCpasCatalogCampaignBundle(
       if (resumeFrom.adSetId) {
         const adSet = await readResumeObject(
           resumeFrom.adSetId,
-          'id,account_id,name,campaign_id,status,destination_type,optimization_goal,billing_event,bid_strategy,targeting,promoted_object'
+          'id,account_id,name,campaign_id,status,destination_type,optimization_goal,billing_event,bid_strategy,bid_amount,bid_constraints,targeting,promoted_object'
         );
         const adSetProductId =
           adSet.promoted_object && typeof adSet.promoted_object === 'object'
@@ -737,11 +737,25 @@ export async function createCpasCatalogCampaignBundle(
           | undefined;
         const actualCountries = geoLocations?.countries;
         const expectedCountries = payload.countries.map((country) => country.trim()).sort();
+        // Meta can leave ad-set bidding empty when the verified parent campaign owns the bid.
+        const adSetBidMatches =
+          (adSet.bid_strategy === 'LOWEST_COST_WITHOUT_CAP' || adSet.bid_strategy == null) &&
+          adSet.bid_amount == null &&
+          adSet.bid_constraints == null;
+        const locationTypes = geoLocations?.location_types;
+        const defaultLocationTypes =
+          locationTypes === undefined ||
+          (Array.isArray(locationTypes) &&
+            locationTypes.length === 3 &&
+            ['frequently_in', 'home', 'recent'].every((type) => locationTypes.includes(type)));
         const unexpectedTargeting =
           Object.keys(targeting ?? {}).some(
             (key) => !['geo_locations', 'age_min', 'age_max', 'targeting_automation'].includes(key)
           ) ||
-          Object.keys(geoLocations ?? {}).some((key) => key !== 'countries') ||
+          Object.keys(geoLocations ?? {}).some(
+            (key) => !['countries', 'location_types'].includes(key)
+          ) ||
+          !defaultLocationTypes ||
           Object.keys(targetingAutomation ?? {}).some((key) => key !== 'advantage_audience') ||
           (targetingAutomation?.advantage_audience !== undefined &&
             targetingAutomation.advantage_audience !== 0) ||
@@ -755,7 +769,7 @@ export async function createCpasCatalogCampaignBundle(
           adSet.destination_type !== 'UNDEFINED' ||
           adSet.optimization_goal !== 'OFFSITE_CONVERSIONS' ||
           adSet.billing_event !== 'IMPRESSIONS' ||
-          adSet.bid_strategy !== 'LOWEST_COST_WITHOUT_CAP' ||
+          !adSetBidMatches ||
           targeting?.age_min !== (payload.ageMin ?? 18) ||
           unexpectedTargeting ||
           !Array.isArray(actualCountries) ||
