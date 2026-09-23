@@ -1454,6 +1454,21 @@ describe('buildMetaCreativeFormatPayload', () => {
         },
       })
     ).toThrow(/fallbackImageHash/);
+
+    const standard = buildMetaCreativeFormatPayload({
+      mode: 'standard',
+      pageId: 'page-1',
+      creativeFormat: 'catalog',
+      creativeSpec: {
+        productSetId: 'product-set-1',
+        primaryText: 'Produk pilihan',
+        destinationUrl: 'https://example.com',
+        fallbackImageHash: 'hash-1',
+      },
+    });
+    expect(standard.object_story_spec).toMatchObject({
+      template_data: { image_hash: 'hash-1' },
+    });
   });
 
   it.each([
