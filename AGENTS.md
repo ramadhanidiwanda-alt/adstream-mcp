@@ -2,14 +2,14 @@
 
 > Panduan untuk AI agents yang bekerja dengan **adstream-mcp**
 
-**Versi:** 1.1 | **Terakhir Diupdate:** 2026-07-21 | **Status Project:** v0.6.0
+**Versi:** 1.2 | **Terakhir Diupdate:** 2026-09-23 | **Status Project:** v0.6.0
 
 ## 🎯 Ringkasan Cepat (30 Detik)
 
 - Multi-provider MCP connector hub: **Meta Ads**, **TikTok Ads**, **Google Ads** + Commerce (TikTok GMV)
 - **Read & Write operations** — campaign, adset, ad, creative (create/update/pause/resume/archive)
 - Tech stack: Modul ESM, strict TypeScript, Vitest, MCP protocol
-- **Aturan emas:** Jangan log token, jangan push tanpa izin, **tanya sebelum execute write ops**
+- **Aturan emas:** Jangan pernah tampilkan token di mana pun, jangan push tanpa izin, **tanya sebelum execute write ops**
 - [Mulai Cepat](#-mulai-cepat) | [Struktur Folder](#-arsitektur) | [Write Safety](#-panduan-write-operations)
 
 ---
@@ -41,6 +41,8 @@ Project ini menjembatani akses programmatic (TypeScript library + MCP) dengan na
 ### 🔴 Jangan Pernah Lakukan Ini
 
 - ❌ Log access tokens (console, errors, dimanapun)
+- ❌ Tampilkan token, Connection Key, API key, atau credential lain di output tool, terminal, chat, screenshot, dokumen, commit, maupun PR — termasuk sebagian nilainya
+- ❌ Cetak respons Meta mentah, terutama `paging.next`/`paging.previous`: URL pagination dapat mengandung `access_token`
 - ❌ Jangan commit file `.env` (sudah di `.gitignore`)
 - ❌ Jangan hardcode tokens di code
 - ❌ Buat file .md baru tanpa tanya user dulu
@@ -59,6 +61,13 @@ Project ini menjembatani akses programmatic (TypeScript library + MCP) dengan na
 - ✅ Sebelum memberi rekomendasi yang bergantung pada API/library/platform eksternal, baca dokumentasi resmi relevan lebih dulu
 
 **Alasan:** Repo ini punya terlalu banyak file .md noise dari sesi sebelumnya. Jangan tambah sampah lagi.
+
+### Output dan respons API yang aman
+
+- Perlakukan seluruh respons provider sebagai data sensitif sampai field yang akan ditampilkan dipilih secara eksplisit. Cetak hanya field yang dibutuhkan (misalnya ID, status, jumlah, dan kode error), bukan `JSON.stringify(response)` secara utuh.
+- Jangan menampilkan URL request atau URL pagination Meta. Untuk pagination, tampilkan keberadaan halaman berikutnya atau cursor yang diperlukan saja; jangan tampilkan `paging.next`/`paging.previous` mentah.
+- Redaksi credential **sebelum** mengirim nilai ke `console`, hasil tool, laporan, atau chat. Jangan mengandalkan penyamaran setelah output telanjur tampil. Hindari menampilkan pesan error mentah bila berpotensi memuat URL bertoken.
+- Jika credential telanjur tampil, hentikan output yang memuatnya, jangan ulangi atau kutip nilainya, beri tahu user segera, dan sarankan rotasi/pencabutan credential tersebut. Jangan menganggap token aman hanya karena tidak masuk Git.
 
 ---
 
