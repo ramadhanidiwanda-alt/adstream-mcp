@@ -5,6 +5,7 @@ import { createAdSet } from './createAdSet.js';
 import { createCampaign } from './createCampaign.js';
 import { formatMetaWriteError } from '../utils/formatMetaWriteError.js';
 import type { MetaCollaborativeAppSpec } from '../types.js';
+import { assertSupportedCatalogCreativeSettings } from '../providers/meta/buildCreativeFormatPayload.js';
 
 export type CpasCatalogBundleStatus = 'dry_run' | 'pending_confirmation' | 'executed' | 'failed';
 export type CpasCatalogDestinationMode = 'catalog_web' | 'app_omnichannel';
@@ -434,6 +435,11 @@ export async function createCpasCatalogCampaignBundle(
     warnings: [
       'Semua objek dibuat PAUSED; aktivasi delivery memerlukan operasi dan konfirmasi terpisah.',
       'Creative ini adalah katalog dinamis. Jangan mencampurnya dengan creative poster/video/carousel manual pada ad set yang sama.',
+      ...(payload.creativeSettings?.categorizationCriteria
+        ? [
+            'Kelayakan kategori produk ditentukan Meta saat creative dibuat; product_count saja tidak menjamin kategori memenuhi syarat.',
+          ]
+        : []),
     ],
   });
   const failure = (
@@ -474,6 +480,8 @@ export async function createCpasCatalogCampaignBundle(
   }
   const resumeFrom = payload.resumeFrom;
   if (
+    (resumeFrom && !resumeFrom.campaignId?.trim()) ||
+    (resumeFrom && Object.values(resumeFrom).some((id) => typeof id !== 'string' || !id.trim())) ||
     (resumeFrom?.adSetId && !resumeFrom.campaignId) ||
     (resumeFrom?.creativeId && !resumeFrom.adSetId) ||
     (resumeFrom?.adId && !resumeFrom.creativeId)
@@ -482,6 +490,27 @@ export async function createCpasCatalogCampaignBundle(
       'preflight',
       'INVALID_CPAS_CATALOG_RESUME_CHAIN',
       'resumeFrom harus berurutan: campaignId, adSetId, creativeId, lalu adId.'
+    );
+  }
+  if (
+    resumeFrom &&
+    (Object.keys(payload.campaignSettings ?? {}).length > 0 ||
+      Object.keys(payload.adSetSettings ?? {}).length > 0 ||
+      Object.keys(payload.creativeSettings ?? {}).length > 0 ||
+      payload.destinationMode === 'app_omnichannel' ||
+      (payload.ageMin !== undefined && payload.ageMin !== 18) ||
+      payload.ageMax !== undefined ||
+      payload.publisherPlatforms !== undefined ||
+      (payload.customEventType !== undefined && payload.customEventType !== 'PURCHASE') ||
+      (payload.callToAction !== undefined && payload.callToAction !== 'SHOP_NOW') ||
+      payload.description !== undefined ||
+      payload.instagramUserId !== undefined ||
+      payload.threadsProfileId !== undefined)
+  ) {
+    return failure(
+      'preflight',
+      'UNVERIFIABLE_CPAS_CATALOG_RESUME_SETTINGS',
+      'resumeFrom hanya didukung untuk konfigurasi CPAS dasar yang dapat diverifikasi melalui readback. Pengaturan lanjutan memerlukan pembuatan baru atau verifikasi manual.'
     );
   }
   if (payload.countries.length === 0 || payload.countries.some((country) => !country.trim())) {
@@ -559,6 +588,15 @@ export async function createCpasCatalogCampaignBundle(
       'preflight',
       'INVALID_CPAS_CATALOG_CREATIVE_SETTINGS',
       'showMultipleImages dan formatOption tidak dapat digunakan bersamaan pada catalog creative.'
+    );
+  }
+  try {
+    assertSupportedCatalogCreativeSettings(payload.creativeSettings ?? {});
+  } catch (error) {
+    return failure(
+      'preflight',
+      'INVALID_CPAS_CATALOG_CREATIVE_SETTINGS',
+      error instanceof Error ? error.message : 'Pengaturan creative katalog tidak valid.'
     );
   }
   const appOmnichannel = payload.destinationMode === 'app_omnichannel';
@@ -643,6 +681,211 @@ export async function createCpasCatalogCampaignBundle(
       status: 'pending_confirmation',
       error: 'Konfirmasi eksplisit diperlukan setelah dry-run.',
     });
+  }
+
+  if (resumeFrom?.campaignId) {
+    const expectedAccountId = payload.adAccountId.trim().replace(/^act_/, '');
+    const readResumeObject = async (id: string, fields: string): Promise<Record<string, unknown>> =>
+      client.metaGetObject<Record<string, unknown>>(`/${id}`, { fields }, options.maxRetries);
+    const objectId = (value: unknown): string | undefined => {
+      if (typeof value === 'string') return value.trim();
+      if (value && typeof value === 'object' && 'id' in value) {
+        const id = (value as { id?: unknown }).id;
+        return typeof id === 'string' ? id.trim() : undefined;
+      }
+      return undefined;
+    };
+    const unsafe = (reason: string): CpasCatalogCampaignBundleResult =>
+      withEvidence(failure('preflight', 'UNSAFE_CPAS_CATALOG_RESUME', reason));
+    try {
+      const campaign = await readResumeObject(
+        resumeFrom.campaignId,
+        'id,account_id,name,status,objective,daily_budget,bid_strategy,promoted_object'
+      );
+      const campaignCatalogId =
+        campaign.promoted_object && typeof campaign.promoted_object === 'object'
+          ? objectId((campaign.promoted_object as Record<string, unknown>).product_catalog_id)
+          : undefined;
+      if (
+        campaign.id !== resumeFrom.campaignId ||
+        objectId(campaign.account_id) !== expectedAccountId ||
+        campaign.name !== payload.campaignName.trim() ||
+        campaign.status !== 'PAUSED' ||
+        campaign.objective !== 'OUTCOME_SALES' ||
+        Number(campaign.daily_budget) !== payload.dailyBudget ||
+        campaign.bid_strategy !== 'LOWEST_COST_WITHOUT_CAP' ||
+        !productCatalogId ||
+        campaignCatalogId !== productCatalogId
+      )
+        return unsafe(
+          'Campaign resume tidak cocok dengan akun, nama, status PAUSED, budget, bid strategy, objective, atau katalog.'
+        );
+
+      if (resumeFrom.adSetId) {
+        const adSet = await readResumeObject(
+          resumeFrom.adSetId,
+          'id,account_id,name,campaign_id,status,destination_type,optimization_goal,billing_event,bid_strategy,targeting,promoted_object'
+        );
+        const adSetProductId =
+          adSet.promoted_object && typeof adSet.promoted_object === 'object'
+            ? objectId((adSet.promoted_object as Record<string, unknown>).product_set_id)
+            : undefined;
+        const targeting = adSet.targeting as Record<string, unknown> | undefined;
+        const geoLocations = targeting?.geo_locations as Record<string, unknown> | undefined;
+        const targetingAutomation = targeting?.targeting_automation as
+          | Record<string, unknown>
+          | undefined;
+        const actualCountries = geoLocations?.countries;
+        const expectedCountries = payload.countries.map((country) => country.trim()).sort();
+        const unexpectedTargeting =
+          Object.keys(targeting ?? {}).some(
+            (key) => !['geo_locations', 'age_min', 'age_max', 'targeting_automation'].includes(key)
+          ) ||
+          Object.keys(geoLocations ?? {}).some((key) => key !== 'countries') ||
+          Object.keys(targetingAutomation ?? {}).some((key) => key !== 'advantage_audience') ||
+          (targetingAutomation?.advantage_audience !== undefined &&
+            targetingAutomation.advantage_audience !== 0) ||
+          (targeting?.age_max !== undefined && targeting.age_max !== 65);
+        if (
+          adSet.id !== resumeFrom.adSetId ||
+          objectId(adSet.account_id) !== expectedAccountId ||
+          adSet.name !== payload.adSetName.trim() ||
+          objectId(adSet.campaign_id) !== resumeFrom.campaignId ||
+          adSet.status !== 'PAUSED' ||
+          adSet.destination_type !== 'UNDEFINED' ||
+          adSet.optimization_goal !== 'OFFSITE_CONVERSIONS' ||
+          adSet.billing_event !== 'IMPRESSIONS' ||
+          adSet.bid_strategy !== 'LOWEST_COST_WITHOUT_CAP' ||
+          targeting?.age_min !== (payload.ageMin ?? 18) ||
+          unexpectedTargeting ||
+          !Array.isArray(actualCountries) ||
+          actualCountries.length !== expectedCountries.length ||
+          actualCountries.some((country) => typeof country !== 'string') ||
+          (Array.isArray(actualCountries) &&
+            (actualCountries as string[])
+              .slice()
+              .sort()
+              .some((country, index) => country !== expectedCountries[index])) ||
+          adSetProductId !== payload.productSetId.trim()
+        )
+          return unsafe(
+            'Ad set resume tidak cocok dengan akun, nama, campaign, status PAUSED, delivery, negara, atau product set.'
+          );
+      }
+
+      if (resumeFrom.creativeId) {
+        const creative = await readResumeObject(
+          resumeFrom.creativeId,
+          'id,account_id,product_set_id,categorization_criteria,asset_feed_spec,object_story_spec,template_url_spec'
+        );
+        const story = creative.object_story_spec as Record<string, unknown> | undefined;
+        const videoData = story?.video_data as Record<string, unknown> | undefined;
+        const linkData = story?.link_data as Record<string, unknown> | undefined;
+        const templateData = story?.template_data as Record<string, unknown> | undefined;
+        const catalogCta = templateData?.call_to_action as Record<string, unknown> | undefined;
+        const ctaLink = (data: Record<string, unknown> | undefined): string | undefined => {
+          const action = data?.call_to_action as Record<string, unknown> | undefined;
+          const value = action?.value as Record<string, unknown> | undefined;
+          return objectId(value?.link);
+        };
+        const instantExperienceUrl =
+          creativeFormat === 'collection'
+            ? `https://fb.com/canvas_doc/${payload.collection?.instantExperienceId.trim()}`
+            : `https://fb.com/canvas_doc/${payload.video?.instantExperienceId.trim()}`;
+        const templateUrlSpec = creative.template_url_spec as Record<string, unknown> | undefined;
+        const templateUrlConfig = templateUrlSpec?.config as Record<string, unknown> | undefined;
+        const assetFeedSpec = creative.asset_feed_spec as Record<string, unknown> | undefined;
+        const adFormats = assetFeedSpec?.ad_formats;
+        const childAttachments = templateData?.child_attachments;
+        const firstChild = Array.isArray(childAttachments)
+          ? (childAttachments[0] as Record<string, unknown> | undefined)
+          : undefined;
+        const catalogPresentationMatches =
+          creativeFormat === 'catalog_single_image'
+            ? payload.creativeSettings?.showMultipleImages
+              ? templateData?.show_multiple_images === true
+              : templateData?.force_single_link === true &&
+                templateData?.show_multiple_images === false
+            : creativeFormat === 'catalog_carousel'
+              ? Array.isArray(adFormats) &&
+                adFormats.includes('CAROUSEL') &&
+                childAttachments === undefined &&
+                templateData?.force_single_link !== true
+              : creativeFormat === 'catalog_video_carousel'
+                ? Array.isArray(adFormats) &&
+                  adFormats.includes('CAROUSEL') &&
+                  objectId(firstChild?.video_id) === payload.hybridVideo?.videoId.trim()
+                : creativeFormat === 'catalog'
+                  ? assetFeedSpec === undefined &&
+                    templateData?.force_single_link !== true &&
+                    templateData?.show_multiple_images !== true &&
+                    childAttachments === undefined
+                  : true;
+        const collectionCoverMatches =
+          creativeFormat !== 'collection' ||
+          (payload.collection?.coverImageHash
+            ? objectId(linkData?.image_hash) === payload.collection.coverImageHash.trim() &&
+              objectId(linkData?.link) === instantExperienceUrl
+            : objectId(videoData?.video_id) === payload.collection?.coverVideoId?.trim() &&
+              ctaLink(videoData) === instantExperienceUrl);
+        const staticData = payload.collection?.coverImageHash ? linkData : videoData;
+        const staticCta = staticData?.call_to_action as Record<string, unknown> | undefined;
+        const videoCta = videoData?.call_to_action as Record<string, unknown> | undefined;
+        if (
+          creative.id !== resumeFrom.creativeId ||
+          objectId(creative.account_id) !== expectedAccountId ||
+          objectId(story?.page_id) !== payload.pageId.trim() ||
+          !catalogPresentationMatches ||
+          (creativeFormat !== 'collection' &&
+            creativeFormat !== 'catalog_video' &&
+            (templateData?.link !== payload.destinationUrl.trim() ||
+              templateData.message !== payload.primaryText.trim() ||
+              templateData.name !== payload.headline.trim() ||
+              catalogCta?.type !== 'SHOP_NOW')) ||
+          !collectionCoverMatches ||
+          (creativeFormat === 'collection' &&
+            (staticData?.message !== payload.primaryText.trim() ||
+              (payload.collection?.coverImageHash
+                ? staticData?.name !== payload.headline.trim()
+                : staticData?.title !== payload.headline.trim()) ||
+              staticCta?.type !== 'SHOP_NOW')) ||
+          (creativeFormat === 'catalog_video' &&
+            (objectId(videoData?.video_id) !== payload.video?.videoId.trim() ||
+              videoData?.message !== payload.primaryText.trim() ||
+              videoData?.title !== payload.headline.trim() ||
+              videoCta?.type !== 'SHOP_NOW' ||
+              ctaLink(videoData) !== instantExperienceUrl ||
+              objectId(templateUrlConfig?.app_id) !== payload.video?.retailerAppId.trim())) ||
+          (creativeFormat !== 'collection' &&
+            creativeFormat !== 'catalog_video' &&
+            objectId(creative.product_set_id) !== payload.productSetId.trim())
+        )
+          return unsafe('Creative resume tidak cocok dengan akun atau product set.');
+      }
+
+      if (resumeFrom.adId) {
+        const ad = await readResumeObject(
+          resumeFrom.adId,
+          'id,account_id,name,campaign_id,adset_id,status,creative'
+        );
+        if (
+          ad.id !== resumeFrom.adId ||
+          objectId(ad.account_id) !== expectedAccountId ||
+          ad.name !== payload.adName.trim() ||
+          objectId(ad.campaign_id) !== resumeFrom.campaignId ||
+          objectId(ad.adset_id) !== resumeFrom.adSetId ||
+          objectId(ad.creative) !== resumeFrom.creativeId ||
+          ad.status !== 'PAUSED'
+        )
+          return unsafe(
+            'Ad resume tidak cocok dengan akun, hierarki, creative, atau status PAUSED.'
+          );
+      }
+    } catch {
+      return unsafe(
+        'Objek resume tidak dapat dibaca dan diverifikasi; tidak ada objek baru dibuat.'
+      );
+    }
   }
 
   const ids: NonNullable<CpasCatalogCampaignBundleResult['ids']> = { ...resumeFrom };

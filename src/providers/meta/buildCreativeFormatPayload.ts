@@ -12,6 +12,31 @@ import { buildPartnershipFields } from './buildPartnershipFields.js';
 
 const WHATSAPP_SEND_URL = 'https://api.whatsapp.com/send';
 
+const CATALOG_FORMAT_OPTIONS = new Set([
+  'carousel_ar_effects',
+  'carousel_images_multi_items',
+  'carousel_images_single_item',
+  'carousel_slideshows',
+  'collection_video',
+  'single_image',
+]);
+const CATALOG_CATEGORIZATION_CRITERIA = new Set(['brand', 'category', 'product_type']);
+
+export function assertSupportedCatalogCreativeSettings(settings: {
+  formatOption?: string;
+  categorizationCriteria?: string;
+}): void {
+  if (settings.formatOption !== undefined && !CATALOG_FORMAT_OPTIONS.has(settings.formatOption)) {
+    throw new Error('formatOption katalog tidak didukung Meta.');
+  }
+  if (
+    settings.categorizationCriteria !== undefined &&
+    !CATALOG_CATEGORIZATION_CRITERIA.has(settings.categorizationCriteria)
+  ) {
+    throw new Error('categorizationCriteria katalog tidak didukung Meta.');
+  }
+}
+
 export type BuildMetaCreativeFormatPayloadInput = MetaCreativeSpec & {
   mode: MetaAdsMode;
   pageId: string;
@@ -975,6 +1000,7 @@ function buildCatalog(
   input: Extract<BuildMetaCreativeFormatPayloadInput, { creativeFormat: 'catalog' }>
 ): Record<string, unknown> {
   const { creativeSpec } = input;
+  assertSupportedCatalogCreativeSettings(creativeSpec);
   const productSetId = required(creativeSpec.productSetId, 'Product set catalog');
   const destinationUrl = creativeSpec.destinationUrl?.trim() ?? '';
 
@@ -994,6 +1020,9 @@ function buildCatalog(
   const headline = optional(creativeSpec.headline, 'headline');
   const description = optional(creativeSpec.description, 'description');
   const fallbackImageHash = optional(creativeSpec.fallbackImageHash, 'fallbackImageHash');
+  if (input.mode === 'collaborative_ads' && fallbackImageHash) {
+    throw new Error('fallbackImageHash tidak didukung pada creative katalog CPAS dinamis.');
+  }
 
   if (headline) templateData.name = headline;
   if (description) templateData.description = description;

@@ -17,6 +17,64 @@ function createMockClient(): MetaClient {
   } as unknown as MetaClient;
 }
 
+function mockSafeResumeReads(client: MetaClient): void {
+  (client.metaGetObject as ReturnType<typeof vi.fn>).mockImplementation(async (path: string) => {
+    if (path === '/ps_1') return { id: 'ps_1', product_catalog: 'catalog_1', product_count: 12 };
+    if (path === '/campaign_existing')
+      return {
+        id: 'campaign_existing',
+        account_id: '123',
+        name: 'CPAS Catalog Sales',
+        status: 'PAUSED',
+        objective: 'OUTCOME_SALES',
+        daily_budget: '150000',
+        bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+        promoted_object: { product_catalog_id: 'catalog_1' },
+      };
+    if (path === '/adset_existing')
+      return {
+        id: 'adset_existing',
+        account_id: '123',
+        name: 'Indonesia Purchase',
+        campaign_id: 'campaign_existing',
+        status: 'PAUSED',
+        destination_type: 'UNDEFINED',
+        optimization_goal: 'OFFSITE_CONVERSIONS',
+        billing_event: 'IMPRESSIONS',
+        bid_strategy: 'LOWEST_COST_WITHOUT_CAP',
+        targeting: { geo_locations: { countries: ['ID'] }, age_min: 18 },
+        promoted_object: { product_set_id: 'ps_1' },
+      };
+    if (path === '/creative_existing')
+      return {
+        id: 'creative_existing',
+        account_id: '123',
+        product_set_id: 'ps_1',
+        status: 'PAUSED',
+        object_story_spec: {
+          page_id: 'page_1',
+          template_data: {
+            message: 'Temukan produk pilihan untukmu.',
+            name: 'Belanja sekarang',
+            link: 'https://shopee.co.id',
+            call_to_action: { type: 'SHOP_NOW' },
+          },
+        },
+      };
+    if (path === '/ad_existing')
+      return {
+        id: 'ad_existing',
+        account_id: '123',
+        name: 'Catalog Dynamic',
+        campaign_id: 'campaign_existing',
+        adset_id: 'adset_existing',
+        status: 'PAUSED',
+        creative: { id: 'creative_existing' },
+      };
+    return {};
+  });
+}
+
 const payload = {
   adAccountId: 'act_123',
   campaignName: 'CPAS Catalog Sales',
@@ -191,6 +249,35 @@ describe('createCpasCatalogCampaignBundle', () => {
       code: 'UNSUPPORTED_CPAS_CATALOG_FALLBACK_IMAGE',
     });
     expect(client.metaPost).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['formatOption', 'not_a_meta_format'],
+    ['categorizationCriteria', 'not_a_category'],
+  ])('rejects unsupported bundle %s before POST', async (field, value) => {
+    const client = createMockClient();
+    const result = await createCpasCatalogCampaignBundle(
+      client,
+      {
+        ...payload,
+        creativeSettings: { [field]: value },
+      },
+      { dryRun: false, confirmed: true }
+    );
+    expect(result).toMatchObject({
+      status: 'failed',
+      stage: 'preflight',
+      code: 'INVALID_CPAS_CATALOG_CREATIVE_SETTINGS',
+    });
+    expect(client.metaPost).not.toHaveBeenCalled();
+  });
+
+  it('warns when category eligibility must be confirmed by Meta', async () => {
+    const result = await createCpasCatalogCampaignBundle(createMockClient(), {
+      ...payload,
+      creativeSettings: { categorizationCriteria: 'category' },
+    });
+    expect(result.warnings.join(' ')).toMatch(/kategori.*Meta/i);
   });
 
   it('requires an app platform spec before creating omnichannel parent objects', async () => {
@@ -543,6 +630,7 @@ describe('createCpasCatalogCampaignBundle', () => {
 
   it('resumes from existing campaign and ad set without creating duplicates', async () => {
     const client = createMockClient();
+    mockSafeResumeReads(client);
     const post = client.metaPost as ReturnType<typeof vi.fn>;
     post.mockResolvedValueOnce({ id: 'creative_1' }).mockResolvedValueOnce({ id: 'ad_1' });
 
@@ -637,6 +725,7 @@ describe('createCpasCatalogCampaignBundle', () => {
 
   it('resumes from an existing creative and creates only the missing ad', async () => {
     const client = createMockClient();
+    mockSafeResumeReads(client);
     const post = client.metaPost as ReturnType<typeof vi.fn>;
     post.mockResolvedValueOnce({ id: 'ad_1' });
 
@@ -666,8 +755,247 @@ describe('createCpasCatalogCampaignBundle', () => {
     expect(post.mock.calls[0][0]).toContain('/ads');
   });
 
+  it('accepts a fully verified paused resume chain without creating duplicates', async () => {
+    const client = createMockClient();
+    mockSafeResumeReads(client);
+    const result = await createCpasCatalogCampaignBundle(
+      client,
+      {
+        ...payload,
+        resumeFrom: {
+          campaignId: 'campaign_existing',
+          adSetId: 'adset_existing',
+          creativeId: 'creative_existing',
+          adId: 'ad_existing',
+        },
+      },
+      { dryRun: false, confirmed: true }
+    );
+    expect(result).toMatchObject({ status: 'executed', executed: true });
+    expect(client.metaPost).not.toHaveBeenCalled();
+  });
+
+  it('rejects a single-image resume creative rendered as a carousel', async () => {
+    const client = createMockClient();
+    mockSafeResumeReads(client);
+    const result = await createCpasCatalogCampaignBundle(
+      client,
+      {
+        ...payload,
+        creativeFormat: 'catalog_single_image',
+        resumeFrom: {
+          campaignId: 'campaign_existing',
+          adSetId: 'adset_existing',
+          creativeId: 'creative_existing',
+          adId: 'ad_existing',
+        },
+      },
+      { dryRun: false, confirmed: true }
+    );
+    expect(result).toMatchObject({ status: 'failed', code: 'UNSAFE_CPAS_CATALOG_RESUME' });
+    expect(client.metaPost).not.toHaveBeenCalled();
+  });
+
+  it('rejects a video-carousel creative when resuming a plain catalog carousel', async () => {
+    const client = createMockClient();
+    mockSafeResumeReads(client);
+    const read = client.metaGetObject as ReturnType<typeof vi.fn>;
+    const original = read.getMockImplementation() as (
+      path: string,
+      ...args: unknown[]
+    ) => Promise<Record<string, unknown>>;
+    read.mockImplementation(async (path: string, ...args: unknown[]) => {
+      const result = await original(path, ...args);
+      return path === '/creative_existing'
+        ? {
+            ...result,
+            asset_feed_spec: { ad_formats: ['CAROUSEL', 'COLLECTION'] },
+            object_story_spec: {
+              page_id: 'page_1',
+              template_data: {
+                message: 'Temukan produk pilihan untukmu.',
+                name: 'Belanja sekarang',
+                link: 'https://shopee.co.id',
+                call_to_action: { type: 'SHOP_NOW' },
+                child_attachments: [{ video_id: 'video_1' }],
+              },
+            },
+          }
+        : result;
+    });
+    const result = await createCpasCatalogCampaignBundle(
+      client,
+      {
+        ...payload,
+        creativeFormat: 'catalog_carousel',
+        resumeFrom: {
+          campaignId: 'campaign_existing',
+          adSetId: 'adset_existing',
+          creativeId: 'creative_existing',
+          adId: 'ad_existing',
+        },
+      },
+      { dryRun: false, confirmed: true }
+    );
+    expect(result).toMatchObject({ status: 'failed', code: 'UNSAFE_CPAS_CATALOG_RESUME' });
+    expect(client.metaPost).not.toHaveBeenCalled();
+  });
+
+  it('accepts catalog video resume when product set is bound at the ad set', async () => {
+    const client = createMockClient();
+    mockSafeResumeReads(client);
+    const read = client.metaGetObject as ReturnType<typeof vi.fn>;
+    const original = read.getMockImplementation() as (
+      path: string,
+      ...args: unknown[]
+    ) => Promise<Record<string, unknown>>;
+    read.mockImplementation(async (path: string, ...args: unknown[]) =>
+      path === '/creative_existing'
+        ? {
+            id: 'creative_existing',
+            account_id: '123',
+            template_url_spec: { config: { app_id: 'app_1' } },
+            object_story_spec: {
+              page_id: 'page_1',
+              video_data: {
+                video_id: 'video_1',
+                message: 'Temukan produk pilihan untukmu.',
+                title: 'Belanja sekarang',
+                call_to_action: {
+                  type: 'SHOP_NOW',
+                  value: { link: 'https://fb.com/canvas_doc/instant_1' },
+                },
+              },
+            },
+          }
+        : original(path, ...args)
+    );
+    const result = await createCpasCatalogCampaignBundle(
+      client,
+      {
+        ...payload,
+        creativeFormat: 'catalog_video',
+        video: { videoId: 'video_1', instantExperienceId: 'instant_1', retailerAppId: 'app_1' },
+        resumeFrom: {
+          campaignId: 'campaign_existing',
+          adSetId: 'adset_existing',
+          creativeId: 'creative_existing',
+          adId: 'ad_existing',
+        },
+      },
+      { dryRun: false, confirmed: true }
+    );
+    expect(result).toMatchObject({ status: 'executed', executed: true });
+    expect(client.metaPost).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['other_video', 'Temukan produk pilihan untukmu.'],
+    ['video_1', 'Other copy'],
+  ])('rejects catalog video resume using video %s and copy %s', async (videoId, creativeCopy) => {
+    const client = createMockClient();
+    mockSafeResumeReads(client);
+    const read = client.metaGetObject as ReturnType<typeof vi.fn>;
+    const original = read.getMockImplementation() as (
+      path: string,
+      ...args: unknown[]
+    ) => Promise<Record<string, unknown>>;
+    read.mockImplementation(async (path: string, ...args: unknown[]) =>
+      path === '/creative_existing'
+        ? {
+            id: 'creative_existing',
+            account_id: '123',
+            template_url_spec: { config: { app_id: 'app_1' } },
+            object_story_spec: {
+              page_id: 'page_1',
+              video_data: {
+                video_id: videoId,
+                message: creativeCopy,
+                title: 'Belanja sekarang',
+                call_to_action: {
+                  type: 'SHOP_NOW',
+                  value: { link: 'https://fb.com/canvas_doc/instant_1' },
+                },
+              },
+            },
+          }
+        : original(path, ...args)
+    );
+    const result = await createCpasCatalogCampaignBundle(
+      client,
+      {
+        ...payload,
+        creativeFormat: 'catalog_video',
+        video: { videoId: 'video_1', instantExperienceId: 'instant_1', retailerAppId: 'app_1' },
+        resumeFrom: {
+          campaignId: 'campaign_existing',
+          adSetId: 'adset_existing',
+          creativeId: 'creative_existing',
+          adId: 'ad_existing',
+        },
+      },
+      { dryRun: false, confirmed: true }
+    );
+    expect(result).toMatchObject({ status: 'failed', code: 'UNSAFE_CPAS_CATALOG_RESUME' });
+    expect(client.metaPost).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['cover_image_1', 'instant_1', 'Temukan produk pilihan untukmu.', true],
+    ['other_cover', 'instant_1', 'Temukan produk pilihan untukmu.', false],
+    ['cover_image_1', 'other_instant', 'Temukan produk pilihan untukmu.', false],
+    ['cover_image_1', 'instant_1', 'Other copy', false],
+  ])(
+    'verifies collection cover %s and destination %s on resume',
+    async (coverHash, instantId, creativeCopy, accepted) => {
+      const client = createMockClient();
+      mockSafeResumeReads(client);
+      const read = client.metaGetObject as ReturnType<typeof vi.fn>;
+      const original = read.getMockImplementation() as (
+        path: string,
+        ...args: unknown[]
+      ) => Promise<Record<string, unknown>>;
+      read.mockImplementation(async (path: string, ...args: unknown[]) =>
+        path === '/creative_existing'
+          ? {
+              id: 'creative_existing',
+              account_id: '123',
+              object_story_spec: {
+                page_id: 'page_1',
+                link_data: {
+                  image_hash: coverHash,
+                  link: `https://fb.com/canvas_doc/${instantId}`,
+                  message: creativeCopy,
+                  name: 'Belanja sekarang',
+                  call_to_action: { type: 'SHOP_NOW' },
+                },
+              },
+            }
+          : original(path, ...args)
+      );
+      const result = await createCpasCatalogCampaignBundle(
+        client,
+        {
+          ...payload,
+          creativeFormat: 'collection',
+          collection: { instantExperienceId: 'instant_1', coverImageHash: 'cover_image_1' },
+          resumeFrom: {
+            campaignId: 'campaign_existing',
+            adSetId: 'adset_existing',
+            creativeId: 'creative_existing',
+            adId: 'ad_existing',
+          },
+        },
+        { dryRun: false, confirmed: true }
+      );
+      expect(result.status).toBe(accepted ? 'executed' : 'failed');
+      expect(client.metaPost).not.toHaveBeenCalled();
+    }
+  );
+
   it('returns all reusable parent IDs when ad creation fails', async () => {
     const client = createMockClient();
+    mockSafeResumeReads(client);
     const post = client.metaPost as ReturnType<typeof vi.fn>;
     post.mockRejectedValueOnce(new Error('ad failed'));
 
@@ -707,6 +1035,193 @@ describe('createCpasCatalogCampaignBundle', () => {
       status: 'failed',
       stage: 'preflight',
       code: 'INVALID_CPAS_CATALOG_RESUME_CHAIN',
+    });
+    expect(client.metaPost).not.toHaveBeenCalled();
+  });
+
+  it('rejects an empty campaign resume ID instead of silently creating a duplicate', async () => {
+    const client = createMockClient();
+    const result = await createCpasCatalogCampaignBundle(
+      client,
+      {
+        ...payload,
+        resumeFrom: { campaignId: ' ' },
+      },
+      { dryRun: false, confirmed: true }
+    );
+    expect(result).toMatchObject({
+      status: 'failed',
+      stage: 'preflight',
+      code: 'INVALID_CPAS_CATALOG_RESUME_CHAIN',
+    });
+    expect(client.metaPost).not.toHaveBeenCalled();
+  });
+
+  it('rejects resume with advanced settings that are not verified on readback', async () => {
+    const client = createMockClient();
+    mockSafeResumeReads(client);
+    const result = await createCpasCatalogCampaignBundle(
+      client,
+      {
+        ...payload,
+        adSetSettings: { bidStrategy: 'COST_CAP', bidAmount: 1250 },
+        resumeFrom: { campaignId: 'campaign_existing', adSetId: 'adset_existing' },
+      },
+      { dryRun: false, confirmed: true }
+    );
+    expect(result).toMatchObject({
+      status: 'failed',
+      stage: 'preflight',
+      code: 'UNVERIFIABLE_CPAS_CATALOG_RESUME_SETTINGS',
+    });
+    expect(client.metaPost).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['wrong account', '/campaign_existing', { account_id: '999' }],
+    ['active campaign', '/campaign_existing', { status: 'ACTIVE' }],
+    ['wrong catalog', '/campaign_existing', { promoted_object: { product_catalog_id: 'other' } }],
+    ['wrong campaign budget', '/campaign_existing', { daily_budget: '300000' }],
+    ['wrong campaign name', '/campaign_existing', { name: 'Other campaign' }],
+    ['wrong campaign bid strategy', '/campaign_existing', { bid_strategy: 'COST_CAP' }],
+    ['wrong parent', '/adset_existing', { campaign_id: 'other' }],
+    ['active ad set', '/adset_existing', { status: 'ACTIVE' }],
+    ['wrong product set', '/adset_existing', { promoted_object: { product_set_id: 'other' } }],
+    ['wrong ad set name', '/adset_existing', { name: 'Other ad set' }],
+    ['wrong destination', '/adset_existing', { destination_type: 'WEBSITE' }],
+    ['wrong optimization', '/adset_existing', { optimization_goal: 'LINK_CLICKS' }],
+    ['wrong ad set bid strategy', '/adset_existing', { bid_strategy: 'COST_CAP' }],
+    ['wrong country', '/adset_existing', { targeting: { geo_locations: { countries: ['US'] } } }],
+    [
+      'wrong age',
+      '/adset_existing',
+      { targeting: { geo_locations: { countries: ['ID'] }, age_min: 25 } },
+    ],
+    [
+      'extra audience',
+      '/adset_existing',
+      {
+        targeting: {
+          geo_locations: { countries: ['ID'] },
+          age_min: 18,
+          custom_audiences: [{ id: 'aud_1' }],
+        },
+      },
+    ],
+    [
+      'extra placement restriction',
+      '/adset_existing',
+      {
+        targeting: {
+          geo_locations: { countries: ['ID'] },
+          age_min: 18,
+          publisher_platforms: ['instagram'],
+        },
+      },
+    ],
+    [
+      'different age maximum',
+      '/adset_existing',
+      { targeting: { geo_locations: { countries: ['ID'] }, age_min: 18, age_max: 35 } },
+    ],
+    [
+      'different audience automation',
+      '/adset_existing',
+      {
+        targeting: {
+          geo_locations: { countries: ['ID'] },
+          age_min: 18,
+          targeting_automation: { advantage_audience: 1 },
+        },
+      },
+    ],
+    ['wrong creative account', '/creative_existing', { account_id: '999' }],
+    ['wrong creative product set', '/creative_existing', { product_set_id: 'other' }],
+    [
+      'wrong generic catalog presentation',
+      '/creative_existing',
+      { asset_feed_spec: { ad_formats: ['CAROUSEL'] } },
+    ],
+    ['wrong creative page', '/creative_existing', { object_story_spec: { page_id: 'other' } }],
+    [
+      'wrong creative destination',
+      '/creative_existing',
+      {
+        object_story_spec: {
+          page_id: 'page_1',
+          template_data: {
+            message: 'Temukan produk pilihan untukmu.',
+            name: 'Belanja sekarang',
+            link: 'https://other.example',
+          },
+        },
+      },
+    ],
+    [
+      'wrong creative CTA',
+      '/creative_existing',
+      {
+        object_story_spec: {
+          page_id: 'page_1',
+          template_data: {
+            message: 'Temukan produk pilihan untukmu.',
+            name: 'Belanja sekarang',
+            link: 'https://shopee.co.id',
+            call_to_action: { type: 'LEARN_MORE' },
+          },
+        },
+      },
+    ],
+    [
+      'wrong creative copy',
+      '/creative_existing',
+      {
+        object_story_spec: {
+          page_id: 'page_1',
+          template_data: {
+            message: 'Other copy',
+            name: 'Belanja sekarang',
+            link: 'https://shopee.co.id',
+            call_to_action: { type: 'SHOP_NOW' },
+          },
+        },
+      },
+    ],
+    ['wrong ad parent', '/ad_existing', { adset_id: 'other' }],
+    ['wrong ad creative', '/ad_existing', { creative: { id: 'other' } }],
+    ['active ad', '/ad_existing', { status: 'ACTIVE' }],
+    ['wrong ad name', '/ad_existing', { name: 'Another ad' }],
+  ])('rejects resumeFrom with %s before any POST', async (_label, target, change) => {
+    const client = createMockClient();
+    mockSafeResumeReads(client);
+    const read = client.metaGetObject as ReturnType<typeof vi.fn>;
+    const original = read.getMockImplementation() as (
+      path: string,
+      ...args: unknown[]
+    ) => Promise<Record<string, unknown>>;
+    read.mockImplementation(async (path: string, ...args: unknown[]) => {
+      const result = await original(path, ...args);
+      return path === target ? { ...result, ...change } : result;
+    });
+
+    const result = await createCpasCatalogCampaignBundle(
+      client,
+      {
+        ...payload,
+        resumeFrom: {
+          campaignId: 'campaign_existing',
+          adSetId: 'adset_existing',
+          creativeId: 'creative_existing',
+          adId: 'ad_existing',
+        },
+      },
+      { dryRun: false, confirmed: true }
+    );
+
+    expect(result).toMatchObject({
+      status: 'failed',
+      stage: 'preflight',
+      code: 'UNSAFE_CPAS_CATALOG_RESUME',
     });
     expect(client.metaPost).not.toHaveBeenCalled();
   });
